@@ -1,0 +1,380 @@
+object frmTranslationStudio: TfrmTranslationStudio
+  Left = 0
+  Top = 0
+  Caption = 'Delphi App Translation Studio'
+  ClientHeight = 760
+  ClientWidth = 1220
+  Fill.Color = xFFF2F7FD
+  Fill.Kind = Solid
+  Position = ScreenCenter
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  DesignerMasterStyle = 0
+  object RootLayout: TLayout
+    Align = Client
+    Size.Width = 1220.000000000000000000
+    Size.Height = 760.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 0
+    object HeaderBackground: TRectangle
+      Align = Top
+      Fill.Color = xFF234C80
+      Size.Width = 1220.000000000000000000
+      Size.Height = 116.000000000000000000
+      Size.PlatformDefault = False
+      Stroke.Kind = None
+      object HeaderAccent: TRectangle
+        Align = Left
+        Fill.Color = xFFFF8800
+        Size.Width = 12.000000000000000000
+        Size.Height = 116.000000000000000000
+        Size.PlatformDefault = False
+        Stroke.Kind = None
+      end
+      object lblApplicationTitle: TLabel
+        StyledSettings = []
+        Position.X = 42.000000000000000000
+        Position.Y = 22.000000000000000000
+        Size.Width = 520.000000000000000000
+        Size.Height = 42.000000000000000000
+        Size.PlatformDefault = False
+        TextSettings.Font.Size = 26.000000000000000000
+        TextSettings.Font.StyleExt = {00070000000000000004000000}
+        TextSettings.FontColor = claWhite
+        Text = 'Delphi App Translation Studio'
+      end
+      object lblApplicationSubtitle: TLabel
+        StyledSettings = []
+        Position.X = 44.000000000000000000
+        Position.Y = 68.000000000000000000
+        Size.Width = 750.000000000000000000
+        Size.Height = 26.000000000000000000
+        Size.PlatformDefault = False
+        TextSettings.Font.Size = 14.000000000000000000
+        TextSettings.FontColor = xFFD7E8FF
+        Text = 'Offline language packs for Delphi VCL and FireMonkey applications'
+      end
+    end
+    object BodyLayout: TLayout
+      Align = Client
+      Margins.Left = 22.000000000000000000
+      Margins.Top = 22.000000000000000000
+      Margins.Right = 22.000000000000000000
+      Margins.Bottom = 22.000000000000000000
+      Size.Width = 1176.000000000000000000
+      Size.Height = 600.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      object NavigationCard: TRectangle
+        Align = Left
+        Fill.Color = xFF234C80
+        Size.Width = 238.000000000000000000
+        Size.Height = 600.000000000000000000
+        Size.PlatformDefault = False
+        Stroke.Kind = None
+        XRadius = 18.000000000000000000
+        YRadius = 18.000000000000000000
+        object lblNavigationTitle: TLabel
+          StyledSettings = []
+          Position.X = 24.000000000000000000
+          Position.Y = 24.000000000000000000
+          Size.Width = 180.000000000000000000
+          Size.Height = 28.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 17.000000000000000000
+          TextSettings.Font.StyleExt = {00070000000000000004000000}
+          TextSettings.FontColor = claWhite
+          Text = 'WORKFLOW'
+        end
+        object NavigationSelection: TRectangle
+          Fill.Color = xFF1974DF
+          Position.X = 14.000000000000000000
+          Position.Y = 72.000000000000000000
+          Size.Width = 210.000000000000000000
+          Size.Height = 48.000000000000000000
+          Size.PlatformDefault = False
+          Stroke.Kind = None
+          XRadius = 12.000000000000000000
+          YRadius = 12.000000000000000000
+          object lblNavigationProject: TLabel
+            Align = Client
+            StyledSettings = []
+            Margins.Left = 16.000000000000000000
+            Size.Width = 194.000000000000000000
+            Size.Height = 48.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 14.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = claWhite
+            TextSettings.VertAlign = Center
+            Text = '1  Project'
+          end
+        end
+        object lblNavigationScan: TLabel
+          StyledSettings = []
+          Position.X = 30.000000000000000000
+          Position.Y = 142.000000000000000000
+          Size.Width = 180.000000000000000000
+          Size.Height = 32.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 14.000000000000000000
+          TextSettings.FontColor = xFFD7E8FF
+          Text = '2  Scan'
+        end
+        object lblNavigationLanguages: TLabel
+          StyledSettings = []
+          Position.X = 30.000000000000000000
+          Position.Y = 192.000000000000000000
+          Size.Width = 180.000000000000000000
+          Size.Height = 32.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 14.000000000000000000
+          TextSettings.FontColor = xFFD7E8FF
+          Text = '3  Languages'
+        end
+        object lblNavigationValidation: TLabel
+          StyledSettings = []
+          Position.X = 30.000000000000000000
+          Position.Y = 242.000000000000000000
+          Size.Width = 180.000000000000000000
+          Size.Height = 32.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 14.000000000000000000
+          TextSettings.FontColor = xFFD7E8FF
+          Text = '4  Validation'
+        end
+        object lblNavigationIntegration: TLabel
+          StyledSettings = []
+          Position.X = 30.000000000000000000
+          Position.Y = 292.000000000000000000
+          Size.Width = 180.000000000000000000
+          Size.Height = 32.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 14.000000000000000000
+          TextSettings.FontColor = xFFD7E8FF
+          Text = '5  Integration'
+        end
+      end
+      object ContentLayout: TLayout
+        Align = Client
+        Margins.Left = 22.000000000000000000
+        Size.Width = 916.000000000000000000
+        Size.Height = 600.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 1
+        object ProjectCard: TRectangle
+          Align = Top
+          Fill.Color = claWhite
+          Size.Width = 916.000000000000000000
+          Size.Height = 156.000000000000000000
+          Size.PlatformDefault = False
+          Stroke.Color = xFFD7E5F6
+          XRadius = 18.000000000000000000
+          YRadius = 18.000000000000000000
+          object lblProjectCardTitle: TLabel
+            StyledSettings = []
+            Position.X = 28.000000000000000000
+            Position.Y = 24.000000000000000000
+            Size.Width = 500.000000000000000000
+            Size.Height = 36.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 22.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'Open a Delphi application'
+          end
+          object lblProjectCardDescription: TLabel
+            StyledSettings = []
+            Position.X = 30.000000000000000000
+            Position.Y = 67.000000000000000000
+            Size.Width = 590.000000000000000000
+            Size.Height = 56.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 14.000000000000000000
+            TextSettings.FontColor = xFF365674
+            TextSettings.WordWrap = True
+            Text = 'Select a .dproj or .dpr file. The Studio will identify VCL or FireMonkey and inventory the project without changing it.'
+          end
+          object btnOpenProject: TButton
+            Position.X = 694.000000000000000000
+            Position.Y = 50.000000000000000000
+            Size.Width = 180.000000000000000000
+            Size.Height = 48.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 0
+            Text = 'Open Project...'
+            OnClick = btnOpenProjectClick
+          end
+        end
+        object ProjectDetailsCard: TRectangle
+          Align = Top
+          Fill.Color = xFFF8FBFF
+          Margins.Top = 18.000000000000000000
+          Position.Y = 174.000000000000000000
+          Size.Width = 916.000000000000000000
+          Size.Height = 302.000000000000000000
+          Size.PlatformDefault = False
+          Stroke.Color = xFFD7E5F6
+          XRadius = 18.000000000000000000
+          YRadius = 18.000000000000000000
+          object lblProjectNameCaption: TLabel
+            StyledSettings = []
+            Position.X = 28.000000000000000000
+            Position.Y = 28.000000000000000000
+            Size.Width = 180.000000000000000000
+            Size.Height = 28.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 13.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF5D7693
+            Text = 'PROJECT'
+          end
+          object lblProjectNameValue: TLabel
+            StyledSettings = []
+            Position.X = 220.000000000000000000
+            Position.Y = 26.000000000000000000
+            Size.Width = 650.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 16.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'No project selected'
+          end
+          object lblFrameworkCaption: TLabel
+            StyledSettings = []
+            Position.X = 28.000000000000000000
+            Position.Y = 82.000000000000000000
+            Size.Width = 180.000000000000000000
+            Size.Height = 28.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 13.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF5D7693
+            Text = 'FRAMEWORK'
+          end
+          object lblFrameworkValue: TLabel
+            StyledSettings = []
+            Position.X = 220.000000000000000000
+            Position.Y = 80.000000000000000000
+            Size.Width = 300.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 16.000000000000000000
+            TextSettings.FontColor = xFF163A63
+            Text = '—'
+          end
+          object lblPlatformsCaption: TLabel
+            StyledSettings = []
+            Position.X = 28.000000000000000000
+            Position.Y = 136.000000000000000000
+            Size.Width = 180.000000000000000000
+            Size.Height = 28.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 13.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF5D7693
+            Text = 'WINDOWS TARGETS'
+          end
+          object lblPlatformsValue: TLabel
+            StyledSettings = []
+            Position.X = 220.000000000000000000
+            Position.Y = 134.000000000000000000
+            Size.Width = 300.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 16.000000000000000000
+            TextSettings.FontColor = xFF163A63
+            Text = '—'
+          end
+          object lblFormsCaption: TLabel
+            StyledSettings = []
+            Position.X = 28.000000000000000000
+            Position.Y = 190.000000000000000000
+            Size.Width = 180.000000000000000000
+            Size.Height = 28.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 13.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF5D7693
+            Text = 'FORM RESOURCES'
+          end
+          object lblFormsValue: TLabel
+            StyledSettings = []
+            Position.X = 220.000000000000000000
+            Position.Y = 188.000000000000000000
+            Size.Width = 120.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 16.000000000000000000
+            TextSettings.FontColor = xFF163A63
+            Text = '—'
+          end
+          object lblSourcesCaption: TLabel
+            StyledSettings = []
+            Position.X = 28.000000000000000000
+            Position.Y = 244.000000000000000000
+            Size.Width = 180.000000000000000000
+            Size.Height = 28.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 13.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF5D7693
+            Text = 'SOURCE UNITS'
+          end
+          object lblSourcesValue: TLabel
+            StyledSettings = []
+            Position.X = 220.000000000000000000
+            Position.Y = 242.000000000000000000
+            Size.Width = 120.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 16.000000000000000000
+            TextSettings.FontColor = xFF163A63
+            Text = '—'
+          end
+        end
+        object StatusCard: TRectangle
+          Align = Bottom
+          Fill.Color = xFFE8F3FF
+          Size.Width = 916.000000000000000000
+          Size.Height = 78.000000000000000000
+          Size.PlatformDefault = False
+          Stroke.Color = xFFB7D3FF
+          XRadius = 14.000000000000000000
+          YRadius = 14.000000000000000000
+          object StatusAccent: TRectangle
+            Align = Left
+            Fill.Color = xFFFF8800
+            Size.Width = 8.000000000000000000
+            Size.Height = 78.000000000000000000
+            Size.PlatformDefault = False
+            Stroke.Kind = None
+          end
+          object lblStatus: TLabel
+            Align = Client
+            StyledSettings = []
+            Margins.Left = 24.000000000000000000
+            Margins.Right = 18.000000000000000000
+            Size.Width = 884.000000000000000000
+            Size.Height = 78.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 14.000000000000000000
+            TextSettings.FontColor = xFF163A63
+            TextSettings.VertAlign = Center
+            TextSettings.WordWrap = True
+            Text = 'Ready. Open a Delphi project to begin.'
+          end
+        end
+      end
+    end
+  end
+  object dlgOpenProject: TOpenDialog
+    DefaultExt = 'dproj'
+    Filter = 'Delphi projects (*.dproj;*.dpr)|*.dproj;*.dpr|Delphi project files (*.dproj)|*.dproj|Delphi source projects (*.dpr)|*.dpr'
+    Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
+    Left = 1104.000000000000000000
+    Top = 52.000000000000000000
+  end
+end

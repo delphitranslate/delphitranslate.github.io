@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tmartindub/DelphiAppTranslationStudio/schemas/development-project.schema.json",
+  "title": "Delphi App Translation Studio Project",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "applicationId",
+    "framework",
+    "sourceLanguage",
+    "entries"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "applicationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "applicationVersion": {
+      "type": "string"
+    },
+    "framework": {
+      "enum": [
+        "VCL",
+        "FireMonkey"
+      ]
+    },
+    "sourceLanguage": {
+      "type": "string",
+      "minLength": 2
+    },
+    "locale": {
+      "type": "object"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "sourceText",
+          "status"
+        ]
+      }
+    }
+  }
+}

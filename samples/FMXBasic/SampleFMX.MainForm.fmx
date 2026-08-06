@@ -1,0 +1,95 @@
+object frmFMXSample: TfrmFMXSample
+  Left = 0
+  Top = 0
+  Caption = 'Customer Manager'
+  ClientHeight = 420
+  ClientWidth = 680
+  Fill.Color = xFFF2F7FD
+  Position = ScreenCenter
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  DesignerMasterStyle = 0
+  object MainMenuBar: TMenuBar
+    Align = Top
+    Size.Width = 680.000000000000000000
+    Size.Height = 28.000000000000000000
+    Size.PlatformDefault = False
+    object mnuFile: TMenuItem
+      Text = '&File'
+      object mnuExit: TMenuItem
+        Text = 'E&xit'
+        OnClick = mnuExitClick
+      end
+    end
+    object mnuLanguage: TMenuItem
+      Text = '&Language'
+    end
+  end
+  object ContentLayout: TLayout
+    Align = Client
+    Margins.Left = 30.000000000000000000
+    Margins.Top = 28.000000000000000000
+    Margins.Right = 30.000000000000000000
+    Margins.Bottom = 28.000000000000000000
+    Size.Width = 620.000000000000000000
+    Size.Height = 336.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 0
+    object lblHeading: TLabel
+      StyledSettings = []
+      Position.X = 0.000000000000000000
+      Position.Y = 0.000000000000000000
+      Size.Width = 360.000000000000000000
+      Size.Height = 38.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 22.000000000000000000
+      TextSettings.Font.StyleExt = {00070000000000000004000000}
+      TextSettings.FontColor = xFF163A63
+      Text = 'Customer Account Details'
+    end
+    object lblCustomerName: TLabel
+      StyledSettings = []
+      Position.X = 0.000000000000000000
+      Position.Y = 66.000000000000000000
+      Size.Width = 180.000000000000000000
+      Size.Height = 26.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 14.000000000000000000
+      TextSettings.FontColor = xFF365674
+      Text = 'Customer name'
+    end
+    object edtCustomerName: TEdit
+      Position.X = 0.000000000000000000
+      Position.Y = 98.000000000000000000
+      Size.Width = 390.000000000000000000
+      Size.Height = 36.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      TextPrompt = 'Full name'
+    end
+    object btnSave: TButton
+      Position.X = 416.000000000000000000
+      Position.Y = 98.000000000000000000
+      Size.Width = 150.000000000000000000
+      Size.Height = 36.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      Text = '&Save Customer'
+      OnClick = btnSaveClick
+    end
+    object memInstructions: TMemo
+      Position.X = 0.000000000000000000
+      Position.Y = 170.000000000000000000
+      Size.Width = 566.000000000000000000
+      Size.Height = 120.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 2
+      TextSettings.Font.Size = 14.000000000000000000
+      Lines.Strings = (
+        'Enter the customer information, then choose Save Customer.'
+        'Fields marked as required must be completed.')
+      ReadOnly = True
+    end
+  end
+end

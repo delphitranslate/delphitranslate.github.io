@@ -27,3 +27,8 @@ bin/*
 !bin/.gitkeep
 dcu/*
 !dcu/.gitkeep
+
+# Project resources generated automatically by the current Delphi projects
+/DelphiAppTranslationStudio.res
+/samples/VCLBasic/SampleVCLApp.res
+/samples/FMXBasic/SampleFMXApp.res

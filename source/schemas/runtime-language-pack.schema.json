@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tmartindub/DelphiAppTranslationStudio/schemas/runtime-language-pack.schema.json",
+  "title": "Delphi App Translation Runtime Language Pack",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "applicationId",
+    "framework",
+    "language",
+    "strings"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "applicationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "framework": {
+      "enum": [
+        "VCL",
+        "FireMonkey"
+      ]
+    },
+    "language": {
+      "type": "object",
+      "required": [
+        "code",
+        "nativeName",
+        "direction"
+      ]
+    },
+    "locale": {
+      "type": "object"
+    },
+    "strings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

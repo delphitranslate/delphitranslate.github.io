@@ -14,7 +14,16 @@ as implemented.
 
 ## Current Product Definition
 
-The product is a standalone Delphi FireMonkey (FMX) Translation Studio.
+The product is an open-source, standalone Delphi FireMonkey (FMX) Translation
+Studio for Windows. The Studio itself is FMX, but it translates both Delphi VCL
+and Delphi FireMonkey Windows applications.
+
+The supported compile and target platforms are:
+
+- Win32
+- Win64
+
+macOS, iOS, Android, and Linux are outside the current product scope.
 
 It is not currently planned as:
 
@@ -27,14 +36,18 @@ It is not currently planned as:
 The Studio itself will be written in Delphi using FireMonkey and advanced,
 cross-platform Delphi capabilities where they simplify the design.
 
-A translated application will require a small runtime Delphi unit or generated
-integration code to load a selected language pack and apply it as FMX forms load.
-This runtime support is not an installable component and will not appear on the
-RAD Studio Tool Palette.
+A translated application will require a small framework-specific runtime Delphi
+unit or generated integration code to load a selected language pack and apply it
+as VCL or FMX forms load. This runtime support is not an installable component and
+will not appear on the RAD Studio Tool Palette.
+
+The public source repository is:
+
+`https://github.com/tmartindub/DelphiAppTranslationStudio`
 
 ## Primary Workflow
 
-1. The developer completes an FMX application.
+1. The developer completes a VCL or FMX Windows application.
 2. The developer opens the application project in the Translation Studio.
 3. The Studio scans the project for designated translatable text.
 4. The Studio creates or updates a development language pack.
@@ -47,7 +60,8 @@ RAD Studio Tool Palette.
    as machine translated.
 10. The developer reviews, corrects, and approves translations.
 11. The Studio validates and builds the final offline runtime language pack.
-12. The Studio can update the translated application's FMX language-selection menu.
+12. The Studio can update the translated application's VCL or FMX
+    language-selection menu.
 13. The translated application reads the selected language during startup and
     applies the pack once as each form loads.
 
@@ -105,9 +119,29 @@ Provider requirements:
 - The Studio remains usable for manual translation and review without Internet
   access.
 
-## Designated FMX Content
+## Designated VCL and FMX Content
 
-The scanner will use editable extraction rules. Initial candidates include:
+The scanner will use editable framework-specific extraction rules.
+
+Initial VCL candidates include:
+
+- `TForm.Caption`
+- `TLabel.Caption`
+- `TButton.Caption`
+- `TMenuItem.Caption`
+- `TTabSheet.Caption`
+- `TCheckBox.Caption`
+- `TRadioButton.Caption`
+- `TGroupBox.Caption`
+- `TEdit.TextHint`
+- `TAction.Caption`
+- `TAction.Hint`
+- List and combo-box design-time items
+- Grid column headings
+- Hints and instructional text
+- Default memo lines when explicitly enabled
+
+Initial FMX candidates include:
 
 - `TLabel.Text`
 - `TButton.Text`
@@ -282,8 +316,9 @@ current core concept.
 
 ## Automatic Language-Menu Modification
 
-The Translation Studio will include a feature to modify the translated FMX
-application so its menu offers the languages built by the Studio.
+The Translation Studio will include framework-specific features to modify a
+translated VCL or FMX application so its menu offers the languages built by the
+Studio.
 
 The intended menu might appear as:
 
@@ -317,13 +352,35 @@ strong safeguards:
 
 The exact integration method remains an engineering decision. Options to evaluate:
 
-1. Modify a developer-designated `TMenuItem` subtree in the `.fmx` form.
+1. Modify a developer-designated `TMenuItem` subtree in a `.dfm` or `.fmx` form.
 2. Add a designed language-menu placeholder and update its persisted language
    collection.
 3. Generate a language manifest and minimal runtime menu integration code.
 
-The preferred solution should keep the menu editable in the FMX designer and its
-configuration visible through normal RAD Studio design-time mechanisms.
+The preferred solution should keep the menu editable in the appropriate VCL or FMX
+designer and its configuration visible through normal RAD Studio design-time
+mechanisms.
+
+## Visual Design
+
+The Studio uses the orange-and-blue visual family established by
+VCL2FMXConverterV6:
+
+- Primary blue: `#1974DF`
+- Deep navy: `#234C80`
+- Orange accent: `#FF8800`
+- Medium blue: `#3C6CB5`
+- Light action blue: `#5A93E8`
+- Pale application background: `#F2F7FD`
+- Card background: `#FFFFFF`
+- Main text: `#163A63`
+- Secondary text: `#365674`
+- Muted text: `#5D7693`
+- Light border: `#D7E5F6`
+
+Orange is reserved for important translation actions and accents. Blue carries
+navigation, selection, and structure. Small orange text on white should use a
+darker accessible shade rather than `#FF8800`.
 
 ## Expected Scan Performance
 
@@ -377,7 +434,9 @@ the current core product:
 - Automatic acceptance of machine translations.
 - Immediate live language switching.
 - Fully automatic control repositioning.
-- A VCL version of the Studio.
+- Non-Windows Studio targets.
+- Non-Windows translated-application targets.
+- C++Builder target projects.
 
 ## Documentation Practice
 
