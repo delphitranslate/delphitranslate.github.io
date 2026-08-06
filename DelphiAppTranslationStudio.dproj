@@ -67,6 +67,8 @@
     <DCCReference Include="source\core\DAT.Core.Types.pas"/>
     <DCCReference Include="source\core\DAT.Core.ProjectDetection.pas"/>
     <DCCReference Include="source\core\DAT.Core.CatalogJson.pas"/>
+    <DCCReference Include="source\core\DAT.Core.TranslationWorkspace.pas"/>
+    <DCCReference Include="source\core\DAT.Core.RuntimePack.pas"/>
     <DCCReference Include="source\scan\DAT.Scan.Types.pas"/>
     <DCCReference Include="source\scan\DAT.Scan.Rules.pas"/>
     <DCCReference Include="source\scan\DAT.Scan.TextCodec.pas"/>
@@ -74,6 +76,7 @@
     <DCCReference Include="source\scan\DAT.Scan.PascalResources.pas"/>
     <DCCReference Include="source\scan\DAT.Scan.Project.pas"/>
     <DCCReference Include="source\scan\DAT.Scan.CatalogMerge.pas"/>
+    <DCCReference Include="source\validation\DAT.Validation.Catalog.pas"/>
     <BuildConfiguration Include="Base">
       <Key>Base</Key>
     </BuildConfiguration>

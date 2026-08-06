@@ -5,16 +5,21 @@ program FoundationSmokeTests;
 uses
   System.SysUtils,
   System.IOUtils,
+  System.JSON,
+  System.StrUtils,
   DAT.Core.Types in '..\..\source\core\DAT.Core.Types.pas',
   DAT.Core.ProjectDetection in '..\..\source\core\DAT.Core.ProjectDetection.pas',
   DAT.Core.CatalogJson in '..\..\source\core\DAT.Core.CatalogJson.pas',
+  DAT.Core.TranslationWorkspace in '..\..\source\core\DAT.Core.TranslationWorkspace.pas',
+  DAT.Core.RuntimePack in '..\..\source\core\DAT.Core.RuntimePack.pas',
   DAT.Scan.Types in '..\..\source\scan\DAT.Scan.Types.pas',
   DAT.Scan.Rules in '..\..\source\scan\DAT.Scan.Rules.pas',
   DAT.Scan.TextCodec in '..\..\source\scan\DAT.Scan.TextCodec.pas',
   DAT.Scan.FormText in '..\..\source\scan\DAT.Scan.FormText.pas',
   DAT.Scan.PascalResources in '..\..\source\scan\DAT.Scan.PascalResources.pas',
   DAT.Scan.Project in '..\..\source\scan\DAT.Scan.Project.pas',
-  DAT.Scan.CatalogMerge in '..\..\source\scan\DAT.Scan.CatalogMerge.pas';
+  DAT.Scan.CatalogMerge in '..\..\source\scan\DAT.Scan.CatalogMerge.pas',
+  DAT.Validation.Catalog in '..\..\source\validation\DAT.Validation.Catalog.pas';
 
 procedure Require(const ACondition: Boolean; const AMessage: string);
 begin
@@ -154,6 +159,32 @@ begin
   end;
 end;
 
+procedure TestStudioProjectScanning;
+var
+  Diagnostic: TScanDiagnostic;
+  Profile: TProjectProfile;
+  ProjectRoot: string;
+  ScanResult: TProjectScanResult;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
+    'DelphiAppTranslationStudio.dproj'));
+  ScanResult := TProjectScanner.Scan(Profile);
+  try
+    RequireItem(ScanResult,
+      'frmTranslationStudio.lblApplicationTitle.Text',
+      'Delphi App Translation Studio');
+    Require(ScanResult.Items.Count >= 25,
+      'The Studio project scan found too few translatable entries.');
+    for Diagnostic in ScanResult.Diagnostics do
+      Require(Diagnostic.Severity <> sdsError,
+        'The Studio project scan reported an error: ' +
+        Diagnostic.MessageText);
+  finally
+    ScanResult.Free;
+  end;
+end;
+
 procedure TestIncrementalCatalogMerge;
 var
   Catalog: TTranslationCatalog;
@@ -208,13 +239,169 @@ begin
   end;
 end;
 
+function CreateCompleteCatalog: TTranslationCatalog;
+var
+  Entry: TTranslationEntry;
+begin
+  Result := TTranslationCatalog.Create;
+  Result.ApplicationId := 'OfflineWorkflowTest';
+  Result.ApplicationVersion := '1.0';
+  Result.Framework := tfFireMonkey;
+  Result.SourceLanguage := 'en-US';
+  Result.Locale.LanguageCode := 'de-DE';
+  Result.Locale.NativeLanguageName := 'Deutsch';
+  Result.Locale.TextDirection := 'ltr';
+  Result.Locale.ShortDateFormat := 'dd.MM.yyyy';
+  Result.Locale.LongDateFormat := 'dddd, d. MMMM yyyy';
+  Result.Locale.ShortTimeFormat := 'HH:mm';
+  Result.Locale.LongTimeFormat := 'HH:mm:ss';
+  Result.Locale.DecimalSeparator := ',';
+  Result.Locale.ThousandSeparator := '.';
+  Result.Locale.CurrencySymbol := '€';
+
+  Entry := TTranslationEntry.Create;
+  Entry.Key := 'MainForm.Greeting.Text';
+  Entry.SourceText := 'Hello %s';
+  Entry.TranslatedText := 'Hallo %s';
+  Entry.SourceChecksum := 'source-checksum-1';
+  Entry.Status := tsReviewed;
+  Result.Entries.Add(Entry);
+
+  Entry := TTranslationEntry.Create;
+  Entry.Key := 'MainForm.Exit.Text';
+  Entry.SourceText := 'E&xit';
+  Entry.TranslatedText := '&Beenden';
+  Entry.SourceChecksum := 'source-checksum-2';
+  Entry.Status := tsApproved;
+  Result.Entries.Add(Entry);
+end;
+
+procedure TestCatalogFilePersistence;
+var
+  Catalog: TTranslationCatalog;
+  CatalogFileName: string;
+  LoadedCatalog: TTranslationCatalog;
+  ProjectRoot: string;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  CatalogFileName := TPath.Combine(ProjectRoot,
+    'export\FoundationSmokeTest.translation-project.json');
+  Catalog := CreateCompleteCatalog;
+  try
+    TCatalogJson.SaveToFile(Catalog, CatalogFileName);
+    Require(TFile.Exists(CatalogFileName),
+      'The development catalog file was not created.');
+    LoadedCatalog := TCatalogJson.LoadFromFile(CatalogFileName);
+    try
+      Require(LoadedCatalog.Locale.LanguageCode = 'de-DE',
+        'The target language was not loaded from disk.');
+      Require(LoadedCatalog.Entries.Count = 2,
+        'The persisted catalog entry count is incorrect.');
+    finally
+      LoadedCatalog.Free;
+    end;
+  finally
+    Catalog.Free;
+    if TFile.Exists(CatalogFileName) then
+      TFile.Delete(CatalogFileName);
+  end;
+end;
+
+procedure TestWorkspacePaths;
+var
+  CatalogFileName: string;
+  Profile: TProjectProfile;
+  ProjectRoot: string;
+  RuntimeFileName: string;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
+    'samples\VCLBasic\SampleVCLApp.dproj'));
+  CatalogFileName := TTranslationWorkspace.DevelopmentCatalogFileName(
+    Profile, 'de-DE');
+  RuntimeFileName := TTranslationWorkspace.RuntimePackFileName(
+    Profile, 'de-DE');
+  Require(EndsText(
+    'Localization\Development\SampleVCLApp.de-DE.translation-project.json',
+    CatalogFileName), 'The development catalog path is incorrect.');
+  Require(EndsText('Localization\Languages\de-DE.json', RuntimeFileName),
+    'The runtime pack path is incorrect.');
+end;
+
+procedure TestCatalogValidation;
+var
+  Catalog: TTranslationCatalog;
+  ValidationResult: TCatalogValidationResult;
+begin
+  Catalog := CreateCompleteCatalog;
+  try
+    ValidationResult := TCatalogValidator.Validate(Catalog);
+    try
+      Require(not ValidationResult.HasErrors,
+        'A complete catalog did not pass validation.');
+    finally
+      ValidationResult.Free;
+    end;
+
+    Catalog.Entries[0].TranslatedText := 'Hallo';
+    ValidationResult := TCatalogValidator.Validate(Catalog);
+    try
+      Require(ValidationResult.HasErrors,
+        'A placeholder mismatch did not block export.');
+    finally
+      ValidationResult.Free;
+    end;
+  finally
+    Catalog.Free;
+  end;
+end;
+
+procedure TestRuntimePack;
+var
+  Catalog: TTranslationCatalog;
+  JsonText: string;
+  JsonPair: TJSONPair;
+  JsonValue: TJSONValue;
+  Root: TJSONObject;
+  StringsObject: TJSONObject;
+begin
+  Catalog := CreateCompleteCatalog;
+  try
+    JsonText := TRuntimePackBuilder.Serialize(Catalog);
+    JsonValue := TJSONObject.ParseJSONValue(JsonText);
+    try
+      Require(JsonValue is TJSONObject,
+        'The runtime pack root is not a JSON object.');
+      Root := TJSONObject(JsonValue);
+      Require(Root.GetValue<string>('sourceLanguage') = 'en-US',
+        'The runtime pack source language is missing.');
+      Require(Root.GetValue<string>('sourceCatalogChecksum') <> '',
+        'The runtime pack checksum is missing.');
+      StringsObject := Root.GetValue('strings') as TJSONObject;
+      Require(StringsObject <> nil, 'The runtime strings object is missing.');
+      JsonPair := StringsObject.Get('MainForm.Exit.Text');
+      Require((JsonPair <> nil) and (JsonPair.JsonValue.Value = '&Beenden'),
+        'The runtime translation was not exported.');
+    finally
+      JsonValue.Free;
+    end;
+  finally
+    Catalog.Free;
+  end;
+end;
+
 begin
   try
     TestProjectDetection;
     TestCatalogRoundTrip;
     TestProjectScanning;
+    TestStudioProjectScanning;
     TestIncrementalCatalogMerge;
-    Writeln('Foundation and scanner smoke tests passed.');
+    TestCatalogFilePersistence;
+    TestWorkspacePaths;
+    TestCatalogValidation;
+    TestRuntimePack;
+    Writeln('Foundation, scanner, catalog, validation, and export tests passed.');
   except
     on E: Exception do
     begin

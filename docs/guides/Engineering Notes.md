@@ -454,6 +454,52 @@ development machine; representative medium and large benchmark applications are
 still required before replacing the planning estimates above with published
 measurements.
 
+## Implemented Offline Catalog Workflow
+
+Implemented on August 6, 2026:
+
+- Active workflow navigation now follows Project, Scan, Languages, Validation,
+  and Export. The selected navigation panel changes as the developer moves
+  through or performs each step.
+- A scan creates or incrementally merges an in-memory development catalog.
+  Scanning by itself remains read-only and creates no target-project files.
+- The developer explicitly creates or saves a target-language development
+  catalog from the Languages page.
+- Development catalogs default to:
+
+  `Target Project\Localization\Development\ProjectName.language-code.translation-project.json`
+
+- Runtime packs default to:
+
+  `Target Project\Localization\Languages\language-code.json`
+
+- The Studio creates these folders only during an explicit save or export
+  operation.
+- Existing development catalogs can be reopened after the matching Delphi
+  project is opened.
+- The Languages page provides designer-authored controls for source and target
+  language codes, native language name, text direction, date/time formats,
+  decimal and thousands separators, and currency symbol.
+- Blank locale-format fields are populated using Delphi
+  `TFormatSettings.Create(target-language-code)` and remain editable.
+- A designer-authored entry list and source/translation memo pair supports manual
+  translation editing without dynamically constructing UI controls.
+- Validation checks catalog identity, framework and language metadata, locale
+  settings, duplicate keys, empty translations, changed source text,
+  Delphi-format and brace placeholders, accelerator-key counts, and identical
+  source/translation text.
+- Errors block runtime export. Warnings remain visible but do not block export.
+- The runtime exporter writes a compact UTF-8 JSON pack containing application
+  identity, framework, source language, target-language metadata, locale
+  settings, a source-catalog checksum, and active translated key/value pairs.
+- Excluded and obsolete development entries are omitted from runtime packs.
+- Automated scanner coverage now includes the Studio project itself in addition
+  to the focused VCL and FMX fixtures. This exercises the larger designer-authored
+  FMX form and fails on scanner diagnostics with error severity.
+
+Online provider access is intentionally not part of this tranche. Manual editing
+and offline pack generation work without an Internet connection.
+
 ## FMX Form-Streaming Validation
 
 FMX application validation must include launching the compiled executable. A

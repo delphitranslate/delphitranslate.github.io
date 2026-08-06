@@ -7,8 +7,8 @@ language packs for Win32 and Win64 applications.
 
 ## Current Status
 
-The project now has a working foundation and initial read-only scanner. The
-current source provides:
+The project now has a working offline translation workflow. The current source
+provides:
 
 - An FMX Studio shell using the orange-and-blue VCL2FMXConverterV6 visual family.
 - Delphi `.dproj` and `.dpr` project selection.
@@ -26,11 +26,35 @@ current source provides:
 - Incremental catalog merging that preserves unchanged translations, flags
   changed source text, and marks removed entries obsolete.
 - A designer-authored scan-results area in the Studio.
-- Win32 and Win64 foundation and scanner smoke tests.
+- Project-local development catalogs under
+  `Localization\Development`.
+- Manual language metadata, locale-format, and translation editing.
+- Catalog validation for missing translations, duplicate keys, changed source
+  text, placeholders, and accelerator keys.
+- Compact offline runtime packs under `Localization\Languages`.
+- Active workflow-step navigation for Project, Scan, Languages, Validation, and
+  Export.
+- Win32 and Win64 foundation, scanner, catalog, validation, and export tests.
 
-Binary DFM conversion, editable custom extraction rules, online provider
-integration, runtime language application, and automatic menu integration remain
-planned phases.
+Binary DFM conversion, editable custom extraction rules, online translation
+provider integration, target-application runtime loading, and automatic menu
+integration remain planned phases.
+
+## Current Studio Workflow
+
+1. Open a VCL or FireMonkey `.dproj` or `.dpr`.
+2. Scan the project.
+3. Open **Languages**, enter the target code and native language name, and create
+   the development catalog.
+4. Select catalog entries and enter translations. Locale fields left blank are
+   populated through Delphi `TFormatSettings` for the target locale and remain
+   editable.
+5. Run **Validation**.
+6. When there are no validation errors, use **Export** to create the offline
+   runtime JSON pack.
+
+Scanning remains read-only. The `Localization` folder is created only when the
+developer explicitly saves a catalog or exports a runtime pack.
 
 ## Supported Development Targets
 
@@ -93,7 +117,7 @@ source/scan/           VCL, FMX, and Delphi source scanners
 source/schemas/        Versioned JSON schemas
 source/studio/         Designer-authored FMX Studio interface
 source/validation/     Catalog and integration validation
-tools/tests/           Foundation smoke tests
+tools/tests/           Automated workflow and launch smoke tests
 ```
 
 ## Design Principle

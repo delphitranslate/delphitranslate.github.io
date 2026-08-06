@@ -97,30 +97,31 @@ object frmTranslationStudio: TfrmTranslationStudio
           Stroke.Kind = None
           XRadius = 12.000000000000000000
           YRadius = 12.000000000000000000
-          object lblNavigationProject: TLabel
-            Align = Client
-            StyledSettings = []
-            Margins.Left = 16.000000000000000000
-            Size.Width = 194.000000000000000000
-            Size.Height = 48.000000000000000000
-            Size.PlatformDefault = False
-            TextSettings.Font.Size = 14.000000000000000000
-            TextSettings.Font.StyleExt = {00070000000000000004000000}
-            TextSettings.FontColor = claWhite
-            TextSettings.VertAlign = Center
-            Text = '1  Project'
-          end
+        end
+        object lblNavigationProject: TLabel
+          StyledSettings = []
+          Position.X = 30.000000000000000000
+          Position.Y = 80.000000000000000000
+          Size.Width = 180.000000000000000000
+          Size.Height = 32.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 14.000000000000000000
+          TextSettings.Font.StyleExt = {00070000000000000004000000}
+          TextSettings.FontColor = claWhite
+          Text = '1  Project'
+          OnClick = lblNavigationProjectClick
         end
         object lblNavigationScan: TLabel
           StyledSettings = []
           Position.X = 30.000000000000000000
-          Position.Y = 142.000000000000000000
+          Position.Y = 136.000000000000000000
           Size.Width = 180.000000000000000000
           Size.Height = 32.000000000000000000
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
           Text = '2  Scan'
+          OnClick = lblNavigationScanClick
         end
         object lblNavigationLanguages: TLabel
           StyledSettings = []
@@ -132,28 +133,42 @@ object frmTranslationStudio: TfrmTranslationStudio
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
           Text = '3  Languages'
+          OnClick = lblNavigationLanguagesClick
         end
         object lblNavigationValidation: TLabel
           StyledSettings = []
           Position.X = 30.000000000000000000
-          Position.Y = 242.000000000000000000
+          Position.Y = 248.000000000000000000
           Size.Width = 180.000000000000000000
           Size.Height = 32.000000000000000000
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
           Text = '4  Validation'
+          OnClick = lblNavigationValidationClick
         end
-        object lblNavigationIntegration: TLabel
+        object lblNavigationExport: TLabel
           StyledSettings = []
           Position.X = 30.000000000000000000
-          Position.Y = 292.000000000000000000
+          Position.Y = 304.000000000000000000
           Size.Width = 180.000000000000000000
           Size.Height = 32.000000000000000000
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
-          Text = '5  Integration'
+          Text = '5  Export'
+          OnClick = lblNavigationExportClick
+        end
+        object lblNavigationIntegration: TLabel
+          StyledSettings = []
+          Position.X = 30.000000000000000000
+          Position.Y = 360.000000000000000000
+          Size.Width = 180.000000000000000000
+          Size.Height = 32.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 14.000000000000000000
+          TextSettings.FontColor = xFFD7E8FF
+          Text = '6  Integration (planned)'
         end
       end
       object ContentLayout: TLayout
@@ -430,6 +445,389 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Ready. Open a Delphi project to begin.'
           end
         end
+        object LanguagePageCard: TRectangle
+          Align = Top
+          Fill.Color = claWhite
+          Size.Width = 916.000000000000000000
+          Size.Height = 504.000000000000000000
+          Size.PlatformDefault = False
+          Stroke.Color = xFFD7E5F6
+          Visible = False
+          XRadius = 18.000000000000000000
+          YRadius = 18.000000000000000000
+          object lblLanguagePageTitle: TLabel
+            StyledSettings = []
+            Position.X = 26.000000000000000000
+            Position.Y = 18.000000000000000000
+            Size.Width = 390.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 21.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'Language catalog'
+          end
+          object lblSourceLanguage: TLabel
+            Position.X = 26.000000000000000000
+            Position.Y = 58.000000000000000000
+            Size.Width = 120.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Source language'
+          end
+          object edtSourceLanguage: TEdit
+            Position.X = 26.000000000000000000
+            Position.Y = 80.000000000000000000
+            Size.Width = 120.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 0
+            Text = 'en-US'
+          end
+          object lblTargetLanguageCode: TLabel
+            Position.X = 158.000000000000000000
+            Position.Y = 58.000000000000000000
+            Size.Width = 120.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Target code'
+          end
+          object edtTargetLanguageCode: TEdit
+            Position.X = 158.000000000000000000
+            Position.Y = 80.000000000000000000
+            Size.Width = 120.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 1
+            TextPrompt = 'de-DE'
+          end
+          object lblNativeLanguageName: TLabel
+            Position.X = 290.000000000000000000
+            Position.Y = 58.000000000000000000
+            Size.Width = 150.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Native language name'
+          end
+          object edtNativeLanguageName: TEdit
+            Position.X = 290.000000000000000000
+            Position.Y = 80.000000000000000000
+            Size.Width = 160.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 2
+            TextPrompt = 'Deutsch'
+          end
+          object lblTextDirection: TLabel
+            Position.X = 462.000000000000000000
+            Position.Y = 58.000000000000000000
+            Size.Width = 100.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Direction'
+          end
+          object edtTextDirection: TEdit
+            Position.X = 462.000000000000000000
+            Position.Y = 80.000000000000000000
+            Size.Width = 92.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 3
+            Text = 'ltr'
+          end
+          object btnOpenCatalog: TButton
+            Position.X = 574.000000000000000000
+            Position.Y = 76.000000000000000000
+            Size.Width = 140.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 4
+            Text = 'Open Catalog...'
+            OnClick = btnOpenCatalogClick
+          end
+          object btnSaveCatalog: TButton
+            Position.X = 726.000000000000000000
+            Position.Y = 76.000000000000000000
+            Size.Width = 160.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 5
+            Text = 'Create / Save'
+            OnClick = btnSaveCatalogClick
+          end
+          object edtShortDateFormat: TEdit
+            Position.X = 26.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 132.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 6
+            TextPrompt = 'Short date'
+          end
+          object edtLongDateFormat: TEdit
+            Position.X = 168.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 170.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 7
+            TextPrompt = 'Long date'
+          end
+          object edtShortTimeFormat: TEdit
+            Position.X = 348.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 120.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 8
+            TextPrompt = 'Short time'
+          end
+          object edtLongTimeFormat: TEdit
+            Position.X = 478.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 120.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 9
+            TextPrompt = 'Long time'
+          end
+          object edtDecimalSeparator: TEdit
+            Position.X = 608.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 86.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 10
+            TextPrompt = 'Decimal'
+          end
+          object edtThousandSeparator: TEdit
+            Position.X = 704.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 86.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 11
+            TextPrompt = 'Thousands'
+          end
+          object edtCurrencySymbol: TEdit
+            Position.X = 800.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 86.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 12
+            TextPrompt = 'Currency'
+          end
+          object lblCatalogPathValue: TLabel
+            StyledSettings = []
+            Position.X = 26.000000000000000000
+            Position.Y = 162.000000000000000000
+            Size.Width = 860.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 11.000000000000000000
+            TextSettings.FontColor = xFF5D7693
+            Text = 'Catalog has not been saved.'
+          end
+          object lstCatalogEntries: TListBox
+            Position.X = 26.000000000000000000
+            Position.Y = 190.000000000000000000
+            Size.Width = 394.000000000000000000
+            Size.Height = 282.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 13
+            OnChange = lstCatalogEntriesChange
+          end
+          object lblSourceTextEditor: TLabel
+            Position.X = 446.000000000000000000
+            Position.Y = 190.000000000000000000
+            Size.Width = 150.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Source text'
+          end
+          object memSourceText: TMemo
+            Position.X = 446.000000000000000000
+            Position.Y = 212.000000000000000000
+            Size.Width = 440.000000000000000000
+            Size.Height = 86.000000000000000000
+            Size.PlatformDefault = False
+            ReadOnly = True
+            TabOrder = 14
+          end
+          object lblTranslatedTextEditor: TLabel
+            Position.X = 446.000000000000000000
+            Position.Y = 310.000000000000000000
+            Size.Width = 180.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Translated text'
+          end
+          object memTranslatedText: TMemo
+            Position.X = 446.000000000000000000
+            Position.Y = 332.000000000000000000
+            Size.Width = 440.000000000000000000
+            Size.Height = 94.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 15
+          end
+          object btnApplyTranslation: TButton
+            Position.X = 706.000000000000000000
+            Position.Y = 438.000000000000000000
+            Size.Width = 180.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 16
+            Text = 'Apply Translation'
+            OnClick = btnApplyTranslationClick
+          end
+        end
+        object ValidationPageCard: TRectangle
+          Align = Top
+          Fill.Color = claWhite
+          Size.Width = 916.000000000000000000
+          Size.Height = 504.000000000000000000
+          Size.PlatformDefault = False
+          Stroke.Color = xFFD7E5F6
+          Visible = False
+          XRadius = 18.000000000000000000
+          YRadius = 18.000000000000000000
+          object lblValidationPageTitle: TLabel
+            StyledSettings = []
+            Position.X = 28.000000000000000000
+            Position.Y = 24.000000000000000000
+            Size.Width = 420.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 21.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'Validate the language catalog'
+          end
+          object lblValidationDescription: TLabel
+            StyledSettings = []
+            Position.X = 30.000000000000000000
+            Position.Y = 65.000000000000000000
+            Size.Width = 620.000000000000000000
+            Size.Height = 42.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 13.000000000000000000
+            TextSettings.FontColor = xFF365674
+            TextSettings.WordWrap = True
+            Text = 'Checks required translations, placeholders, accelerator keys, source changes, duplicate keys, and catalog metadata.'
+          end
+          object btnValidateCatalog: TButton
+            Position.X = 700.000000000000000000
+            Position.Y = 40.000000000000000000
+            Size.Width = 180.000000000000000000
+            Size.Height = 44.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 0
+            Text = 'Run Validation'
+            OnClick = btnValidateCatalogClick
+          end
+          object lblValidationSummary: TLabel
+            StyledSettings = []
+            Position.X = 30.000000000000000000
+            Position.Y = 120.000000000000000000
+            Size.Width = 850.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 16.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'Validation has not been run.'
+          end
+          object lstValidationIssues: TListBox
+            Position.X = 30.000000000000000000
+            Position.Y = 162.000000000000000000
+            Size.Width = 850.000000000000000000
+            Size.Height = 308.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 1
+          end
+        end
+        object ExportPageCard: TRectangle
+          Align = Top
+          Fill.Color = claWhite
+          Size.Width = 916.000000000000000000
+          Size.Height = 504.000000000000000000
+          Size.PlatformDefault = False
+          Stroke.Color = xFFD7E5F6
+          Visible = False
+          XRadius = 18.000000000000000000
+          YRadius = 18.000000000000000000
+          object lblExportPageTitle: TLabel
+            StyledSettings = []
+            Position.X = 28.000000000000000000
+            Position.Y = 26.000000000000000000
+            Size.Width = 460.000000000000000000
+            Size.Height = 36.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 21.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'Build the offline runtime pack'
+          end
+          object lblExportDescription: TLabel
+            StyledSettings = []
+            Position.X = 30.000000000000000000
+            Position.Y = 76.000000000000000000
+            Size.Width = 820.000000000000000000
+            Size.Height = 64.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 14.000000000000000000
+            TextSettings.FontColor = xFF365674
+            TextSettings.WordWrap = True
+            Text = 'The runtime pack contains approved offline strings and locale settings only. Export is blocked until the development catalog has no validation errors.'
+          end
+          object ExportAccentCard: TRectangle
+            Fill.Color = xFFE8F3FF
+            Position.X = 30.000000000000000000
+            Position.Y = 164.000000000000000000
+            Size.Width = 850.000000000000000000
+            Size.Height = 178.000000000000000000
+            Size.PlatformDefault = False
+            Stroke.Color = xFFB7D3FF
+            XRadius = 14.000000000000000000
+            YRadius = 14.000000000000000000
+            object lblExportSummary: TLabel
+              StyledSettings = []
+              Position.X = 24.000000000000000000
+              Position.Y = 22.000000000000000000
+              Size.Width = 800.000000000000000000
+              Size.Height = 40.000000000000000000
+              Size.PlatformDefault = False
+              TextSettings.Font.Size = 17.000000000000000000
+              TextSettings.Font.StyleExt = {00070000000000000004000000}
+              TextSettings.FontColor = xFF163A63
+              Text = 'Validate a catalog before export.'
+            end
+            object lblExportPathValue: TLabel
+              StyledSettings = []
+              Position.X = 24.000000000000000000
+              Position.Y = 78.000000000000000000
+              Size.Width = 800.000000000000000000
+              Size.Height = 70.000000000000000000
+              Size.PlatformDefault = False
+              TextSettings.Font.Size = 12.000000000000000000
+              TextSettings.FontColor = xFF365674
+              TextSettings.WordWrap = True
+              Text = 'Output path will appear here.'
+            end
+          end
+          object btnExportRuntimePack: TButton
+            Enabled = False
+            Position.X = 680.000000000000000000
+            Position.Y = 380.000000000000000000
+            Size.Width = 200.000000000000000000
+            Size.Height = 48.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 0
+            Text = 'Export Runtime Pack'
+            OnClick = btnExportRuntimePackClick
+          end
+        end
       end
     end
   end
@@ -438,6 +836,13 @@ object frmTranslationStudio: TfrmTranslationStudio
     Filter = 'Delphi projects (*.dproj;*.dpr)|*.dproj;*.dpr|Delphi project files (*.dproj)|*.dproj|Delphi source projects (*.dpr)|*.dpr'
     Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
     Left = 1104
+    Top = 52
+  end
+  object dlgOpenCatalog: TOpenDialog
+    DefaultExt = 'json'
+    Filter = 'Translation project (*.translation-project.json)|*.translation-project.json|JSON files (*.json)|*.json'
+    Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
+    Left = 1040
     Top = 52
   end
 end

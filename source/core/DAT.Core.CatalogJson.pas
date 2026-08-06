@@ -17,9 +17,15 @@ type
   public
     class function Serialize(const ACatalog: TTranslationCatalog): string; static;
     class function Deserialize(const AJson: string): TTranslationCatalog; static;
+    class procedure SaveToFile(const ACatalog: TTranslationCatalog;
+      const AFileName: string); static;
+    class function LoadFromFile(const AFileName: string): TTranslationCatalog; static;
   end;
 
 implementation
+
+uses
+  System.IOUtils;
 
 class function TCatalogJson.JsonValueText(AObject: TJSONObject;
   const AName, ADefault: string): string;
@@ -189,6 +195,26 @@ begin
   finally
     Root.Free;
   end;
+end;
+
+class function TCatalogJson.LoadFromFile(
+  const AFileName: string): TTranslationCatalog;
+begin
+  if not TFile.Exists(AFileName) then
+    raise ECatalogJsonError.CreateFmt('Catalog file not found: %s',
+      [AFileName]);
+  Result := Deserialize(TFile.ReadAllText(AFileName, TEncoding.UTF8));
+end;
+
+class procedure TCatalogJson.SaveToFile(const ACatalog: TTranslationCatalog;
+  const AFileName: string);
+var
+  DirectoryName: string;
+begin
+  DirectoryName := TPath.GetDirectoryName(AFileName);
+  if DirectoryName <> '' then
+    TDirectory.CreateDirectory(DirectoryName);
+  TFile.WriteAllText(AFileName, Serialize(ACatalog), TEncoding.UTF8);
 end;
 
 end.

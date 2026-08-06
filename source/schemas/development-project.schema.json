@@ -33,7 +33,47 @@
       "minLength": 2
     },
     "locale": {
-      "type": "object"
+      "type": "object",
+      "required": [
+        "languageCode",
+        "nativeLanguageName",
+        "textDirection"
+      ],
+      "properties": {
+        "languageCode": {
+          "type": "string"
+        },
+        "nativeLanguageName": {
+          "type": "string"
+        },
+        "textDirection": {
+          "enum": [
+            "ltr",
+            "rtl"
+          ]
+        },
+        "shortDateFormat": {
+          "type": "string"
+        },
+        "longDateFormat": {
+          "type": "string"
+        },
+        "shortTimeFormat": {
+          "type": "string"
+        },
+        "longTimeFormat": {
+          "type": "string"
+        },
+        "decimalSeparator": {
+          "type": "string"
+        },
+        "thousandSeparator": {
+          "type": "string"
+        },
+        "currencySymbol": {
+          "type": "string"
+        }
+      }
     },
     "entries": {
       "type": "array",
