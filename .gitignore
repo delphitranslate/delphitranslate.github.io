@@ -1,0 +1,29 @@
+# Delphi compiler and linker output
+*.dcu
+*.exe
+*.dll
+*.bpl
+*.dcp
+*.map
+*.rsm
+
+# RAD Studio local and generated state
+*.identcache
+*.local
+*.stat
+__history/
+Win32/
+Win64/
+OSX32/
+OSX64/
+Android/
+Android64/
+iOSDevice32/
+iOSDevice64/
+iOSSimulator/
+
+# Keep the required output folders while ignoring their generated contents
+bin/*
+!bin/.gitkeep
+dcu/*
+!dcu/.gitkeep
