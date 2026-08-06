@@ -58,6 +58,8 @@
     </DelphiCompile>
     <DCCReference Include="source\studio\DAT.Studio.MainForm.pas">
       <Form>frmTranslationStudio</Form>
+      <FormType>fmx</FormType>
+      <DesignClass>TForm</DesignClass>
     </DCCReference>
     <DCCReference Include="source\core\DAT.Core.Types.pas"/>
     <DCCReference Include="source\core\DAT.Core.ProjectDetection.pas"/>

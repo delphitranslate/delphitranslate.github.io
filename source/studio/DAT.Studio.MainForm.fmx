@@ -437,7 +437,7 @@ object frmTranslationStudio: TfrmTranslationStudio
     DefaultExt = 'dproj'
     Filter = 'Delphi projects (*.dproj;*.dpr)|*.dproj;*.dpr|Delphi project files (*.dproj)|*.dproj|Delphi source projects (*.dpr)|*.dpr'
     Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
-    Left = 1104.000000000000000000
-    Top = 52.000000000000000000
+    Left = 1104
+    Top = 52
   end
 end

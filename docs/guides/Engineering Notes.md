@@ -454,6 +454,31 @@ development machine; representative medium and large benchmark applications are
 still required before replacing the planning estimates above with published
 measurements.
 
+## FMX Form-Streaming Validation
+
+FMX application validation must include launching the compiled executable. A
+successful compile does not prove that every persisted form property can be read
+at runtime.
+
+On August 6, 2026, the initial Studio form failed during startup because the
+nonvisual `TOpenDialog.Left` and `TOpenDialog.Top` properties were stored with
+floating-point FMX values. These inherited design-position properties require
+integer values. The form resource was corrected, and the project metadata now
+explicitly identifies the main form as `FormType=fmx` with `DesignClass=TForm`.
+The standard project resource directive is also present in the DPR.
+
+Future release validation must therefore include:
+
+- Debug and Release compilation for Win32 and Win64.
+- Scanner smoke tests under both compilers.
+- Launch tests for Win32 and Win64 that verify the expected main-window title,
+  not merely that the process remains running. A modal startup error can also
+  leave a process running and must not be mistaken for a successful launch.
+
+The repeatable launch check is maintained at
+`tools\tests\RunStudioLaunchSmokeTests.ps1` and covers Debug and Release for both
+Win32 and Win64.
+
 ## Deferred Ideas
 
 The following ideas are retained for possible later evaluation but are not part of

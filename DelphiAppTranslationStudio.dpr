@@ -1,5 +1,7 @@
 program DelphiAppTranslationStudio;
 
+{$R *.res}
+
 uses
   System.StartUpCopy,
   FMX.Forms,

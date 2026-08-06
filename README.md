@@ -64,6 +64,16 @@ msbuild DelphiAppTranslationStudio.dproj /t:Build /p:Config=Debug /p:Platform=Wi
 
 Build output is written under `bin`, and compiler units are written under `dcu`.
 
+After building all four configurations, run the FMX startup smoke test from
+PowerShell:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\tools\tests\RunStudioLaunchSmokeTests.ps1
+```
+
+The test launches each Win32/Win64 Debug/Release executable, rejects startup
+error dialogs, verifies the expected main-form title, and closes the test process.
+
 ## Repository Layout
 
 ```text
