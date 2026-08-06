@@ -10,8 +10,10 @@ uses
   FMX.StdCtrls,
   FMX.Objects,
   FMX.Layouts,
+  FMX.ListBox,
   FMX.Dialogs,
-  DAT.Core.Types;
+  DAT.Core.Types,
+  DAT.Scan.Types;
 
 type
   TfrmTranslationStudio = class(TForm)
@@ -45,15 +47,27 @@ type
     lblFormsValue: TLabel;
     lblSourcesCaption: TLabel;
     lblSourcesValue: TLabel;
+    DetailsDivider: TRectangle;
+    btnScanProject: TButton;
+    lblScanSummaryTitle: TLabel;
+    lblScanSummaryValue: TLabel;
+    lblScanBreakdown: TLabel;
+    lstScanResults: TListBox;
     StatusCard: TRectangle;
     StatusAccent: TRectangle;
     lblStatus: TLabel;
     dlgOpenProject: TOpenDialog;
     procedure btnOpenProjectClick(Sender: TObject);
+    procedure btnScanProjectClick(Sender: TObject);
   private
     FProjectProfile: TProjectProfile;
+    FScanResult: TProjectScanResult;
     procedure ClearProjectSummary;
+    procedure ClearScanSummary;
     procedure DisplayProjectSummary(const AProfile: TProjectProfile);
+    procedure DisplayScanResult(const AResult: TProjectScanResult);
+  public
+    destructor Destroy; override;
   end;
 
 var
@@ -63,7 +77,8 @@ implementation
 
 uses
   System.SysUtils,
-  DAT.Core.ProjectDetection;
+  DAT.Core.ProjectDetection,
+  DAT.Scan.Project;
 
 {$R *.fmx}
 
@@ -71,10 +86,27 @@ procedure TfrmTranslationStudio.ClearProjectSummary;
 begin
   FProjectProfile := Default(TProjectProfile);
   lblProjectNameValue.Text := 'No project selected';
-  lblFrameworkValue.Text := '—';
-  lblPlatformsValue.Text := '—';
-  lblFormsValue.Text := '—';
-  lblSourcesValue.Text := '—';
+  lblFrameworkValue.Text := '-';
+  lblPlatformsValue.Text := '-';
+  lblFormsValue.Text := '-';
+  lblSourcesValue.Text := '-';
+  btnScanProject.Enabled := False;
+  ClearScanSummary;
+end;
+
+procedure TfrmTranslationStudio.ClearScanSummary;
+begin
+  FreeAndNil(FScanResult);
+  lblScanSummaryValue.Text := 'No scan has been run';
+  lblScanBreakdown.Text :=
+    'Open a project, then scan its forms and resourcestrings.';
+  lstScanResults.Items.Clear;
+end;
+
+destructor TfrmTranslationStudio.Destroy;
+begin
+  FScanResult.Free;
+  inherited Destroy;
 end;
 
 procedure TfrmTranslationStudio.DisplayProjectSummary(
@@ -86,12 +118,39 @@ begin
   lblPlatformsValue.Text := ProjectPlatformsDisplayName(AProfile);
   lblFormsValue.Text := AProfile.FormResourceCount.ToString;
   lblSourcesValue.Text := AProfile.SourceFileCount.ToString;
+  ClearScanSummary;
+  btnScanProject.Enabled := AProfile.Framework <> tfUnknown;
 
   if AProfile.Framework = tfUnknown then
-    lblStatus.Text := 'Project opened, but its UI framework could not be identified.'
+    lblStatus.Text :=
+      'Project opened, but its UI framework could not be identified.'
   else
-    lblStatus.Text := Format('%s project detected successfully. Ready for the scan phase.',
+    lblStatus.Text := Format(
+      '%s project detected successfully. Ready to scan.',
       [TargetFrameworkToString(AProfile.Framework)]);
+end;
+
+procedure TfrmTranslationStudio.DisplayScanResult(
+  const AResult: TProjectScanResult);
+var
+  ScanItem: TScanItem;
+begin
+  lblScanSummaryValue.Text := Format('%d translatable entries in %d ms',
+    [AResult.Items.Count, AResult.ElapsedMilliseconds]);
+  lblScanBreakdown.Text := Format(
+    '%d form properties  |  %d resourcestrings  |  %d files',
+    [AResult.CountByKind(stkFormProperty),
+     AResult.CountByKind(stkResourceString), AResult.FilesScanned]);
+
+  lstScanResults.BeginUpdate;
+  try
+    lstScanResults.Items.Clear;
+    for ScanItem in AResult.Items do
+      lstScanResults.Items.Add(Format('%s  =  %s',
+        [ScanItem.Key, ScanItem.SourceText]));
+  finally
+    lstScanResults.EndUpdate;
+  end;
 end;
 
 procedure TfrmTranslationStudio.btnOpenProjectClick(Sender: TObject);
@@ -108,6 +167,28 @@ begin
       lblStatus.Text := E.Message;
     end;
   end;
+end;
+
+procedure TfrmTranslationStudio.btnScanProjectClick(Sender: TObject);
+var
+  NewScanResult: TProjectScanResult;
+begin
+  btnScanProject.Enabled := False;
+  lblStatus.Text := 'Scanning project text resources...';
+  Application.ProcessMessages;
+  try
+    NewScanResult := TProjectScanner.Scan(FProjectProfile);
+    FreeAndNil(FScanResult);
+    FScanResult := NewScanResult;
+    DisplayScanResult(FScanResult);
+    lblStatus.Text := Format(
+      'Scan complete. %d translatable entries are ready for catalog review.',
+      [FScanResult.Items.Count]);
+  except
+    on E: Exception do
+      lblStatus.Text := 'Scan failed: ' + E.Message;
+  end;
+  btnScanProject.Enabled := FProjectProfile.Framework <> tfUnknown;
 end;
 
 end.

@@ -43,7 +43,60 @@
           "key",
           "sourceText",
           "status"
-        ]
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceText": {
+            "type": "string"
+          },
+          "translatedText": {
+            "type": "string"
+          },
+          "formName": {
+            "type": "string"
+          },
+          "componentName": {
+            "type": "string"
+          },
+          "componentClassName": {
+            "type": "string"
+          },
+          "propertyName": {
+            "type": "string"
+          },
+          "sourceFileName": {
+            "type": "string"
+          },
+          "sourceLine": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sourceKind": {
+            "type": "string"
+          },
+          "sourceChecksum": {
+            "type": "string"
+          },
+          "developerNote": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "needsTranslation",
+              "machineTranslated",
+              "edited",
+              "reviewed",
+              "approved",
+              "sourceChanged",
+              "excluded",
+              "obsolete",
+              "error"
+            ]
+          }
+        }
       }
     }
   }

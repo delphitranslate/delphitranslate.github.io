@@ -421,6 +421,39 @@ Rescanning a maintained application should merge changes safely:
 
 File timestamps and checksums should allow unchanged forms and units to be skipped.
 
+## Implemented Scanner Foundation
+
+Implemented on August 6, 2026:
+
+- Read-only scanning of text VCL `.dfm` and FireMonkey `.fmx` resources.
+- Framework-specific rules for common form titles, labels, buttons, menus,
+  tabs, selection controls, hints, edit prompts, list items, and memo lines.
+- Delphi persisted-string decoding, including doubled apostrophes and numeric
+  character codes such as `#39`.
+- Stable keys based on form, component, property, and collection index.
+- Source filename and one-based source line retention for every discovered item.
+- `resourcestring` scanning with stable unit-and-symbol keys.
+- Project orchestration that inventories the framework-appropriate form
+  resources and Delphi source units while excluding build and repository
+  folders.
+- Incremental catalog merging: new entries need translation, changed source text
+  is retained and flagged for review, unchanged translations are preserved, and
+  removed entries are marked obsolete.
+- A designer-authored Studio results area that reports total entries, form
+  properties, resource strings, files scanned, elapsed milliseconds, and the
+  discovered key/value list.
+
+The scanner does not load forms, instantiate target components, render UI, or
+modify the selected application. Binary DFM conversion and inherited/third-party
+component ancestry resolution remain later work.
+
+Validation fixtures currently cover both a VCL and FMX application. Scanner tests
+compile and pass with both the Win32 and Win64 Delphi compilers. The small sample
+projects complete below the timer's one-millisecond reporting resolution on the
+development machine; representative medium and large benchmark applications are
+still required before replacing the planning estimates above with published
+measurements.
+
 ## Deferred Ideas
 
 The following ideas are retained for possible later evaluation but are not part of

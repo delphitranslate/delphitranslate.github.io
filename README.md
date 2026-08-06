@@ -7,7 +7,8 @@ language packs for Win32 and Win64 applications.
 
 ## Current Status
 
-The project is in its foundation stage. The current source provides:
+The project now has a working foundation and initial read-only scanner. The
+current source provides:
 
 - An FMX Studio shell using the orange-and-blue VCL2FMXConverterV6 visual family.
 - Delphi `.dproj` and `.dpr` project selection.
@@ -16,10 +17,20 @@ The project is in its foundation stage. The current source provides:
 - Initial shared translation catalog and locale types.
 - Versioned development-project and runtime-pack JSON schemas.
 - Designer-authored VCL and FMX sample applications.
-- Win32 and Win64 foundation smoke tests.
+- Text `.dfm` scanning for designated VCL captions, hints, prompts, lists, and
+  memo content.
+- Text `.fmx` scanning for designated FMX text, hints, prompts, lists, and memo
+  content.
+- Delphi `resourcestring` extraction with stable unit-and-symbol keys.
+- Stable form/component/property keys and source-file line locations.
+- Incremental catalog merging that preserves unchanged translations, flags
+  changed source text, and marks removed entries obsolete.
+- A designer-authored scan-results area in the Studio.
+- Win32 and Win64 foundation and scanner smoke tests.
 
-Scanning form content, online provider integration, runtime language application,
-and automatic menu integration are planned phases and are not implemented yet.
+Binary DFM conversion, editable custom extraction rules, online provider
+integration, runtime language application, and automatic menu integration remain
+planned phases.
 
 ## Supported Development Targets
 

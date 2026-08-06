@@ -79,6 +79,9 @@ begin
       EntryObject.AddPair('componentName', Entry.ComponentName);
       EntryObject.AddPair('componentClassName', Entry.ComponentClassName);
       EntryObject.AddPair('propertyName', Entry.PropertyName);
+      EntryObject.AddPair('sourceFileName', Entry.SourceFileName);
+      EntryObject.AddPair('sourceLine', TJSONNumber.Create(Entry.SourceLine));
+      EntryObject.AddPair('sourceKind', Entry.SourceKind);
       EntryObject.AddPair('sourceChecksum', Entry.SourceChecksum);
       EntryObject.AddPair('developerNote', Entry.DeveloperNote);
       EntryObject.AddPair('status', TranslationStatusToString(Entry.Status));
@@ -165,6 +168,12 @@ begin
               JsonValueText(EntryObject, 'componentClassName', '');
             Entry.PropertyName :=
               JsonValueText(EntryObject, 'propertyName', '');
+            Entry.SourceFileName :=
+              JsonValueText(EntryObject, 'sourceFileName', '');
+            Entry.SourceLine := StrToIntDef(
+              JsonValueText(EntryObject, 'sourceLine', '0'), 0);
+            Entry.SourceKind :=
+              JsonValueText(EntryObject, 'sourceKind', '');
             Entry.SourceChecksum :=
               JsonValueText(EntryObject, 'sourceChecksum', '');
             Entry.DeveloperNote :=

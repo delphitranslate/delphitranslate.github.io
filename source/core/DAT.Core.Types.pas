@@ -68,6 +68,9 @@ type
     FComponentName: string;
     FComponentClassName: string;
     FPropertyName: string;
+    FSourceFileName: string;
+    FSourceLine: Integer;
+    FSourceKind: string;
     FSourceChecksum: string;
     FDeveloperNote: string;
     FStatus: TTranslationStatus;
@@ -79,6 +82,9 @@ type
     property ComponentName: string read FComponentName write FComponentName;
     property ComponentClassName: string read FComponentClassName write FComponentClassName;
     property PropertyName: string read FPropertyName write FPropertyName;
+    property SourceFileName: string read FSourceFileName write FSourceFileName;
+    property SourceLine: Integer read FSourceLine write FSourceLine;
+    property SourceKind: string read FSourceKind write FSourceKind;
     property SourceChecksum: string read FSourceChecksum write FSourceChecksum;
     property DeveloperNote: string read FDeveloperNote write FDeveloperNote;
     property Status: TTranslationStatus read FStatus write FStatus;
