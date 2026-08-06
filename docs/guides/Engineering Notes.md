@@ -479,6 +479,27 @@ The repeatable launch check is maintained at
 `tools\tests\RunStudioLaunchSmokeTests.ps1` and covers Debug and Release for both
 Win32 and Win64.
 
+## Project Icon Configuration
+
+On August 6, 2026, an attempted automatic icon/logo update produced malformed
+`.dproj` XML. The generated markup placed indentation between an opening `<`
+character and an element name, and it omitted `<` characters from closing
+`PropertyGroup` and `BorlandProject` tags. RAD Studio consequently reported
+`Whitespace is not allowed at this location` at line 13, column 4.
+
+The form resource was not involved. The project file was repaired and now
+contains valid `Icon_MainIcon`, `UWP_DelphiLogo44`, and `UWP_DelphiLogo150`
+properties pointing to the files under `Images`. The UWP logo deployment entries
+remain under the `BorlandProject` deployment section.
+
+Icon changes require more than a successful XML parse. Validation must also:
+
+- Confirm that every configured asset path exists.
+- Rebuild Debug and Release for Win32 and Win64.
+- Extract the associated icon from a rebuilt executable and visually confirm
+  that the custom icon was embedded.
+- Run the four-configuration Studio launch smoke test.
+
 ## Deferred Ideas
 
 The following ideas are retained for possible later evaluation but are not part of

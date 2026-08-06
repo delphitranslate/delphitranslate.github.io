@@ -1,4 +1,4 @@
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProjectGuid>{D2D1A613-3D71-4D3E-94B4-A8D80C1959DA}</ProjectGuid>
     <ProjectVersion>20.4</ProjectVersion>
@@ -10,6 +10,9 @@
     <TargetedPlatforms>3</TargetedPlatforms>
     <AppType>Application</AppType>
     <MainSource>DelphiAppTranslationStudio.dpr</MainSource>
+    <Icon_MainIcon>Images\DelphiAppTranslationStudio-Icon-Master-v2.ico</Icon_MainIcon>
+    <UWP_DelphiLogo44>Images\DelphiAppTranslationStudio-Icon-Master-v2_44.png</UWP_DelphiLogo44>
+    <UWP_DelphiLogo150>Images\DelphiAppTranslationStudio-Icon-Master-v2_150.png</UWP_DelphiLogo150>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
     <Base>true</Base>
@@ -92,6 +95,23 @@
         <Platform value="Win32">True</Platform>
         <Platform value="Win64">True</Platform>
       </Platforms>
+      <Deployment Version="4">
+                <DeployFile LocalName="Images\DelphiAppTranslationStudio-Icon-Master-v2_150.png" Configuration="Base" Class="UWP_DelphiLogo150">
+                    <Platform Name="Win32">
+                        <RemoteDir>Assets\</RemoteDir>
+                        <RemoteName>Logo150x150.png</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+
+                <DeployFile LocalName="Images\DelphiAppTranslationStudio-Icon-Master-v2_44.png" Configuration="Base" Class="UWP_DelphiLogo44">
+                    <Platform Name="Win32">
+                        <RemoteDir>Assets\</RemoteDir>
+                        <RemoteName>Logo44x44.png</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+      </Deployment>
     </BorlandProject>
   </ProjectExtensions>
   <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')"/>
