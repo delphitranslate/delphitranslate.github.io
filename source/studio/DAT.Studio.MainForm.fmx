@@ -1192,7 +1192,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object btnBuildIntegrationPlan: TButton
             Enabled = False
-            Position.X = 278.000000000000000000
+            Position.X = 286.000000000000000000
             Position.Y = 134.000000000000000000
             Size.Width = 190.000000000000000000
             Size.Height = 42.000000000000000000
@@ -1204,9 +1204,9 @@ object frmTranslationStudio: TfrmTranslationStudio
           object lblIntegrationSummary: TLabel
             Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
-            Position.X = 486.000000000000000000
+            Position.X = 506.000000000000000000
             Position.Y = 140.000000000000000000
-            Size.Width = 394.000000000000000000
+            Size.Width = 374.000000000000000000
             Size.Height = 28.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.StyleExt = {00070000000000000004000000}
@@ -1216,9 +1216,9 @@ object frmTranslationStudio: TfrmTranslationStudio
           object lstIntegrationPlan: TListBox
             Anchors = [akLeft, akTop, akBottom]
             Position.X = 30.000000000000000000
-            Position.Y = 190.000000000000000000
+            Position.Y = 218.000000000000000000
             Size.Width = 280.000000000000000000
-            Size.Height = 194.000000000000000000
+            Size.Height = 166.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 2
             OnChange = lstIntegrationPlanChange
@@ -1230,9 +1230,9 @@ object frmTranslationStudio: TfrmTranslationStudio
           object lblIntegrationDiffTitle: TLabel
             Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
-            Position.X = 326.000000000000000000
-            Position.Y = 170.000000000000000000
-            Size.Width = 554.000000000000000000
+            Position.X = 338.000000000000000000
+            Position.Y = 192.000000000000000000
+            Size.Width = 542.000000000000000000
             Size.Height = 18.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 11.000000000000000000
@@ -1244,10 +1244,10 @@ object frmTranslationStudio: TfrmTranslationStudio
             Anchors = [akLeft, akTop, akRight, akBottom]
             Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
             DataDetectorTypes = []
-            Position.X = 326.000000000000000000
-            Position.Y = 190.000000000000000000
-            Size.Width = 554.000000000000000000
-            Size.Height = 194.000000000000000000
+            Position.X = 338.000000000000000000
+            Position.Y = 218.000000000000000000
+            Size.Width = 542.000000000000000000
+            Size.Height = 166.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 3
             ReadOnly = True
@@ -1258,15 +1258,15 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text =
               'Generate a preview, then select every changed file to review' +
               ' its exact text.'
-            Viewport.Width = 550.000000000000000000
-            Viewport.Height = 190.000000000000000000
+            Viewport.Width = 538.000000000000000000
+            Viewport.Height = 162.000000000000000000
           end
           object chkIntegrationReviewConfirmed: TCheckBox
             Anchors = [akLeft, akRight, akBottom]
             Enabled = False
-            Position.X = 326.000000000000000000
-            Position.Y = 392.000000000000000000
-            Size.Width = 554.000000000000000000
+            Position.X = 338.000000000000000000
+            Position.Y = 396.000000000000000000
+            Size.Width = 542.000000000000000000
             Size.Height = 24.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 4
@@ -1277,7 +1277,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Anchors = [akRight, akBottom]
             Enabled = False
             Position.X = 430.000000000000000000
-            Position.Y = 430.000000000000000000
+            Position.Y = 432.000000000000000000
             Size.Width = 200.000000000000000000
             Size.Height = 44.000000000000000000
             Size.PlatformDefault = False
@@ -1301,7 +1301,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Anchors = [akRight, akBottom]
             Enabled = False
             Position.X = 644.000000000000000000
-            Position.Y = 430.000000000000000000
+            Position.Y = 432.000000000000000000
             Size.Width = 112.000000000000000000
             Size.Height = 44.000000000000000000
             Size.PlatformDefault = False
@@ -1313,7 +1313,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Anchors = [akRight, akBottom]
             Enabled = False
             Position.X = 768.000000000000000000
-            Position.Y = 430.000000000000000000
+            Position.Y = 432.000000000000000000
             Size.Width = 112.000000000000000000
             Size.Height = 44.000000000000000000
             Size.PlatformDefault = False

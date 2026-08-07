@@ -1252,6 +1252,39 @@ begin
   end;
 end;
 
+procedure TestProjectUnitInsertionBeforeResourceDirective;
+var
+  ProjectText: string;
+  UpdatedText: string;
+begin
+  ProjectText :=
+    'program WebsiteAnalytics;' + sLineBreak + sLineBreak +
+    'uses' + sLineBreak +
+    '  System.StartUpCopy,' + sLineBreak +
+    '  FMX.Forms,' + sLineBreak +
+    '  WebsiteAnalytics.GA4DataModule in ' +
+      '''WebsiteAnalytics.GA4DataModule.pas'' ' +
+      '{dmGA4: TDataModule};' + sLineBreak + sLineBreak +
+    '{$R *.res}' + sLineBreak + sLineBreak +
+    'begin' + sLineBreak +
+    '  Application.Initialize;' + sLineBreak +
+    '  Application.Run;' + sLineBreak +
+    'end.';
+  UpdatedText := TDelphiIntegrationSourceEditor.AddProjectUnitReference(
+    ProjectText, 'WebsiteAnalytics.Translation',
+    'Localization\Runtime\WebsiteAnalytics.Translation.pas');
+  Require(ContainsText(UpdatedText,
+    'WebsiteAnalytics.GA4DataModule.pas'' {dmGA4: TDataModule},'),
+    'The final DPR unit reference was not changed to a comma.');
+  Require(ContainsText(UpdatedText,
+    'WebsiteAnalytics.Translation in ' +
+      '''Localization\Runtime\WebsiteAnalytics.Translation.pas'';'),
+    'The generated DPR unit reference was not inserted.');
+  Require(Pos('WebsiteAnalytics.Translation in', UpdatedText) <
+    Pos('{$R *.res}', UpdatedText),
+    'The generated DPR unit reference was inserted after the resource directive.');
+end;
+
 procedure TestInPlaceAITranslationWorkflow;
 var
   Catalog: TTranslationCatalog;
@@ -1380,6 +1413,7 @@ begin
     TestTransactionalTargetIntegration;
     TestStudioSelfIntegrationChangeSet;
     TestExactIntegrationReview;
+    TestProjectUnitInsertionBeforeResourceDirective;
     TestInPlaceAITranslationWorkflow;
     Writeln('Foundation, scanner, catalog, runtime, validation, and export tests passed.');
   except

@@ -408,7 +408,7 @@ begin
       raise Exception.Create('The DPR uses block could not be identified.');
     LastReferenceIndex := BeginIndex - 1;
     while (LastReferenceIndex > UsesIndex) and
-      (Trim(ProjectLines[LastReferenceIndex]) = '') do
+      not ContainsText(ProjectLines[LastReferenceIndex], ';') do
       Dec(LastReferenceIndex);
     SemicolonPosition := LastDelimiter(
       ';', ProjectLines[LastReferenceIndex]);

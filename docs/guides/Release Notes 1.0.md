@@ -35,6 +35,10 @@ applications do not contain API keys and do not require Internet access.
 - Verified backup, atomic writes, rollback, manifest, and Restore.
 - Designer-persisted VCL and FMX language menus, created on the primary form
   when the named menu does not already exist.
+- DPR integration supports compiler directives such as `{$R *.res}` between
+  the `uses` clause and the project `begin` block.
+- The maximized Integration page uses larger designer-persisted gutters around
+  planning, exact-review, and authorization controls.
 - Offline JSON pack discovery and per-user language preference.
 
 ## Provider-Only Automatic Translation

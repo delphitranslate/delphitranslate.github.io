@@ -77,6 +77,21 @@ begin
            frmTranslationStudio.chkIntegrationReviewConfirmed.OnChange) then
         raise Exception.Create(
           'The exact integration-review controls are not designer-wired.');
+      if frmTranslationStudio.lstIntegrationPlan.Position.Y <
+           frmTranslationStudio.btnBuildIntegrationPlan.Position.Y +
+           frmTranslationStudio.btnBuildIntegrationPlan.Height + 30 then
+        raise Exception.Create(
+          'The integration plan is too close to the planning controls.');
+      if frmTranslationStudio.memIntegrationDiff.Position.X <
+           frmTranslationStudio.lstIntegrationPlan.Position.X +
+           frmTranslationStudio.lstIntegrationPlan.Width + 24 then
+        raise Exception.Create(
+          'The integration plan and exact-change areas are too close.');
+      if frmTranslationStudio.memIntegrationDiff.Position.Y <
+           frmTranslationStudio.lblIntegrationDiffTitle.Position.Y +
+           frmTranslationStudio.lblIntegrationDiffTitle.Height + 6 then
+        raise Exception.Create(
+          'The exact-change title is too close to its review area.');
       if frmTranslationStudio.btnApplyIntegration.Enabled then
         raise Exception.Create(
           'Integration Apply was enabled before exact review confirmation.');

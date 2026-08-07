@@ -1147,3 +1147,22 @@ menu and adding one to the primary form. Deterministic regression fixtures
 remove all designer menus from the VCL and FMX samples, run transactional
 integration, compile the modified targets under Win32 and Win64, deploy their
 JSON runtime packs, and verify translated application startup.
+
+## DPR Directive and Integration Page Spacing Correction
+
+Correction date: August 7, 2026
+
+`TDelphiIntegrationSourceEditor.AddProjectUnitReference` previously assumed
+that the line immediately before the DPR `begin` was the final `uses` entry.
+Normal Delphi projects may place `{$R *.res}` or another compiler directive
+between the terminated `uses` clause and `begin`. The editor now searches
+backward for the actual semicolon-terminated unit reference, changes that
+terminator to a comma, inserts the generated translation unit before the
+directive, and leaves the directive in its original position. A deterministic
+WebsiteAnalytics-style DPR fixture protects this layout.
+
+The designer-authored Integration page now provides larger gutters between
+the menu-name field, Build Integration Plan button, plan list, Exact changes
+heading, exact-diff memo, and review controls. The list and memo retain bottom
+anchors and expand with the maximized window. `StudioFormSmokeTests` asserts
+the minimum vertical and horizontal separation under Win32 and Win64.
