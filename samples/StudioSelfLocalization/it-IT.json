@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "DelphiAppTranslationStudio",
+  "applicationVersion": "1.0",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "sourceCatalogChecksum": "studio-self-localization-smoke-fixture",
+  "language": {
+    "code": "it-IT",
+    "nativeName": "Italiano",
+    "direction": "ltr"
+  },
+  "locale": {
+    "shortDateFormat": "dd/MM/yyyy",
+    "longDateFormat": "dddd d MMMM yyyy",
+    "shortTimeFormat": "HH:mm",
+    "longTimeFormat": "HH:mm:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "€"
+  },
+  "strings": {
+    "frmTranslationStudio.Caption": "Studio di traduzione app Delphi",
+    "frmTranslationStudio.lblApplicationTitle.Text": "Studio di traduzione app Delphi",
+    "frmTranslationStudio.lblApplicationSubtitle.Text": "Localizzazione offline per applicazioni Delphi VCL e FireMonkey",
+    "frmTranslationStudio.mnuLanguage.Text": "Lingua",
+    "frmTranslationStudio.datLanguage_en_US.Text": "Inglese",
+    "frmTranslationStudio.lblNavigationProject.Text": "1  Progetto",
+    "frmTranslationStudio.lblNavigationScan.Text": "2  Scansione",
+    "frmTranslationStudio.lblNavigationLanguages.Text": "3  Lingue",
+    "frmTranslationStudio.lblNavigationValidation.Text": "4  Convalida",
+    "frmTranslationStudio.lblNavigationExport.Text": "5  Esportazione",
+    "frmTranslationStudio.lblNavigationIntegration.Text": "6  Integrazione"
+  }
+}

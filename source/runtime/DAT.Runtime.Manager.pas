@@ -104,6 +104,12 @@ end;
 
 function TTranslationRuntime.LoadPreferredLanguage: Boolean;
 begin
+  if not TFile.Exists(FPreferenceFileName) then
+  begin
+    FreeAndNil(FActivePack);
+    FFormatSettings := TFormatSettings.Create;
+    Exit(True);
+  end;
   Result := LoadLanguage(TLanguagePreference.ReadLanguageCode(
     FPreferenceFileName, FSourceLanguageCode));
 end;

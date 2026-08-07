@@ -7,6 +7,12 @@ $ProjectRoot = [System.IO.Path]::GetFullPath(
     (Join-Path $PSScriptRoot '..\..'))
 $RsVars = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat'
 $IntegrationSmokeDirectory = Join-Path $ProjectRoot 'export\IntegrationSmoke'
+$TargetIntegrationSmokeDirectory = Join-Path $ProjectRoot `
+    'export\TargetIntegrationSmoke'
+$TargetIntegrationPackagesDirectory = Join-Path $ProjectRoot `
+    'export\TargetIntegrationPackages'
+$TargetIntegrationBackupsDirectory = Join-Path $ProjectRoot `
+    'export\TargetIntegrationBackups'
 
 function Invoke-Compiler {
     param(
@@ -80,6 +86,59 @@ function Invoke-SmokeExecutable {
     }
 }
 
+function Invoke-IntegratedProjectBuild {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectDirectory,
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectFileName,
+        [Parameter(Mandatory = $true)]
+        [string]$Platform
+    )
+
+    Push-Location $ProjectDirectory
+    try {
+        $Command = 'call "' + $RsVars + '" && msbuild "' +
+            $ProjectFileName + '" /t:Build /p:Config=Debug /p:Platform=' +
+            $Platform + ' /v:minimal'
+        & cmd.exe /d /c $Command
+        if ($LASTEXITCODE -ne 0) {
+            throw "$ProjectFileName integration build failed for $Platform."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Test-IntegratedApplicationWindow {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Executable
+    )
+
+    $Process = Start-Process -FilePath $Executable -PassThru
+    try {
+        $Deadline = (Get-Date).AddSeconds(8)
+        do {
+            Start-Sleep -Milliseconds 150
+            $Process.Refresh()
+        }
+        while (($Process.MainWindowTitle -ne 'Customer Manager') -and
+            ((Get-Date) -lt $Deadline) -and (-not $Process.HasExited))
+
+        if ($Process.MainWindowTitle -ne 'Customer Manager') {
+            throw "Integrated application did not open its expected form: $Executable"
+        }
+    }
+    finally {
+        if (-not $Process.HasExited) {
+            Stop-Process -Id $Process.Id -Force
+            $null = $Process.WaitForExit(5000)
+        }
+    }
+}
+
 try {
     foreach ($Target in @(
         @{ Compiler = 'dcc32'; Platform = 'Win32' },
@@ -100,17 +159,51 @@ try {
             -ProgramName 'FMXRuntimeSmokeTests'
     }
 
+    foreach ($Target in @(
+        @{ Compiler = 'dcc32'; Platform = 'Win32' },
+        @{ Compiler = 'dcc64'; Platform = 'Win64' }
+    )) {
+        Invoke-IntegratedProjectBuild `
+            -ProjectDirectory (Join-Path $TargetIntegrationSmokeDirectory `
+                'VCLBasic') `
+            -ProjectFileName 'SampleVCLApp.dproj' `
+            -Platform $Target.Platform
+        Invoke-IntegratedProjectBuild `
+            -ProjectDirectory (Join-Path $TargetIntegrationSmokeDirectory `
+                'FMXBasic') `
+            -ProjectFileName 'SampleFMXApp.dproj' `
+            -Platform $Target.Platform
+        Test-IntegratedApplicationWindow -Executable (Join-Path $ProjectRoot `
+            "export\bin\Samples\VCLBasic\$($Target.Platform)\Debug\SampleVCLApp.exe")
+        Test-IntegratedApplicationWindow -Executable (Join-Path $ProjectRoot `
+            "export\bin\Samples\FMXBasic\$($Target.Platform)\Debug\SampleFMXApp.exe")
+    }
+
     Write-Host 'Offline runtime and integration smoke tests passed.'
 }
 finally {
-    if (Test-Path -LiteralPath $IntegrationSmokeDirectory) {
-        $ResolvedTarget = (Resolve-Path -LiteralPath `
-            $IntegrationSmokeDirectory).Path
-        $ExpectedTarget = [System.IO.Path]::GetFullPath(
-            (Join-Path $ProjectRoot 'export\IntegrationSmoke'))
-        if ($ResolvedTarget -ne $ExpectedTarget) {
-            throw 'Unexpected integration smoke-test cleanup target.'
+    $CleanupDirectories = @(
+        $IntegrationSmokeDirectory,
+        $TargetIntegrationSmokeDirectory,
+        $TargetIntegrationPackagesDirectory,
+        $TargetIntegrationBackupsDirectory,
+        (Join-Path $ProjectRoot 'export\bin\Samples\VCLBasic'),
+        (Join-Path $ProjectRoot 'export\bin\Samples\FMXBasic'),
+        (Join-Path $ProjectRoot 'export\dcu\Samples\VCLBasic'),
+        (Join-Path $ProjectRoot 'export\dcu\Samples\FMXBasic')
+    )
+    foreach ($CleanupDirectory in $CleanupDirectories) {
+        if (Test-Path -LiteralPath $CleanupDirectory) {
+            $ResolvedTarget = (Resolve-Path -LiteralPath `
+                $CleanupDirectory).Path
+            $ExportRoot = [System.IO.Path]::GetFullPath(
+                (Join-Path $ProjectRoot 'export'))
+            if (-not $ResolvedTarget.StartsWith(
+                $ExportRoot + [System.IO.Path]::DirectorySeparatorChar,
+                [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw 'Unexpected integration smoke-test cleanup target.'
+            }
+            Remove-Item -LiteralPath $ResolvedTarget -Recurse -Force
         }
-        Remove-Item -LiteralPath $ResolvedTarget -Recurse -Force
     }
 }

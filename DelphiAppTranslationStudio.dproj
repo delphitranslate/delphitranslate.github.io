@@ -277,6 +277,12 @@
         <DCCReference Include="source\runtime\DAT.Runtime.FMX.pas"/>
         <DCCReference Include="source\integration\DAT.Integration.Plan.pas"/>
         <DCCReference Include="source\integration\DAT.Integration.Package.pas"/>
+        <DCCReference Include="source\integration\DAT.Integration.Types.pas"/>
+        <DCCReference Include="source\integration\DAT.Integration.MenuResource.pas"/>
+        <DCCReference Include="source\integration\DAT.Integration.DelphiSource.pas"/>
+        <DCCReference Include="source\integration\DAT.Integration.Transaction.pas"/>
+        <DCCReference Include="source\integration\DAT.Integration.Engine.pas"/>
+        <DCCReference Include="source\studio\DAT.Studio.Translation.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

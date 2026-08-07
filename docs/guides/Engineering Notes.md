@@ -549,8 +549,115 @@ The generated integration unit provides five explicit entry points:
    settings to the application.
 
 This keeps the target application's original DFM/FMX design intact. The
-developer remains responsible for placing the language menu in the designer
-until the safeguarded automatic menu-edit phase is implemented.
+developer places and names the parent Language menu in the designer; the
+transactional integration phase described below persists its language children.
+
+## Implemented Transactional Target Integration
+
+Implemented on August 6, 2026:
+
+- The Integration page now separates conceptual planning, exact file preview,
+  Apply, and Restore operations.
+- A generated preview lists every proposed target file before the target is
+  changed.
+- VCL language choices are persisted as normal `TMenuItem` children beneath a
+  developer-designated menu in the text DFM.
+- FMX language choices are persisted the same way in the text FMX.
+- Language items use native names and stable `datLanguage_language_code`
+  component names. The source language is first and exported languages are
+  sorted by native name.
+- Re-running integration removes and recreates only Studio-owned
+  `datLanguage_` children, preventing duplicates while preserving unrelated
+  developer menu items.
+- A single form method handles all persisted language items. It converts the
+  menu component name back to the language code and saves the preference.
+- Runtime units and the target-specific integration unit are installed under
+  `Localization\Runtime`.
+- The DPR receives explicit unit/file mappings, calls
+  `InitializeTranslation` before creating forms, and calls `ApplyTranslation`
+  immediately after every statically declared `Application.CreateForm`.
+- The DPROJ receives corresponding `DCCReference` entries without reformatting
+  the rest of its XML.
+- Dynamically created forms still require an explicit `ApplyTranslation` call
+  after construction. The generated function is available for that purpose.
+
+Integration application is transactional:
+
+1. Validate that every target remains inside the selected project.
+2. Reject read-only target files and active `.git\index.lock` state.
+3. Create a manifest-driven pre-change backup.
+4. Verify each copied backup by file size.
+5. Write each replacement through a temporary file.
+6. Roll back already-written files automatically if a later write fails.
+7. Retain the backup path for the Integration page's Restore action.
+
+On this development system, automatic target backups default to
+`G:\ProjectName Backup\Translation Integration timestamp`. On systems without a
+`G:` drive, the portable fallback is
+`Target Project\Localization\Integration Backups`. The backup manifest records
+whether the target is a Git repository and whether each changed file existed
+before integration.
+
+The supported automatic source pattern is a conventional Delphi application
+with:
+
+- A text DFM or FMX resource.
+- An existing developer-designated `TMenuItem` parent.
+- A matching Pascal form class.
+- A normal DPR `uses` block and `Application.Initialize`.
+- Optional DPROJ metadata.
+
+Binary form resources and unusually generated or macro-driven DPR/Pascal source
+remain preview-only/manual integration cases until dedicated parsers are added.
+
+## Implemented Studio Self-Localization
+
+The Studio now initializes its own offline FMX runtime before creating the main
+form and applies the selected pack during `TfrmTranslationStudio.FormCreate`.
+Its Language menu and English item are designer-authored in the main FMX form.
+
+When the Studio project is selected as its own target, integration recognizes
+the existing self-localization runtime and plans only the persisted language-menu
+update. It does not install a second generated runtime or duplicate startup
+wiring. This permits the following bootstrap:
+
+1. Run the current English Studio.
+2. Scan `DelphiAppTranslationStudio.dproj`.
+3. Create, translate, validate, and export `it-IT.json`.
+4. Generate the integration preview for `mnuLanguage`.
+5. Apply the single FMX menu-resource change.
+6. Rebuild the Studio into its normal output folder.
+7. Select Italiano and restart.
+
+The running executable is never overwritten. JSON packs and the saved
+preference are separate files, and the rebuilt executable is used on the next
+launch.
+
+The controlled self-localization fixture at
+`samples\StudioSelfLocalization\it-IT.json` translates the actual Studio window
+title and principal navigation text. The repeatable smoke test temporarily
+installs that pack, launches all Win32/Win64 Debug/Release executables, verifies
+the Italian main-window title, and restores the prior local language state.
+
+## Phase 20 Integration Validation
+
+`tools\tests\RunRuntimeSmokeTests.ps1` now performs the complete integration
+regression under both Delphi compilers:
+
+- Runtime pack load, discovery, preference, locale, and fallback tests.
+- Direct VCL and FMX component-application tests.
+- Generated VCL and FMX integration-unit compilation.
+- Disposable copies of the VCL and FMX sample projects.
+- Italian pack export and native language-menu persistence.
+- Transaction application, manifest backup, restore, and repeated-preview
+  idempotency.
+- Integrated VCL and FMX project builds for Win32 and Win64.
+- Launch checks confirming all four integrated sample forms stream correctly.
+- Exact cleanup of generated integration fixtures and build output.
+
+`tools\tests\RunStudioSelfLocalizationSmokeTest.ps1` validates the real Studio
+in Italian. `tools\tests\RunStudioLaunchSmokeTests.ps1` then confirms the normal
+English launch state remains intact.
 
 ## FMX Form-Streaming Validation
 

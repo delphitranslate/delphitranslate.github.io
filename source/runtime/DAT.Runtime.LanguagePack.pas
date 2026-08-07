@@ -88,6 +88,7 @@ type
 implementation
 
 uses
+  System.Generics.Defaults,
   System.IOUtils,
   System.JSON;
 
@@ -282,6 +283,15 @@ begin
         Continue;
     end;
   end;
+  Result.Sort(TComparer<TLanguagePackDescriptor>.Construct(
+    function(const ALeft, ARight: TLanguagePackDescriptor): Integer
+    begin
+      Result := CompareText(
+        ALeft.NativeLanguageName, ARight.NativeLanguageName);
+      if Result = 0 then
+        Result := CompareText(
+          ALeft.LanguageCode, ARight.LanguageCode);
+    end));
 end;
 
 end.

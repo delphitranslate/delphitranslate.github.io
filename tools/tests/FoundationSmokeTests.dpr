@@ -17,6 +17,11 @@ uses
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
   DAT.Integration.Plan in '..\..\source\integration\DAT.Integration.Plan.pas',
   DAT.Integration.Package in '..\..\source\integration\DAT.Integration.Package.pas',
+  DAT.Integration.Types in '..\..\source\integration\DAT.Integration.Types.pas',
+  DAT.Integration.MenuResource in '..\..\source\integration\DAT.Integration.MenuResource.pas',
+  DAT.Integration.DelphiSource in '..\..\source\integration\DAT.Integration.DelphiSource.pas',
+  DAT.Integration.Transaction in '..\..\source\integration\DAT.Integration.Transaction.pas',
+  DAT.Integration.Engine in '..\..\source\integration\DAT.Integration.Engine.pas',
   DAT.Scan.Types in '..\..\source\scan\DAT.Scan.Types.pas',
   DAT.Scan.Rules in '..\..\source\scan\DAT.Scan.Rules.pas',
   DAT.Scan.TextCodec in '..\..\source\scan\DAT.Scan.TextCodec.pas',
@@ -503,6 +508,205 @@ begin
     'The FMX runtime adapter was not packaged.');
 end;
 
+function CountTextOccurrences(const AText, ASearchText: string): Integer;
+var
+  SearchPosition: Integer;
+begin
+  Result := 0;
+  SearchPosition := 1;
+  while True do
+  begin
+    SearchPosition := PosEx(ASearchText, AText, SearchPosition);
+    if SearchPosition = 0 then
+      Exit;
+    Inc(Result);
+    Inc(SearchPosition, Length(ASearchText));
+  end;
+end;
+
+procedure CopyFixtureDirectory(const ASourceDirectory,
+  ADestinationDirectory: string);
+var
+  DestinationFileName: string;
+  FileName: string;
+  RelativeName: string;
+begin
+  if TDirectory.Exists(ADestinationDirectory) then
+    TDirectory.Delete(ADestinationDirectory, True);
+  TDirectory.CreateDirectory(ADestinationDirectory);
+  for FileName in TDirectory.GetFiles(
+    ASourceDirectory, '*', TSearchOption.soAllDirectories) do
+  begin
+    RelativeName := Copy(FileName,
+      Length(IncludeTrailingPathDelimiter(ASourceDirectory)) + 1, MaxInt);
+    DestinationFileName := TPath.Combine(
+      ADestinationDirectory, RelativeName);
+    TDirectory.CreateDirectory(
+      TPath.GetDirectoryName(DestinationFileName));
+    TFile.Copy(FileName, DestinationFileName, True);
+  end;
+end;
+
+procedure ExportItalianFixturePack(const AProfile: TProjectProfile);
+var
+  Catalog: TTranslationCatalog;
+begin
+  Catalog := CreateCompleteCatalog;
+  try
+    Catalog.ApplicationId := AProfile.ProjectName;
+    Catalog.Framework := AProfile.Framework;
+    Catalog.Locale.LanguageCode := 'it-IT';
+    Catalog.Locale.NativeLanguageName := 'Italiano';
+    TRuntimePackBuilder.ExportToFile(Catalog,
+      TTranslationWorkspace.RuntimePackFileName(AProfile, 'it-IT'));
+  finally
+    Catalog.Free;
+  end;
+end;
+
+procedure TestTargetIntegration(const AProjectRoot, ASampleDirectory,
+  AProjectFileName, AFormResourceFileName: string);
+var
+  BackupDirectory: string;
+  ChangeSet: TIntegrationChangeSet;
+  FixtureDirectory: string;
+  FormText: string;
+  IntegrationUnitName: string;
+  PackageDirectory: string;
+  Profile: TProjectProfile;
+  ProjectText: string;
+  ResultInfo: TIntegrationApplyResult;
+  SourceText: string;
+begin
+  FixtureDirectory := TPath.Combine(AProjectRoot,
+    'export\TargetIntegrationSmoke\' + ASampleDirectory);
+  CopyFixtureDirectory(TPath.Combine(
+    AProjectRoot, 'samples\' + ASampleDirectory), FixtureDirectory);
+  Profile := TProjectDetector.Detect(TPath.Combine(
+    FixtureDirectory, AProjectFileName));
+  ExportItalianFixturePack(Profile);
+  PackageDirectory := TIntegrationPackageGenerator.Generate(
+    Profile, TPath.Combine(AProjectRoot,
+      'export\TargetIntegrationPackages'),
+    TPath.Combine(AProjectRoot, 'source\runtime'));
+  ChangeSet := TTargetIntegrationEngine.BuildChangeSet(
+    Profile, PackageDirectory, 'mnuLanguage');
+  try
+    Require(ChangeSet.Changes.Count >= 9,
+      'The target integration change set is incomplete.');
+    BackupDirectory := TPath.Combine(AProjectRoot,
+      'export\TargetIntegrationBackups\' + ASampleDirectory + '\First');
+    ResultInfo := TIntegrationTransaction.Apply(
+      ChangeSet, BackupDirectory);
+    try
+      Require(ResultInfo.FilesWritten = ChangeSet.Changes.Count,
+        'The transaction did not write every planned file.');
+    finally
+      ResultInfo.Free;
+    end;
+  finally
+    ChangeSet.Free;
+  end;
+
+  FormText := TFile.ReadAllText(TPath.Combine(
+    FixtureDirectory, AFormResourceFileName));
+  Require(CountTextOccurrences(FormText,
+    'object datLanguage_en_US: TMenuItem') = 1,
+    'The source-language menu item is missing or duplicated.');
+  Require(CountTextOccurrences(FormText,
+    'object datLanguage_it_IT: TMenuItem') = 1,
+    'The Italian menu item is missing or duplicated.');
+  Require(ContainsText(FormText, 'Italiano'),
+    'The native Italian language name was not persisted.');
+
+  SourceText := TFile.ReadAllText(TPath.ChangeExtension(
+    TPath.Combine(FixtureDirectory, AFormResourceFileName), '.pas'));
+  Require(CountTextOccurrences(SourceText,
+    'procedure datLanguageMenuItemClick(Sender: TObject);') = 1,
+    'The form language handler declaration is missing or duplicated.');
+
+  ProjectText := TFile.ReadAllText(TPath.Combine(
+    FixtureDirectory, TPath.ChangeExtension(
+      AProjectFileName, '.dpr')));
+  Require(CountTextOccurrences(ProjectText,
+    'InitializeTranslation;') = 1,
+    'Translation initialization is missing or duplicated.');
+  Require(CountTextOccurrences(ProjectText,
+    'ApplyTranslation(') = 1,
+    'Startup form translation is missing or duplicated.');
+
+  IntegrationUnitName := Profile.ProjectName + '.Translation.pas';
+  Require(TFile.Exists(TPath.Combine(FixtureDirectory,
+    'Localization\Runtime\' + IntegrationUnitName)),
+    'The generated target integration unit is missing.');
+
+  ChangeSet := TTargetIntegrationEngine.BuildChangeSet(
+    Profile, PackageDirectory, 'mnuLanguage');
+  try
+    FormText := ChangeSet.FindChange(TPath.Combine(
+      FixtureDirectory, AFormResourceFileName)).NewText;
+    Require(CountTextOccurrences(FormText,
+      'object datLanguage_it_IT: TMenuItem') = 1,
+      'A repeated integration preview duplicated the Italian menu item.');
+  finally
+    ChangeSet.Free;
+  end;
+
+  TIntegrationTransaction.Restore(
+    FixtureDirectory, BackupDirectory);
+  FormText := TFile.ReadAllText(TPath.Combine(
+    FixtureDirectory, AFormResourceFileName));
+  Require(not ContainsText(FormText, 'datLanguage_it_IT'),
+    'Restore did not remove generated language items.');
+
+  ChangeSet := TTargetIntegrationEngine.BuildChangeSet(
+    Profile, PackageDirectory, 'mnuLanguage');
+  try
+    ResultInfo := TIntegrationTransaction.Apply(ChangeSet,
+      TPath.Combine(AProjectRoot,
+        'export\TargetIntegrationBackups\' + ASampleDirectory + '\Final'));
+    ResultInfo.Free;
+  finally
+    ChangeSet.Free;
+  end;
+end;
+
+procedure TestTransactionalTargetIntegration;
+var
+  ProjectRoot: string;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  TestTargetIntegration(ProjectRoot, 'VCLBasic',
+    'SampleVCLApp.dproj', 'SampleVCL.MainForm.dfm');
+  TestTargetIntegration(ProjectRoot, 'FMXBasic',
+    'SampleFMXApp.dproj', 'SampleFMX.MainForm.fmx');
+end;
+
+procedure TestStudioSelfIntegrationChangeSet;
+var
+  ChangeSet: TIntegrationChangeSet;
+  PackageDirectory: string;
+  Profile: TProjectProfile;
+  ProjectRoot: string;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  Profile := TProjectDetector.Detect(TPath.Combine(
+    ProjectRoot, 'DelphiAppTranslationStudio.dproj'));
+  PackageDirectory := TIntegrationPackageGenerator.Generate(
+    Profile, TPath.Combine(ProjectRoot, 'export\IntegrationSmoke'),
+    TPath.Combine(ProjectRoot, 'source\runtime'));
+  ChangeSet := TTargetIntegrationEngine.BuildChangeSet(
+    Profile, PackageDirectory, 'mnuLanguage');
+  try
+    Require(ChangeSet.Changes.Count = 1,
+      'Studio self-integration should update only its persisted menu.');
+    Require(ChangeSet.Changes[0].Kind = ickFormResource,
+      'Studio self-integration planned an unexpected source change.');
+  finally
+    ChangeSet.Free;
+  end;
+end;
+
 begin
   try
     TestProjectDetection;
@@ -516,6 +720,8 @@ begin
     TestRuntimePack;
     TestRuntimeLoadingAndPreference;
     TestIntegrationPlanningAndPackage;
+    TestTransactionalTargetIntegration;
+    TestStudioSelfIntegrationChangeSet;
     Writeln('Foundation, scanner, catalog, runtime, validation, and export tests passed.');
   except
     on E: Exception do

@@ -24,10 +24,17 @@ uses
   DAT.Runtime.Manager in 'source\runtime\DAT.Runtime.Manager.pas',
   DAT.Runtime.FMX in 'source\runtime\DAT.Runtime.FMX.pas',
   DAT.Integration.Plan in 'source\integration\DAT.Integration.Plan.pas',
-  DAT.Integration.Package in 'source\integration\DAT.Integration.Package.pas';
+  DAT.Integration.Package in 'source\integration\DAT.Integration.Package.pas',
+  DAT.Integration.Types in 'source\integration\DAT.Integration.Types.pas',
+  DAT.Integration.MenuResource in 'source\integration\DAT.Integration.MenuResource.pas',
+  DAT.Integration.DelphiSource in 'source\integration\DAT.Integration.DelphiSource.pas',
+  DAT.Integration.Transaction in 'source\integration\DAT.Integration.Transaction.pas',
+  DAT.Integration.Engine in 'source\integration\DAT.Integration.Engine.pas',
+  DAT.Studio.Translation in 'source\studio\DAT.Studio.Translation.pas';
 
 begin
   Application.Initialize;
+  InitializeStudioTranslation;
   Application.CreateForm(TfrmTranslationStudio, frmTranslationStudio);
   Application.Run;
 end.

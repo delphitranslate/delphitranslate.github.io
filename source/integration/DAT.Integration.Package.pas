@@ -81,6 +81,7 @@ begin
     'procedure InitializeTranslation;' + sLineBreak +
     'procedure ApplyTranslation(const AForm: ' + FormType + ');' + sLineBreak +
     'function SelectLanguage(const ALanguageCode: string): Boolean;' + sLineBreak +
+    'function SelectLanguageMenuItem(const AMenuItemName: string): Boolean;' + sLineBreak +
     'function TranslateText(const AKey, AFallbackText: string): string;' + sLineBreak +
     'function TranslationRuntime: TTranslationRuntime;' + sLineBreak + sLineBreak +
     'implementation' + sLineBreak + sLineBreak +
@@ -120,6 +121,16 @@ begin
     'begin' + sLineBreak +
     '  Result := (ApplicationTranslationRuntime <> nil) and' + sLineBreak +
     '    ApplicationTranslationRuntime.LoadLanguage(ALanguageCode);' + sLineBreak +
+    'end;' + sLineBreak + sLineBreak +
+    'function SelectLanguageMenuItem(const AMenuItemName: string): Boolean;' + sLineBreak +
+    'var' + sLineBreak +
+    '  LanguageCode: string;' + sLineBreak +
+    'begin' + sLineBreak +
+    '  LanguageCode := Copy(AMenuItemName, Length(''datLanguage_'') + 1,' +
+      ' MaxInt);' + sLineBreak +
+    '  LanguageCode := StringReplace(LanguageCode, ''_'', ''-'',' +
+      ' [rfReplaceAll]);' + sLineBreak +
+    '  Result := SelectLanguage(LanguageCode);' + sLineBreak +
     'end;' + sLineBreak + sLineBreak +
     'function TranslateText(const AKey, AFallbackText: string): string;' + sLineBreak +
     'begin' + sLineBreak +

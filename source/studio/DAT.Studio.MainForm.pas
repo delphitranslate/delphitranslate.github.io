@@ -14,13 +14,18 @@ uses
   FMX.Edit,
   FMX.Memo,
   FMX.Dialogs,
+  FMX.Menus,
   DAT.Core.Types,
+  DAT.Integration.Types,
   DAT.Scan.Types,
   DAT.Validation.Catalog, FMX.Memo.Types, FMX.ScrollBox,
   FMX.Controls.Presentation;
 
 type
   TfrmTranslationStudio = class(TForm)
+    MainMenuBar: TMenuBar;
+    mnuLanguage: TMenuItem;
+    datLanguage_en_US: TMenuItem;
     RootLayout: TLayout;
     HeaderBackground: TRectangle;
     HeaderAccent: TRectangle;
@@ -110,6 +115,8 @@ type
     lblIntegrationSummary: TLabel;
     btnGenerateIntegrationPackage: TButton;
     lblIntegrationOutput: TLabel;
+    btnApplyIntegration: TButton;
+    btnRestoreIntegration: TButton;
     dlgOpenProject: TOpenDialog;
     dlgOpenCatalog: TOpenDialog;
     procedure btnOpenProjectClick(Sender: TObject);
@@ -128,11 +135,18 @@ type
     procedure lblNavigationIntegrationClick(Sender: TObject);
     procedure btnBuildIntegrationPlanClick(Sender: TObject);
     procedure btnGenerateIntegrationPackageClick(Sender: TObject);
+    procedure btnApplyIntegrationClick(Sender: TObject);
+    procedure btnRestoreIntegrationClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure datLanguageMenuItemClick(Sender: TObject);
   private
     FProjectProfile: TProjectProfile;
     FScanResult: TProjectScanResult;
     FTranslationCatalog: TTranslationCatalog;
     FValidationResult: TCatalogValidationResult;
+    FIntegrationChangeSet: TIntegrationChangeSet;
+    FIntegrationPackageDirectory: string;
+    FLastIntegrationBackupDirectory: string;
     FCatalogFileName: string;
     procedure ClearProjectSummary;
     procedure ClearScanSummary;
@@ -166,10 +180,27 @@ uses
   DAT.Core.TranslationWorkspace,
   DAT.Integration.Package,
   DAT.Integration.Plan,
+  DAT.Integration.Engine,
+  DAT.Integration.Transaction,
+  DAT.Studio.Translation,
   DAT.Scan.CatalogMerge,
   DAT.Scan.Project;
 
 {$R *.fmx}
+
+procedure TfrmTranslationStudio.FormCreate(Sender: TObject);
+begin
+  ApplyStudioTranslation(Self);
+end;
+
+procedure TfrmTranslationStudio.datLanguageMenuItemClick(Sender: TObject);
+begin
+  if SelectStudioLanguageMenuItem(TComponent(Sender).Name) then
+    lblStatus.Text :=
+      'Language preference saved. Restart the Studio to apply it.'
+  else
+    lblStatus.Text := 'Unable to select the requested language.';
+end;
 
 procedure TfrmTranslationStudio.ClearProjectSummary;
 begin
@@ -182,6 +213,11 @@ begin
   btnScanProject.Enabled := False;
   btnBuildIntegrationPlan.Enabled := False;
   btnGenerateIntegrationPackage.Enabled := False;
+  btnApplyIntegration.Enabled := False;
+  btnRestoreIntegration.Enabled := False;
+  FreeAndNil(FIntegrationChangeSet);
+  FIntegrationPackageDirectory := '';
+  FLastIntegrationBackupDirectory := '';
   lstIntegrationPlan.Items.Clear;
   lblIntegrationSummary.Text := 'Open a Delphi project to build a plan.';
   lblIntegrationOutput.Text := 'Generated package path will appear here.';
@@ -202,6 +238,7 @@ end;
 destructor TfrmTranslationStudio.Destroy;
 begin
   FValidationResult.Free;
+  FIntegrationChangeSet.Free;
   FTranslationCatalog.Free;
   FScanResult.Free;
   inherited Destroy;
@@ -618,6 +655,7 @@ end;
 procedure TfrmTranslationStudio.btnGenerateIntegrationPackageClick(
   Sender: TObject);
 var
+  Change: TIntegrationFileChange;
   OutputDirectory: string;
   StudioProjectRoot: string;
 begin
@@ -627,12 +665,78 @@ begin
       FProjectProfile,
       TPath.Combine(StudioProjectRoot, 'export\integration'),
       TPath.Combine(StudioProjectRoot, 'source\runtime'));
+    FIntegrationPackageDirectory := OutputDirectory;
+    FreeAndNil(FIntegrationChangeSet);
+    FIntegrationChangeSet := TTargetIntegrationEngine.BuildChangeSet(
+      FProjectProfile, FIntegrationPackageDirectory,
+      edtLanguageMenuName.Text);
+    lstIntegrationPlan.Items.Clear;
+    for Change in FIntegrationChangeSet.Changes do
+      lstIntegrationPlan.Items.Add(Format('%s  |  %s',
+        [IntegrationChangeKindDisplayName(Change.Kind),
+         Change.TargetFileName]));
     lblIntegrationOutput.Text := OutputDirectory;
+    lblIntegrationSummary.Text := Format(
+      '%d target file change(s) are ready for review.',
+      [FIntegrationChangeSet.Changes.Count]);
+    btnApplyIntegration.Enabled := True;
     lblStatus.Text :=
-      'Reviewable integration package generated. Target source is unchanged.';
+      'Exact integration preview ready. Target source is unchanged.';
   except
     on E: Exception do
       lblStatus.Text := 'Unable to generate integration package: ' + E.Message;
+  end;
+end;
+
+procedure TfrmTranslationStudio.btnApplyIntegrationClick(Sender: TObject);
+var
+  ApplyResult: TIntegrationApplyResult;
+begin
+  if FIntegrationChangeSet = nil then
+  begin
+    lblStatus.Text := 'Generate and review an integration package first.';
+    Exit;
+  end;
+  btnApplyIntegration.Enabled := False;
+  try
+    ApplyResult := TIntegrationTransaction.Apply(FIntegrationChangeSet);
+    try
+      FLastIntegrationBackupDirectory := ApplyResult.BackupDirectory;
+      lblIntegrationOutput.Text := Format(
+        '%d files written. Backup: %s',
+        [ApplyResult.FilesWritten, ApplyResult.BackupDirectory]);
+      lblStatus.Text :=
+        'Target integration completed. Reopen and build the target project.';
+      btnRestoreIntegration.Enabled := True;
+    finally
+      ApplyResult.Free;
+    end;
+  except
+    on E: Exception do
+    begin
+      btnApplyIntegration.Enabled := True;
+      lblStatus.Text := 'Integration failed and was rolled back: ' + E.Message;
+    end;
+  end;
+end;
+
+procedure TfrmTranslationStudio.btnRestoreIntegrationClick(Sender: TObject);
+begin
+  if FLastIntegrationBackupDirectory = '' then
+  begin
+    lblStatus.Text := 'No integration backup is available in this session.';
+    Exit;
+  end;
+  try
+    TIntegrationTransaction.Restore(
+      TPath.GetDirectoryName(FProjectProfile.ProjectFileName),
+      FLastIntegrationBackupDirectory);
+    btnRestoreIntegration.Enabled := False;
+    btnApplyIntegration.Enabled := False;
+    lblStatus.Text := 'The target project was restored from its backup.';
+  except
+    on E: Exception do
+      lblStatus.Text := 'Unable to restore integration backup: ' + E.Message;
   end;
 end;
 
