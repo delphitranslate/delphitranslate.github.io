@@ -320,3 +320,18 @@ status, automatic form-property coverage, and confirmed manual
 `resourcestring` wiring are displayed independently. Help, release records,
 Word guides, PDFs, and the source distribution are aligned to the proven
 offline-first behavior.
+
+## Automatic Agent and Maximized UI Completion
+
+The final user-workflow correction replaces prompt handoff as the normal path
+with direct execution of an installed, signed-in Codex CLI or Claude Code
+agent. Translate Automatically now creates the recovery boundary, launches the
+agent, monitors completion, safely adopts in-place translations, auto-saves,
+and validates. Engine Settings provides list-based engine/model selection,
+detection, browsing, and installation checking; provider APIs remain optional.
+
+The FMX form now starts maximized and all seven designer-authored workflow
+pages use the available desktop area with client alignment and responsive
+anchors. Visual page-fit review and all Win32/Win64 Debug/Release builds,
+runtime suites, launch tests, and self-localization tests passed on August 7,
+2026.

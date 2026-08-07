@@ -27,7 +27,8 @@ editing remain specialist and fallback paths.
 
 ## Group 2 — Safe In-Place Sessions
 
-- Designer-authored Begin AI Mode, Copy Prompt, and Reload AI Work controls.
+- Designer-authored Translate Automatically, Cancel Translation, Prompt, and
+  Reload controls.
 - Exact pre-session recovery snapshot.
 - Studio editing and saving locked during the external session.
 - SHA-256 file fingerprint recorded at load/save/start.
@@ -88,8 +89,25 @@ configurations, and self-localized to Italian in all four configurations.
 ## Deliberate Boundaries
 
 - The Studio does not embed or impersonate Codex or Claude.
-- A developer gives the copied prompt to an already available workspace agent.
-- Launching a locally installed Codex CLI or Claude Code command can be added
-  later as an optional adapter after command/authentication behavior is agreed.
+- The Studio now launches a separately installed Codex CLI or Claude Code
+  command. The developer installs and signs in to that command using the
+  vendor's supported authentication flow.
+- The normal path is one button: Translate Automatically. The Studio supplies
+  the contract through standard input, monitors the child process, verifies
+  protected fields, adopts safe AI Draft changes, saves, and validates.
+- Prompt and Reload remain recovery controls. They are not required during a
+  successful automatic run.
+- The Studio stores the engine, executable path, and model selection. It does
+  not store the agent's authentication token.
 - The target application never receives agent credentials, provider keys, or
   runtime Internet behavior.
+
+## Maximized Professional UI Revision
+
+The Studio starts maximized. Every workflow card is designer-authored and
+client-aligned, resizable lists and memos are anchored to the appropriate page
+edges, and the status card remains visible at the bottom. The Translate page
+uses built-in source/target language lists and automatic locale defaults.
+Engine Settings combines the primary Codex/Claude command configuration with
+the optional Google/DeepL provider configuration. A visual audit confirmed
+that all seven pages fit at 1600x900 without bottom clipping.

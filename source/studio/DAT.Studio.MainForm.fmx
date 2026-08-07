@@ -7,6 +7,7 @@ object frmTranslationStudio: TfrmTranslationStudio
   Fill.Color = xFFF2F7FD
   Fill.Kind = Solid
   Position = ScreenCenter
+  WindowState = wsMaximized
   FormFactor.Width = 320
   FormFactor.Height = 480
   FormFactor.Devices = [Desktop]
@@ -36,21 +37,21 @@ object frmTranslationStudio: TfrmTranslationStudio
       Align = Top
       Fill.Color = xFF234C80
       Size.Width = 1220.000000000000000000
-      Size.Height = 116.000000000000000000
+      Size.Height = 96.000000000000000000
       Size.PlatformDefault = False
       Stroke.Kind = None
       object HeaderAccent: TRectangle
         Align = Left
         Fill.Color = xFFFF8800
         Size.Width = 12.000000000000000000
-        Size.Height = 116.000000000000000000
+        Size.Height = 96.000000000000000000
         Size.PlatformDefault = False
         Stroke.Kind = None
       end
       object lblApplicationTitle: TLabel
         StyledSettings = []
         Position.X = 42.000000000000000000
-        Position.Y = 22.000000000000000000
+        Position.Y = 14.000000000000000000
         Size.Width = 520.000000000000000000
         Size.Height = 42.000000000000000000
         Size.PlatformDefault = False
@@ -62,7 +63,7 @@ object frmTranslationStudio: TfrmTranslationStudio
       object lblApplicationSubtitle: TLabel
         StyledSettings = []
         Position.X = 44.000000000000000000
-        Position.Y = 68.000000000000000000
+        Position.Y = 58.000000000000000000
         Size.Width = 750.000000000000000000
         Size.Height = 26.000000000000000000
         Size.PlatformDefault = False
@@ -75,10 +76,10 @@ object frmTranslationStudio: TfrmTranslationStudio
     end
     object BodyLayout: TLayout
       Align = Client
-      Margins.Left = 22.000000000000000000
-      Margins.Top = 22.000000000000000000
-      Margins.Right = 22.000000000000000000
-      Margins.Bottom = 22.000000000000000000
+      Margins.Left = 16.000000000000000000
+      Margins.Top = 16.000000000000000000
+      Margins.Right = 16.000000000000000000
+      Margins.Bottom = 16.000000000000000000
       Size.Width = 1176.000000000000000000
       Size.Height = 600.000000000000000000
       Size.PlatformDefault = False
@@ -204,7 +205,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
-            Text = 'Provider Settings'
+            Text = '7  Engine Settings'
           OnClick = lblNavigationSettingsClick
         end
       end
@@ -237,6 +238,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Open a Delphi application'
           end
           object lblProjectCardDescription: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 30.000000000000000000
             Position.Y = 67.000000000000000000
@@ -250,6 +252,7 @@ object frmTranslationStudio: TfrmTranslationStudio
               'reMonkey and inventory the project without changing it.'
           end
           object btnOpenProject: TButton
+            Anchors = [akTop, akRight]
             Position.X = 694.000000000000000000
             Position.Y = 50.000000000000000000
             Size.Width = 180.000000000000000000
@@ -261,7 +264,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
         end
         object ProjectDetailsCard: TRectangle
-          Align = Top
+          Align = Client
           Fill.Color = xFFF8FBFF
           Margins.Top = 18.000000000000000000
           Position.Y = 174.000000000000000000
@@ -388,6 +391,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = '-'
           end
           object DetailsDivider: TRectangle
+            Anchors = [akTop, akBottom]
             Fill.Color = xFFD7E5F6
             Position.X = 420.000000000000000000
             Position.Y = 22.000000000000000000
@@ -397,6 +401,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Stroke.Kind = None
           end
           object btnScanProject: TButton
+            Anchors = [akTop, akRight]
             Enabled = False
             Position.X = 698.000000000000000000
             Position.Y = 22.000000000000000000
@@ -420,6 +425,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'SCAN RESULTS'
           end
           object lblScanSummaryValue: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 450.000000000000000000
             Position.Y = 70.000000000000000000
@@ -432,6 +438,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'No scan has been run'
           end
           object lblScanBreakdown: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 450.000000000000000000
             Position.Y = 98.000000000000000000
@@ -442,6 +449,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Open a project, then scan its forms and resourcestrings.'
           end
           object lstScanResults: TListBox
+            Anchors = [akLeft, akTop, akRight, akBottom]
             Position.X = 450.000000000000000000
             Position.Y = 126.000000000000000000
             Size.Width = 428.000000000000000000
@@ -488,7 +496,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
         end
         object LanguagePageCard: TRectangle
-          Align = Top
+          Align = Client
           Fill.Color = claWhite
           Size.Width = 916.000000000000000000
           Size.Height = 504.000000000000000000
@@ -498,6 +506,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           XRadius = 18.000000000000000000
           YRadius = 18.000000000000000000
           object lblLanguagePageTitle: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 26.000000000000000000
             Position.Y = 18.000000000000000000
@@ -517,36 +526,122 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.PlatformDefault = False
             Text = 'Source language'
           end
-          object edtSourceLanguage: TEdit
-            Touch.InteractiveGestures = [LongTap, DoubleTap]
+          object cboSourceLanguage: TComboBox
             TabOrder = 0
-            Text = 'en-US'
+            ItemIndex = 9
             Position.X = 26.000000000000000000
             Position.Y = 80.000000000000000000
-            Size.Width = 120.000000000000000000
+            Size.Width = 170.000000000000000000
             Size.Height = 32.000000000000000000
             Size.PlatformDefault = False
+            Items.Strings = (
+              'Arabic (Saudi Arabia) / العربية [ar-SA]'
+              'Bulgarian / Български [bg-BG]'
+              'Chinese (Simplified) / 简体中文 [zh-CN]'
+              'Chinese (Traditional) / 繁體中文 [zh-TW]'
+              'Croatian / Hrvatski [hr-HR]'
+              'Czech / Čeština [cs-CZ]'
+              'Danish / Dansk [da-DK]'
+              'Dutch / Nederlands [nl-NL]'
+              'English (United Kingdom) / English [en-GB]'
+              'English (United States) / English [en-US]'
+              'Estonian / Eesti [et-EE]'
+              'Finnish / Suomi [fi-FI]'
+              'French (Canada) / Français [fr-CA]'
+              'French (France) / Français [fr-FR]'
+              'German / Deutsch [de-DE]'
+              'Greek / Ελληνικά [el-GR]'
+              'Hebrew / עברית [he-IL]'
+              'Hindi / हिन्दी [hi-IN]'
+              'Hungarian / Magyar [hu-HU]'
+              'Indonesian / Bahasa Indonesia [id-ID]'
+              'Italian / Italiano [it-IT]'
+              'Japanese / 日本語 [ja-JP]'
+              'Korean / 한국어 [ko-KR]'
+              'Latvian / Latviešu [lv-LV]'
+              'Lithuanian / Lietuvių [lt-LT]'
+              'Norwegian Bokmål / Norsk bokmål [nb-NO]'
+              'Persian / فارسی [fa-IR]'
+              'Polish / Polski [pl-PL]'
+              'Portuguese (Brazil) / Português [pt-BR]'
+              'Portuguese (Portugal) / Português [pt-PT]'
+              'Romanian / Română [ro-RO]'
+              'Russian / Русский [ru-RU]'
+              'Serbian (Latin) / Srpski [sr-Latn-RS]'
+              'Slovak / Slovenčina [sk-SK]'
+              'Slovenian / Slovenščina [sl-SI]'
+              'Spanish (Mexico) / Español [es-MX]'
+              'Spanish (Spain) / Español [es-ES]'
+              'Swedish / Svenska [sv-SE]'
+              'Thai / ไทย [th-TH]'
+              'Turkish / Türkçe [tr-TR]'
+              'Ukrainian / Українська [uk-UA]'
+              'Urdu / اردو [ur-PK]'
+              'Vietnamese / Tiếng Việt [vi-VN]')
           end
           object lblTargetLanguageCode: TLabel
-            Position.X = 158.000000000000000000
+            Position.X = 208.000000000000000000
             Position.Y = 58.000000000000000000
             Size.Width = 120.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
-            Text = 'Target code'
+            Text = 'Target language'
           end
-          object edtTargetLanguageCode: TEdit
-            Touch.InteractiveGestures = [LongTap, DoubleTap]
+          object cboTargetLanguage: TComboBox
             TabOrder = 1
-            Position.X = 158.000000000000000000
+            Position.X = 208.000000000000000000
             Position.Y = 80.000000000000000000
-            Size.Width = 120.000000000000000000
+            Size.Width = 200.000000000000000000
             Size.Height = 32.000000000000000000
             Size.PlatformDefault = False
-            TextPrompt = 'de-DE'
+            OnChange = cboTargetLanguageChange
+            Items.Strings = (
+              'Arabic (Saudi Arabia) / العربية [ar-SA]'
+              'Bulgarian / Български [bg-BG]'
+              'Chinese (Simplified) / 简体中文 [zh-CN]'
+              'Chinese (Traditional) / 繁體中文 [zh-TW]'
+              'Croatian / Hrvatski [hr-HR]'
+              'Czech / Čeština [cs-CZ]'
+              'Danish / Dansk [da-DK]'
+              'Dutch / Nederlands [nl-NL]'
+              'English (United Kingdom) / English [en-GB]'
+              'English (United States) / English [en-US]'
+              'Estonian / Eesti [et-EE]'
+              'Finnish / Suomi [fi-FI]'
+              'French (Canada) / Français [fr-CA]'
+              'French (France) / Français [fr-FR]'
+              'German / Deutsch [de-DE]'
+              'Greek / Ελληνικά [el-GR]'
+              'Hebrew / עברית [he-IL]'
+              'Hindi / हिन्दी [hi-IN]'
+              'Hungarian / Magyar [hu-HU]'
+              'Indonesian / Bahasa Indonesia [id-ID]'
+              'Italian / Italiano [it-IT]'
+              'Japanese / 日本語 [ja-JP]'
+              'Korean / 한국어 [ko-KR]'
+              'Latvian / Latviešu [lv-LV]'
+              'Lithuanian / Lietuvių [lt-LT]'
+              'Norwegian Bokmål / Norsk bokmål [nb-NO]'
+              'Persian / فارسی [fa-IR]'
+              'Polish / Polski [pl-PL]'
+              'Portuguese (Brazil) / Português [pt-BR]'
+              'Portuguese (Portugal) / Português [pt-PT]'
+              'Romanian / Română [ro-RO]'
+              'Russian / Русский [ru-RU]'
+              'Serbian (Latin) / Srpski [sr-Latn-RS]'
+              'Slovak / Slovenčina [sk-SK]'
+              'Slovenian / Slovenščina [sl-SI]'
+              'Spanish (Mexico) / Español [es-MX]'
+              'Spanish (Spain) / Español [es-ES]'
+              'Swedish / Svenska [sv-SE]'
+              'Thai / ไทย [th-TH]'
+              'Turkish / Türkçe [tr-TR]'
+              'Ukrainian / Українська [uk-UA]'
+              'Urdu / اردو [ur-PK]'
+              'Vietnamese / Tiếng Việt [vi-VN]')
           end
           object lblNativeLanguageName: TLabel
-            Position.X = 290.000000000000000000
+            Position.X = 420.000000000000000000
             Position.Y = 58.000000000000000000
             Size.Width = 150.000000000000000000
             Size.Height = 20.000000000000000000
@@ -556,7 +651,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           object edtNativeLanguageName: TEdit
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             TabOrder = 2
-            Position.X = 290.000000000000000000
+            Position.X = 420.000000000000000000
             Position.Y = 80.000000000000000000
             Size.Width = 160.000000000000000000
             Size.Height = 32.000000000000000000
@@ -564,41 +659,45 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextPrompt = 'Deutsch'
           end
           object lblTextDirection: TLabel
-            Position.X = 462.000000000000000000
+            Position.X = 592.000000000000000000
             Position.Y = 58.000000000000000000
             Size.Width = 100.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
             Text = 'Direction'
           end
-          object edtTextDirection: TEdit
-            Touch.InteractiveGestures = [LongTap, DoubleTap]
+          object cboTextDirection: TComboBox
             TabOrder = 3
-            Text = 'ltr'
-            Position.X = 462.000000000000000000
+            ItemIndex = 0
+            Position.X = 592.000000000000000000
             Position.Y = 80.000000000000000000
             Size.Width = 92.000000000000000000
             Size.Height = 32.000000000000000000
             Size.PlatformDefault = False
+            Items.Strings = (
+              'Left-to-right (ltr)'
+              'Right-to-left (rtl)')
           end
           object btnOpenCatalog: TButton
-            Position.X = 574.000000000000000000
+            Anchors = [akTop, akRight]
+            Position.X = 696.000000000000000000
             Position.Y = 76.000000000000000000
-            Size.Width = 140.000000000000000000
+            Size.Width = 90.000000000000000000
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 4
-            Text = 'Open Catalog...'
+            Text = 'Open...'
             OnClick = btnOpenCatalogClick
           end
           object btnSaveCatalog: TButton
-            Position.X = 726.000000000000000000
+            Anchors = [akTop, akRight]
+            Position.X = 794.000000000000000000
             Position.Y = 76.000000000000000000
-            Size.Width = 160.000000000000000000
+            Size.Width = 92.000000000000000000
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 5
-            Text = 'Create / Save'
+            Text = 'Save'
             OnClick = btnSaveCatalogClick
           end
           object edtShortDateFormat: TEdit
@@ -672,10 +771,11 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextPrompt = 'Currency'
           end
           object lblCatalogPathValue: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 26.000000000000000000
             Position.Y = 162.000000000000000000
-            Size.Width = 250.000000000000000000
+            Size.Width = 350.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 11.000000000000000000
@@ -683,58 +783,59 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Catalog has not been saved.'
           end
           object btnBeginAITranslation: TButton
-            Position.X = 286.000000000000000000
+            Position.X = 384.000000000000000000
             Position.Y = 156.000000000000000000
-            Size.Width = 134.000000000000000000
+            Size.Width = 170.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 13
-            Text = 'Begin AI Mode'
+            Text = 'Translate Automatically'
             OnClick = btnBeginAITranslationClick
           end
           object btnCopyAIInstructions: TButton
             Enabled = False
-            Position.X = 428.000000000000000000
+            Position.X = 562.000000000000000000
             Position.Y = 156.000000000000000000
-            Size.Width = 112.000000000000000000
+            Size.Width = 80.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 14
-            Text = 'Copy Prompt'
+            Text = 'Prompt'
             OnClick = btnCopyAIInstructionsClick
           end
           object btnReloadAITranslation: TButton
             Enabled = False
-            Position.X = 548.000000000000000000
+            Position.X = 650.000000000000000000
             Position.Y = 156.000000000000000000
-            Size.Width = 132.000000000000000000
+            Size.Width = 80.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 15
-            Text = 'Reload AI Work'
+            Text = 'Reload'
             OnClick = btnReloadAITranslationClick
           end
           object btnExportCatalogCsv: TButton
-            Position.X = 688.000000000000000000
+            Position.X = 738.000000000000000000
             Position.Y = 156.000000000000000000
-            Size.Width = 92.000000000000000000
+            Size.Width = 70.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 16
-            Text = 'CSV Out...'
+            Text = 'CSV Out'
             OnClick = btnExportCatalogCsvClick
           end
           object btnImportCatalogCsv: TButton
-            Position.X = 788.000000000000000000
+            Position.X = 816.000000000000000000
             Position.Y = 156.000000000000000000
-            Size.Width = 98.000000000000000000
+            Size.Width = 70.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 17
-            Text = 'CSV In...'
+            Text = 'CSV In'
             OnClick = btnImportCatalogCsvClick
           end
           object lblCatalogReadiness: TLabel
+            Anchors = [akLeft, akBottom]
             StyledSettings = []
             Position.X = 26.000000000000000000
             Position.Y = 450.000000000000000000
@@ -747,6 +848,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             WordWrap = True
           end
           object lstCatalogEntries: TListBox
+            Anchors = [akLeft, akTop, akBottom]
             Position.X = 26.000000000000000000
             Position.Y = 190.000000000000000000
             Size.Width = 394.000000000000000000
@@ -762,6 +864,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Viewport.Height = 212.000000000000000000
           end
           object btnMarkTranslationReviewed: TButton
+            Anchors = [akLeft, akBottom]
             Enabled = False
             Position.X = 26.000000000000000000
             Position.Y = 414.000000000000000000
@@ -773,6 +876,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnClick = btnMarkTranslationReviewedClick
           end
           object btnApproveTranslation: TButton
+            Anchors = [akLeft, akBottom]
             Enabled = False
             Position.X = 230.000000000000000000
             Position.Y = 414.000000000000000000
@@ -784,6 +888,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnClick = btnApproveTranslationClick
           end
           object lblSourceTextEditor: TLabel
+            Anchors = [akLeft, akTop]
             Position.X = 446.000000000000000000
             Position.Y = 190.000000000000000000
             Size.Width = 150.000000000000000000
@@ -792,6 +897,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Source text'
           end
           object lblRuntimeApplicationValue: TLabel
+            Anchors = [akTop, akRight]
             StyledSettings = []
             Position.X = 606.000000000000000000
             Position.Y = 190.000000000000000000
@@ -804,6 +910,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Runtime: select an entry'
           end
           object memSourceText: TMemo
+            Anchors = [akLeft, akTop, akRight]
             Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
             DataDetectorTypes = []
             ReadOnly = True
@@ -817,6 +924,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Viewport.Height = 66.000000000000000000
           end
           object chkRuntimeWiringConfirmed: TCheckBox
+            Anchors = [akLeft, akTop, akRight]
             Enabled = False
             Position.X = 446.000000000000000000
             Position.Y = 286.000000000000000000
@@ -836,6 +944,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Suggestion'
           end
           object cboTranslationSuggestions: TComboBox
+            Anchors = [akLeft, akTop, akRight]
             Position.X = 550.000000000000000000
             Position.Y = 306.000000000000000000
             Size.Width = 210.000000000000000000
@@ -844,6 +953,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             TabOrder = 18
           end
           object btnAcceptSuggestion: TButton
+            Anchors = [akTop, akRight]
             Enabled = False
             Position.X = 770.000000000000000000
             Position.Y = 306.000000000000000000
@@ -863,6 +973,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Translated text'
           end
           object memTranslatedText: TMemo
+            Anchors = [akLeft, akTop, akRight, akBottom]
             Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
             DataDetectorTypes = []
             Position.X = 446.000000000000000000
@@ -875,6 +986,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Viewport.Height = 58.000000000000000000
           end
           object btnApplyTranslation: TButton
+            Anchors = [akRight, akBottom]
             Position.X = 706.000000000000000000
             Position.Y = 438.000000000000000000
             Size.Width = 180.000000000000000000
@@ -885,6 +997,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnClick = btnApplyTranslationClick
           end
           object btnTranslateMissing: TButton
+            Anchors = [akRight, akBottom]
             Position.X = 446.000000000000000000
             Position.Y = 438.000000000000000000
             Size.Width = 242.000000000000000000
@@ -896,7 +1009,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
         end
         object ValidationPageCard: TRectangle
-          Align = Top
+          Align = Client
           Fill.Color = claWhite
           Size.Width = 916.000000000000000000
           Size.Height = 504.000000000000000000
@@ -918,6 +1031,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Validate the language catalog'
           end
           object lblValidationDescription: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 30.000000000000000000
             Position.Y = 65.000000000000000000
@@ -931,6 +1045,7 @@ object frmTranslationStudio: TfrmTranslationStudio
               'urce changes, duplicate keys, and catalog metadata.'
           end
           object btnValidateCatalog: TButton
+            Anchors = [akTop, akRight]
             Position.X = 700.000000000000000000
             Position.Y = 40.000000000000000000
             Size.Width = 180.000000000000000000
@@ -941,6 +1056,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnClick = btnValidateCatalogClick
           end
           object lblValidationSummary: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 30.000000000000000000
             Position.Y = 120.000000000000000000
@@ -953,6 +1069,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Validation has not been run.'
           end
           object lstValidationIssues: TListBox
+            Anchors = [akLeft, akTop, akRight, akBottom]
             Position.X = 30.000000000000000000
             Position.Y = 162.000000000000000000
             Size.Width = 850.000000000000000000
@@ -968,7 +1085,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
         end
         object ExportPageCard: TRectangle
-          Align = Top
+          Align = Client
           Fill.Color = claWhite
           Size.Width = 916.000000000000000000
           Size.Height = 504.000000000000000000
@@ -990,6 +1107,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Build the offline runtime pack'
           end
           object lblExportDescription: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 30.000000000000000000
             Position.Y = 76.000000000000000000
@@ -1004,6 +1122,7 @@ object frmTranslationStudio: TfrmTranslationStudio
               'e reported separately and remain a developer decision.'
           end
           object ExportAccentCard: TRectangle
+            Anchors = [akLeft, akTop, akRight, akBottom]
             Fill.Color = xFFE8F3FF
             Position.X = 30.000000000000000000
             Position.Y = 164.000000000000000000
@@ -1037,6 +1156,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             end
           end
           object btnExportRuntimePack: TButton
+            Anchors = [akRight, akBottom]
             Enabled = False
             Position.X = 680.000000000000000000
             Position.Y = 380.000000000000000000
@@ -1049,7 +1169,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
         end
         object IntegrationPageCard: TRectangle
-          Align = Top
+          Align = Client
           Fill.Color = claWhite
           Size.Width = 916.000000000000000000
           Size.Height = 504.000000000000000000
@@ -1071,6 +1191,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Integrate offline translation'
           end
           object lblIntegrationDescription: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 30.000000000000000000
             Position.Y = 62.000000000000000000
@@ -1114,6 +1235,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnClick = btnBuildIntegrationPlanClick
           end
           object lblIntegrationSummary: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 486.000000000000000000
             Position.Y = 140.000000000000000000
@@ -1125,6 +1247,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Open a Delphi project to build a plan.'
           end
           object lstIntegrationPlan: TListBox
+            Anchors = [akLeft, akTop, akBottom]
             Position.X = 30.000000000000000000
             Position.Y = 190.000000000000000000
             Size.Width = 280.000000000000000000
@@ -1138,6 +1261,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             DefaultItemStyles.GroupFooterStyle = ''
           end
           object lblIntegrationDiffTitle: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 326.000000000000000000
             Position.Y = 170.000000000000000000
@@ -1150,6 +1274,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Exact changes'
           end
           object memIntegrationDiff: TMemo
+            Anchors = [akLeft, akTop, akRight, akBottom]
             Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
             DataDetectorTypes = []
             Position.X = 326.000000000000000000
@@ -1170,6 +1295,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Viewport.Height = 190.000000000000000000
           end
           object chkIntegrationReviewConfirmed: TCheckBox
+            Anchors = [akLeft, akRight, akBottom]
             Enabled = False
             Position.X = 326.000000000000000000
             Position.Y = 392.000000000000000000
@@ -1181,6 +1307,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnChange = chkIntegrationReviewConfirmedChange
           end
           object btnGenerateIntegrationPackage: TButton
+            Anchors = [akRight, akBottom]
             Enabled = False
             Position.X = 430.000000000000000000
             Position.Y = 430.000000000000000000
@@ -1192,6 +1319,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnClick = btnGenerateIntegrationPackageClick
           end
           object lblIntegrationOutput: TLabel
+            Anchors = [akLeft, akBottom]
             StyledSettings = []
             Position.X = 30.000000000000000000
             Position.Y = 410.000000000000000000
@@ -1203,6 +1331,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Generated package path will appear here.'
           end
           object btnApplyIntegration: TButton
+            Anchors = [akRight, akBottom]
             Enabled = False
             Position.X = 644.000000000000000000
             Position.Y = 430.000000000000000000
@@ -1214,6 +1343,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnClick = btnApplyIntegrationClick
           end
           object btnRestoreIntegration: TButton
+            Anchors = [akRight, akBottom]
             Enabled = False
             Position.X = 768.000000000000000000
             Position.Y = 430.000000000000000000
@@ -1226,7 +1356,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
         end
         object SettingsPageCard: TRectangle
-          Align = Top
+          Align = Client
           Fill.Color = claWhite
           Size.Width = 916.000000000000000000
           Size.Height = 504.000000000000000000
@@ -1245,7 +1375,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.Font.Size = 21.000000000000000000
             TextSettings.Font.StyleExt = {00070000000000000004000000}
             TextSettings.FontColor = xFF163A63
-            Text = 'Google and DeepL provider settings'
+            Text = 'Translation engine settings'
           end
           object lblSettingsDescription: TLabel
             StyledSettings = []
@@ -1257,13 +1387,117 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.Font.Size = 13.000000000000000000
             TextSettings.FontColor = xFF365674
             Text =
-              'Use Google or DeepL when a direct provider is preferred. Codex or' +
-              ' Claude can translate the development catalog directly in place ' +
-              'without this key. Target applications remain offline.'
+              'Primary: run an installed, signed-in Codex CLI or Claude Code ag' +
+              'ent. Optional: use Google or DeepL directly with a secured API k' +
+              'ey. Target applications remain completely offline.'
+          end
+          object lblAgentEngine: TLabel
+            Position.X = 30.000000000000000000
+            Position.Y = 108.000000000000000000
+            Size.Width = 150.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Automatic agent'
+          end
+          object cboAgentEngine: TComboBox
+            Position.X = 30.000000000000000000
+            Position.Y = 130.000000000000000000
+            Size.Width = 150.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 0
+            ItemIndex = 0
+            OnChange = cboAgentEngineChange
+            Items.Strings = (
+              'Codex CLI'
+              'Claude Code')
+          end
+          object lblAgentExecutable: TLabel
+            Position.X = 192.000000000000000000
+            Position.Y = 108.000000000000000000
+            Size.Width = 360.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Command-line executable'
+          end
+          object edtAgentExecutable: TEdit
+            Anchors = [akLeft, akTop, akRight]
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            Position.X = 192.000000000000000000
+            Position.Y = 130.000000000000000000
+            Size.Width = 360.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 1
+            TextPrompt = 'Path to codex.cmd, codex.exe, or claude.exe'
+          end
+          object btnBrowseAgentExecutable: TButton
+            Anchors = [akTop, akRight]
+            Position.X = 560.000000000000000000
+            Position.Y = 128.000000000000000000
+            Size.Width = 72.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 2
+            Text = 'Browse'
+            OnClick = btnBrowseAgentExecutableClick
+          end
+          object btnDetectAgent: TButton
+            Anchors = [akTop, akRight]
+            Position.X = 640.000000000000000000
+            Position.Y = 128.000000000000000000
+            Size.Width = 88.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 3
+            Text = 'Detect'
+            OnClick = btnDetectAgentClick
+          end
+          object lblAgentModel: TLabel
+            Anchors = [akTop, akRight]
+            Position.X = 738.000000000000000000
+            Position.Y = 108.000000000000000000
+            Size.Width = 148.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Model'
+          end
+          object cboAgentModel: TComboBox
+            Anchors = [akTop, akRight]
+            Position.X = 738.000000000000000000
+            Position.Y = 130.000000000000000000
+            Size.Width = 148.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 4
+            ItemIndex = 0
+            Items.Strings = (
+              'Default')
+          end
+          object btnTestAgent: TButton
+            Position.X = 30.000000000000000000
+            Position.Y = 174.000000000000000000
+            Size.Width = 150.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 5
+            Text = 'Check Installation'
+            OnClick = btnTestAgentClick
+          end
+          object lblAgentStatus: TLabel
+            Anchors = [akLeft, akTop, akRight]
+            StyledSettings = []
+            Position.X = 192.000000000000000000
+            Position.Y = 174.000000000000000000
+            Size.Width = 694.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.FontColor = xFF365674
+            Text = 'No command-line agent is configured.'
           end
           object lblProviderName: TLabel
             Position.X = 30.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 220.000000000000000000
             Size.Width = 190.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -1271,7 +1505,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object cboTranslationProvider: TComboBox
             Position.X = 30.000000000000000000
-            Position.Y = 148.000000000000000000
+            Position.Y = 242.000000000000000000
             Size.Width = 250.000000000000000000
             Size.Height = 34.000000000000000000
             Size.PlatformDefault = False
@@ -1284,7 +1518,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object lblDeepLPlan: TLabel
             Position.X = 300.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 220.000000000000000000
             Size.Width = 190.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -1292,7 +1526,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object cboDeepLPlan: TComboBox
             Position.X = 300.000000000000000000
-            Position.Y = 148.000000000000000000
+            Position.Y = 242.000000000000000000
             Size.Width = 180.000000000000000000
             Size.Height = 34.000000000000000000
             Size.PlatformDefault = False
@@ -1304,7 +1538,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object lblRequestTimeout: TLabel
             Position.X = 500.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 220.000000000000000000
             Size.Width = 150.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -1313,7 +1547,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           object edtRequestTimeout: TEdit
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             Position.X = 500.000000000000000000
-            Position.Y = 148.000000000000000000
+            Position.Y = 242.000000000000000000
             Size.Width = 130.000000000000000000
             Size.Height = 34.000000000000000000
             Size.PlatformDefault = False
@@ -1323,7 +1557,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object lblBatchSize: TLabel
             Position.X = 650.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 220.000000000000000000
             Size.Width = 150.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -1332,7 +1566,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           object edtProviderBatchSize: TEdit
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             Position.X = 650.000000000000000000
-            Position.Y = 148.000000000000000000
+            Position.Y = 242.000000000000000000
             Size.Width = 130.000000000000000000
             Size.Height = 34.000000000000000000
             Size.PlatformDefault = False
@@ -1342,18 +1576,19 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object lblProviderApiKey: TLabel
             Position.X = 30.000000000000000000
-            Position.Y = 206.000000000000000000
+            Position.Y = 288.000000000000000000
             Size.Width = 250.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
             Text = 'API key (masked)'
           end
           object edtProviderApiKey: TEdit
+            Anchors = [akLeft, akTop, akRight]
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             Password = True
             Position.X = 30.000000000000000000
-            Position.Y = 228.000000000000000000
-            Size.Width = 750.000000000000000000
+            Position.Y = 310.000000000000000000
+            Size.Width = 856.000000000000000000
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 4
@@ -1362,7 +1597,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           object chkRememberCredential: TCheckBox
             IsChecked = True
             Position.X = 30.000000000000000000
-            Position.Y = 282.000000000000000000
+            Position.Y = 356.000000000000000000
             Size.Width = 350.000000000000000000
             Size.Height = 24.000000000000000000
             Size.PlatformDefault = False
@@ -1370,11 +1605,12 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Remember securely on this computer'
           end
           object lblCredentialExplanation: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
-            Position.X = 30.000000000000000000
-            Position.Y = 312.000000000000000000
-            Size.Width = 850.000000000000000000
-            Size.Height = 48.000000000000000000
+            Position.X = 390.000000000000000000
+            Position.Y = 352.000000000000000000
+            Size.Width = 496.000000000000000000
+            Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 12.000000000000000000
             TextSettings.FontColor = xFF365674
@@ -1385,9 +1621,9 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object btnSaveProviderKey: TButton
             Position.X = 30.000000000000000000
-            Position.Y = 376.000000000000000000
+            Position.Y = 398.000000000000000000
             Size.Width = 190.000000000000000000
-            Size.Height = 42.000000000000000000
+            Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 6
             Text = 'Replace / Save Key'
@@ -1395,9 +1631,9 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object btnTestProviderConnection: TButton
             Position.X = 236.000000000000000000
-            Position.Y = 376.000000000000000000
+            Position.Y = 398.000000000000000000
             Size.Width = 180.000000000000000000
-            Size.Height = 42.000000000000000000
+            Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 7
             Text = 'Test Connection'
@@ -1405,18 +1641,19 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object btnRemoveProviderKey: TButton
             Position.X = 432.000000000000000000
-            Position.Y = 376.000000000000000000
+            Position.Y = 398.000000000000000000
             Size.Width = 150.000000000000000000
-            Size.Height = 42.000000000000000000
+            Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 8
             Text = 'Remove Key'
             OnClick = btnRemoveProviderKeyClick
           end
           object lblCredentialStatus: TLabel
+            Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 30.000000000000000000
-            Position.Y = 438.000000000000000000
+            Position.Y = 448.000000000000000000
             Size.Width = 850.000000000000000000
             Size.Height = 32.000000000000000000
             Size.PlatformDefault = False
@@ -1461,6 +1698,14 @@ object frmTranslationStudio: TfrmTranslationStudio
       ofEnableSizing]
     Title = 'Export translation CSV'
     Left = 912
+    Top = 52
+  end
+  object dlgAgentExecutable: TOpenDialog
+    Filter =
+      'Command-line programs (*.exe;*.cmd;*.bat)|*.exe;*.cmd;*.bat|All files (*.*)|*.*'
+    Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
+    Title = 'Select Codex CLI or Claude Code executable'
+    Left = 784
     Top = 52
   end
   object tmrAITranslation: TTimer

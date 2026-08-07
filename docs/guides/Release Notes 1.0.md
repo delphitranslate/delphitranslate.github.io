@@ -73,3 +73,15 @@ version 1.0.
 Optional provider connectivity depends on third-party accounts, billing,
 quotas, network access, and current service terms; it is not required for the
 core workflow.
+
+## Automatic Agent and UI Update
+
+- Added one-button automatic in-place translation through an installed,
+  signed-in Codex CLI or Claude Code command.
+- Added safe child-process monitoring, diagnostic logs, automatic protected
+  reload/save/validation, cancellation, and exact snapshot restoration.
+- Added Engine Settings with engine/model lists, executable detection,
+  browsing, and installation checks; agent credentials remain vendor-owned.
+- Added built-in source and target language lists with locale defaults.
+- The Studio now starts maximized. All seven designer-authored pages expand
+  professionally and passed visual fit review without bottom clipping.

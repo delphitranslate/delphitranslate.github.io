@@ -19,6 +19,7 @@ uses
   DAT.Integration.Types,
   DAT.Provider.Settings,
   DAT.Provider.Types,
+  DAT.Agent.Execution,
   DAT.Scan.Types,
   DAT.Validation.Catalog, FMX.Memo.Types, FMX.ScrollBox,
   FMX.Controls.Presentation;
@@ -72,13 +73,13 @@ type
     LanguagePageCard: TRectangle;
     lblLanguagePageTitle: TLabel;
     lblSourceLanguage: TLabel;
-    edtSourceLanguage: TEdit;
+    cboSourceLanguage: TComboBox;
     lblTargetLanguageCode: TLabel;
-    edtTargetLanguageCode: TEdit;
+    cboTargetLanguage: TComboBox;
     lblNativeLanguageName: TLabel;
     edtNativeLanguageName: TEdit;
     lblTextDirection: TLabel;
-    edtTextDirection: TEdit;
+    cboTextDirection: TComboBox;
     btnOpenCatalog: TButton;
     btnSaveCatalog: TButton;
     edtShortDateFormat: TEdit;
@@ -156,10 +157,21 @@ type
     edtRequestTimeout: TEdit;
     lblBatchSize: TLabel;
     edtProviderBatchSize: TEdit;
+    lblAgentEngine: TLabel;
+    cboAgentEngine: TComboBox;
+    lblAgentExecutable: TLabel;
+    edtAgentExecutable: TEdit;
+    btnBrowseAgentExecutable: TButton;
+    btnDetectAgent: TButton;
+    btnTestAgent: TButton;
+    lblAgentModel: TLabel;
+    cboAgentModel: TComboBox;
+    lblAgentStatus: TLabel;
     dlgOpenProject: TOpenDialog;
     dlgOpenCatalog: TOpenDialog;
     dlgImportCatalogCsv: TOpenDialog;
     dlgExportCatalogCsv: TSaveDialog;
+    dlgAgentExecutable: TOpenDialog;
     tmrAITranslation: TTimer;
     procedure btnOpenProjectClick(Sender: TObject);
     procedure btnScanProjectClick(Sender: TObject);
@@ -197,6 +209,11 @@ type
     procedure btnCopyAIInstructionsClick(Sender: TObject);
     procedure btnReloadAITranslationClick(Sender: TObject);
     procedure tmrAITranslationTimer(Sender: TObject);
+    procedure cboTargetLanguageChange(Sender: TObject);
+    procedure cboAgentEngineChange(Sender: TObject);
+    procedure btnBrowseAgentExecutableClick(Sender: TObject);
+    procedure btnDetectAgentClick(Sender: TObject);
+    procedure btnTestAgentClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure datLanguageMenuItemClick(Sender: TObject);
   private
@@ -218,6 +235,8 @@ type
     FLastObservedCatalogHash: string;
     FObservedCatalogHashCount: Integer;
     FApplyingExternalCatalog: Boolean;
+    FAgentSettings: TAgentSettings;
+    FAgentRunner: TAgentProcessRunner;
     procedure ClearProjectSummary;
     procedure ClearScanSummary;
     procedure ResetCatalog;
@@ -245,6 +264,15 @@ type
     procedure SetAITranslationMode(const AActive: Boolean);
     procedure CancelAITranslationAndRestore;
     function CatalogHasExternalChanges: Boolean;
+    function SelectedLanguageCode(AComboBox: TComboBox): string;
+    procedure SelectLanguageCode(AComboBox: TComboBox;
+      const ALanguageCode: string);
+    procedure ApplyTargetLanguageDefaults;
+    procedure LoadAgentSettings;
+    procedure SaveAgentSettings;
+    procedure UpdateAgentStatus;
+    function SelectedAgent: TTranslationAgent;
+    procedure StartAutomaticTranslation;
   public
     destructor Destroy; override;
   end;
@@ -258,8 +286,10 @@ uses
   System.IOUtils,
   System.Math,
   System.Rtti,
+  System.StrUtils,
   System.SysUtils,
   System.UITypes,
+  Winapi.Windows,
   FMX.DialogService.Sync,
   FMX.Platform,
   DAT.Core.AITranslation,
@@ -285,8 +315,12 @@ begin
   FReviewedIntegrationFiles.Sorted := True;
   FReviewedIntegrationFiles.Duplicates := dupIgnore;
   ApplyStudioTranslation(Self);
+  SelectLanguageCode(cboSourceLanguage, 'en-US');
+  cboTextDirection.ItemIndex := 0;
   LoadProviderSettings;
+  LoadAgentSettings;
   SetAITranslationMode(False);
+  SetWorkflowStep(1);
 end;
 
 procedure TfrmTranslationStudio.datLanguageMenuItemClick(Sender: TObject);
@@ -340,6 +374,10 @@ end;
 
 destructor TfrmTranslationStudio.Destroy;
 begin
+  if (FAgentRunner <> nil) and FAgentRunner.IsRunning then
+    FAgentRunner.Cancel;
+  FAgentRunner.Free;
+  FAgentSettings.Free;
   FProviderSettings.Free;
   FValidationResult.Free;
   FIntegrationChangeSet.Free;
@@ -358,15 +396,101 @@ begin
       FCatalogFileHash);
 end;
 
+function TfrmTranslationStudio.SelectedLanguageCode(
+  AComboBox: TComboBox): string;
+var
+  ClosingBracket: Integer;
+  DisplayText: string;
+  OpeningBracket: Integer;
+begin
+  Result := '';
+  if (AComboBox = nil) or (AComboBox.ItemIndex < 0) then
+    Exit;
+  DisplayText := AComboBox.Items[AComboBox.ItemIndex];
+  OpeningBracket := DisplayText.LastIndexOf('[');
+  ClosingBracket := DisplayText.LastIndexOf(']');
+  if (OpeningBracket >= 0) and (ClosingBracket > OpeningBracket) then
+    Result := Copy(DisplayText, OpeningBracket + 2,
+      ClosingBracket - OpeningBracket - 1);
+end;
+
+procedure TfrmTranslationStudio.SelectLanguageCode(AComboBox: TComboBox;
+  const ALanguageCode: string);
+var
+  ClosingBracket: Integer;
+  CodeText: string;
+  Index: Integer;
+  OpeningBracket: Integer;
+begin
+  AComboBox.ItemIndex := -1;
+  for Index := 0 to AComboBox.Items.Count - 1 do
+  begin
+    OpeningBracket := AComboBox.Items[Index].LastIndexOf('[');
+    ClosingBracket := AComboBox.Items[Index].LastIndexOf(']');
+    if (OpeningBracket >= 0) and (ClosingBracket > OpeningBracket) then
+    begin
+      CodeText := Copy(AComboBox.Items[Index], OpeningBracket + 2,
+        ClosingBracket - OpeningBracket - 1);
+      if SameText(CodeText, ALanguageCode) then
+      begin
+        AComboBox.ItemIndex := Index;
+        Break;
+      end;
+    end;
+  end;
+end;
+
+procedure TfrmTranslationStudio.ApplyTargetLanguageDefaults;
+var
+  DisplayText: string;
+  LanguageCode: string;
+  LocaleSettings: TFormatSettings;
+  NativeSeparator: Integer;
+  OpeningBracket: Integer;
+begin
+  LanguageCode := SelectedLanguageCode(cboTargetLanguage);
+  if LanguageCode = '' then
+    Exit;
+  DisplayText := cboTargetLanguage.Items[cboTargetLanguage.ItemIndex];
+  NativeSeparator := DisplayText.IndexOf(' / ');
+  OpeningBracket := DisplayText.LastIndexOf('[');
+  if (NativeSeparator >= 0) and (OpeningBracket > NativeSeparator) then
+    edtNativeLanguageName.Text := Trim(Copy(DisplayText,
+      NativeSeparator + 4, OpeningBracket - NativeSeparator - 4));
+  if StartsText('ar-', LanguageCode) or StartsText('fa-', LanguageCode) or
+     StartsText('he-', LanguageCode) or StartsText('ur-', LanguageCode) then
+    cboTextDirection.ItemIndex := 1
+  else
+    cboTextDirection.ItemIndex := 0;
+  try
+    LocaleSettings := TFormatSettings.Create(LanguageCode);
+    edtShortDateFormat.Text := LocaleSettings.ShortDateFormat;
+    edtLongDateFormat.Text := LocaleSettings.LongDateFormat;
+    edtShortTimeFormat.Text := LocaleSettings.ShortTimeFormat;
+    edtLongTimeFormat.Text := LocaleSettings.LongTimeFormat;
+    edtDecimalSeparator.Text := LocaleSettings.DecimalSeparator;
+    edtThousandSeparator.Text := LocaleSettings.ThousandSeparator;
+    edtCurrencySymbol.Text := LocaleSettings.CurrencyString;
+  except
+    edtShortDateFormat.Text := 'yyyy-MM-dd';
+    edtLongDateFormat.Text := 'dddd, d MMMM yyyy';
+    edtShortTimeFormat.Text := 'HH:mm';
+    edtLongTimeFormat.Text := 'HH:mm:ss';
+    edtDecimalSeparator.Text := '.';
+    edtThousandSeparator.Text := ',';
+    edtCurrencySymbol.Text := '';
+  end;
+end;
+
 procedure TfrmTranslationStudio.SetAITranslationMode(
   const AActive: Boolean);
 begin
   FAITranslationActive := AActive;
   tmrAITranslation.Enabled := AActive;
   if AActive then
-    btnBeginAITranslation.Text := 'Cancel / Restore'
+    btnBeginAITranslation.Text := 'Cancel Translation'
   else
-    btnBeginAITranslation.Text := 'Begin AI Mode';
+    btnBeginAITranslation.Text := 'Translate Automatically';
   btnCopyAIInstructions.Enabled := AActive;
   btnReloadAITranslation.Enabled := False;
   btnOpenProject.Enabled := not AActive;
@@ -379,10 +503,10 @@ begin
   btnAcceptSuggestion.Enabled := False;
   btnMarkTranslationReviewed.Enabled := False;
   btnApproveTranslation.Enabled := False;
-  edtSourceLanguage.Enabled := not AActive;
-  edtTargetLanguageCode.Enabled := not AActive;
+  cboSourceLanguage.Enabled := not AActive;
+  cboTargetLanguage.Enabled := not AActive;
   edtNativeLanguageName.Enabled := not AActive;
-  edtTextDirection.Enabled := not AActive;
+  cboTextDirection.Enabled := not AActive;
   edtShortDateFormat.Enabled := not AActive;
   edtLongDateFormat.Enabled := not AActive;
   edtShortTimeFormat.Enabled := not AActive;
@@ -397,6 +521,46 @@ begin
     FAIOriginalCatalogJson := '';
 end;
 
+procedure TfrmTranslationStudio.StartAutomaticTranslation;
+var
+  AgentArguments: string;
+  AgentPrompt: string;
+  LogFileName: string;
+  ModelName: string;
+  ProjectDirectory: string;
+begin
+  SaveAgentSettings;
+  if Trim(FAgentSettings.ExecutableFileName) = '' then
+    raise Exception.Create(
+      'No command-line translation agent is configured. Open Engine Settings.');
+  if not TFile.Exists(FAgentSettings.ExecutableFileName) then
+    raise Exception.CreateFmt('Translation agent not found: %s',
+      [FAgentSettings.ExecutableFileName]);
+  if FProjectProfile.ProjectFileName <> '' then
+    ProjectDirectory :=
+      TPath.GetDirectoryName(FProjectProfile.ProjectFileName)
+  else
+    ProjectDirectory := TPath.GetDirectoryName(FCatalogFileName);
+  ModelName := FAgentSettings.ModelName;
+  AgentArguments := TAgentProcessRunner.TranslationArguments(
+    FAgentSettings.Agent, ProjectDirectory, ModelName);
+  AgentPrompt := TAITranslationWorkflow.BuildInstructions(
+    FTranslationCatalog, FCatalogFileName) + sLineBreak + sLineBreak +
+    'Work through every unresolved entry now. Translate each source string ' +
+    'into ' + FTranslationCatalog.Locale.NativeLanguageName + ' (' +
+    FTranslationCatalog.Locale.LanguageCode + '). Save the catalog in place ' +
+    'when complete. Do not stop after describing the task.';
+  LogFileName := TPath.ChangeExtension(FCatalogFileName,
+    '.translation-agent.log');
+  FreeAndNil(FAgentRunner);
+  FAgentRunner := TAgentProcessRunner.Create;
+  FAgentRunner.Start(FAgentSettings.ExecutableFileName, AgentArguments,
+    ProjectDirectory, AgentPrompt, LogFileName);
+  lblStatus.Text := Format('%s is translating the catalog automatically. ' +
+    'The Studio will load and save the completed work.',
+    [TAgentProcessRunner.AgentDisplayName(FAgentSettings.Agent)]);
+end;
+
 procedure TfrmTranslationStudio.CancelAITranslationAndRestore;
 var
   RestoredCatalog: TTranslationCatalog;
@@ -404,6 +568,8 @@ var
 begin
   if not FAITranslationActive then
     Exit;
+  if (FAgentRunner <> nil) and FAgentRunner.IsRunning then
+    FAgentRunner.Cancel;
   SnapshotFile := TAITranslationWorkflow.SnapshotFileName(
     FCatalogFileName);
   if TFile.Exists(SnapshotFile) then
@@ -556,6 +722,142 @@ begin
   else
     lblCredentialStatus.Text :=
       'No API key is configured for this provider.';
+end;
+
+function TfrmTranslationStudio.SelectedAgent: TTranslationAgent;
+begin
+  if cboAgentEngine.ItemIndex = 1 then
+    Result := taClaude
+  else
+    Result := taCodex;
+end;
+
+procedure TfrmTranslationStudio.LoadAgentSettings;
+begin
+  FreeAndNil(FAgentSettings);
+  FAgentSettings := TAgentSettings.Create;
+  FAgentSettings.Load;
+  cboAgentEngine.ItemIndex := Ord(FAgentSettings.Agent);
+  edtAgentExecutable.Text := FAgentSettings.ExecutableFileName;
+  if SameText(FAgentSettings.ModelName, 'Default') then
+    cboAgentModel.ItemIndex := 0
+  else
+  begin
+    cboAgentModel.Items.Add(FAgentSettings.ModelName);
+    cboAgentModel.ItemIndex := cboAgentModel.Items.Count - 1;
+  end;
+  if edtAgentExecutable.Text = '' then
+    edtAgentExecutable.Text :=
+      TAgentProcessRunner.DetectExecutable(SelectedAgent);
+  UpdateAgentStatus;
+end;
+
+procedure TfrmTranslationStudio.SaveAgentSettings;
+begin
+  FAgentSettings.Agent := SelectedAgent;
+  FAgentSettings.ExecutableFileName := Trim(edtAgentExecutable.Text);
+  if cboAgentModel.ItemIndex >= 0 then
+    FAgentSettings.ModelName :=
+      cboAgentModel.Items[cboAgentModel.ItemIndex]
+  else
+    FAgentSettings.ModelName := 'Default';
+  FAgentSettings.Save;
+end;
+
+procedure TfrmTranslationStudio.UpdateAgentStatus;
+var
+  AgentName: string;
+begin
+  AgentName := TAgentProcessRunner.AgentDisplayName(SelectedAgent);
+  if Trim(edtAgentExecutable.Text) = '' then
+    lblAgentStatus.Text := AgentName +
+      ' is not configured. Install it or browse to its command-line executable.'
+  else if not TFile.Exists(Trim(edtAgentExecutable.Text)) then
+    lblAgentStatus.Text := 'Configured executable was not found: ' +
+      Trim(edtAgentExecutable.Text)
+  else
+    lblAgentStatus.Text := AgentName +
+      ' is configured. Use Check Installation to verify the command.';
+end;
+
+procedure TfrmTranslationStudio.cboTargetLanguageChange(Sender: TObject);
+begin
+  ApplyTargetLanguageDefaults;
+  InvalidateValidation;
+end;
+
+procedure TfrmTranslationStudio.cboAgentEngineChange(Sender: TObject);
+begin
+  edtAgentExecutable.Text :=
+    TAgentProcessRunner.DetectExecutable(SelectedAgent);
+  cboAgentModel.ItemIndex := 0;
+  SaveAgentSettings;
+  UpdateAgentStatus;
+end;
+
+procedure TfrmTranslationStudio.btnBrowseAgentExecutableClick(
+  Sender: TObject);
+begin
+  if dlgAgentExecutable.Execute then
+  begin
+    edtAgentExecutable.Text := dlgAgentExecutable.FileName;
+    SaveAgentSettings;
+    UpdateAgentStatus;
+  end;
+end;
+
+procedure TfrmTranslationStudio.btnDetectAgentClick(Sender: TObject);
+begin
+  edtAgentExecutable.Text :=
+    TAgentProcessRunner.DetectExecutable(SelectedAgent);
+  SaveAgentSettings;
+  UpdateAgentStatus;
+  if edtAgentExecutable.Text = '' then
+    lblStatus.Text := 'No supported command-line agent was detected.'
+  else
+    lblStatus.Text := 'Translation agent detected.';
+end;
+
+procedure TfrmTranslationStudio.btnTestAgentClick(Sender: TObject);
+var
+  StartedAt: Cardinal;
+begin
+  if Trim(edtAgentExecutable.Text) = '' then
+  begin
+    UpdateAgentStatus;
+    Exit;
+  end;
+  FreeAndNil(FAgentRunner);
+  FAgentRunner := TAgentProcessRunner.Create;
+  try
+    FAgentRunner.Start(Trim(edtAgentExecutable.Text), '--version',
+      TPath.GetDirectoryName(Trim(edtAgentExecutable.Text)), '',
+      TPath.Combine(TPath.GetTempPath, 'DAT-agent-check.log'));
+    StartedAt := Winapi.Windows.GetTickCount;
+    while FAgentRunner.IsRunning and
+      (Winapi.Windows.GetTickCount - StartedAt < 10000) do
+    begin
+      Application.ProcessMessages;
+      Sleep(25);
+    end;
+    if FAgentRunner.IsRunning then
+    begin
+      FAgentRunner.Cancel;
+      lblAgentStatus.Text := 'The command did not respond within 10 seconds.';
+    end
+    else if FAgentRunner.ExitCode = 0 then
+    begin
+      SaveAgentSettings;
+      lblAgentStatus.Text := Trim(FAgentRunner.ReadLog);
+      lblStatus.Text := 'Translation agent installation verified.';
+    end
+    else
+      lblAgentStatus.Text := 'Command check failed: ' +
+        Trim(FAgentRunner.ReadLog);
+  except
+    on E: Exception do
+      lblAgentStatus.Text := 'Command check failed: ' + E.Message;
+  end;
 end;
 
 procedure TfrmTranslationStudio.DisplayProjectSummary(
@@ -749,12 +1051,16 @@ procedure TfrmTranslationStudio.DisplayCatalogLanguage;
 begin
   if FTranslationCatalog = nil then
     Exit;
-  edtSourceLanguage.Text := FTranslationCatalog.SourceLanguage;
-  edtTargetLanguageCode.Text :=
-    FTranslationCatalog.Locale.LanguageCode;
+  SelectLanguageCode(cboSourceLanguage,
+    FTranslationCatalog.SourceLanguage);
+  SelectLanguageCode(cboTargetLanguage,
+    FTranslationCatalog.Locale.LanguageCode);
   edtNativeLanguageName.Text :=
     FTranslationCatalog.Locale.NativeLanguageName;
-  edtTextDirection.Text := FTranslationCatalog.Locale.TextDirection;
+  if SameText(FTranslationCatalog.Locale.TextDirection, 'rtl') then
+    cboTextDirection.ItemIndex := 1
+  else
+    cboTextDirection.ItemIndex := 0;
   edtShortDateFormat.Text := FTranslationCatalog.Locale.ShortDateFormat;
   edtLongDateFormat.Text := FTranslationCatalog.Locale.LongDateFormat;
   edtShortTimeFormat.Text := FTranslationCatalog.Locale.ShortTimeFormat;
@@ -815,10 +1121,10 @@ begin
   FreeAndNil(FTranslationCatalog);
   FCatalogFileName := '';
   FCatalogFileHash := '';
-  edtSourceLanguage.Text := 'en-US';
-  edtTargetLanguageCode.Text := '';
+  SelectLanguageCode(cboSourceLanguage, 'en-US');
+  cboTargetLanguage.ItemIndex := -1;
   edtNativeLanguageName.Text := '';
-  edtTextDirection.Text := 'ltr';
+  cboTextDirection.ItemIndex := 0;
   edtShortDateFormat.Text := '';
   edtLongDateFormat.Text := '';
   edtShortTimeFormat.Text := '';
@@ -854,6 +1160,8 @@ begin
   lblNavigationIntegration.TextSettings.FontColor := InactiveColor;
   lblNavigationSettings.TextSettings.FontColor := InactiveColor;
 
+  ProjectCard.Visible := AStep in [1, 2];
+  ProjectDetailsCard.Visible := AStep in [1, 2];
   LanguagePageCard.Visible := AStep = 3;
   ValidationPageCard.Visible := AStep = 4;
   ExportPageCard.Visible := AStep = 5;
@@ -900,9 +1208,11 @@ begin
         NavigationSelection.Position.Y := 408;
         lblNavigationSettings.TextSettings.FontColor := ActiveColor;
         SettingsPageCard.BringToFront;
+        UpdateAgentStatus;
         UpdateCredentialStatus;
       end;
   end;
+  StatusCard.BringToFront;
 end;
 
 procedure TfrmTranslationStudio.UpdateCatalogFromLanguageEditors;
@@ -912,13 +1222,13 @@ begin
   if FTranslationCatalog = nil then
     raise Exception.Create(
       'Scan the project or open an existing catalog first.');
-  if Trim(edtTargetLanguageCode.Text) = '' then
-    raise Exception.Create('Enter a target language code.');
+  if SelectedLanguageCode(cboTargetLanguage) = '' then
+    raise Exception.Create('Select a target language.');
   if Trim(edtNativeLanguageName.Text) = '' then
     raise Exception.Create('Enter the language name in its native form.');
 
   LocaleSettings := TFormatSettings.Create(
-    Trim(edtTargetLanguageCode.Text));
+    SelectedLanguageCode(cboTargetLanguage));
   if edtShortDateFormat.Text = '' then
     edtShortDateFormat.Text := LocaleSettings.ShortDateFormat;
   if edtLongDateFormat.Text = '' then
@@ -934,13 +1244,16 @@ begin
   if edtCurrencySymbol.Text = '' then
     edtCurrencySymbol.Text := LocaleSettings.CurrencyString;
 
-  FTranslationCatalog.SourceLanguage := Trim(edtSourceLanguage.Text);
+  FTranslationCatalog.SourceLanguage :=
+    SelectedLanguageCode(cboSourceLanguage);
   FTranslationCatalog.Locale.LanguageCode :=
-    Trim(edtTargetLanguageCode.Text);
+    SelectedLanguageCode(cboTargetLanguage);
   FTranslationCatalog.Locale.NativeLanguageName :=
     Trim(edtNativeLanguageName.Text);
-  FTranslationCatalog.Locale.TextDirection :=
-    Trim(edtTextDirection.Text);
+  if cboTextDirection.ItemIndex = 1 then
+    FTranslationCatalog.Locale.TextDirection := 'rtl'
+  else
+    FTranslationCatalog.Locale.TextDirection := 'ltr';
   FTranslationCatalog.Locale.ShortDateFormat :=
     edtShortDateFormat.Text;
   FTranslationCatalog.Locale.LongDateFormat :=
@@ -1022,7 +1335,8 @@ begin
       FTranslationCatalog := TTranslationCatalog.Create;
       FTranslationCatalog.ApplicationId := FProjectProfile.ProjectName;
       FTranslationCatalog.Framework := FProjectProfile.Framework;
-      FTranslationCatalog.SourceLanguage := edtSourceLanguage.Text;
+      FTranslationCatalog.SourceLanguage :=
+        SelectedLanguageCode(cboSourceLanguage);
     end;
     MergeSummary := TScanCatalogMerger.Merge(FScanResult,
       FTranslationCatalog);
@@ -1378,6 +1692,11 @@ begin
     lblStatus.Text := 'Scan a project or open a catalog first.';
     Exit;
   end;
+  if SelectedLanguageCode(cboTargetLanguage) = '' then
+  begin
+    lblStatus.Text := 'Select a target language before exporting CSV.';
+    Exit;
+  end;
   try
     UpdateCatalogFromLanguageEditors;
     if FCatalogFileName = '' then
@@ -1660,6 +1979,11 @@ begin
     lblStatus.Text := 'Scan a project or open a catalog first.';
     Exit;
   end;
+  if SelectedLanguageCode(cboTargetLanguage) = '' then
+  begin
+    lblStatus.Text := 'Select a target language before translating.';
+    Exit;
+  end;
   try
     SaveCatalog;
     SnapshotFile := TAITranslationWorkflow.SnapshotFileName(
@@ -1682,7 +2006,8 @@ begin
       DisplayCatalogLanguage;
       DisplayCatalogEntries;
       lblStatus.Text :=
-        'The unfinished AI session was restored. Click Begin AI Mode again.';
+        'The unfinished AI session was restored. Click Translate ' +
+        'Automatically again.';
       Exit;
     end;
 
@@ -1693,13 +2018,14 @@ begin
     FCatalogFileHash := TAITranslationWorkflow.FileHash(
       FCatalogFileName);
     SetAITranslationMode(True);
-    lblStatus.Text :=
-      'AI Translation Mode is active. Give Codex or Claude the copied ' +
-      'instructions, then use Reload AI Work when changes are detected.';
-    btnCopyAIInstructionsClick(btnCopyAIInstructions);
+    StartAutomaticTranslation;
   except
     on E: Exception do
-      lblStatus.Text := 'Unable to begin AI translation: ' + E.Message;
+    begin
+      if FAITranslationActive then
+        CancelAITranslationAndRestore;
+      lblStatus.Text := 'Unable to begin automatic translation: ' + E.Message;
+    end;
   end;
 end;
 
@@ -1808,11 +2134,40 @@ end;
 procedure TfrmTranslationStudio.tmrAITranslationTimer(Sender: TObject);
 var
   CurrentHash: string;
+  FailureDetails: string;
 begin
   if not FAITranslationActive or
      (FCatalogFileName = '') or
      not TFile.Exists(FCatalogFileName) then
     Exit;
+  if FAgentRunner <> nil then
+  begin
+    if FAgentRunner.IsRunning then
+    begin
+      lblStatus.Text := Format(
+        '%s is translating... process %d. Changes are saved automatically.',
+        [TAgentProcessRunner.AgentDisplayName(FAgentSettings.Agent),
+         FAgentRunner.ProcessId]);
+      Exit;
+    end;
+    if FAgentRunner.ExitCode <> 0 then
+    begin
+      FailureDetails := Trim(FAgentRunner.ReadLog);
+      if Length(FailureDetails) > 400 then
+        FailureDetails := Copy(FailureDetails,
+          Length(FailureDetails) - 399, 400);
+      CancelAITranslationAndRestore;
+      lblStatus.Text := 'Automatic translation failed and the original ' +
+        'catalog was restored. ' + FailureDetails;
+      Exit;
+    end;
+    btnReloadAITranslationClick(btnReloadAITranslation);
+    if FAITranslationActive then
+      lblStatus.Text := 'The agent completed, but no safe translation ' +
+        'changes were found. Review the agent log: ' +
+        FAgentRunner.LogFileName;
+    Exit;
+  end;
   CurrentHash := TAITranslationWorkflow.FileHash(
     FCatalogFileName);
   if SameText(CurrentHash, FCatalogFileHash) then
@@ -1833,7 +2188,7 @@ begin
   begin
     btnReloadAITranslation.Enabled := True;
     lblStatus.Text :=
-      'Stable external catalog changes detected. Click Reload AI Work.';
+      'Stable external catalog changes detected. Click Reload.';
   end;
 end;
 

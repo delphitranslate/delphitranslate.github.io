@@ -1076,3 +1076,22 @@ The August 7, 2026 gate passed:
 - Direct FMX form streaming passed under Win32 and Win64.
 - Normal launch and Italian self-localization passed in all four Studio
   configurations.
+
+## Automatic Agent Execution and Maximized UI Revision
+
+`DAT.Agent.Execution` implements the Poker Galaxy principle as an actual
+Studio workflow: an already installed and signed-in Codex CLI or Claude Code
+process receives the complete translation contract through standard input,
+edits the canonical development JSON in the target workspace, and writes
+stdout/stderr to a diagnostic log. The designer-owned timer polls the process.
+A zero exit triggers protected reload, canonical save, UI refresh, and
+validation. Failure or cancellation restores the exact snapshot. Only
+non-secret engine, executable-path, and model settings are persisted.
+
+`DAT.Studio.MainForm.fmx` now persists `WindowState = wsMaximized`. Project
+details and every workflow page use client alignment; lists, memos, summaries,
+buttons, and status areas use designer-persisted anchors. Source language,
+target language, text direction, engine, model, provider, and DeepL plan are
+list selections. The August 7 visual audit covered Project/Scan, Translate,
+Validation, Export, Integration, and Engine Settings at 1600x900 with no
+control extending below its page.

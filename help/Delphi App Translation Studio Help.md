@@ -14,15 +14,16 @@ CSV, and manual editing are alternative paths.
 
 1. Open a `.dproj` or `.dpr` under **Project**.
 2. Select **Scan** and scan designer text and resourcestrings.
-3. Under **Translate**, enter the target locale and native name, then save the
-   catalog.
-4. Select **Begin AI Mode**. The Studio saves a recovery snapshot, creates a
-   terminology profile and instructions, locks local editing, and copies the
-   exact prompt.
-5. Give the prompt to Codex or Claude. The agent edits the development JSON
-   directly in place.
-6. When a stable change is detected, select **Reload AI Work**. The Studio
-   verifies every protected field before adopting translations.
+3. Under **Engine Settings**, select an installed Codex CLI or Claude Code
+   command. Detect or browse to it, sign in through the vendor command, and use
+   **Check Installation**.
+4. Under **Translate**, select the target language. The Studio fills its code,
+   native name, direction, and locale formats; review them and save the catalog.
+5. Select **Translate Automatically**. The Studio saves a recovery snapshot,
+   launches the signed-in agent, supplies the complete contract, and monitors
+   the process and catalog.
+6. On success, the Studio verifies every protected field, adopts safe AI Draft
+   translations, saves the catalog, refreshes the page, and runs validation.
 7. Resolve structural errors, low-confidence entries, explicit AI review notes,
    terminology inconsistencies, and manual `resourcestring` wiring warnings.
 8. Export the offline pack.
@@ -38,11 +39,13 @@ modifies only `translatedText`, `status`, `translationOrigin`,
 checksums, component context, locale metadata, runtime classifications, and
 entry order are protected.
 
-While AI Mode is active, Studio catalog editing and saving are disabled. A
-designer-owned timer detects a stable external change but never adopts it
-silently. **Reload AI Work** parses the complete JSON, compares it with the
-pre-session snapshot, rejects unauthorized changes, and records accepted work
-as AI drafts. **Cancel / Restore** restores the snapshot.
+While automatic translation is active, Studio catalog editing and saving are
+disabled. A designer-owned timer monitors the child process. A zero exit
+causes **Reload** logic to parse the complete JSON, compare it with the
+pre-session snapshot, reject unauthorized changes, record accepted work as AI
+drafts, save, and validate. A failed process or **Cancel Translation** restores
+the snapshot. **Prompt** and **Reload** remain recovery controls, not normal
+required steps.
 
 Only Needs Translation, Source Changed, Error, and existing AI Draft entries
 are eligible. Machine-translated, Imported, Edited, Reviewed, Approved,
@@ -68,9 +71,15 @@ Designer-property entries are applied by the runtime adapter. Pascal
 `resourcestring` entries require an explicit generated `TranslateText` call;
 mark manual wiring confirmed only after reviewing that code location.
 
-## Provider Alternative
+## Engine Settings and Provider Alternative
 
-Select DeepL or Google Cloud Translation. DeepL users must also select API Free
+The Studio starts maximized. Select Codex CLI or Claude Code, keep **Model** at
+Default unless a specific installed-agent model is required, and use **Detect**,
+**Browse**, or **Check Installation** as needed. The Studio stores only the
+engine, executable path, and model choice. Agent authentication remains in the
+vendor CLI and is never copied into project files or runtime packs.
+
+The optional provider area selects DeepL or Google Cloud Translation. DeepL users must also select API Free
 or API Pro. Paste a key into the masked field. Leave **Remember securely on this
 computer** checked to use Windows Credential Manager, or clear it to keep the
 key only until the Studio closes. **Replace / Save Key** records the choice,

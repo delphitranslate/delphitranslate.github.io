@@ -4,6 +4,8 @@ program StudioFormSmokeTests;
 
 uses
   System.SysUtils,
+  System.UITypes,
+  FMX.Types,
   FMX.Forms,
   DAT.Studio.MainForm in '..\..\source\studio\DAT.Studio.MainForm.pas'
     {frmTranslationStudio};
@@ -16,6 +18,27 @@ begin
       if frmTranslationStudio.Caption <>
         'Delphi App Translation Studio' then
         raise Exception.Create('The main form caption is incorrect.');
+      if frmTranslationStudio.WindowState <> TWindowState.wsMaximized then
+        raise Exception.Create('The Studio is not configured to start maximized.');
+      if (frmTranslationStudio.LanguagePageCard.Align <>
+          TAlignLayout.Client) or
+         (frmTranslationStudio.ValidationPageCard.Align <>
+          TAlignLayout.Client) or
+         (frmTranslationStudio.ExportPageCard.Align <>
+          TAlignLayout.Client) or
+         (frmTranslationStudio.IntegrationPageCard.Align <>
+          TAlignLayout.Client) or
+         (frmTranslationStudio.SettingsPageCard.Align <>
+          TAlignLayout.Client) then
+        raise Exception.Create('One or more workflow pages do not fill the workspace.');
+      if not (TAnchorKind.akBottom in
+        frmTranslationStudio.lstCatalogEntries.Anchors) or
+         not (TAnchorKind.akBottom in
+        frmTranslationStudio.memTranslatedText.Anchors) then
+        raise Exception.Create('The translation work areas do not resize vertically.');
+      if (frmTranslationStudio.cboSourceLanguage.Items.Count < 40) or
+         (frmTranslationStudio.cboTargetLanguage.Items.Count < 40) then
+        raise Exception.Create('The built-in language selection list is incomplete.');
       if not frmTranslationStudio.edtProviderApiKey.Password then
         raise Exception.Create('The provider API key field is not masked.');
       if frmTranslationStudio.cboTranslationProvider.Items.Count <> 2 then
@@ -43,6 +66,13 @@ begin
            frmTranslationStudio.btnReloadAITranslation.OnClick) then
         raise Exception.Create(
           'The in-place AI translation controls are not designer-wired.');
+      if (frmTranslationStudio.cboAgentEngine.Items.Count <> 2) or
+         not Assigned(frmTranslationStudio.cboAgentEngine.OnChange) or
+         not Assigned(frmTranslationStudio.btnBrowseAgentExecutable.OnClick) or
+         not Assigned(frmTranslationStudio.btnDetectAgent.OnClick) or
+         not Assigned(frmTranslationStudio.btnTestAgent.OnClick) then
+        raise Exception.Create(
+          'The automatic translation agent settings are not designer-wired.');
       if not Assigned(frmTranslationStudio.tmrAITranslation.OnTimer) or
          frmTranslationStudio.tmrAITranslation.Enabled then
         raise Exception.Create(
@@ -90,7 +120,7 @@ begin
           'The Languages workflow label did not activate its page.');
       frmTranslationStudio.lblNavigationSettingsClick(nil);
       if not frmTranslationStudio.SettingsPageCard.Visible then
-        raise Exception.Create('The Provider Settings workflow page did not activate.');
+        raise Exception.Create('The Engine Settings workflow page did not activate.');
       Writeln('Studio FMX form creation and streaming passed.');
     finally
       frmTranslationStudio.Free;

@@ -430,7 +430,7 @@ def build_user_guide() -> Path:
         [
             "Run DelphiAppTranslationStudio.exe.",
             "Confirm that the title reads Delphi App Translation Studio.",
-            "Use the left workflow panel. The blue selection bar follows Project, Scan, Translate, Validation, Export, Integration, and Provider Settings.",
+            "The Studio opens maximized. Use the left workflow panel; every page expands into the available workspace and the blue selection bar follows Project, Scan, Translate, Validation, Export, Integration, and Engine Settings.",
         ],
     )
 
@@ -441,11 +441,11 @@ def build_user_guide() -> Path:
         [
             ["1 Project", "Open and identify a Delphi project.", "Project profile"],
             ["2 Scan", "Extract designated designer text and resourcestrings.", "Scan result"],
-            ["3 Translate", "Create a catalog and coordinate in-place AI translation.", "Protected AI draft catalog"],
+            ["3 Translate", "Select a language and run automatic in-place agent translation.", "Protected AI draft catalog"],
             ["4 Validation", "Check completeness and structural safety.", "Issue list"],
             ["5 Export", "Create the compact offline pack.", "Runtime JSON"],
             ["6 Integration", "Preview/apply runtime and language-menu wiring.", "Integrated target project"],
-            ["Provider Settings", "Configure Google or DeepL as an alternative.", "Direct-provider drafts"],
+            ["7 Engine Settings", "Configure Codex CLI or Claude Code; optionally configure Google or DeepL.", "Automatic agent or direct-provider drafts"],
         ],
     )
 
@@ -481,12 +481,11 @@ def build_user_guide() -> Path:
         document,
         [
             "Choose Translate after scanning.",
-            "Enter the source language, normally en-US.",
-            "Enter a target locale such as it-IT, de-DE, fr-FR, or es-ES.",
-            "Enter the language's native name, such as Italiano or Deutsch.",
-            "Leave direction as ltr unless the target requires right-to-left metadata.",
+            "Select the source language, normally English (United States) [en-US].",
+            "Select the target language from the built-in language list. The Studio records its locale code and native name.",
+            "Review the automatically selected left-to-right or right-to-left direction.",
             "Review or edit the date, time, decimal, thousands, and currency fields. Blank fields are initially populated from Delphi TFormatSettings for the target locale.",
-            "Choose Create / Save.",
+            "Choose Save.",
         ],
     )
     add_paragraphs(
@@ -519,18 +518,18 @@ def build_user_guide() -> Path:
     add_steps(
         document,
         [
-            "Save the development catalog, then choose Begin AI Mode.",
-            "The Studio creates a pre-AI recovery snapshot, ensures translation-profile.json, writes an instruction file, locks local catalog edits, and copies the exact prompt.",
-            "Give the prompt to Codex or Claude. The agent reads the catalog and profile and modifies the development JSON directly in place.",
-            "When the same changed file fingerprint remains stable for two checks, choose Reload AI Work.",
-            "The Studio compares every protected catalog and entry field with the exact snapshot. Unsafe changes reject the whole reload; allowed translated text, origin, confidence, and review notes are adopted as AI Draft.",
-            "Resolve only actionable validation exceptions, then export the offline pack. Cancel / Restore returns to the exact pre-AI catalog.",
+            "Open Engine Settings and select Codex CLI or Claude Code.",
+            "Install and sign in to that command-line agent using its normal vendor instructions. Browse to the executable or choose Detect, then choose Check Installation. The Studio stores only the executable path, engine, and model choice - never the agent's credentials.",
+            "Return to Translate, select the target language, and choose Translate Automatically.",
+            "The Studio saves the catalog, creates an exact recovery snapshot and terminology profile, starts the signed-in agent in the target project directory, supplies the protected translation contract through standard input, and monitors the process and catalog.",
+            "When the agent exits successfully, the Studio verifies every protected field, adopts only allowed translation changes as AI Draft, saves the canonical JSON, removes the recovery snapshot, refreshes the page, and runs validation.",
+            "If the process fails or Cancel Translation is chosen, the Studio terminates only that child process and restores the exact pre-translation catalog. Prompt and Reload remain recovery/diagnostic actions, not required normal steps.",
         ],
     )
     add_callout(
         document,
         "No interchange detour.",
-        "The agent edits the canonical project-local JSON itself. CSV remains available for translation companies and spreadsheet workflows, but it is not required for Codex or Claude.",
+        "The installed agent edits the canonical project-local JSON itself. CSV remains available for translation companies and spreadsheet workflows, but it is not required for Codex or Claude. The automatic path uses the developer's existing agent sign-in rather than a translation-provider API key.",
     )
 
     document.add_heading("5.3 Safety, context, and focused review", level=2)
@@ -548,11 +547,12 @@ def build_user_guide() -> Path:
         ],
     )
 
-    document.add_heading("6. Google and DeepL Provider Alternative", level=1)
+    document.add_heading("6. Engine Settings and Provider Alternative", level=1)
     add_paragraphs(
         document,
         [
-            "When a direct provider is preferred, the Studio supports DeepL API Free, DeepL API Pro, and Google Cloud Translation Basic v2. Provider accounts, billing, quotas, prices, and supported languages are controlled by the provider and may change. Codex/Claude in-place translation does not use these settings.",
+            "The primary Engine Settings controls select an installed Codex CLI or Claude Code executable and the default model. Detect searches supported command-line locations; Browse accepts an explicit .exe, .cmd, or .bat; Check Installation runs the agent's version command. The developer signs in using the agent's own supported login flow before starting translation.",
+            "When a direct provider is preferred, the same page also supports DeepL API Free, DeepL API Pro, and Google Cloud Translation Basic v2. Provider accounts, billing, quotas, prices, and supported languages are controlled by the provider and may change. Codex/Claude automatic translation does not use these API-key settings.",
         ],
     )
     add_table(
@@ -584,7 +584,7 @@ def build_user_guide() -> Path:
             "Create or sign in to a DeepL account and subscribe to DeepL API Free or DeepL API Pro as appropriate.",
             "Open the account's API Keys tab. Create a separate key for this Studio when the account interface permits multiple keys.",
             "Copy the key once and keep it out of source code, JSON catalogs, issue trackers, email, and screenshots.",
-            "In the Studio, choose Provider Settings and select DeepL.",
+            "In the Studio, choose Engine Settings and select DeepL in the optional provider area.",
             "Select API Free or API Pro to match the account. Free uses api-free.deepl.com; Pro uses api.deepl.com.",
             "Paste the key into the masked field.",
             "Leave Remember securely checked for Windows Credential Manager, or clear it for Use for This Session Only.",
@@ -617,7 +617,7 @@ def build_user_guide() -> Path:
             "Open APIs & Services, then Credentials. Choose Create credentials and API key. Current Google Cloud policy requires at least one API restriction when creating a key.",
             "Under API restrictions, restrict the key to Cloud Translation API. Apply any additional application restriction that is compatible with the developer computer and organization; desktop usage commonly makes website-referrer restrictions unsuitable.",
             "Review quotas and budget alerts in Google Cloud before bulk translation.",
-            "In the Studio, choose Provider Settings and select Google Cloud Translation.",
+            "In the Studio, choose Engine Settings and select Google Cloud Translation in the optional provider area.",
             "Paste the key into the masked field. The DeepL plan control is disabled because it does not apply.",
             "Choose persistent Windows Credential Manager storage or session-only use, then Replace / Save Key and Test Connection.",
         ],
@@ -638,7 +638,7 @@ def build_user_guide() -> Path:
         [
             "Open or create the target-language catalog.",
             "Confirm the source and target language codes.",
-            "Configure and test a provider under Provider Settings.",
+            "Configure and test a provider under Engine Settings.",
             "Choose Google / DeepL Translation on the Translate page.",
             "Read the confirmation message showing how many unresolved strings will be sent to the provider. Cross-key suggestions are never accepted automatically.",
             "Choose Yes to begin. Existing complete reviewed or approved work is preserved.",
@@ -823,6 +823,7 @@ def build_engineering_guide() -> Path:
         ["Path", "Responsibility"],
         [
             ["source\\core", "Catalog types, JSON persistence, project detection, workspace paths, runtime pack generation."],
+            ["source\\agent", "Installed Codex/Claude command settings, detection, process execution, logging, and cancellation."],
             ["source\\scan", "VCL/FMX form text, Pascal resourcestrings, extraction rules, diagnostics, incremental merge."],
             ["source\\validation", "Catalog safety and completeness checks."],
             ["source\\provider", "Provider types/settings, Credential Manager, DeepL/Google HTTPS client."],
@@ -939,7 +940,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Studio.MainForm.fmx contains the complete orange-and-blue interface. The workflow selection rectangle moves among Project, Scan, Translate, Validation, Export, Integration, and Provider Settings. Begin AI Mode, Copy Prompt, Reload AI Work, and the external-change timer are persisted designer objects. DAT.Studio.MainForm.pas contains event and state logic only; it does not construct controls.",
+            "DAT.Studio.MainForm.fmx contains the complete orange-and-blue interface. The form persists WindowState=wsMaximized, uses client-aligned workflow cards, anchors resizable work areas to every relevant edge, and keeps the status card at the bottom. The workflow selection rectangle moves among Project, Scan, Translate, Validation, Export, Integration, and Engine Settings. Language and engine choices are designer-owned combo boxes. Translate Automatically, Cancel Translation, Prompt, Reload, agent configuration controls, and the monitor timer are persisted designer objects. DAT.Studio.MainForm.pas contains event and state logic only; it does not construct controls.",
             "Each workflow TLabel explicitly persists HitTest=True. FireMonkey labels default to HitTest=False, which would otherwise pass mouse events through the visible label even when an OnClick event is assigned. The setting remains editable in the Object Inspector.",
             "The form owns the project profile, scan result, catalog, validation result, integration change set, provider settings, and per-provider session-key strings. Destructors release owned objects. Catalog updates invalidate validation and export state.",
         ],
@@ -950,10 +951,11 @@ def build_engineering_guide() -> Path:
         "A successful compile is insufficient. Persisted FMX property-type errors surface only while streaming. StudioFormSmokeTests directly constructs the form, and launch tests verify the real title in every configuration.",
     )
 
-    document.add_heading("7. Provider Settings and Secret Storage", level=1)
+    document.add_heading("7. Agent Execution, Provider Settings, and Secret Storage", level=1)
     add_paragraphs(
         document,
         [
+            "DAT.Agent.Execution persists only the selected command-line engine, executable path, and model choice. It detects supported installations, starts the agent without a console window, passes the translation contract through inherited standard input, redirects stdout/stderr to a project-local diagnostic log, polls the process from the designer-owned timer, and supports controlled cancellation. Codex runs non-interactively with workspace-write sandboxing in the target project; Claude runs in print mode with streamed JSON and accepted workspace edits. Authentication remains owned by the installed vendor CLI.",
             "DAT.Provider.Settings persists only provider, DeepL plan, remember choice, timeout, and batch size in %LOCALAPPDATA%\\DelphiAppTranslationStudio\\provider-settings.json. Bounds are normalized to 5-300 seconds and 1-50 strings.",
             "DAT.Provider.CredentialStore uses CredWriteW, CredReadW, CredDeleteW, and CredFree with CRED_TYPE_GENERIC and local-machine persistence. Credential targets are provider-specific and begin TMartinDub/DelphiAppTranslationStudio/. Secret bytes are cleared after conversion where practical.",
         ],
@@ -1021,7 +1023,8 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "The canonical workflow uses DAT.Core.AITranslation to coordinate direct edits to the saved development JSON. Begin saves an exact recovery snapshot, ensures the terminology profile, writes the agent contract, records the file SHA-256, and locks Studio editing. A designer-owned timer enables reload only after the same changed hash is stable across two checks.",
+            "The canonical workflow combines DAT.Core.AITranslation with DAT.Agent.Execution. Translate Automatically saves an exact recovery snapshot, ensures the terminology profile, writes the agent contract, records the file SHA-256, locks Studio editing, launches the selected signed-in command-line agent, supplies the complete task through standard input, and monitors both the child process and catalog from a designer-owned timer.",
+            "A zero process exit triggers protected reload and automatic save. A nonzero exit or developer cancellation restores the snapshot. Prompt and Reload remain explicit recovery controls for diagnosis or manually continued work; they are not required during the normal one-button path.",
             "Reload parses the external file and compares application, framework, language, locale formats, entry count/order, keys, source/checksums, context, developer notes, runtime classification, and wiring confirmation with the pre-session snapshot. Only Needs Translation, Source Changed, Error, and existing AI Draft entries are eligible. Machine-translated, Imported, Edited, Reviewed, Approved, Excluded, and Obsolete entries are protected. Any protected mutation rejects the reload.",
             "Allowed changes are normalized to AI Draft while Codex/Claude origin, high/medium/low confidence, and review notes are retained. A metadata-only confirmation is retained when an existing translation remains correct after a source change.",
             "CSV/JSON interchange, manual editing, and direct Google/DeepL translation remain alternatives. Provider output receives Machine translated status with its provider origin.",
@@ -1124,7 +1127,7 @@ def build_engineering_guide() -> Path:
             ["FoundationSmokeTests", "Detection, scan-to-catalog, protected in-place AI session/reload, schema/provenance round-trip, independent CSV fallback, review/approval, validation, runtime pack, preference, exact diff, integration, self change set."],
             ["VCLRuntimeSmokeTests", "VCL controls, menu items, locale, generated unit."],
             ["FMXRuntimeSmokeTests", "All representative FMX form properties, menu items, locale, generated unit."],
-            ["StudioFormSmokeTests", "Direct FMX stream/create, designer-owned in-place AI controls/timer, exact-review controls, linguistic action wiring, and provider alternative activation."],
+            ["StudioFormSmokeTests", "Direct FMX stream/create, maximized client-aligned pages, designer-owned agent controls/timer, exact-review controls, linguistic action wiring, and provider alternative activation."],
             ["RunRuntimeSmokeTests.ps1", "Both compilers, protected in-place AI pilot pipeline, disposable integrated VCL/FMX builds, deployed Italian pack, and required Italian launch title."],
             ["RunStudioLaunchSmokeTests.ps1", "Debug/Release Win32/Win64 real main-window title."],
             ["RunStudioSelfLocalizationSmokeTest.ps1", "Italian Studio title in all four configurations with state restoration."],
@@ -1140,7 +1143,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "Automated fixtures must not contain live keys. Optional provider acceptance uses an owner-supplied restricted key through Provider Settings, confirms Test Connection, translates a small disposable catalog, checks Machine translated status and provider provenance, then removes or rotates the test key. Provider availability is external state and is not a release blocker for the primary Codex/Claude workflow or offline runtime.",
+            "Automated fixtures must not contain live keys. Optional provider acceptance uses an owner-supplied restricted key through Engine Settings, confirms Test Connection, translates a small disposable catalog, checks Machine translated status and provider provenance, then removes or rotates the test key. Provider availability is external state and is not a release blocker for the primary Codex/Claude workflow or offline runtime.",
         ],
     )
 
@@ -1189,7 +1192,7 @@ def build_engineering_guide() -> Path:
             "Only Windows Win32/Win64 Delphi applications are supported.",
             "Google Advanced v3, OAuth/service-account workflows, and other providers are not implemented.",
             "Provider operations are optional explicit Studio actions; target runtime remains offline.",
-            "The Studio prepares and monitors the workspace but does not launch or authenticate Codex or Claude; the developer starts the chosen agent with the generated contract.",
+            "The Studio launches a separately installed Codex CLI or Claude Code command but never impersonates, embeds, or authenticates that service. The developer installs and signs in to the selected CLI using vendor-supported instructions; the Studio stores only non-secret command settings.",
             "No automatic control resizing/reflow is performed.",
             "Binary DFM conversion is outside the scanner.",
             "The generated menu selection persists the locale; restarting is the conservative way to ensure every form and application-specific string is refreshed.",
@@ -1215,6 +1218,8 @@ def build_engineering_guide() -> Path:
             "DeepL developer documentation: https://developers.deepl.com/docs/getting-started/auth",
             "Google Cloud Translation documentation: https://docs.cloud.google.com/translate/docs/authentication",
             "Google API-key guidance: https://docs.cloud.google.com/docs/authentication/api-keys-best-practices",
+            "OpenAI Codex CLI reference: https://developers.openai.com/codex/cli/reference/",
+            "Anthropic Claude Code CLI reference: https://docs.anthropic.com/en/docs/claude-code/cli-usage",
         ],
     )
 
