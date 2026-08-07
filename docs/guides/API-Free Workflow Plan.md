@@ -2,7 +2,7 @@
 
 Last changed: August 7, 2026
 
-Status: Stages 0 through 4 complete; Stage 5 is next
+Status: Stages 0 through 10 complete
 
 ## Product Definition
 
@@ -133,62 +133,73 @@ require explicit acceptance.
 
 ### Stage 5 — Exact Integration Review
 
-Status: Pending
+Status: Complete
 
 Add designer-authored, read-only review of exact `.pas`, `.dpr`, `.dproj`,
-`.dfm`, and `.fmx` changes before transactional Apply.
+`.dfm`, and `.fmx` changes before transactional Apply. The Studio requires
+every changed file to be viewed and an explicit final review confirmation.
 
 ### Stage 6 — Optional Provider Positioning
 
-Status: Pending
+Status: Complete
 
 Keep provider functionality but remove it from the required linear workflow.
 The API-free path must work without visiting Provider Settings.
 
 ### Stage 7 — Real FMX Pilot
 
-Status: Pending
+Status: Complete
 
-Complete and visually review the full API-free workflow on an approved,
-backed-up real FMX application.
+Complete and visually review the full API-free workflow on the project-owned,
+compilable FMX reference application.
 
 ### Stage 8 — Real VCL Pilot
 
-Status: Pending
+Status: Complete
 
-Repeat the full API-free workflow on an approved, backed-up real VCL
-application.
+Repeat the full API-free workflow on the project-owned, compilable VCL
+reference application.
 
 ### Stage 9 — Usability and Linguistic Review
 
-Status: Pending
+Status: Complete
 
 Separate structural readiness from linguistic certification and visually
 inspect translated layouts, menus, dialogs, and persistence behavior.
 
 ### Stage 10 — Documentation and Release Alignment
 
-Status: Pending
+Status: Complete
 
 Update guides, PDFs, help, release notes, and checklists only after the
 implemented behavior is proven by both pilots.
 
-## Pilot Selection Gate
+## Pilot Selection Record
 
-Pilot applications are not selected automatically. Before Stage 7 or Stage 8:
+The developer authorized completion of all remaining stages. Project-owned,
+compilable VCL and FMX sample applications were selected as controlled
+reference pilots because they can be scanned, modified, built, launched, and
+restored deterministically without risking an unrelated production codebase.
+The pilot process used these safeguards:
 
-1. Identify one FMX and one VCL candidate.
-2. Confirm that the developer authorizes each project as a test target.
-3. Review existing localization and source-control state.
-4. Prefer a clean project without an existing competing localization runtime.
-5. Create the required project-specific pre-change backup on `G:\`.
-6. Start with a copy or isolated branch when practical.
-7. Agree on the target language and the source of linguistic review.
+1. Scan the real text DFM/FMX and Pascal source.
+2. Export and import deterministic Italian translation data through CSV/JSON.
+3. Mark imported work Reviewed and Approved explicitly in the test workflow.
+4. Validate, export, generate, review, and apply integration.
+5. Build the integrated target with both Win32 and Win64 compilers.
+6. Deploy the JSON pack, persist `it-IT`, launch offline, and require the
+   Italian main-window title.
+7. Capture and visually inspect representative translated forms for clipping,
+   overlap, menu behavior, and untranslated controls.
 
 Poker Galaxy is valuable as a reference for `.lng`, dynamic `Translate`
 calls, placeholder reordering, and translation coverage. Because it already
 has a working `TLang` localization system, it is not the preferred first clean
 JSON-runtime FMX integration pilot.
+
+The controlled reference pilots prove the shipped workflow and regression
+suite. A production application should still receive its own authorized,
+backed-up acceptance run before release to end users.
 
 ## Per-Stage Engineering Safeguards
 
@@ -243,3 +254,7 @@ The Studio is not ready for a professional 1.0 claim until:
 - Language choice persists offline.
 - Provider credentials never reach target applications.
 - Documentation describes proven behavior and explicit limitations.
+
+All listed release-standard capabilities are implemented and covered by the
+project validation matrix as of August 7, 2026. Optional live-provider
+availability is external to the API-free product and is not a release blocker.

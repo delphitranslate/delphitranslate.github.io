@@ -17,8 +17,8 @@ Translated applications load local language packs and do not require Internet
 access or provider credentials. Google and DeepL support is optional and is not
 the foundation of the core workflow.
 
-The approved next milestone is **API-Free End-to-End Translation Workflow**.
-The professional validation plan is recorded in
+The **API-Free End-to-End Translation Workflow** milestone is complete. The
+professional validation record is maintained in
 `docs\guides\API-Free Workflow Plan.md`.
 
 ## Current Status
@@ -56,19 +56,25 @@ provides:
   runtime-wiring warnings.
 - Context-ranked exact-source translation suggestions that require explicit
   acceptance and never inherit approval status.
+- Explicit Mark Reviewed and Approve actions with enforced status progression.
 - Compact offline runtime packs under `Localization\Languages`.
-- Active workflow-step navigation for Project, Scan, Languages, Validation, and
-  Export, Integration, and Provider Settings.
+- Active workflow-step navigation for the six required Project, Scan,
+  Languages, Validation, Export, and Integration pages, plus a separately
+  labeled Optional Provider page.
 - DeepL API Free/API Pro and Google Cloud Translation Basic v2 provider support.
 - Masked API-key entry, Windows Credential Manager persistence, session-only
   keys, replacement, removal, and connection testing.
-- Implemented batched provider translation that preserves reviewed work and
-  marks provider results as machine translated. Live owner-credential
-  verification remains a release task.
+- Implemented optional batched provider translation that preserves reviewed
+  work and marks provider results as machine translated.
 - Offline VCL and FMX runtime loading, designer-persisted language menus,
   transactional integration, rollback, and deployment scripting.
-- Win32 and Win64 foundation, runtime, integration, form-streaming, and launch
-  tests.
+- Complete line-numbered original/proposed integration diffs, mandatory
+  per-file review, and explicit confirmation before Apply.
+- FMX form translation through designer-persisted `OnCreate` handlers after
+  form streaming; VCL startup wiring remains in the DPR.
+- Win32 and Win64 API-free VCL/FMX reference pilots covering scan, CSV/JSON
+  interchange, review, validation, export, integration, build, deployment, and
+  required Italian offline launch behavior.
 
 ## Current Studio Workflow
 
@@ -78,7 +84,7 @@ provides:
    the development catalog.
 4. Enter translations manually, export/import a CSV for an external human or
    AI-assisted workflow, accept an explicitly reviewed catalog suggestion, or
-   optionally configure DeepL/Google under **Provider Settings**. Imported,
+   optionally configure DeepL/Google under **Optional Provider**. Imported,
    suggested, and provider results remain marked for developer review.
 5. For cataloged Pascal `resourcestring` entries, add the documented
    `TranslateText` call at each intended call site and mark manual wiring
@@ -86,8 +92,9 @@ provides:
 6. Run **Validation**.
 7. When there are no validation errors, use **Export** to create the offline
    runtime JSON pack.
-8. Use **Integration** to preview, back up, apply, or restore the target-project
-   runtime and designer-authored language menu changes.
+8. Use **Integration** to inspect the exact diff for every changed file, confirm
+   review, back up, apply, or restore the target-project runtime and
+   designer-authored language menu changes.
 
 Scanning remains read-only. The `Localization` folder is created only when the
 developer explicitly saves a catalog or exports a runtime pack.
@@ -158,9 +165,9 @@ tools/tests/           Automated workflow and launch smoke tests
 
 ## Design Principle
 
-Normal project scanning, provider translation, and language-pack building are
+Normal project scanning, translation interchange, and language-pack building are
 read-only with respect to target source. Runtime and language-menu integration
-is a separate previewed, backed-up, developer-confirmed operation. Integrated
+is a separate exactly previewed, backed-up, developer-confirmed operation. Integrated
 applications use only local JSON packs and never contain provider credentials.
 
 ## Documentation

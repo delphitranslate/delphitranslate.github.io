@@ -168,8 +168,13 @@ begin
         FormSourceText := TDelphiIntegrationSourceEditor.AddFormLanguageHandler(
           TFile.ReadAllText(FormSourceFileName), MenuEdit.FormClassName,
           IntegrationUnitName);
+        if AProfile.Framework = tfFireMonkey then
+          FormSourceText :=
+            TDelphiIntegrationSourceEditor.AddFMXFormCreateTranslation(
+              FormSourceText, MenuEdit.FormClassName,
+              MenuEdit.FormCreateHandlerName, IntegrationUnitName);
         Result.AddTextChange(ickFormSource, FormSourceFileName,
-          'Connect persisted language items to the selection handler',
+          'Connect designer-persisted translation event handlers',
           FormSourceText);
 
         DprFileName := ProjectSourceFileName(AProfile);
@@ -187,7 +192,8 @@ begin
         end;
         ProjectText := TDelphiIntegrationSourceEditor.AddProjectStartup(
           ProjectText, IntegrationUnitName,
-          IntegrationRelativeFileName);
+          IntegrationRelativeFileName,
+          AProfile.Framework = tfFireMonkey);
         Result.AddTextChange(ickProjectSource, DprFileName,
           'Initialize offline translation before creating forms',
           ProjectText);

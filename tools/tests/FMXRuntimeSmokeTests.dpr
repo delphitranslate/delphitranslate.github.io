@@ -29,6 +29,11 @@ const
     '"decimalSeparator":",","thousandSeparator":".","currencySymbol":"EUR"},' +
     '"strings":{"frmFMXSample.Caption":"FMX Beispiel",' +
     '"frmFMXSample.lblHeading.Text":"Kundendaten",' +
+    '"frmFMXSample.lblCustomerName.Text":"Kundenname",' +
+    '"frmFMXSample.edtCustomerName.TextPrompt":"Vollst\u00e4ndiger Name",' +
+    '"frmFMXSample.btnSave.Text":"Kunde speichern",' +
+    '"frmFMXSample.mnuFile.Text":"Datei",' +
+    '"frmFMXSample.mnuExit.Text":"Beenden",' +
     '"frmFMXSample.mnuLanguage.Text":"Sprache",' +
     '"frmFMXSample.memInstructions.Lines.Strings.0":"Erste Zeile",' +
     '"frmFMXSample.memInstructions.Lines.Strings.1":"Zweite Zeile"}}';
@@ -47,7 +52,7 @@ begin
     try
       AppliedCount := TFMXTranslationApplicator.ApplyToForm(
         frmFMXSample, Pack);
-      Require(AppliedCount = 5, 'Unexpected FMX applied-property count.');
+      Require(AppliedCount = 10, 'Unexpected FMX applied-property count.');
       Require(frmFMXSample.Caption = 'FMX Beispiel',
         'The FMX form caption was not translated.');
       Require(frmFMXSample.lblHeading.Text = 'Kundendaten',

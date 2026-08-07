@@ -204,7 +204,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
-          Text = '7  Provider Settings'
+          Text = 'Optional Provider'
           OnClick = lblNavigationSettingsClick
         end
       end
@@ -718,7 +718,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Position.X = 26.000000000000000000
             Position.Y = 190.000000000000000000
             Size.Width = 394.000000000000000000
-            Size.Height = 250.000000000000000000
+            Size.Height = 216.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 15
             DisableFocusEffect = True
@@ -727,7 +727,29 @@ object frmTranslationStudio: TfrmTranslationStudio
             DefaultItemStyles.GroupFooterStyle = ''
             OnChange = lstCatalogEntriesChange
             Viewport.Width = 390.000000000000000000
-            Viewport.Height = 246.000000000000000000
+            Viewport.Height = 212.000000000000000000
+          end
+          object btnMarkTranslationReviewed: TButton
+            Enabled = False
+            Position.X = 26.000000000000000000
+            Position.Y = 414.000000000000000000
+            Size.Width = 190.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 23
+            Text = 'Mark Reviewed'
+            OnClick = btnMarkTranslationReviewedClick
+          end
+          object btnApproveTranslation: TButton
+            Enabled = False
+            Position.X = 230.000000000000000000
+            Position.Y = 414.000000000000000000
+            Size.Width = 190.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 24
+            Text = 'Approve'
+            OnClick = btnApproveTranslationClick
           end
           object lblSourceTextEditor: TLabel
             Position.X = 446.000000000000000000
@@ -837,7 +859,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 22
-            Text = 'Translate Missing with Provider'
+            Text = 'Optional Provider Translation'
             OnClick = btnTranslateMissingClick
           end
         end
@@ -944,10 +966,10 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.PlatformDefault = False
             TextSettings.Font.Size = 14.000000000000000000
             TextSettings.FontColor = xFF365674
-            Text = 
-              'The runtime pack contains approved offline strings and locale se' +
-              'ttings only. Export is blocked until the development catalog has' +
-              ' no validation errors.'
+            Text =
+              'The runtime pack contains structurally validated offline strings' +
+              ' and locale settings. Linguistic Reviewed and Approved states ar' +
+              'e reported separately and remain a developer decision.'
           end
           object ExportAccentCard: TRectangle
             Fill.Color = xFFE8F3FF
@@ -1073,32 +1095,76 @@ object frmTranslationStudio: TfrmTranslationStudio
           object lstIntegrationPlan: TListBox
             Position.X = 30.000000000000000000
             Position.Y = 190.000000000000000000
-            Size.Width = 850.000000000000000000
-            Size.Height = 210.000000000000000000
+            Size.Width = 280.000000000000000000
+            Size.Height = 194.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 2
+            OnChange = lstIntegrationPlanChange
             DisableFocusEffect = True
             DefaultItemStyles.ItemStyle = ''
             DefaultItemStyles.GroupHeaderStyle = ''
             DefaultItemStyles.GroupFooterStyle = ''
           end
+          object lblIntegrationDiffTitle: TLabel
+            StyledSettings = []
+            Position.X = 326.000000000000000000
+            Position.Y = 170.000000000000000000
+            Size.Width = 554.000000000000000000
+            Size.Height = 18.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 11.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'Exact changes'
+          end
+          object memIntegrationDiff: TMemo
+            Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+            DataDetectorTypes = []
+            Position.X = 326.000000000000000000
+            Position.Y = 190.000000000000000000
+            Size.Width = 554.000000000000000000
+            Size.Height = 194.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 3
+            ReadOnly = True
+            TextSettings.Font.Family = 'Consolas'
+            TextSettings.Font.Size = 10.000000000000000000
+            TextSettings.FontColor = xFF163A63
+            WordWrap = False
+            Text =
+              'Generate a preview, then select every changed file to review' +
+              ' its exact text.'
+            Viewport.Width = 550.000000000000000000
+            Viewport.Height = 190.000000000000000000
+          end
+          object chkIntegrationReviewConfirmed: TCheckBox
+            Enabled = False
+            Position.X = 326.000000000000000000
+            Position.Y = 392.000000000000000000
+            Size.Width = 554.000000000000000000
+            Size.Height = 24.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 4
+            Text = 'I reviewed every exact change and authorize transactional Apply'
+            OnChange = chkIntegrationReviewConfirmedChange
+          end
           object btnGenerateIntegrationPackage: TButton
             Enabled = False
             Position.X = 430.000000000000000000
-            Position.Y = 418.000000000000000000
+            Position.Y = 430.000000000000000000
             Size.Width = 200.000000000000000000
             Size.Height = 44.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 3
+            TabOrder = 5
             Text = 'Generate Preview'
             OnClick = btnGenerateIntegrationPackageClick
           end
           object lblIntegrationOutput: TLabel
             StyledSettings = []
             Position.X = 30.000000000000000000
-            Position.Y = 416.000000000000000000
+            Position.Y = 410.000000000000000000
             Size.Width = 380.000000000000000000
-            Size.Height = 50.000000000000000000
+            Size.Height = 64.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 11.000000000000000000
             TextSettings.FontColor = xFF365674
@@ -1107,22 +1173,22 @@ object frmTranslationStudio: TfrmTranslationStudio
           object btnApplyIntegration: TButton
             Enabled = False
             Position.X = 644.000000000000000000
-            Position.Y = 418.000000000000000000
+            Position.Y = 430.000000000000000000
             Size.Width = 112.000000000000000000
             Size.Height = 44.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 4
+            TabOrder = 6
             Text = 'Apply'
             OnClick = btnApplyIntegrationClick
           end
           object btnRestoreIntegration: TButton
             Enabled = False
             Position.X = 768.000000000000000000
-            Position.Y = 418.000000000000000000
+            Position.Y = 430.000000000000000000
             Size.Width = 112.000000000000000000
             Size.Height = 44.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 5
+            TabOrder = 7
             Text = 'Restore'
             OnClick = btnRestoreIntegrationClick
           end
@@ -1147,7 +1213,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.Font.Size = 21.000000000000000000
             TextSettings.Font.StyleExt = {00070000000000000004000000}
             TextSettings.FontColor = xFF163A63
-            Text = 'Translation provider settings'
+            Text = 'Optional translation provider'
           end
           object lblSettingsDescription: TLabel
             StyledSettings = []
@@ -1159,9 +1225,9 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.Font.Size = 13.000000000000000000
             TextSettings.FontColor = xFF365674
             Text =
-              'Internet access is used only here in the developer Studio. Expor' +
-              'ted VCL and FMX applications use offline JSON packs and never re' +
-              'ceive this API key.'
+              'This page is optional and is not part of the required workflow. ' +
+              'Internet access is used only by the developer Studio. Exported a' +
+              'pplications remain offline and never receive this API key.'
           end
           object lblProviderName: TLabel
             Position.X = 30.000000000000000000

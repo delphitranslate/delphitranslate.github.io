@@ -785,18 +785,132 @@ begin
   end;
 end;
 
+function ItalianPilotTranslation(const ASourceText: string): string;
+begin
+  if ASourceText = 'Customer Manager' then
+    Result := 'Gestione clienti'
+  else if ASourceText = 'Customer Account Details' then
+    Result := 'Dettagli account cliente'
+  else if ASourceText = 'Customer name' then
+    Result := 'Nome cliente'
+  else if ASourceText = 'Full name' then
+    Result := 'Nome completo'
+  else if ASourceText = '&Save Customer' then
+    Result := '&Salva cliente'
+  else if ASourceText = 'E&xit' then
+    Result := 'E&sci'
+  else if ASourceText = '&Language' then
+    Result := '&Lingua'
+  else
+    Result := '[IT] ' + ASourceText;
+end;
+
 procedure ExportItalianFixturePack(const AProfile: TProjectProfile);
 var
   Catalog: TTranslationCatalog;
+  CatalogFileName: string;
+  CsvFileName: string;
+  Entry: TTranslationEntry;
+  ImportCatalog: TTranslationCatalog;
+  ImportPlan: TCatalogCsvImportPlan;
+  ScanResult: TProjectScanResult;
+  ValidationResult: TCatalogValidationResult;
 begin
-  Catalog := CreateCompleteCatalog;
+  Catalog := TTranslationCatalog.Create;
   try
     Catalog.ApplicationId := AProfile.ProjectName;
     Catalog.Framework := AProfile.Framework;
+    Catalog.SourceLanguage := 'en-US';
     Catalog.Locale.LanguageCode := 'it-IT';
     Catalog.Locale.NativeLanguageName := 'Italiano';
-    TRuntimePackBuilder.ExportToFile(Catalog,
-      TTranslationWorkspace.RuntimePackFileName(AProfile, 'it-IT'));
+    Catalog.Locale.TextDirection := 'ltr';
+    Catalog.Locale.ShortDateFormat := 'dd/MM/yyyy';
+    Catalog.Locale.LongDateFormat := 'dddd d MMMM yyyy';
+    Catalog.Locale.ShortTimeFormat := 'HH:mm';
+    Catalog.Locale.LongTimeFormat := 'HH:mm:ss';
+    Catalog.Locale.DecimalSeparator := ',';
+    Catalog.Locale.ThousandSeparator := '.';
+    Catalog.Locale.CurrencySymbol := #$20AC;
+    ScanResult := TProjectScanner.Scan(AProfile);
+    try
+      TScanCatalogMerger.Merge(ScanResult, Catalog);
+    finally
+      ScanResult.Free;
+    end;
+    for Entry in Catalog.Entries do
+    begin
+      Entry.TranslatedText := ItalianPilotTranslation(Entry.SourceText);
+      Entry.Status := tsEdited;
+    end;
+
+    CsvFileName := TPath.Combine(
+      TPath.GetDirectoryName(AProfile.ProjectFileName),
+      'Localization\Development\' + AProfile.ProjectName +
+      '.it-IT.pilot.csv');
+    TCatalogCsv.ExportToFile(Catalog, CsvFileName);
+
+    ImportCatalog := TTranslationCatalog.Create;
+    try
+      ImportCatalog.ApplicationId := AProfile.ProjectName;
+      ImportCatalog.Framework := AProfile.Framework;
+      ImportCatalog.SourceLanguage := 'en-US';
+      ImportCatalog.Locale.LanguageCode := Catalog.Locale.LanguageCode;
+      ImportCatalog.Locale.NativeLanguageName :=
+        Catalog.Locale.NativeLanguageName;
+      ImportCatalog.Locale.TextDirection := Catalog.Locale.TextDirection;
+      ImportCatalog.Locale.ShortDateFormat :=
+        Catalog.Locale.ShortDateFormat;
+      ImportCatalog.Locale.LongDateFormat :=
+        Catalog.Locale.LongDateFormat;
+      ImportCatalog.Locale.ShortTimeFormat :=
+        Catalog.Locale.ShortTimeFormat;
+      ImportCatalog.Locale.LongTimeFormat :=
+        Catalog.Locale.LongTimeFormat;
+      ImportCatalog.Locale.DecimalSeparator :=
+        Catalog.Locale.DecimalSeparator;
+      ImportCatalog.Locale.ThousandSeparator :=
+        Catalog.Locale.ThousandSeparator;
+      ImportCatalog.Locale.CurrencySymbol :=
+        Catalog.Locale.CurrencySymbol;
+      ScanResult := TProjectScanner.Scan(AProfile);
+      try
+        TScanCatalogMerger.Merge(ScanResult, ImportCatalog);
+      finally
+        ScanResult.Free;
+      end;
+      ImportPlan := TCatalogCsv.AnalyzeImport(ImportCatalog, CsvFileName);
+      try
+        Require(ImportPlan.Changes.Count = ImportCatalog.Entries.Count,
+          'The API-free pilot CSV did not stage every scanned entry.');
+        Require(ImportPlan.Issues.Count = 0,
+          'The API-free pilot CSV reported unexpected import issues.');
+        ImportPlan.Apply;
+      finally
+        ImportPlan.Free;
+      end;
+      for Entry in ImportCatalog.Entries do
+      begin
+        Require(Entry.Status = tsImported,
+          'An API-free pilot translation bypassed Imported review status.');
+        Entry.Status := tsReviewed;
+        Entry.Status := tsApproved;
+      end;
+      ValidationResult := TCatalogValidator.Validate(ImportCatalog);
+      try
+        Require(not ValidationResult.HasErrors,
+          'The API-free pilot catalog failed structural validation.');
+      finally
+        ValidationResult.Free;
+      end;
+      CatalogFileName :=
+        TTranslationWorkspace.DevelopmentCatalogFileName(
+          AProfile, 'it-IT');
+      TCatalogJson.SaveToFile(ImportCatalog, CatalogFileName);
+      TRuntimePackBuilder.ExportToFile(ImportCatalog,
+        TTranslationWorkspace.RuntimePackFileName(AProfile, 'it-IT'));
+    finally
+      ImportCatalog.Free;
+    end;
   finally
     Catalog.Free;
   end;
@@ -869,9 +983,21 @@ begin
   Require(CountTextOccurrences(ProjectText,
     'InitializeTranslation;') = 1,
     'Translation initialization is missing or duplicated.');
-  Require(CountTextOccurrences(ProjectText,
-    'ApplyTranslation(') = 1,
-    'Startup form translation is missing or duplicated.');
+  if Profile.Framework = tfVCL then
+    Require(CountTextOccurrences(ProjectText,
+      'ApplyTranslation(') = 1,
+      'VCL startup form translation is missing or duplicated.')
+  else
+  begin
+    Require(CountTextOccurrences(ProjectText,
+      'ApplyTranslation(') = 0,
+      'Unsafe first-form FMX translation remained in the DPR.');
+    Require(ContainsText(FormText,
+      'OnCreate = datTranslationFormCreate'),
+      'The FMX form resource lacks its designer-persisted startup event.');
+    Require(ContainsText(SourceText, 'ApplyTranslation(Self);'),
+      'The FMX OnCreate handler does not apply startup translation.');
+  end;
 
   IntegrationUnitName := Profile.ProjectName + '.Translation.pas';
   Require(TFile.Exists(TPath.Combine(FixtureDirectory,
@@ -945,6 +1071,37 @@ begin
   end;
 end;
 
+procedure TestExactIntegrationReview;
+var
+  Change: TIntegrationFileChange;
+  ReviewText: string;
+begin
+  Change := TIntegrationFileChange.Create;
+  try
+    Change.TargetFileName := 'Example.pas';
+    Change.Description := 'Update startup';
+    Change.OriginalExists := True;
+    Change.OriginalText :=
+      'line one' + sLineBreak +
+      'old line' + sLineBreak +
+      'line three';
+    Change.NewText :=
+      'line one' + sLineBreak +
+      'new line' + sLineBreak +
+      'line three';
+    ReviewText := Change.ExactReviewText;
+    Require(ContainsText(ReviewText, '- O:0002'),
+      'Exact review did not identify the removed line.');
+    Require(ContainsText(ReviewText, 'N:0002 | new line'),
+      'Exact review did not identify the proposed line.');
+    Require(ContainsText(ReviewText, 'old line') and
+      ContainsText(ReviewText, 'new line'),
+      'Exact review omitted changed text.');
+  finally
+    Change.Free;
+  end;
+end;
+
 begin
   try
     TestProjectDetection;
@@ -962,6 +1119,7 @@ begin
     TestIntegrationPlanningAndPackage;
     TestTransactionalTargetIntegration;
     TestStudioSelfIntegrationChangeSet;
+    TestExactIntegrationReview;
     Writeln('Foundation, scanner, catalog, runtime, validation, and export tests passed.');
   except
     on E: Exception do

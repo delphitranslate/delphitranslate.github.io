@@ -918,5 +918,83 @@ transactional integration suite passed under Win32 and Win64. The updated FMX
 form streamed successfully under both architectures. Debug and Release builds
 and launch smoke tests passed for Win32 and Win64.
 
-Stage 5, exact integration review, remains pending and is the next approved
-stage.
+## Completed Professional Validation Stages 5-10
+
+Stages 5 through 10 were implemented and validated on August 7, 2026.
+
+### Exact Integration Review
+
+`TIntegrationFileChange.ExactReviewText` now produces a complete line-numbered
+original/proposed diff using a longest-common-subsequence comparison. Removed,
+added, and unchanged lines remain visible; newly generated files are shown in
+full. The Integration page owns a designer-authored read-only monospace review
+memo and final review checkbox.
+
+Selecting a changed file records it as viewed. The checkbox remains disabled
+until every changed file has been viewed, and Apply remains disabled until the
+developer explicitly checks the confirmation. Rebuilding or restoring a plan
+clears this state.
+
+### Optional Provider Positioning
+
+The six required workflow pages remain Project, Scan, Languages, Validation,
+Export, and Integration. Provider configuration is labeled Optional Provider,
+and provider translation is labeled Optional Provider Translation. The UI and
+documentation state that no provider or key is required for CSV/JSON
+interchange or offline target execution.
+
+### Linguistic State and Runtime Readiness
+
+The Languages page now provides designer-authored Mark Reviewed and Approve
+actions. A blank translation cannot be reviewed, and approval requires Reviewed
+status first. The readiness summary reports translated count, Reviewed-or-
+better count, Approved count, automatic runtime coverage, and confirmed manual
+wiring independently. Structural validity never grants linguistic approval.
+
+### FMX and VCL API-Free Reference Pilots
+
+The foundation workflow scans each real compilable sample project, creates a
+catalog, exports deterministic Italian UTF-8 CSV, imports it into a fresh
+catalog as Imported, explicitly advances entries through Reviewed and Approved,
+validates them, saves development JSON, and exports the runtime pack.
+
+`RunRuntimeSmokeTests.ps1` then generates and applies integration, builds the
+integrated VCL and FMX targets with Win32 and Win64, deploys the Italian pack,
+writes a temporary `it-IT` preference, launches each executable without an
+Internet dependency, and requires the Italian main-window title. The script
+restores any prior per-user preferences and cleans temporary output.
+
+Representative VCL and FMX forms were captured and visually inspected. Titles,
+headings, labels, buttons, memo text, and the visible FMX Language menu were
+translated without observed clipping or overlap.
+
+### FMX Form Lifecycle Correction
+
+The FMX pilot exposed a real lifecycle defect: applying translation to the
+first FMX form in the DPR immediately after `Application.CreateForm` could
+produce an asynchronous access violation even though an in-memory adapter test
+passed.
+
+FMX integration now preserves an existing root `OnCreate` handler or persists
+`OnCreate = datTranslationFormCreate` in the FMX resource. It adds
+`ApplyTranslation(Self)` to the corresponding Pascal handler and skips the
+unsafe first-form DPR call. This keeps the event designer-visible and applies
+text only after FMX has completed streaming. VCL continues to apply its first
+form through the DPR startup path.
+
+### Stage 5-10 Validation
+
+The strengthened Win32 and Win64 runtime suite passed:
+
+- Project detection and real VCL/FMX scanning.
+- Development JSON and UTF-8 CSV round trips.
+- Imported, Reviewed, and Approved state progression.
+- Structural validation and runtime-pack export.
+- Exact integration diff and review-control assertions.
+- Generated application/runtime units.
+- Integrated VCL and FMX builds.
+- Offline Italian deployment, preference persistence, and launch-title checks.
+- Representative full-form VCL and FMX property application.
+
+Optional live-provider testing remains an external acceptance activity and is
+not a release blocker for the API-free workflow.

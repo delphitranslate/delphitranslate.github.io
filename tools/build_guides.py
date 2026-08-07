@@ -20,7 +20,7 @@ ICON = (
     / "images and icons"
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
-LAST_CHANGED = "August 6, 2026"
+LAST_CHANGED = "August 7, 2026"
 BLUE = "234C80"
 BRIGHT_BLUE = "1974DF"
 ORANGE = "F28A1B"
@@ -36,6 +36,57 @@ def set_cell_shading(cell, fill: str) -> None:
         shading = OxmlElement("w:shd")
         properties.append(shading)
     shading.set(qn("w:fill"), fill)
+
+def set_table_geometry(table, widths: list[int], indent: int = 120) -> None:
+    if sum(widths) != 9360:
+        raise ValueError("Table widths must total 9360 DXA.")
+    table.autofit = False
+    properties = table._tbl.tblPr
+    for tag in ("w:tblW", "w:tblInd", "w:tblLayout", "w:tblCellMar"):
+        existing = properties.find(qn(tag))
+        if existing is not None:
+            properties.remove(existing)
+
+    table_width = OxmlElement("w:tblW")
+    table_width.set(qn("w:w"), "9360")
+    table_width.set(qn("w:type"), "dxa")
+    properties.append(table_width)
+    table_indent = OxmlElement("w:tblInd")
+    table_indent.set(qn("w:w"), str(indent))
+    table_indent.set(qn("w:type"), "dxa")
+    properties.append(table_indent)
+    layout = OxmlElement("w:tblLayout")
+    layout.set(qn("w:type"), "fixed")
+    properties.append(layout)
+
+    margins = OxmlElement("w:tblCellMar")
+    for side, value in (
+        ("top", 80), ("bottom", 80), ("start", 120), ("end", 120)
+    ):
+        margin = OxmlElement(f"w:{side}")
+        margin.set(qn("w:w"), str(value))
+        margin.set(qn("w:type"), "dxa")
+        margins.append(margin)
+    properties.append(margins)
+
+    grid = table._tbl.tblGrid
+    for column in list(grid):
+        grid.remove(column)
+    for width in widths:
+        column = OxmlElement("w:gridCol")
+        column.set(qn("w:w"), str(width))
+        grid.append(column)
+
+    for row in table.rows:
+        for index, cell in enumerate(row.cells):
+            cell.width = Inches(widths[index] / 1440)
+            cell_properties = cell._tc.get_or_add_tcPr()
+            cell_width = cell_properties.find(qn("w:tcW"))
+            if cell_width is None:
+                cell_width = OxmlElement("w:tcW")
+                cell_properties.append(cell_width)
+            cell_width.set(qn("w:w"), str(widths[index]))
+            cell_width.set(qn("w:type"), "dxa")
 
 
 def add_field(paragraph, instruction: str) -> None:
@@ -71,12 +122,12 @@ def unlink_headers(section) -> None:
 
 
 def configure_page(section) -> None:
-    section.top_margin = Inches(0.72)
-    section.bottom_margin = Inches(0.68)
-    section.left_margin = Inches(0.78)
-    section.right_margin = Inches(0.72)
-    section.header_distance = Inches(0.3)
-    section.footer_distance = Inches(0.3)
+    section.top_margin = Inches(1.0)
+    section.bottom_margin = Inches(1.0)
+    section.left_margin = Inches(1.0)
+    section.right_margin = Inches(1.0)
+    section.header_distance = Inches(0.492)
+    section.footer_distance = Inches(0.492)
 
 
 def add_header_footer(section, title: str, numbered: bool) -> None:
@@ -102,27 +153,46 @@ def add_header_footer(section, title: str, numbered: bool) -> None:
 def setup_styles(document: Document) -> None:
     styles = document.styles
     normal = styles["Normal"]
-    normal.font.name = "Aptos"
-    normal.font.size = Pt(9.5)
+    normal.font.name = "Calibri"
+    normal.font.size = Pt(11)
     normal.font.color.rgb = RGBColor.from_string("26384A")
-    normal.paragraph_format.space_after = Pt(5)
-    normal.paragraph_format.line_spacing = 1.05
+    normal.paragraph_format.space_after = Pt(6)
+    normal.paragraph_format.line_spacing = 1.25
 
     for name, size, color in (
         ("Title", 29, BLUE),
         ("Subtitle", 15, GRAY),
-        ("Heading 1", 19, BLUE),
-        ("Heading 2", 14, BRIGHT_BLUE),
-        ("Heading 3", 11, ORANGE),
+        ("Heading 1", 16, "2E74B5"),
+        ("Heading 2", 13, "2E74B5"),
+        ("Heading 3", 12, "1F4D78"),
     ):
         style = styles[name]
-        style.font.name = "Aptos Display"
+        style.font.name = "Calibri"
         style.font.size = Pt(size)
         style.font.color.rgb = RGBColor.from_string(color)
         style.font.bold = name != "Subtitle"
         style.paragraph_format.keep_with_next = True
-        style.paragraph_format.space_before = Pt(9)
-        style.paragraph_format.space_after = Pt(5)
+        if name == "Heading 1":
+            style.paragraph_format.space_before = Pt(18)
+            style.paragraph_format.space_after = Pt(10)
+        elif name == "Heading 2":
+            style.paragraph_format.space_before = Pt(14)
+            style.paragraph_format.space_after = Pt(7)
+        elif name == "Heading 3":
+            style.paragraph_format.space_before = Pt(10)
+            style.paragraph_format.space_after = Pt(5)
+        else:
+            style.paragraph_format.space_before = Pt(0)
+            style.paragraph_format.space_after = Pt(8)
+
+    for name in ("List Bullet", "List Number"):
+        style = styles[name]
+        style.font.name = "Calibri"
+        style.font.size = Pt(11)
+        style.paragraph_format.left_indent = Inches(0.375)
+        style.paragraph_format.first_line_indent = Inches(-0.188)
+        style.paragraph_format.space_after = Pt(4)
+        style.paragraph_format.line_spacing = 1.25
 
     if "Code Block" not in styles:
         code = styles.add_style("Code Block", WD_STYLE_TYPE.PARAGRAPH)
@@ -172,6 +242,7 @@ def add_cover(document: Document, title: str, subtitle: str) -> None:
     accent.alignment = WD_TABLE_ALIGNMENT.CENTER
     accent.columns[0].width = Inches(3.25)
     accent.columns[1].width = Inches(3.25)
+    set_table_geometry(accent, [4680, 4680], indent=0)
     set_cell_shading(accent.cell(0, 0), BLUE)
     set_cell_shading(accent.cell(0, 1), ORANGE)
     for cell in accent.rows[0].cells:
@@ -197,8 +268,6 @@ def add_toc_section(document: Document, guide_title: str) -> None:
     document.add_heading("Table of Contents", level=1)
     paragraph = document.add_paragraph()
     add_field(paragraph, 'TOC \\o "1-3" \\h \\z \\u')
-    paragraph.add_run().add_break(WD_BREAK.PAGE)
-
     content_section = document.add_section(WD_SECTION.NEW_PAGE)
     configure_page(content_section)
     set_page_number_format(content_section, "decimal", 1)
@@ -216,18 +285,42 @@ def add_bullets(document: Document, items: list[str]) -> None:
 
 
 def add_steps(document: Document, items: list[str]) -> None:
-    for index, item in enumerate(items, 1):
-        paragraph = document.add_paragraph()
-        paragraph.paragraph_format.left_indent = Inches(0.22)
-        paragraph.paragraph_format.first_line_indent = Inches(-0.22)
-        lead = paragraph.add_run(f"{index}. ")
-        lead.bold = True
-        paragraph.add_run(item)
+    numbering = document.part.numbering_part.element
+    style_num_id = int(
+        document.styles["List Number"].element.pPr.numPr.numId.val
+    )
+    base_number = numbering.xpath(
+        f'./w:num[@w:numId="{style_num_id}"]'
+    )[0]
+    abstract_id = base_number.find(qn("w:abstractNumId")).get(qn("w:val"))
+    existing_ids = [
+        int(element.get(qn("w:numId"))) for element in numbering.findall(qn("w:num"))
+    ]
+    list_num_id = max(existing_ids, default=0) + 1
+    number = OxmlElement("w:num")
+    number.set(qn("w:numId"), str(list_num_id))
+    abstract_number = OxmlElement("w:abstractNumId")
+    abstract_number.set(qn("w:val"), abstract_id)
+    number.append(abstract_number)
+    level_override = OxmlElement("w:lvlOverride")
+    level_override.set(qn("w:ilvl"), "0")
+    start_override = OxmlElement("w:startOverride")
+    start_override.set(qn("w:val"), "1")
+    level_override.append(start_override)
+    number.append(level_override)
+    numbering.append(number)
+
+    for item in items:
+        paragraph = document.add_paragraph(item, style="List Number")
+        number_properties = paragraph._p.get_or_add_pPr().get_or_add_numPr()
+        number_properties.get_or_add_ilvl().val = 0
+        number_properties.get_or_add_numId().val = list_num_id
 
 
 def add_callout(document: Document, title: str, text: str) -> None:
     table = document.add_table(rows=1, cols=1)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    set_table_geometry(table, [9360])
     cell = table.cell(0, 0)
     set_cell_shading(cell, PALE_BLUE)
     cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
@@ -243,6 +336,15 @@ def add_table(document: Document, headers: list[str], rows: list[list[str]]) -> 
     table = document.add_table(rows=1, cols=len(headers))
     table.style = "Light Shading Accent 1"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    widths_by_count = {
+        2: [2700, 6660],
+        3: [1800, 3900, 3660],
+        4: [1500, 2500, 2680, 2680],
+    }
+    widths = widths_by_count.get(
+        len(headers), [9360 // len(headers)] * len(headers)
+    )
+    widths[-1] += 9360 - sum(widths)
     header_properties = table.rows[0]._tr.get_or_add_trPr()
     repeat_header = OxmlElement("w:tblHeader")
     repeat_header.set(qn("w:val"), "true")
@@ -261,7 +363,8 @@ def add_table(document: Document, headers: list[str], rows: list[list[str]]) -> 
         row_properties.append(cannot_split)
         for index, value in enumerate(row):
             cells[index].text = value
-            cells[index].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
+            cells[index].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    set_table_geometry(table, widths)
 
 
 def finish_document(document: Document, path: Path) -> None:
@@ -291,14 +394,14 @@ def build_user_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "Delphi App Translation Studio is a Windows developer tool for adding offline localization to existing Delphi VCL and FireMonkey applications. It scans designer-authored forms and Delphi resourcestring declarations, stores the results in an editable development catalog, optionally obtains draft translations from an Internet provider, validates the finished language, and exports a compact JSON pack for the target application.",
+            "Delphi App Translation Studio is an offline-first Windows developer tool for adding localization to existing Delphi VCL and FireMonkey applications. It scans designer-authored forms and Delphi resourcestring declarations, stores the results in an editable development catalog, accepts translated text from manual work, CSV, JSON, reviewed suggestions, or an optional Internet provider, validates structural safety, and exports a compact JSON pack for the target application.",
             "The Studio itself is built with FireMonkey, but it works with both VCL and FMX target projects. The supported build targets are Windows Win32 and Win64. macOS, iOS, Android, Linux, C++Builder, and runtime cloud translation are outside the product scope.",
         ],
     )
     add_callout(
         document,
         "Offline by design.",
-        "Only the developer Studio contacts DeepL or Google. A translated target application reads local JSON files and never needs Internet access or a provider API key.",
+        "The required workflow needs no provider account or API key. If a developer chooses DeepL or Google, only the Studio contacts that service. A translated target application reads local JSON files and never needs Internet access or provider credentials.",
     )
 
     document.add_heading("1.1 What the Studio changes", level=2)
@@ -327,7 +430,7 @@ def build_user_guide() -> Path:
         [
             "Run DelphiAppTranslationStudio.exe.",
             "Confirm that the title reads Delphi App Translation Studio.",
-            "Use the left workflow panel. The blue selection bar follows the active Project, Scan, Languages, Validation, Export, Integration, or Provider Settings page.",
+            "Use the left workflow panel. The blue selection bar follows the six required Project, Scan, Languages, Validation, Export, and Integration pages. Optional Provider is available separately and is not required.",
         ],
     )
 
@@ -342,7 +445,7 @@ def build_user_guide() -> Path:
             ["4 Validation", "Check completeness and structural safety.", "Issue list"],
             ["5 Export", "Create the compact offline pack.", "Runtime JSON"],
             ["6 Integration", "Preview/apply runtime and language-menu wiring.", "Integrated target project"],
-            ["7 Provider Settings", "Configure optional DeepL or Google access.", "Secure credential or session key"],
+            ["Optional Provider", "Optionally obtain draft text from DeepL or Google.", "Machine-translated drafts"],
         ],
     )
 
@@ -400,6 +503,7 @@ def build_user_guide() -> Path:
         [
             ["Needs translation", "No usable target text is present."],
             ["Machine translated", "DeepL or Google produced a draft that requires review."],
+            ["Imported", "CSV supplied target text that requires review."],
             ["Edited", "A person changed or entered the target text."],
             ["Reviewed", "A person reviewed the target text."],
             ["Approved", "The entry is release-approved."],
@@ -410,11 +514,39 @@ def build_user_guide() -> Path:
         ],
     )
 
-    document.add_heading("6. Provider Settings", level=1)
+    document.add_heading("5.2 API-free CSV and JSON workflow", level=2)
+    add_steps(
+        document,
+        [
+            "Save the development JSON catalog. It is the lossless canonical record and can be shared with a technically capable translator or AI-assisted workflow.",
+            "Choose Export CSV for an Excel-friendly UTF-8 file. Keep Key, SourceText, SourceChecksum, and RuntimeApplication unchanged; edit only Translation.",
+            "Import the returned CSV. The Studio stages the import, rejects duplicate or unknown keys, reports stale source text or checksums, and protects existing Reviewed or Approved work.",
+            "Read the import summary, then explicitly approve Apply. Accepted text enters the catalog as Imported, never Approved.",
+            "Select each imported entry, review meaning and layout implications, then use Mark Reviewed. Use Approve only after that separate review step.",
+        ],
+    )
+    add_callout(
+        document,
+        "CSV safety.",
+        "Translations may contain commas, quotes, Unicode, and embedded line breaks. The Studio quotes every field and imports by stable key rather than row position.",
+    )
+
+    document.add_heading("5.3 Runtime coverage and suggestions", level=2)
+    add_bullets(
+        document,
+        [
+            "Designer-property entries are applied automatically by the VCL or FMX runtime adapter.",
+            "Pascal resourcestring entries require an explicit TranslateText(Key, Fallback) call at the intended code location. Mark Manual wiring confirmed only after adding and reviewing that call.",
+            "Translation completeness, linguistic Reviewed/Approved counts, automatic runtime coverage, and manual wiring readiness are reported separately.",
+            "Exact-source translations from other stable keys are suggestions only. The developer must explicitly accept one, and the accepted target remains Edited rather than inheriting approval.",
+        ],
+    )
+
+    document.add_heading("6. Optional Provider Settings", level=1)
     add_paragraphs(
         document,
         [
-            "Provider translation is optional. The Studio supports DeepL API Free, DeepL API Pro, and Google Cloud Translation Basic v2. Provider accounts, billing, quotas, prices, and supported languages are controlled by the provider and may change.",
+            "Provider translation is an optional acquisition method, not a required workflow step. The Studio supports DeepL API Free, DeepL API Pro, and Google Cloud Translation Basic v2. Provider accounts, billing, quotas, prices, and supported languages are controlled by the provider and may change.",
         ],
     )
     add_table(
@@ -446,7 +578,7 @@ def build_user_guide() -> Path:
             "Create or sign in to a DeepL account and subscribe to DeepL API Free or DeepL API Pro as appropriate.",
             "Open the account's API Keys tab. Create a separate key for this Studio when the account interface permits multiple keys.",
             "Copy the key once and keep it out of source code, JSON catalogs, issue trackers, email, and screenshots.",
-            "In the Studio, choose Provider Settings and select DeepL.",
+            "In the Studio, choose Optional Provider and select DeepL.",
             "Select API Free or API Pro to match the account. Free uses api-free.deepl.com; Pro uses api.deepl.com.",
             "Paste the key into the masked field.",
             "Leave Remember securely checked for Windows Credential Manager, or clear it for Use for This Session Only.",
@@ -476,10 +608,10 @@ def build_user_guide() -> Path:
             "Create a dedicated Google Cloud project or select an existing project intended for this Studio.",
             "Attach an active billing account if Google requires billing for the Cloud Translation API.",
             "Open APIs & Services, then Library. Find and enable Cloud Translation API.",
-            "Open APIs & Services, then Credentials. Choose Create credentials and API key.",
-            "Immediately edit the new key. Under API restrictions, restrict it to Cloud Translation API. Apply any additional restriction that is compatible with the developer computer and organization; desktop usage commonly makes website-referrer restrictions unsuitable.",
+            "Open APIs & Services, then Credentials. Choose Create credentials and API key. Current Google Cloud policy requires at least one API restriction when creating a key.",
+            "Under API restrictions, restrict the key to Cloud Translation API. Apply any additional application restriction that is compatible with the developer computer and organization; desktop usage commonly makes website-referrer restrictions unsuitable.",
             "Review quotas and budget alerts in Google Cloud before bulk translation.",
-            "In the Studio, choose Provider Settings and select Google Cloud Translation.",
+            "In the Studio, choose Optional Provider and select Google Cloud Translation.",
             "Paste the key into the masked field. The DeepL plan control is disabled because it does not apply.",
             "Choose persistent Windows Credential Manager storage or session-only use, then Replace / Save Key and Test Connection.",
         ],
@@ -500,11 +632,11 @@ def build_user_guide() -> Path:
         [
             "Open or create the target-language catalog.",
             "Confirm the source and target language codes.",
-            "Configure and test a provider.",
-            "Choose Translate Missing with Provider.",
-            "Read the confirmation message. It separately reports exact reviewed translations that will be reused locally and strings that will be sent to the provider.",
+            "Configure and test a provider under Optional Provider.",
+            "Choose Optional Provider Translation on the Languages page.",
+            "Read the confirmation message showing how many unresolved strings will be sent to the provider. Cross-key suggestions are never accepted automatically.",
             "Choose Yes to begin. Existing complete reviewed or approved work is preserved.",
-            "Wait for all batches. Exact reviewed matches require no Internet request; transient HTTP 429 and provider server failures are retried.",
+            "Wait for all batches. Transient HTTP 429 and provider server failures receive bounded retries.",
             "Review every machine-translated entry for meaning, placeholders, accelerators, product terminology, tone, and available control space.",
             "Save the catalog and run Validation.",
         ],
@@ -519,7 +651,7 @@ def build_user_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "Validation checks catalog metadata, required translations, duplicate keys, source changes, placeholders, accelerator keys, and excluded/obsolete conditions. Errors block export. Warnings and information messages should still be reviewed.",
+            "Structural validation checks catalog metadata, required translations, duplicate keys, source changes, Delphi indexed/sequential placeholders, accelerator keys, and excluded/obsolete conditions. Errors block export. Manual resourcestring wiring is reported as a runtime-readiness warning. Linguistic Reviewed and Approved states are reported separately and are not inferred from structural validation.",
         ],
     )
     add_steps(
@@ -546,8 +678,9 @@ def build_user_guide() -> Path:
             "Close or save the target project in Delphi.",
             "Select Integration and confirm the designated language menu component, normally mnuLanguage.",
             "Choose Build Integration Plan and review each proposed operation.",
-            "Choose Generate Preview. Inspect the package, language-menu.json, generated unit, Runtime folder, Localization\\Languages, and Deploy-LanguagePacks.ps1.",
-            "Choose Apply only after reviewing the change set. The Studio creates and verifies a pre-change backup and writes a manifest.",
+            "Choose Generate Preview. Select every changed file and read its line-numbered original/proposed text. Newly generated files are shown in full.",
+            "After every file has been viewed, check I reviewed every exact change. Apply remains disabled until that confirmation is checked.",
+            "Choose Apply. The Studio creates and verifies a pre-change backup, writes atomically, and records a restore manifest.",
             "Reopen the target project, inspect the DFM/FMX menu items in the IDE, and build Win32 and Win64.",
             "Run the target, select a language, restart if required by the application's integration pattern, and verify all forms.",
             "Use Restore to recover the recorded pre-integration state if needed.",
@@ -562,6 +695,7 @@ def build_user_guide() -> Path:
             "Run Deploy-LanguagePacks.ps1 from the preview package with -ApplicationDirectory pointing to the output folder, or copy the files through the Delphi deployment manager.",
             "The selected language is stored in %LOCALAPPDATA%\\<ApplicationId>\\language.ini.",
             "The executable folder can therefore remain read-only, as it normally is under Program Files.",
+            "VCL startup applies the first form through generated DPR wiring. FMX integration persists an OnCreate handler in the form resource and applies translation after FMX streaming; an existing handler is preserved.",
         ],
     )
 
@@ -637,7 +771,7 @@ def build_user_guide() -> Path:
         document,
         [
             "Provider setup screens and commercial terms can change after this guide is published. Before creating a production key, compare these steps with the official pages listed in Chapters 7 and 8. Prefer a dedicated, restricted key and review the provider dashboard after the first bulk run.",
-            "This guide documents the implemented Studio as of August 6, 2026.",
+            "This guide documents the implemented Studio as of August 7, 2026.",
         ],
     )
 
@@ -743,12 +877,13 @@ def build_engineering_guide() -> Path:
     document.add_heading("4.2 Development catalog", level=2)
     document.add_paragraph(
         '{\n'
-        '  "schemaVersion": 1,\n'
+        '  "schemaVersion": 2,\n'
         '  "applicationId": "SampleApp",\n'
         '  "sourceLanguage": "en-US",\n'
         '  "locale": {"languageCode": "it-IT", "nativeLanguageName": "Italiano"},\n'
         '  "entries": [{"key": "frmMain.btnSave.Text", "sourceText": "Save",\n'
-        '               "translatedText": "Salva", "status": "reviewed"}]\n'
+        '               "translatedText": "Salva", "status": "reviewed",\n'
+        '               "runtimeApplication": "automatic"}]\n'
         "}",
         style="Code Block",
     )
@@ -796,7 +931,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Studio.MainForm.fmx contains the complete orange-and-blue interface. The workflow selection rectangle moves among seven persisted pages. DAT.Studio.MainForm.pas contains event and state logic only; it does not construct controls.",
+            "DAT.Studio.MainForm.fmx contains the complete orange-and-blue interface. The workflow selection rectangle moves among the six required persisted pages and the separately labeled Optional Provider page. DAT.Studio.MainForm.pas contains event and state logic only; it does not construct controls.",
             "Each workflow TLabel explicitly persists HitTest=True. FireMonkey labels default to HitTest=False, which would otherwise pass mouse events through the visible label even when an OnClick event is assigned. The setting remains editable in the Object Inspector.",
             "The form owns the project profile, scan result, catalog, validation result, integration change set, provider settings, and per-provider session-key strings. Destructors release owned objects. Catalog updates invalidate validation and export state.",
         ],
@@ -874,24 +1009,22 @@ def build_engineering_guide() -> Path:
         ],
     )
 
-    document.add_heading("9. Bulk Translation and Review Semantics", level=1)
-    add_steps(
-        document,
-        [
-            "Validate that a catalog and target locale exist.",
-            "Build an exact-match memory from reviewed and approved entries in the target catalog.",
-            "Count local reuses and provider-bound missing/source-changed/error entries while excluding excluded and obsolete entries.",
-            "Present a developer confirmation with both counts.",
-            "Resolve the selected provider and effective key only when provider-bound entries remain.",
-            "Send batches and preserve output ordering.",
-            "Commit local reuses and provider results only after the provider operation returns successfully.",
-            "Preserve reviewed/approved status for local reuse, mark provider results machine-translated, invalidate validation, refresh the list, and save an existing catalog.",
-        ],
-    )
+    document.add_heading("9. Translation Acquisition and Review Semantics", level=1)
     add_paragraphs(
         document,
         [
-            "This all-or-error assignment avoids a half-updated in-memory catalog when a later batch fails. Existing reviewed/approved complete translations do not qualify for replacement. Human review remains a product rule, not an optional recommendation.",
+            "The canonical workflow is API-free: save development JSON or export UTF-8 CSV, obtain translations outside the Studio, stage an import, review the safety report, and explicitly apply it. The import engine maps rows by stable key, rejects duplicates and unknown keys, detects stale source text/checksums, and protects Reviewed or Approved entries. Accepted imported text receives Imported status.",
+            "Provider translation is optional. When requested, the Studio confirms the unresolved count, resolves the selected provider and credential, sends bounded ordered batches, and commits results only after the provider operation succeeds. Provider output receives Machine translated status.",
+            "The Studio never copies a translation from one stable key to another automatically. Exact-source matches are suggestions only. Explicit acceptance creates an Edited result and does not inherit Reviewed or Approved status.",
+        ],
+    )
+    add_bullets(
+        document,
+        [
+            "Mark Reviewed requires nonblank translated text.",
+            "Approve requires the entry to have reached Reviewed first.",
+            "Structural validity, linguistic status, automatic runtime coverage, and manual wiring readiness are separate measures.",
+            "A Pascal resourcestring remains manual wiring until the developer confirms the generated TranslateText call site.",
         ],
     )
 
@@ -899,7 +1032,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Validation.Catalog validates metadata, missing target text, duplicates, changed source, placeholders, accelerators, and status conditions. Export is blocked by errors. DAT.Core.RuntimePack serializes only runtime-required metadata and strings and records a source-catalog checksum.",
+            "DAT.Validation.Catalog validates metadata, missing target text, duplicates, changed source, Delphi indexed and sequential Format arguments, accelerators, and status conditions. Export is blocked by errors. Manual resourcestring wiring is reported separately from structural errors. DAT.Core.RuntimePack serializes only runtime-required metadata and strings and records a source-catalog checksum.",
             "Locale data is retained in the runtime pack so DAT.Runtime.Manager can expose a pack-specific TFormatSettings without globally mutating the developer's source code.",
         ],
     )
@@ -927,8 +1060,9 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Integration.Plan builds a human-readable plan. DAT.Integration.Package creates the generated application unit, framework adapter, shared runtime units, JSON packs, language-menu manifest, and deployment script. DAT.Integration.Engine builds every proposed file change in memory.",
-            "DAT.Integration.MenuResource modifies text DFM/FMX menus idempotently and preserves designer editability. DAT.Integration.DelphiSource applies narrowly scoped DPR, PAS, and DPROJ wiring. DAT.Integration.Transaction checks source state, creates a verified pre-change backup, writes files atomically, rolls back failures, and records a manifest for restore.",
+            "DAT.Integration.Plan builds a human-readable plan. DAT.Integration.Package creates the generated application unit, framework adapter, shared runtime units, JSON packs, language-menu manifest, and deployment script. DAT.Integration.Engine builds every proposed file change in memory. TIntegrationFileChange.ExactReviewText produces a complete line-numbered original/proposed LCS diff; generated files are shown in full.",
+            "The Studio records each selected preview file as viewed. The final review checkbox remains disabled until every file has been viewed, and Apply remains disabled until the checkbox is explicitly checked. DAT.Integration.Transaction then checks source state, creates a verified pre-change backup, writes files atomically, rolls back failures, and records a manifest for restore.",
+            "DAT.Integration.MenuResource modifies text DFM/FMX menus idempotently and preserves designer editability. DAT.Integration.DelphiSource applies narrowly scoped DPR, PAS, and DPROJ wiring. For FMX, it preserves an existing root OnCreate handler or persists datTranslationFormCreate in the FMX and adds ApplyTranslation(Self) to its Pascal method. This respects the FMX form streaming lifecycle and avoids translating the first form from the DPR immediately after CreateForm.",
         ],
     )
     document.add_heading("12.1 Generated startup contract", level=2)
@@ -936,7 +1070,8 @@ def build_engineering_guide() -> Path:
         document,
         [
             "InitializeTranslation runs before form creation.",
-            "ApplyTranslation is called for created forms.",
+            "VCL applies the first created form through the DPR startup wiring.",
+            "FMX applies each form in its designer-persisted OnCreate handler after streaming is complete.",
             "SelectLanguageMenuItem derives a locale from datLanguage_<locale> component names.",
             "TranslateText provides resourcestring/code fallback access.",
             "Runtime ownership is finalized safely.",
@@ -963,7 +1098,7 @@ def build_engineering_guide() -> Path:
             "Project, scan, catalog, validation, export, integration, credential, and provider errors are caught at Studio event boundaries and summarized in the status card.",
             "Provider exceptions carry an optional HTTP status but not response bodies.",
             "Form scanners return file/line diagnostics without instantiating target UI.",
-            "Integration previews enumerate affected files and descriptions before mutation.",
+            "Integration previews show a complete line-numbered exact diff for every affected file before mutation.",
             "Transaction errors trigger rollback and retain backup evidence.",
             "Provider keys must never be added to troubleshooting logs.",
         ],
@@ -974,11 +1109,11 @@ def build_engineering_guide() -> Path:
         document,
         ["Test", "Coverage"],
         [
-            ["FoundationSmokeTests", "Detection, catalog round-trip/merge, scan, validation, runtime pack, preference, package, target integration, self change set."],
+            ["FoundationSmokeTests", "Detection, scan-to-catalog, deterministic Italian CSV/JSON round-trip, review/approval, validation, runtime pack, preference, exact diff, integration, self change set."],
             ["VCLRuntimeSmokeTests", "VCL controls, menu items, locale, generated unit."],
-            ["FMXRuntimeSmokeTests", "FMX controls, menu items, locale, generated unit."],
-            ["StudioFormSmokeTests", "Direct FMX stream/create, masked key field, provider list, Settings activation."],
-            ["RunRuntimeSmokeTests.ps1", "Both compilers plus disposable integrated VCL/FMX projects."],
+            ["FMXRuntimeSmokeTests", "All representative FMX form properties, menu items, locale, generated unit."],
+            ["StudioFormSmokeTests", "Direct FMX stream/create, exact-review controls, linguistic action wiring, optional-provider activation."],
+            ["RunRuntimeSmokeTests.ps1", "Both compilers, scan/CSV/validation pipeline, disposable integrated VCL/FMX builds, deployed Italian pack, and required Italian launch title."],
             ["RunStudioLaunchSmokeTests.ps1", "Debug/Release Win32/Win64 real main-window title."],
             ["RunStudioSelfLocalizationSmokeTest.ps1", "Italian Studio title in all four configurations with state restoration."],
         ],
@@ -986,14 +1121,14 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "On August 6, 2026, Debug and Release builds passed for Win32 and Win64; the full runtime/integration suite passed under both compilers; normal launch and Italian self-localization passed in all four configurations; and direct FMX form streaming passed.",
+            "On August 7, 2026, the API-free reference pilots passed under both Win32 and Win64: real compilable VCL and FMX samples were scanned, translated through deterministic CSV/JSON interchange, reviewed, approved, validated, exported, integrated, built, deployed, and launched with the required Italian title. Visual review confirmed translated representative controls without clipping. Final release validation also covers Debug and Release Studio builds, direct FMX form streaming, normal launch, and Italian self-localization.",
         ],
     )
-    document.add_heading("15.1 Live provider testing", level=2)
+    document.add_heading("15.1 Optional live provider testing", level=2)
     add_paragraphs(
         document,
         [
-            "Automated fixtures must not contain live keys. Release testing uses an owner-supplied restricted key through the Settings page, confirms Test Connection, translates a small disposable catalog, checks machine-translated status, then removes or rotates the test key. Network/provider availability is external state and is not required for offline runtime tests.",
+            "Automated fixtures must not contain live keys. Optional provider acceptance uses an owner-supplied restricted key through Optional Provider, confirms Test Connection, translates a small disposable catalog, checks Machine translated status, then removes or rotates the test key. Provider availability is external state and is not a release blocker for the API-free workflow or offline runtime.",
         ],
     )
 
@@ -1040,10 +1175,10 @@ def build_engineering_guide() -> Path:
         [
             "Only Windows Win32/Win64 Delphi applications are supported.",
             "Google Advanced v3, OAuth/service-account workflows, and other providers are not implemented.",
-            "Provider operations currently run as an explicit Studio action; target runtime remains offline.",
+            "Provider operations are optional explicit Studio actions; target runtime remains offline.",
             "No automatic control resizing/reflow is performed.",
             "Binary DFM conversion is outside the scanner.",
-            "Live language application to already-open target forms depends on generated event usage; restart is the conservative workflow.",
+            "The generated menu selection persists the locale; restarting is the conservative way to ensure every form and application-specific string is refreshed.",
             "Provider account terms and language support are external and must be rechecked for each release.",
         ],
     )
@@ -1060,7 +1195,7 @@ def build_engineering_guide() -> Path:
     add_bullets(
         document,
         [
-            "Repository source, forms, project metadata, schemas, and smoke tests as of August 6, 2026.",
+            "Repository source, forms, project metadata, schemas, and smoke tests as of August 7, 2026.",
             "Microsoft credential handling: https://learn.microsoft.com/en-us/windows/win32/secbp/handling-passwords",
             "Windows CREDENTIAL structure: https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw",
             "DeepL developer documentation: https://developers.deepl.com/docs/getting-started/auth",

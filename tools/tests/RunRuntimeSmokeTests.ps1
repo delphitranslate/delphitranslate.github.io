@@ -13,6 +13,10 @@ $TargetIntegrationPackagesDirectory = Join-Path $ProjectRoot `
     'export\TargetIntegrationPackages'
 $TargetIntegrationBackupsDirectory = Join-Path $ProjectRoot `
     'export\TargetIntegrationBackups'
+$PilotPreferenceBackupDirectory = Join-Path `
+    ([System.IO.Path]::GetTempPath()) `
+    ('DAT-PilotPreferences-' + [Guid]::NewGuid().ToString('N'))
+$PilotPreferences = @()
 
 function Invoke-Compiler {
     param(
@@ -114,7 +118,9 @@ function Invoke-IntegratedProjectBuild {
 function Test-IntegratedApplicationWindow {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$Executable
+        [string]$Executable,
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedTitle
     )
 
     $Process = Start-Process -FilePath $Executable -PassThru
@@ -124,10 +130,10 @@ function Test-IntegratedApplicationWindow {
             Start-Sleep -Milliseconds 150
             $Process.Refresh()
         }
-        while (($Process.MainWindowTitle -ne 'Customer Manager') -and
+        while (($Process.MainWindowTitle -ne $ExpectedTitle) -and
             ((Get-Date) -lt $Deadline) -and (-not $Process.HasExited))
 
-        if ($Process.MainWindowTitle -ne 'Customer Manager') {
+        if ($Process.MainWindowTitle -ne $ExpectedTitle) {
             throw "Integrated application did not open its expected form: $Executable"
         }
     }
@@ -139,7 +145,56 @@ function Test-IntegratedApplicationWindow {
     }
 }
 
+function Set-PilotLanguagePreference {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ApplicationId
+    )
+
+    $PreferenceDirectory = Join-Path $env:LOCALAPPDATA $ApplicationId
+    $PreferenceFile = Join-Path $PreferenceDirectory 'language.ini'
+    $BackupFile = Join-Path $PilotPreferenceBackupDirectory `
+        ($ApplicationId + '.language.ini')
+    New-Item -ItemType Directory -Path `
+        $PilotPreferenceBackupDirectory -Force | Out-Null
+    $Existed = Test-Path -LiteralPath $PreferenceFile
+    if ($Existed) {
+        Copy-Item -LiteralPath $PreferenceFile -Destination $BackupFile -Force
+    }
+    New-Item -ItemType Directory -Path $PreferenceDirectory -Force | Out-Null
+    [System.IO.File]::WriteAllText(
+        $PreferenceFile,
+        "[Language]`r`nSelected=it-IT`r`n",
+        [System.Text.UTF8Encoding]::new($false))
+    $script:PilotPreferences += [pscustomobject]@{
+        Directory = $PreferenceDirectory
+        File = $PreferenceFile
+        Existed = $Existed
+        Backup = $BackupFile
+    }
+}
+
+function Deploy-PilotLanguagePacks {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageName,
+        [Parameter(Mandatory = $true)]
+        [string]$ApplicationDirectory
+    )
+
+    $DeploymentScript = Join-Path $TargetIntegrationPackagesDirectory `
+        "$PackageName\Deploy-LanguagePacks.ps1"
+    & powershell.exe -ExecutionPolicy Bypass -File $DeploymentScript `
+        -ApplicationDirectory $ApplicationDirectory
+    if ($LASTEXITCODE -ne 0) {
+        throw "Language-pack deployment failed for $PackageName."
+    }
+}
+
 try {
+    Set-PilotLanguagePreference -ApplicationId 'SampleVCLApp'
+    Set-PilotLanguagePreference -ApplicationId 'SampleFMXApp'
+
     foreach ($Target in @(
         @{ Compiler = 'dcc32'; Platform = 'Win32' },
         @{ Compiler = 'dcc64'; Platform = 'Win64' }
@@ -173,15 +228,42 @@ try {
                 'FMXBasic') `
             -ProjectFileName 'SampleFMXApp.dproj' `
             -Platform $Target.Platform
+        Deploy-PilotLanguagePacks -PackageName 'SampleVCLApp' `
+            -ApplicationDirectory (Join-Path $ProjectRoot `
+                "export\bin\Samples\VCLBasic\$($Target.Platform)\Debug")
+        Deploy-PilotLanguagePacks -PackageName 'SampleFMXApp' `
+            -ApplicationDirectory (Join-Path $ProjectRoot `
+                "export\bin\Samples\FMXBasic\$($Target.Platform)\Debug")
         Test-IntegratedApplicationWindow -Executable (Join-Path $ProjectRoot `
-            "export\bin\Samples\VCLBasic\$($Target.Platform)\Debug\SampleVCLApp.exe")
+            "export\bin\Samples\VCLBasic\$($Target.Platform)\Debug\SampleVCLApp.exe") `
+            -ExpectedTitle 'Gestione clienti'
         Test-IntegratedApplicationWindow -Executable (Join-Path $ProjectRoot `
-            "export\bin\Samples\FMXBasic\$($Target.Platform)\Debug\SampleFMXApp.exe")
+            "export\bin\Samples\FMXBasic\$($Target.Platform)\Debug\SampleFMXApp.exe") `
+            -ExpectedTitle 'Gestione clienti'
     }
 
     Write-Host 'Offline runtime and integration smoke tests passed.'
 }
 finally {
+    foreach ($Preference in $PilotPreferences) {
+        if ($Preference.Existed) {
+            Copy-Item -LiteralPath $Preference.Backup `
+                -Destination $Preference.File -Force
+        }
+        elseif (Test-Path -LiteralPath $Preference.File) {
+            Remove-Item -LiteralPath $Preference.File -Force
+        }
+        if ((Test-Path -LiteralPath $Preference.Directory) -and
+            ((Get-ChildItem -LiteralPath `
+                $Preference.Directory -Force).Count -eq 0)) {
+            Remove-Item -LiteralPath $Preference.Directory -Force
+        }
+    }
+    if (Test-Path -LiteralPath $PilotPreferenceBackupDirectory) {
+        Remove-Item -LiteralPath $PilotPreferenceBackupDirectory `
+            -Recurse -Force
+    }
+
     $CleanupDirectories = @(
         $IntegrationSmokeDirectory,
         $TargetIntegrationSmokeDirectory,

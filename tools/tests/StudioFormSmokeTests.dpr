@@ -30,6 +30,22 @@ begin
       if not Assigned(frmTranslationStudio.btnAcceptSuggestion.OnClick) then
         raise Exception.Create(
           'The translation suggestion action is not designer-wired.');
+      if not Assigned(
+           frmTranslationStudio.btnMarkTranslationReviewed.OnClick) or
+         not Assigned(frmTranslationStudio.btnApproveTranslation.OnClick) then
+        raise Exception.Create(
+          'The linguistic review actions are not designer-wired.');
+      if not frmTranslationStudio.memIntegrationDiff.ReadOnly then
+        raise Exception.Create(
+          'The exact integration review must remain read-only.');
+      if not Assigned(frmTranslationStudio.lstIntegrationPlan.OnChange) or
+         not Assigned(
+           frmTranslationStudio.chkIntegrationReviewConfirmed.OnChange) then
+        raise Exception.Create(
+          'The exact integration-review controls are not designer-wired.');
+      if frmTranslationStudio.btnApplyIntegration.Enabled then
+        raise Exception.Create(
+          'Integration Apply was enabled before exact review confirmation.');
       if frmTranslationStudio.dlgImportCatalogCsv.DefaultExt <> 'csv' then
         raise Exception.Create('The CSV import dialog is not configured.');
       if frmTranslationStudio.dlgExportCatalogCsv.DefaultExt <> 'csv' then

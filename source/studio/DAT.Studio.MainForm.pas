@@ -93,6 +93,8 @@ type
     btnImportCatalogCsv: TButton;
     lblCatalogReadiness: TLabel;
     lstCatalogEntries: TListBox;
+    btnMarkTranslationReviewed: TButton;
+    btnApproveTranslation: TButton;
     lblSourceTextEditor: TLabel;
     lblRuntimeApplicationValue: TLabel;
     memSourceText: TMemo;
@@ -124,6 +126,9 @@ type
     edtLanguageMenuName: TEdit;
     btnBuildIntegrationPlan: TButton;
     lstIntegrationPlan: TListBox;
+    lblIntegrationDiffTitle: TLabel;
+    memIntegrationDiff: TMemo;
+    chkIntegrationReviewConfirmed: TCheckBox;
     lblIntegrationSummary: TLabel;
     btnGenerateIntegrationPackage: TButton;
     lblIntegrationOutput: TLabel;
@@ -170,6 +175,8 @@ type
     procedure btnGenerateIntegrationPackageClick(Sender: TObject);
     procedure btnApplyIntegrationClick(Sender: TObject);
     procedure btnRestoreIntegrationClick(Sender: TObject);
+    procedure lstIntegrationPlanChange(Sender: TObject);
+    procedure chkIntegrationReviewConfirmedChange(Sender: TObject);
     procedure lblNavigationSettingsClick(Sender: TObject);
     procedure cboTranslationProviderChange(Sender: TObject);
     procedure btnSaveProviderKeyClick(Sender: TObject);
@@ -180,6 +187,8 @@ type
     procedure btnImportCatalogCsvClick(Sender: TObject);
     procedure chkRuntimeWiringConfirmedChange(Sender: TObject);
     procedure btnAcceptSuggestionClick(Sender: TObject);
+    procedure btnMarkTranslationReviewedClick(Sender: TObject);
+    procedure btnApproveTranslationClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure datLanguageMenuItemClick(Sender: TObject);
   private
@@ -188,6 +197,7 @@ type
     FTranslationCatalog: TTranslationCatalog;
     FValidationResult: TCatalogValidationResult;
     FIntegrationChangeSet: TIntegrationChangeSet;
+    FReviewedIntegrationFiles: TStringList;
     FIntegrationPackageDirectory: string;
     FLastIntegrationBackupDirectory: string;
     FCatalogFileName: string;
@@ -216,6 +226,8 @@ type
     procedure UpdateCatalogReadiness;
     procedure UpdateTranslationSuggestions(
       const AEntry: TTranslationEntry);
+    procedure DisplaySelectedIntegrationChange;
+    procedure UpdateIntegrationApplyState;
   public
     destructor Destroy; override;
   end;
@@ -249,6 +261,9 @@ uses
 
 procedure TfrmTranslationStudio.FormCreate(Sender: TObject);
 begin
+  FReviewedIntegrationFiles := TStringList.Create;
+  FReviewedIntegrationFiles.Sorted := True;
+  FReviewedIntegrationFiles.Duplicates := dupIgnore;
   ApplyStudioTranslation(Self);
   LoadProviderSettings;
 end;
@@ -276,9 +291,14 @@ begin
   btnApplyIntegration.Enabled := False;
   btnRestoreIntegration.Enabled := False;
   FreeAndNil(FIntegrationChangeSet);
+  FReviewedIntegrationFiles.Clear;
   FIntegrationPackageDirectory := '';
   FLastIntegrationBackupDirectory := '';
   lstIntegrationPlan.Items.Clear;
+  memIntegrationDiff.Text :=
+    'Generate a preview, then select every changed file to review its exact text.';
+  chkIntegrationReviewConfirmed.IsChecked := False;
+  chkIntegrationReviewConfirmed.Enabled := False;
   lblIntegrationSummary.Text := 'Open a Delphi project to build a plan.';
   lblIntegrationOutput.Text := 'Generated package path will appear here.';
   ClearScanSummary;
@@ -302,7 +322,54 @@ begin
   FIntegrationChangeSet.Free;
   FTranslationCatalog.Free;
   FScanResult.Free;
+  FReviewedIntegrationFiles.Free;
   inherited Destroy;
+end;
+
+procedure TfrmTranslationStudio.DisplaySelectedIntegrationChange;
+var
+  Change: TIntegrationFileChange;
+  Index: Integer;
+begin
+  if (FIntegrationChangeSet = nil) or
+     (lstIntegrationPlan.ItemIndex < 0) or
+     (lstIntegrationPlan.ItemIndex >=
+      FIntegrationChangeSet.Changes.Count) then
+  begin
+    memIntegrationDiff.Text :=
+      'Select a changed file to review its exact original and proposed text.';
+    Exit;
+  end;
+
+  Index := lstIntegrationPlan.ItemIndex;
+  Change := FIntegrationChangeSet.Changes[Index];
+  memIntegrationDiff.Text := Change.ExactReviewText;
+  memIntegrationDiff.GoToTextBegin;
+  FReviewedIntegrationFiles.Add(Change.TargetFileName);
+  UpdateIntegrationApplyState;
+end;
+
+procedure TfrmTranslationStudio.UpdateIntegrationApplyState;
+var
+  AllFilesReviewed: Boolean;
+begin
+  AllFilesReviewed := (FIntegrationChangeSet <> nil) and
+    (FIntegrationChangeSet.Changes.Count > 0) and
+    (FReviewedIntegrationFiles.Count =
+      FIntegrationChangeSet.Changes.Count);
+  chkIntegrationReviewConfirmed.Enabled := AllFilesReviewed;
+  btnApplyIntegration.Enabled := AllFilesReviewed and
+    chkIntegrationReviewConfirmed.IsChecked;
+  if (FIntegrationChangeSet <> nil) and not AllFilesReviewed then
+    lblIntegrationDiffTitle.Text := Format(
+      'Exact changes — reviewed %d of %d files',
+      [FReviewedIntegrationFiles.Count,
+       FIntegrationChangeSet.Changes.Count])
+  else if AllFilesReviewed then
+    lblIntegrationDiffTitle.Text :=
+      'Exact changes — all files viewed; confirm below to enable Apply'
+  else
+    lblIntegrationDiffTitle.Text := 'Exact changes';
 end;
 
 function TfrmTranslationStudio.SelectedProvider: TTranslationProvider;
@@ -338,7 +405,7 @@ begin
   edtProviderApiKey.Text := '';
   cboDeepLPlan.Enabled := SelectedProvider = tpDeepL;
   lblCredentialStatus.Text :=
-    'Open Provider Settings to check the configured key.';
+    'Optional provider configuration has not been opened.';
 end;
 
 procedure TfrmTranslationStudio.SaveProviderSettings;
@@ -456,6 +523,8 @@ begin
   chkRuntimeWiringConfirmed.Enabled := False;
   cboTranslationSuggestions.Items.Clear;
   btnAcceptSuggestion.Enabled := False;
+  btnMarkTranslationReviewed.Enabled := False;
+  btnApproveTranslation.Enabled := False;
   UpdateCatalogReadiness;
   if lstCatalogEntries.Count > 0 then
     lstCatalogEntries.ItemIndex := 0;
@@ -464,16 +533,20 @@ end;
 procedure TfrmTranslationStudio.UpdateCatalogReadiness;
 var
   ActiveCount: Integer;
+  ApprovedCount: Integer;
   AutomaticCount: Integer;
   Entry: TTranslationEntry;
   ManualConfirmedCount: Integer;
   ManualCount: Integer;
+  ReviewedCount: Integer;
   TranslatedCount: Integer;
 begin
   ActiveCount := 0;
+  ApprovedCount := 0;
   AutomaticCount := 0;
   ManualConfirmedCount := 0;
   ManualCount := 0;
+  ReviewedCount := 0;
   TranslatedCount := 0;
   if FTranslationCatalog <> nil then
     for Entry in FTranslationCatalog.Entries do
@@ -482,6 +555,10 @@ begin
         Inc(ActiveCount);
         if Trim(Entry.TranslatedText) <> '' then
           Inc(TranslatedCount);
+        if Entry.Status in [tsReviewed, tsApproved] then
+          Inc(ReviewedCount);
+        if Entry.Status = tsApproved then
+          Inc(ApprovedCount);
         if Entry.RuntimeApplication = rakAutomatic then
           Inc(AutomaticCount)
         else
@@ -495,8 +572,9 @@ begin
     lblCatalogReadiness.Text := 'Translation and runtime readiness: no catalog'
   else
     lblCatalogReadiness.Text := Format(
-      'Translated %d/%d  |  Runtime automatic %d  |  Manual wiring %d/%d confirmed',
-      [TranslatedCount, ActiveCount,
+      'Text %d/%d  |  Reviewed+ %d  |  Approved %d' + sLineBreak +
+      'Runtime automatic %d  |  Manual wiring %d/%d confirmed',
+      [TranslatedCount, ActiveCount, ReviewedCount, ApprovedCount,
        AutomaticCount, ManualConfirmedCount, ManualCount]);
 end;
 
@@ -645,6 +723,8 @@ begin
   chkRuntimeWiringConfirmed.Enabled := False;
   cboTranslationSuggestions.Items.Clear;
   btnAcceptSuggestion.Enabled := False;
+  btnMarkTranslationReviewed.Enabled := False;
+  btnApproveTranslation.Enabled := False;
   UpdateCatalogReadiness;
   DisplayValidationResult;
 end;
@@ -1023,18 +1103,28 @@ begin
     FIntegrationChangeSet := TTargetIntegrationEngine.BuildChangeSet(
       FProjectProfile, FIntegrationPackageDirectory,
       edtLanguageMenuName.Text);
+    FReviewedIntegrationFiles.Clear;
+    chkIntegrationReviewConfirmed.IsChecked := False;
+    chkIntegrationReviewConfirmed.Enabled := False;
+    btnApplyIntegration.Enabled := False;
     lstIntegrationPlan.Items.Clear;
     for Change in FIntegrationChangeSet.Changes do
       lstIntegrationPlan.Items.Add(Format('%s  |  %s',
         [IntegrationChangeKindDisplayName(Change.Kind),
          Change.TargetFileName]));
+    if lstIntegrationPlan.Items.Count > 0 then
+    begin
+      lstIntegrationPlan.ItemIndex := 0;
+      DisplaySelectedIntegrationChange;
+    end
+    else
+      memIntegrationDiff.Text := 'No target file changes are required.';
     lblIntegrationOutput.Text := OutputDirectory;
     lblIntegrationSummary.Text := Format(
       '%d target file change(s) are ready for review.',
       [FIntegrationChangeSet.Changes.Count]);
-    btnApplyIntegration.Enabled := True;
     lblStatus.Text :=
-      'Exact integration preview ready. Target source is unchanged.';
+      'Exact integration preview ready. Review every file before Apply.';
   except
     on E: Exception do
       lblStatus.Text := 'Unable to generate integration package: ' + E.Message;
@@ -1048,6 +1138,12 @@ begin
   if FIntegrationChangeSet = nil then
   begin
     lblStatus.Text := 'Generate and review an integration package first.';
+    Exit;
+  end;
+  if not chkIntegrationReviewConfirmed.IsChecked then
+  begin
+    lblStatus.Text :=
+      'Review every exact file change and confirm the review before Apply.';
     Exit;
   end;
   btnApplyIntegration.Enabled := False;
@@ -1067,10 +1163,21 @@ begin
   except
     on E: Exception do
     begin
-      btnApplyIntegration.Enabled := True;
+      UpdateIntegrationApplyState;
       lblStatus.Text := 'Integration failed and was rolled back: ' + E.Message;
     end;
   end;
+end;
+
+procedure TfrmTranslationStudio.lstIntegrationPlanChange(Sender: TObject);
+begin
+  DisplaySelectedIntegrationChange;
+end;
+
+procedure TfrmTranslationStudio.chkIntegrationReviewConfirmedChange(
+  Sender: TObject);
+begin
+  UpdateIntegrationApplyState;
 end;
 
 procedure TfrmTranslationStudio.btnRestoreIntegrationClick(Sender: TObject);
@@ -1086,6 +1193,8 @@ begin
       FLastIntegrationBackupDirectory);
     btnRestoreIntegration.Enabled := False;
     btnApplyIntegration.Enabled := False;
+    chkIntegrationReviewConfirmed.IsChecked := False;
+    chkIntegrationReviewConfirmed.Enabled := False;
     lblStatus.Text := 'The target project was restored from its backup.';
   except
     on E: Exception do
@@ -1244,6 +1353,10 @@ begin
       Entry.RuntimeApplication = rakManualTranslateText;
     chkRuntimeWiringConfirmed.IsChecked :=
       Entry.RuntimeWiringConfirmed;
+    btnMarkTranslationReviewed.Enabled :=
+      (Trim(Entry.TranslatedText) <> '') and
+      not (Entry.Status in [tsExcluded, tsObsolete, tsApproved]);
+    btnApproveTranslation.Enabled := Entry.Status = tsReviewed;
     UpdateTranslationSuggestions(Entry);
   finally
     FUpdatingEntryControls := False;
@@ -1269,6 +1382,9 @@ begin
     Entry.Status := tsEdited;
   lstCatalogEntries.Items[lstCatalogEntries.ItemIndex] :=
     Entry.Key + '  [' + TranslationStatusToString(Entry.Status) + ']';
+  btnMarkTranslationReviewed.Enabled :=
+    Trim(Entry.TranslatedText) <> '';
+  btnApproveTranslation.Enabled := False;
   UpdateTranslationSuggestions(Entry);
   InvalidateValidation;
   UpdateCatalogReadiness;
@@ -1321,12 +1437,75 @@ begin
   memTranslatedText.Text := Entry.TranslatedText;
   lstCatalogEntries.Items[lstCatalogEntries.ItemIndex] :=
     Entry.Key + '  [' + TranslationStatusToString(Entry.Status) + ']';
+  btnMarkTranslationReviewed.Enabled := True;
+  btnApproveTranslation.Enabled := False;
   InvalidateValidation;
   UpdateCatalogReadiness;
   UpdateTranslationSuggestions(Entry);
   lblStatus.Text := 'Translation suggestion accepted for review.';
   if FCatalogFileName <> '' then
     SaveCatalog;
+end;
+
+procedure TfrmTranslationStudio.btnMarkTranslationReviewedClick(
+  Sender: TObject);
+var
+  Entry: TTranslationEntry;
+begin
+  if (FTranslationCatalog = nil) or
+     (lstCatalogEntries.ItemIndex < 0) then
+  begin
+    lblStatus.Text := 'Select a translated catalog entry first.';
+    Exit;
+  end;
+  Entry := FTranslationCatalog.Entries[lstCatalogEntries.ItemIndex];
+  if Trim(Entry.TranslatedText) = '' then
+  begin
+    lblStatus.Text := 'A blank translation cannot be marked reviewed.';
+    Exit;
+  end;
+  Entry.Status := tsReviewed;
+  lstCatalogEntries.Items[lstCatalogEntries.ItemIndex] :=
+    Entry.Key + '  [' + TranslationStatusToString(Entry.Status) + ']';
+  btnMarkTranslationReviewed.Enabled := False;
+  btnApproveTranslation.Enabled := True;
+  InvalidateValidation;
+  UpdateCatalogReadiness;
+  UpdateTranslationSuggestions(Entry);
+  if FCatalogFileName <> '' then
+    SaveCatalog;
+  lblStatus.Text :=
+    'Translation marked linguistically reviewed. Approval remains separate.';
+end;
+
+procedure TfrmTranslationStudio.btnApproveTranslationClick(Sender: TObject);
+var
+  Entry: TTranslationEntry;
+begin
+  if (FTranslationCatalog = nil) or
+     (lstCatalogEntries.ItemIndex < 0) then
+  begin
+    lblStatus.Text := 'Select a reviewed catalog entry first.';
+    Exit;
+  end;
+  Entry := FTranslationCatalog.Entries[lstCatalogEntries.ItemIndex];
+  if Entry.Status <> tsReviewed then
+  begin
+    lblStatus.Text :=
+      'Mark the translation Reviewed before granting final approval.';
+    Exit;
+  end;
+  Entry.Status := tsApproved;
+  lstCatalogEntries.Items[lstCatalogEntries.ItemIndex] :=
+    Entry.Key + '  [' + TranslationStatusToString(Entry.Status) + ']';
+  btnMarkTranslationReviewed.Enabled := False;
+  btnApproveTranslation.Enabled := False;
+  InvalidateValidation;
+  UpdateCatalogReadiness;
+  UpdateTranslationSuggestions(Entry);
+  if FCatalogFileName <> '' then
+    SaveCatalog;
+  lblStatus.Text := 'Translation approved.';
 end;
 
 procedure TfrmTranslationStudio.btnTranslateMissingClick(Sender: TObject);

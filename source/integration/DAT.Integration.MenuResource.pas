@@ -12,10 +12,13 @@ type
   private
     FFileName: string;
     FFormClassName: string;
+    FFormCreateHandlerName: string;
     FNewText: string;
   public
     property FileName: string read FFileName write FFileName;
     property FormClassName: string read FFormClassName write FFormClassName;
+    property FormCreateHandlerName: string read FFormCreateHandlerName
+      write FFormCreateHandlerName;
     property NewText: string read FNewText write FNewText;
   end;
 
@@ -93,6 +96,37 @@ begin
   if ColonPosition = 0 then
     raise Exception.Create('The root form declaration is invalid.');
   Result := Trim(Copy(DeclarationText, ColonPosition + 1, MaxInt));
+end;
+
+function EnsureFMXFormCreateHandler(const ALines: TStrings): string;
+const
+  GeneratedHandlerName = 'datTranslationFormCreate';
+var
+  EqualsPosition: Integer;
+  InsertIndex: Integer;
+  LineIndex: Integer;
+  TrimmedLine: string;
+begin
+  Result := '';
+  InsertIndex := ALines.Count;
+  for LineIndex := 1 to ALines.Count - 1 do
+  begin
+    TrimmedLine := Trim(ALines[LineIndex]);
+    if StartsText('OnCreate =', TrimmedLine) then
+    begin
+      EqualsPosition := Pos('=', TrimmedLine);
+      Exit(Trim(Copy(TrimmedLine, EqualsPosition + 1, MaxInt)));
+    end;
+    if StartsText('object ', TrimmedLine) or
+      StartsText('inherited ', TrimmedLine) or
+      StartsText('inline ', TrimmedLine) then
+    begin
+      InsertIndex := LineIndex;
+      Break;
+    end;
+  end;
+  ALines.Insert(InsertIndex, '  OnCreate = ' + GeneratedHandlerName);
+  Result := GeneratedHandlerName;
 end;
 
 function PascalString(const AValue: string): string;
@@ -232,6 +266,9 @@ begin
       Result := TMenuResourceEdit.Create;
       Result.FileName := FileName;
       Result.FormClassName := RootFormClassName(FormLines);
+      if AProfile.Framework = tfFireMonkey then
+        Result.FormCreateHandlerName :=
+          EnsureFMXFormCreateHandler(FormLines);
       Result.NewText := FormLines.Text;
       Exit;
     finally

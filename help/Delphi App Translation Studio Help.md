@@ -1,13 +1,13 @@
 # Delphi App Translation Studio Help
 
-Last changed: August 6, 2026
+Last changed: August 7, 2026
 
 ## Purpose
 
 Delphi App Translation Studio scans Windows Delphi VCL and FireMonkey projects,
-builds editable language catalogs, optionally requests draft translations from
-DeepL or Google, validates them, exports offline JSON packs, and previews or
-applies target integration.
+builds editable language catalogs, imports translations through JSON or UTF-8
+CSV, validates them, exports offline JSON packs, and previews or applies target
+integration. DeepL and Google are optional acquisition methods.
 
 ## Workflow
 
@@ -15,12 +15,29 @@ applies target integration.
 2. Select **Scan** and scan designer text and resourcestrings.
 3. Under **Languages**, enter the target locale and native name, then save the
    catalog.
-4. Translate manually or configure a provider under **Provider Settings**.
-5. Review all machine translations and run **Validation**.
+4. Translate manually, export/import CSV or JSON, accept an explicit
+   suggestion, or use **Optional Provider**.
+5. Review imported or machine-translated entries, use **Mark Reviewed** and
+   **Approve** as appropriate, confirm manual `resourcestring` wiring, and run
+   **Validation**.
 6. Export the offline pack.
-7. Under **Integration**, build and inspect the preview before applying it.
+7. Under **Integration**, build the preview, select and inspect the complete
+   line-numbered diff for every file, then check the final review confirmation
+   before applying it.
 
-## Provider Settings
+## API-Free Interchange
+
+The development JSON catalog is the lossless interchange record. **Export CSV**
+creates a UTF-8 translator-friendly file. Edit only the Translation column.
+**Import CSV** stages changes and reports duplicate or unknown keys, stale
+source data, and protected Reviewed/Approved entries before asking whether to
+apply. Accepted text is marked Imported and is never approved automatically.
+
+Designer-property entries are applied by the runtime adapter. Pascal
+`resourcestring` entries require an explicit generated `TranslateText` call;
+mark manual wiring confirmed only after reviewing that code location.
+
+## Optional Provider
 
 Select DeepL or Google Cloud Translation. DeepL users must also select API Free
 or API Pro. Paste a key into the masked field. Leave **Remember securely on this
@@ -43,8 +60,10 @@ under `%LOCALAPPDATA%\<ApplicationId>\language.ini`.
 ## Safety
 
 Scanning does not alter target source. Integration first produces an in-memory
-change set and a preview package. Applying integration creates a verified backup
-and manifest. Use **Restore** to return to the recorded pre-integration files.
+change set, exact per-file review, and preview package. Apply is gated until
+every file is viewed and review is explicitly confirmed. Applying integration
+creates a verified backup and manifest. Use **Restore** to return to the
+recorded pre-integration files.
 
 ## Support
 

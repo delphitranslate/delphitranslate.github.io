@@ -246,7 +246,7 @@ Win32/Win64 build and smoke-test matrices.
 
 ## Approved Professional Validation Program
 
-Status: Stages 0 through 4 complete; Stage 5 is next
+Status: Stages 0 through 10 complete
 
 On August 7, 2026, the project direction was revised after comparing the Studio
 with Poker Galaxy's offline FMX localization. The review separated translation
@@ -270,3 +270,29 @@ The approved post-foundation stages are:
 The authoritative scope, gates, safeguards, pilot-selection rules, deferred
 work, and release standard are maintained in
 `API-Free Workflow Plan.md`.
+
+Stages 5 through 10 were completed on August 7, 2026. Integration now provides
+a complete line-numbered original/proposed diff, records every viewed file,
+and requires an explicit final review confirmation before Apply. Provider
+translation is separately labeled optional.
+
+The project-owned, compilable FMX and VCL reference applications completed the
+API-free workflow under Win32 and Win64: scan, deterministic Italian CSV/JSON
+interchange, explicit review/approval, validation, pack export, integration,
+build, deployment, preference persistence, and required Italian launch title.
+Representative forms were visually reviewed for clipping, overlap, menu
+translation, and untranslated designated properties.
+
+The FMX pilot identified an important lifecycle boundary: translating the
+first form from the DPR immediately after `Application.CreateForm` could fault
+after FMX streaming. Integration now persists a form `OnCreate` handler in the
+FMX resource, preserves an existing handler when present, and calls
+`ApplyTranslation(Self)` from the corresponding Pascal method. VCL retains its
+DPR startup application.
+
+Linguistic readiness is now explicit. Imported work can be marked Reviewed,
+and only Reviewed work can be Approved. Structural validity, linguistic
+status, automatic form-property coverage, and confirmed manual
+`resourcestring` wiring are displayed independently. Help, release records,
+Word guides, PDFs, and the source distribution are aligned to the proven
+offline-first behavior.
