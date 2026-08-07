@@ -237,6 +237,8 @@ class function TCatalogValidator.Validate(
 var
   Entry: TTranslationEntry;
   KnownKeys: TStringList;
+  KnownTranslation: string;
+  KnownTranslations: TDictionary<string, string>;
 begin
   Result := TCatalogValidationResult.Create;
   if ACatalog = nil then
@@ -281,6 +283,7 @@ begin
       'Decimal and thousands separators must differ.');
 
   KnownKeys := TStringList.Create;
+  KnownTranslations := TDictionary<string, string>.Create;
   try
     KnownKeys.CaseSensitive := False;
     KnownKeys.Sorted := True;
@@ -315,17 +318,40 @@ begin
         if SameText(Entry.SourceText, Entry.TranslatedText) then
           AddIssue(Result, vsWarning, 'entry.sameText', Entry.Key,
             'Translation is identical to the source text.');
+        if KnownTranslations.TryGetValue(Entry.SourceText,
+          KnownTranslation) then
+        begin
+          if not SameText(KnownTranslation, Entry.TranslatedText) then
+            AddIssue(Result, vsWarning, 'entry.inconsistentTerm',
+              Entry.Key,
+              'The same source text has a different translation elsewhere. ' +
+              'Confirm that context requires the difference.');
+        end
+        else
+          KnownTranslations.Add(Entry.SourceText,
+            Entry.TranslatedText);
       end;
 
       if Entry.Status = tsSourceChanged then
         AddIssue(Result, vsError, 'entry.sourceChanged', Entry.Key,
           'Changed source text must be reviewed before export.');
+      if SameText(Entry.TranslationConfidence, 'low') then
+        AddIssue(Result, vsWarning, 'entry.aiLowConfidence', Entry.Key,
+          'The AI agent marked this translation as low confidence.');
+      if Trim(Entry.TranslationReviewNote) <> '' then
+        AddIssue(Result, vsWarning, 'entry.aiReviewNote', Entry.Key,
+          'AI review note: ' + Entry.TranslationReviewNote);
+      if (Trim(Entry.TranslatedText) <> '') and
+         (Entry.TranslationOrigin = torUnknown) then
+        AddIssue(Result, vsInformation, 'entry.unknownOrigin', Entry.Key,
+          'Translation origin is not recorded.');
       if (Entry.RuntimeApplication = rakManualTranslateText) and
          not Entry.RuntimeWiringConfirmed then
         AddIssue(Result, vsWarning, 'entry.runtimeWiring', Entry.Key,
           'Pascal resourcestring requires a confirmed TranslateText call.');
     end;
   finally
+    KnownTranslations.Free;
     KnownKeys.Free;
   end;
 end;

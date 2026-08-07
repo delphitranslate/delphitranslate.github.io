@@ -14,6 +14,7 @@ type
 
   TTranslationStatus = (
     tsNeedsTranslation,
+    tsAIDraft,
     tsMachineTranslated,
     tsImported,
     tsEdited,
@@ -23,6 +24,17 @@ type
     tsExcluded,
     tsObsolete,
     tsError
+  );
+
+  TTranslationOrigin = (
+    torUnknown,
+    torCodex,
+    torClaude,
+    torGoogle,
+    torDeepL,
+    torHuman,
+    torImported,
+    torSuggestion
   );
 
   TRuntimeApplicationKind = (
@@ -79,6 +91,9 @@ type
     FSourceKind: string;
     FSourceChecksum: string;
     FDeveloperNote: string;
+    FTranslationOrigin: TTranslationOrigin;
+    FTranslationConfidence: string;
+    FTranslationReviewNote: string;
     FStatus: TTranslationStatus;
     FRuntimeApplication: TRuntimeApplicationKind;
     FRuntimeWiringConfirmed: Boolean;
@@ -95,6 +110,12 @@ type
     property SourceKind: string read FSourceKind write FSourceKind;
     property SourceChecksum: string read FSourceChecksum write FSourceChecksum;
     property DeveloperNote: string read FDeveloperNote write FDeveloperNote;
+    property TranslationOrigin: TTranslationOrigin read FTranslationOrigin
+      write FTranslationOrigin;
+    property TranslationConfidence: string read FTranslationConfidence
+      write FTranslationConfidence;
+    property TranslationReviewNote: string read FTranslationReviewNote
+      write FTranslationReviewNote;
     property Status: TTranslationStatus read FStatus write FStatus;
     property RuntimeApplication: TRuntimeApplicationKind
       read FRuntimeApplication write FRuntimeApplication;
@@ -129,6 +150,9 @@ function TargetFrameworkToString(const AFramework: TTargetFramework): string;
 function StringToTargetFramework(const AValue: string): TTargetFramework;
 function TranslationStatusToString(const AStatus: TTranslationStatus): string;
 function StringToTranslationStatus(const AValue: string): TTranslationStatus;
+function TranslationOriginToString(const AOrigin: TTranslationOrigin): string;
+function StringToTranslationOrigin(const AValue: string): TTranslationOrigin;
+function TranslationOriginDisplayName(const AOrigin: TTranslationOrigin): string;
 function RuntimeApplicationKindToString(
   const AKind: TRuntimeApplicationKind): string;
 function StringToRuntimeApplicationKind(
@@ -145,7 +169,7 @@ uses
 constructor TTranslationCatalog.Create;
 begin
   inherited Create;
-  FSchemaVersion := 2;
+  FSchemaVersion := 3;
   FFramework := tfUnknown;
   FLocale := TLocaleProfile.Create;
   FLocale.TextDirection := 'ltr';
@@ -208,6 +232,8 @@ begin
   case AStatus of
     tsNeedsTranslation:
       Result := 'needsTranslation';
+    tsAIDraft:
+      Result := 'aiDraft';
     tsMachineTranslated:
       Result := 'machineTranslated';
     tsImported:
@@ -234,7 +260,9 @@ end;
 function StringToTranslationStatus(
   const AValue: string): TTranslationStatus;
 begin
-  if SameText(AValue, 'machineTranslated') then
+  if SameText(AValue, 'aiDraft') then
+    Result := tsAIDraft
+  else if SameText(AValue, 'machineTranslated') then
     Result := tsMachineTranslated
   else if SameText(AValue, 'imported') then
     Result := tsImported
@@ -254,6 +282,73 @@ begin
     Result := tsError
   else
     Result := tsNeedsTranslation;
+end;
+
+function TranslationOriginToString(
+  const AOrigin: TTranslationOrigin): string;
+begin
+  case AOrigin of
+    torCodex:
+      Result := 'codex';
+    torClaude:
+      Result := 'claude';
+    torGoogle:
+      Result := 'google';
+    torDeepL:
+      Result := 'deepL';
+    torHuman:
+      Result := 'human';
+    torImported:
+      Result := 'imported';
+    torSuggestion:
+      Result := 'suggestion';
+  else
+    Result := 'unknown';
+  end;
+end;
+
+function StringToTranslationOrigin(
+  const AValue: string): TTranslationOrigin;
+begin
+  if SameText(AValue, 'codex') then
+    Result := torCodex
+  else if SameText(AValue, 'claude') then
+    Result := torClaude
+  else if SameText(AValue, 'google') then
+    Result := torGoogle
+  else if SameText(AValue, 'deepL') or SameText(AValue, 'deepl') then
+    Result := torDeepL
+  else if SameText(AValue, 'human') then
+    Result := torHuman
+  else if SameText(AValue, 'imported') then
+    Result := torImported
+  else if SameText(AValue, 'suggestion') then
+    Result := torSuggestion
+  else
+    Result := torUnknown;
+end;
+
+function TranslationOriginDisplayName(
+  const AOrigin: TTranslationOrigin): string;
+begin
+  case AOrigin of
+    torCodex:
+      Result := 'Codex';
+    torClaude:
+      Result := 'Claude';
+    torGoogle:
+      Result := 'Google';
+    torDeepL:
+      Result := 'DeepL';
+    torHuman:
+      Result := 'Human';
+    torImported:
+      Result := 'Imported';
+    torSuggestion:
+      Result := 'Catalog suggestion';
+  else
+    Result := 'Unknown';
+  end;
 end;
 
 function RuntimeApplicationKindToString(

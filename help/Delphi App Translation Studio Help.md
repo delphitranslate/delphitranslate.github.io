@@ -5,27 +5,58 @@ Last changed: August 7, 2026
 ## Purpose
 
 Delphi App Translation Studio scans Windows Delphi VCL and FireMonkey projects,
-builds editable language catalogs, imports translations through JSON or UTF-8
-CSV, validates them, exports offline JSON packs, and previews or applies target
-integration. DeepL and Google are optional acquisition methods.
+builds editable language catalogs, coordinates direct in-place translation by
+Codex or Claude, validates protected data and translation safety, exports
+offline JSON packs, and previews or applies target integration. DeepL, Google,
+CSV, and manual editing are alternative paths.
 
 ## Workflow
 
 1. Open a `.dproj` or `.dpr` under **Project**.
 2. Select **Scan** and scan designer text and resourcestrings.
-3. Under **Languages**, enter the target locale and native name, then save the
+3. Under **Translate**, enter the target locale and native name, then save the
    catalog.
-4. Translate manually, export/import CSV or JSON, accept an explicit
-   suggestion, or use **Optional Provider**.
-5. Review imported or machine-translated entries, use **Mark Reviewed** and
-   **Approve** as appropriate, confirm manual `resourcestring` wiring, and run
-   **Validation**.
-6. Export the offline pack.
-7. Under **Integration**, build the preview, select and inspect the complete
+4. Select **Begin AI Mode**. The Studio saves a recovery snapshot, creates a
+   terminology profile and instructions, locks local editing, and copies the
+   exact prompt.
+5. Give the prompt to Codex or Claude. The agent edits the development JSON
+   directly in place.
+6. When a stable change is detected, select **Reload AI Work**. The Studio
+   verifies every protected field before adopting translations.
+7. Resolve structural errors, low-confidence entries, explicit AI review notes,
+   terminology inconsistencies, and manual `resourcestring` wiring warnings.
+8. Export the offline pack.
+9. Under **Integration**, build the preview, select and inspect the complete
    line-numbered diff for every file, then check the final review confirmation
    before applying it.
 
-## API-Free Interchange
+## In-Place AI Translation
+
+The development catalog remains in `Localization\Development`. Codex or Claude
+modifies only `translatedText`, `status`, `translationOrigin`,
+`translationConfidence`, and `translationReviewNote`. Stable keys, source text,
+checksums, component context, locale metadata, runtime classifications, and
+entry order are protected.
+
+While AI Mode is active, Studio catalog editing and saving are disabled. A
+designer-owned timer detects a stable external change but never adopts it
+silently. **Reload AI Work** parses the complete JSON, compares it with the
+pre-session snapshot, rejects unauthorized changes, and records accepted work
+as AI drafts. **Cancel / Restore** restores the snapshot.
+
+Only Needs Translation, Source Changed, Error, and existing AI Draft entries
+are eligible. Machine-translated, Imported, Edited, Reviewed, Approved,
+Excluded, and Obsolete entries are protected. A metadata-only AI confirmation
+can retain an existing translation that remains correct after a source change.
+Changed work must identify Codex or Claude and record high, medium, or low
+confidence.
+
+`translation-profile.json` records product context, audience, tone, protected
+names, and preferred terminology. The generated instruction requires a second
+linguistic QA pass and permits safe checkpoints in the same catalog for large
+projects.
+
+## CSV/JSON Interchange
 
 The development JSON catalog is the lossless interchange record. **Export CSV**
 creates a UTF-8 translator-friendly file. Edit only the Translation column.
@@ -37,7 +68,7 @@ Designer-property entries are applied by the runtime adapter. Pascal
 `resourcestring` entries require an explicit generated `TranslateText` call;
 mark manual wiring confirmed only after reviewing that code location.
 
-## Optional Provider
+## Provider Alternative
 
 Select DeepL or Google Cloud Translation. DeepL users must also select API Free
 or API Pro. Paste a key into the masked field. Leave **Remember securely on this

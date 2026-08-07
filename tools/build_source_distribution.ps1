@@ -25,7 +25,9 @@ if ($LASTEXITCODE -ne 0) {
 # These files are part of the current release even before its final Git commit.
 $ReleaseFiles = @(
     'DelphiAppTranslationStudio_Icon1.ico',
+    'docs/guides/In-Place AI Translation Plan.md',
     'docs/guides/Release Notes 1.0.md',
+    'source/core/DAT.Core.AITranslation.pas',
     'tools/build_source_distribution.ps1'
 )
 

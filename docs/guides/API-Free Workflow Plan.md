@@ -4,6 +4,11 @@ Last changed: August 7, 2026
 
 Status: Stages 0 through 10 complete
 
+Historical note: this plan records the foundation that made external and manual
+translation possible. The primary product workflow is now the controlled
+in-place Codex/Claude process in `In-Place AI Translation Plan.md`. CSV,
+manual editing, and Google/DeepL remain supported alternatives.
+
 ## Product Definition
 
 Delphi App Translation Studio is an offline-first translation-management,

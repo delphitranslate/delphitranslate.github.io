@@ -9,13 +9,16 @@ Last changed: August 7, 2026
   environment.
 - Run foundation, runtime, VCL, FMX, self-localization, and direct FMX
   form-streaming smoke tests.
-- Run the deterministic API-free CSV/JSON VCL and FMX reference pilots under
-  Win32 and Win64; require the Italian title on launch.
+- Run the deterministic in-place Codex-style VCL and FMX reference pilots under
+  Win32 and Win64. Require protected-field review, AI Draft provenance, final
+  review/approval, and the Italian title on launch.
+- Verify unfinished-session recovery restores the exact pre-AI snapshot and
+  that concurrent or protected JSON changes are rejected rather than merged.
 - Treat live provider testing as optional external acceptance. If performed,
   use an owner-supplied restricted test key and never store it in fixtures or
   logs.
-- Confirm Google and DeepL endpoint/authentication instructions against current
-  official provider documentation.
+- When provider instructions change, confirm Google and DeepL endpoint and
+  authentication details against current official provider documentation.
 - Generate VCL and FMX integration previews; view every exact file diff and
   verify Apply remains disabled until all files are viewed and the final review
   confirmation is checked.

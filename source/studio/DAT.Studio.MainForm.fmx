@@ -152,7 +152,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
-          Text = '3  Languages'
+            Text = '3  Translate'
           OnClick = lblNavigationLanguagesClick
         end
         object lblNavigationValidation: TLabel
@@ -204,7 +204,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
-          Text = 'Optional Provider'
+            Text = 'Provider Settings'
           OnClick = lblNavigationSettingsClick
         end
       end
@@ -507,7 +507,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.Font.Size = 21.000000000000000000
             TextSettings.Font.StyleExt = {00070000000000000004000000}
             TextSettings.FontColor = xFF163A63
-            Text = 'Language catalog'
+            Text = 'Languages and automatic translation'
           end
           object lblSourceLanguage: TLabel
             Position.X = 26.000000000000000000
@@ -675,31 +675,63 @@ object frmTranslationStudio: TfrmTranslationStudio
             StyledSettings = []
             Position.X = 26.000000000000000000
             Position.Y = 162.000000000000000000
-            Size.Width = 570.000000000000000000
+            Size.Width = 250.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 11.000000000000000000
             TextSettings.FontColor = xFF5D7693
             Text = 'Catalog has not been saved.'
           end
-          object btnExportCatalogCsv: TButton
-            Position.X = 610.000000000000000000
+          object btnBeginAITranslation: TButton
+            Position.X = 286.000000000000000000
             Position.Y = 156.000000000000000000
-            Size.Width = 132.000000000000000000
+            Size.Width = 134.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 13
-            Text = 'Export CSV...'
-            OnClick = btnExportCatalogCsvClick
+            Text = 'Begin AI Mode'
+            OnClick = btnBeginAITranslationClick
           end
-          object btnImportCatalogCsv: TButton
-            Position.X = 754.000000000000000000
+          object btnCopyAIInstructions: TButton
+            Enabled = False
+            Position.X = 428.000000000000000000
+            Position.Y = 156.000000000000000000
+            Size.Width = 112.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 14
+            Text = 'Copy Prompt'
+            OnClick = btnCopyAIInstructionsClick
+          end
+          object btnReloadAITranslation: TButton
+            Enabled = False
+            Position.X = 548.000000000000000000
             Position.Y = 156.000000000000000000
             Size.Width = 132.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 14
-            Text = 'Import CSV...'
+            TabOrder = 15
+            Text = 'Reload AI Work'
+            OnClick = btnReloadAITranslationClick
+          end
+          object btnExportCatalogCsv: TButton
+            Position.X = 688.000000000000000000
+            Position.Y = 156.000000000000000000
+            Size.Width = 92.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 16
+            Text = 'CSV Out...'
+            OnClick = btnExportCatalogCsvClick
+          end
+          object btnImportCatalogCsv: TButton
+            Position.X = 788.000000000000000000
+            Position.Y = 156.000000000000000000
+            Size.Width = 98.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 17
+            Text = 'CSV In...'
             OnClick = btnImportCatalogCsvClick
           end
           object lblCatalogReadiness: TLabel
@@ -859,7 +891,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 22
-            Text = 'Optional Provider Translation'
+            Text = 'Google / DeepL Translation'
             OnClick = btnTranslateMissingClick
           end
         end
@@ -1213,7 +1245,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.Font.Size = 21.000000000000000000
             TextSettings.Font.StyleExt = {00070000000000000004000000}
             TextSettings.FontColor = xFF163A63
-            Text = 'Optional translation provider'
+            Text = 'Google and DeepL provider settings'
           end
           object lblSettingsDescription: TLabel
             StyledSettings = []
@@ -1225,9 +1257,9 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.Font.Size = 13.000000000000000000
             TextSettings.FontColor = xFF365674
             Text =
-              'This page is optional and is not part of the required workflow. ' +
-              'Internet access is used only by the developer Studio. Exported a' +
-              'pplications remain offline and never receive this API key.'
+              'Use Google or DeepL when a direct provider is preferred. Codex or' +
+              ' Claude can translate the development catalog directly in place ' +
+              'without this key. Target applications remain offline.'
           end
           object lblProviderName: TLabel
             Position.X = 30.000000000000000000
@@ -1429,6 +1461,13 @@ object frmTranslationStudio: TfrmTranslationStudio
       ofEnableSizing]
     Title = 'Export translation CSV'
     Left = 912
+    Top = 52
+  end
+  object tmrAITranslation: TTimer
+    Enabled = False
+    Interval = 1500
+    OnTimer = tmrAITranslationTimer
+    Left = 848
     Top = 52
   end
 end

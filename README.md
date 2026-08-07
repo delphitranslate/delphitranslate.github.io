@@ -8,18 +8,17 @@ language packs for Win32 and Win64 applications.
 ## Product Definition
 
 The Studio is an offline-first translation-management, validation, packaging,
-and Delphi-integration application. It does not require one particular source
-of translated language. Translations may be prepared manually, supplied by a
-human or AI assistant, imported from an external workflow, or obtained through
-an optional online provider.
+and Delphi-integration application. Its primary translation workflow is
+automatic, in-place catalog editing by Codex or Claude in the developer's
+workspace. Google and DeepL are direct-provider alternatives; CSV, JSON, and
+manual editing remain specialist interchange and fallback paths.
 
 Translated applications load local language packs and do not require Internet
-access or provider credentials. Google and DeepL support is optional and is not
-the foundation of the core workflow.
+access or provider credentials. Google and DeepL are not required when a
+workspace agent translates the development catalog directly.
 
-The **API-Free End-to-End Translation Workflow** milestone is complete. The
-professional validation record is maintained in
-`docs\guides\API-Free Workflow Plan.md`.
+The **In-Place AI Translation Workflow** milestone is complete and supplements
+the earlier API-free interchange record.
 
 ## Current Status
 
@@ -32,6 +31,8 @@ provides:
 - Win32 and Win64 target detection.
 - Initial shared translation catalog and locale types.
 - Versioned development-project and runtime-pack JSON schemas.
+- Schema version 3 translation provenance for Codex, Claude, Google, DeepL,
+  human, imported, and suggestion sources, separate from linguistic status.
 - Designer-authored VCL and FMX sample applications.
 - Text `.dfm` scanning for designated VCL captions, hints, prompts, lists, and
   memo content.
@@ -48,6 +49,15 @@ provides:
 - Explicit runtime coverage for automatically applied form properties and
   manually wired Pascal `resourcestring` entries.
 - Separate translation-completeness and manual-wiring readiness summaries.
+- Designer-authored Begin AI Mode, Copy Prompt, and Reload AI Work controls.
+- A project-local terminology profile, exact pre-AI recovery snapshot, and
+  generated agent instruction contract.
+- Checksum protection against overwriting an externally modified catalog.
+- Stable external-change detection and protected-field verification before
+  in-place AI work is adopted.
+- Eligible-status enforcement protects machine-translated, imported, edited,
+  reviewed, approved, excluded, and obsolete work from an AI session while
+  allowing metadata-only confirmation of still-valid source-changed text.
 - UTF-8 CSV export/import with stable-key matching, multiline fields, stale
   source detection, duplicate/unknown-key reporting, and reviewed-work
   protection.
@@ -58,9 +68,8 @@ provides:
   acceptance and never inherit approval status.
 - Explicit Mark Reviewed and Approve actions with enforced status progression.
 - Compact offline runtime packs under `Localization\Languages`.
-- Active workflow-step navigation for the six required Project, Scan,
-  Languages, Validation, Export, and Integration pages, plus a separately
-  labeled Optional Provider page.
+- Active workflow navigation for Project, Scan, Translate, Validation, Export,
+  Integration, and Provider Settings.
 - DeepL API Free/API Pro and Google Cloud Translation Basic v2 provider support.
 - Masked API-key entry, Windows Credential Manager persistence, session-only
   keys, replacement, removal, and connection testing.
@@ -72,27 +81,29 @@ provides:
   per-file review, and explicit confirmation before Apply.
 - FMX form translation through designer-persisted `OnCreate` handlers after
   form streaming; VCL startup wiring remains in the DPR.
-- Win32 and Win64 API-free VCL/FMX reference pilots covering scan, CSV/JSON
-  interchange, review, validation, export, integration, build, deployment, and
-  required Italian offline launch behavior.
+- Win32 and Win64 VCL/FMX reference pilots covering scan, in-place
+  Codex/Claude-style catalog modification, protected-field review, validation,
+  export, integration, build, deployment, and Italian offline launch behavior.
 
 ## Current Studio Workflow
 
 1. Open a VCL or FireMonkey `.dproj` or `.dpr`.
 2. Scan the project.
-3. Open **Languages**, enter the target code and native language name, and create
+3. Open **Translate**, enter the target code and native language name, and create
    the development catalog.
-4. Enter translations manually, export/import a CSV for an external human or
-   AI-assisted workflow, accept an explicitly reviewed catalog suggestion, or
-   optionally configure DeepL/Google under **Optional Provider**. Imported,
-   suggested, and provider results remain marked for developer review.
-5. For cataloged Pascal `resourcestring` entries, add the documented
+4. Select **Begin AI Mode**. Give the copied instruction to Codex or Claude,
+   which edits the saved development JSON directly in place.
+5. When the Studio detects a stable change, select **Reload AI Work**. Protected
+   fields are verified and allowed translations are adopted as AI drafts.
+6. Resolve the focused exception queue. Google/DeepL, CSV, suggestions, and
+   manual editing remain available alternatives.
+7. For cataloged Pascal `resourcestring` entries, add the documented
    `TranslateText` call at each intended call site and mark manual wiring
    confirmed. The Studio does not rewrite Pascal call sites.
-6. Run **Validation**.
-7. When there are no validation errors, use **Export** to create the offline
+8. Run **Validation**.
+9. When there are no validation errors, use **Export** to create the offline
    runtime JSON pack.
-8. Use **Integration** to inspect the exact diff for every changed file, confirm
+10. Use **Integration** to inspect the exact diff for every changed file, confirm
    review, back up, apply, or restore the target-project runtime and
    designer-authored language menu changes.
 

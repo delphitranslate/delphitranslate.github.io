@@ -7,17 +7,29 @@ Last changed: August 7, 2026
 Version 1.0 delivers a Windows Win32/Win64, offline-first localization workflow
 for Delphi VCL and FireMonkey applications. The Studio scans designer text and
 Pascal `resourcestring` declarations, maintains development JSON catalogs,
-supports safe UTF-8 CSV interchange, validates Delphi formatting contracts,
+supports automatic in-place Codex/Claude translation, safe UTF-8 CSV
+interchange, validates Delphi formatting contracts,
 exports compact runtime packs, and integrates an offline runtime plus
 designer-persisted language menu.
 
-DeepL and Google Cloud Translation remain optional Studio-only inputs. Target
-applications do not contain API keys and do not require Internet access.
+Codex or Claude can edit the development catalog directly in the project
+workspace without a translation-provider key. DeepL and Google Cloud
+Translation remain alternative Studio-only inputs. Target applications do not
+contain API keys and do not require Internet access.
 
 ## Professional Workflow
 
 - Read-only VCL/FMX project detection and text-resource scanning.
 - Stable catalog keys and source-checksum incremental merge.
+- Schema version 3 provenance separate from linguistic status.
+- Designer-authored AI Translation Mode with generated instructions and
+  terminology profile.
+- Pre-session recovery snapshot, local-edit lock, stable file-change detection,
+  protected-field comparison, and safe reload.
+- Checksum conflict prevention that stops stale Studio data from overwriting
+  external work.
+- Exception-focused QA for low confidence, AI review notes, inconsistent
+  repeated terminology, placeholders, accelerators, and runtime wiring.
 - API-free development JSON and UTF-8 CSV export/import.
 - Staged import with duplicate, unknown-key, stale-source, and protected-work
   reporting.
@@ -43,9 +55,10 @@ VCL target integration retains its DPR startup application path.
 
 ## Validation
 
-The controlled VCL and FMX reference applications completed the API-free
+The controlled VCL and FMX reference applications completed the in-place AI
 workflow with both Win32 and Win64 compilers: scan, deterministic Italian
-CSV/JSON interchange, explicit review/approval, validation, runtime export,
+Codex/Claude-style direct catalog modification, protected-field validation,
+translation provenance, validation, runtime export,
 integration, build, deployment, and offline launch with a required Italian
 title. Representative translated forms were visually reviewed for clipping,
 overlap, and untranslated designated properties.

@@ -35,6 +35,18 @@ begin
          not Assigned(frmTranslationStudio.btnApproveTranslation.OnClick) then
         raise Exception.Create(
           'The linguistic review actions are not designer-wired.');
+      if not Assigned(
+           frmTranslationStudio.btnBeginAITranslation.OnClick) or
+         not Assigned(
+           frmTranslationStudio.btnCopyAIInstructions.OnClick) or
+         not Assigned(
+           frmTranslationStudio.btnReloadAITranslation.OnClick) then
+        raise Exception.Create(
+          'The in-place AI translation controls are not designer-wired.');
+      if not Assigned(frmTranslationStudio.tmrAITranslation.OnTimer) or
+         frmTranslationStudio.tmrAITranslation.Enabled then
+        raise Exception.Create(
+          'The designer-owned AI change detector is not configured safely.');
       if not frmTranslationStudio.memIntegrationDiff.ReadOnly then
         raise Exception.Create(
           'The exact integration review must remain read-only.');

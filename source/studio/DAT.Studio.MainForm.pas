@@ -106,6 +106,9 @@ type
     memTranslatedText: TMemo;
     btnApplyTranslation: TButton;
     btnTranslateMissing: TButton;
+    btnBeginAITranslation: TButton;
+    btnCopyAIInstructions: TButton;
+    btnReloadAITranslation: TButton;
     ValidationPageCard: TRectangle;
     lblValidationPageTitle: TLabel;
     lblValidationDescription: TLabel;
@@ -157,6 +160,7 @@ type
     dlgOpenCatalog: TOpenDialog;
     dlgImportCatalogCsv: TOpenDialog;
     dlgExportCatalogCsv: TSaveDialog;
+    tmrAITranslation: TTimer;
     procedure btnOpenProjectClick(Sender: TObject);
     procedure btnScanProjectClick(Sender: TObject);
     procedure lblNavigationProjectClick(Sender: TObject);
@@ -189,6 +193,10 @@ type
     procedure btnAcceptSuggestionClick(Sender: TObject);
     procedure btnMarkTranslationReviewedClick(Sender: TObject);
     procedure btnApproveTranslationClick(Sender: TObject);
+    procedure btnBeginAITranslationClick(Sender: TObject);
+    procedure btnCopyAIInstructionsClick(Sender: TObject);
+    procedure btnReloadAITranslationClick(Sender: TObject);
+    procedure tmrAITranslationTimer(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure datLanguageMenuItemClick(Sender: TObject);
   private
@@ -204,6 +212,12 @@ type
     FProviderSettings: TProviderSettings;
     FSessionApiKeys: array[TTranslationProvider] of string;
     FUpdatingEntryControls: Boolean;
+    FAITranslationActive: Boolean;
+    FAIOriginalCatalogJson: string;
+    FCatalogFileHash: string;
+    FLastObservedCatalogHash: string;
+    FObservedCatalogHashCount: Integer;
+    FApplyingExternalCatalog: Boolean;
     procedure ClearProjectSummary;
     procedure ClearScanSummary;
     procedure ResetCatalog;
@@ -228,6 +242,9 @@ type
       const AEntry: TTranslationEntry);
     procedure DisplaySelectedIntegrationChange;
     procedure UpdateIntegrationApplyState;
+    procedure SetAITranslationMode(const AActive: Boolean);
+    procedure CancelAITranslationAndRestore;
+    function CatalogHasExternalChanges: Boolean;
   public
     destructor Destroy; override;
   end;
@@ -240,9 +257,12 @@ implementation
 uses
   System.IOUtils,
   System.Math,
+  System.Rtti,
   System.SysUtils,
   System.UITypes,
   FMX.DialogService.Sync,
+  FMX.Platform,
+  DAT.Core.AITranslation,
   DAT.Core.CatalogJson,
   DAT.Core.ProjectDetection,
   DAT.Core.RuntimePack,
@@ -266,6 +286,7 @@ begin
   FReviewedIntegrationFiles.Duplicates := dupIgnore;
   ApplyStudioTranslation(Self);
   LoadProviderSettings;
+  SetAITranslationMode(False);
 end;
 
 procedure TfrmTranslationStudio.datLanguageMenuItemClick(Sender: TObject);
@@ -279,6 +300,8 @@ end;
 
 procedure TfrmTranslationStudio.ClearProjectSummary;
 begin
+  if FAITranslationActive then
+    CancelAITranslationAndRestore;
   FProjectProfile := Default(TProjectProfile);
   lblProjectNameValue.Text := 'No project selected';
   lblFrameworkValue.Text := '-';
@@ -324,6 +347,86 @@ begin
   FScanResult.Free;
   FReviewedIntegrationFiles.Free;
   inherited Destroy;
+end;
+
+function TfrmTranslationStudio.CatalogHasExternalChanges: Boolean;
+begin
+  Result := (FCatalogFileName <> '') and
+    TFile.Exists(FCatalogFileName) and
+    (FCatalogFileHash <> '') and
+    not SameText(TAITranslationWorkflow.FileHash(FCatalogFileName),
+      FCatalogFileHash);
+end;
+
+procedure TfrmTranslationStudio.SetAITranslationMode(
+  const AActive: Boolean);
+begin
+  FAITranslationActive := AActive;
+  tmrAITranslation.Enabled := AActive;
+  if AActive then
+    btnBeginAITranslation.Text := 'Cancel / Restore'
+  else
+    btnBeginAITranslation.Text := 'Begin AI Mode';
+  btnCopyAIInstructions.Enabled := AActive;
+  btnReloadAITranslation.Enabled := False;
+  btnOpenProject.Enabled := not AActive;
+  btnOpenCatalog.Enabled := not AActive;
+  btnSaveCatalog.Enabled := not AActive;
+  btnExportCatalogCsv.Enabled := not AActive;
+  btnImportCatalogCsv.Enabled := not AActive;
+  btnApplyTranslation.Enabled := not AActive;
+  btnTranslateMissing.Enabled := not AActive;
+  btnAcceptSuggestion.Enabled := False;
+  btnMarkTranslationReviewed.Enabled := False;
+  btnApproveTranslation.Enabled := False;
+  edtSourceLanguage.Enabled := not AActive;
+  edtTargetLanguageCode.Enabled := not AActive;
+  edtNativeLanguageName.Enabled := not AActive;
+  edtTextDirection.Enabled := not AActive;
+  edtShortDateFormat.Enabled := not AActive;
+  edtLongDateFormat.Enabled := not AActive;
+  edtShortTimeFormat.Enabled := not AActive;
+  edtLongTimeFormat.Enabled := not AActive;
+  edtDecimalSeparator.Enabled := not AActive;
+  edtThousandSeparator.Enabled := not AActive;
+  edtCurrencySymbol.Enabled := not AActive;
+  memTranslatedText.ReadOnly := AActive;
+  FLastObservedCatalogHash := '';
+  FObservedCatalogHashCount := 0;
+  if not AActive then
+    FAIOriginalCatalogJson := '';
+end;
+
+procedure TfrmTranslationStudio.CancelAITranslationAndRestore;
+var
+  RestoredCatalog: TTranslationCatalog;
+  SnapshotFile: string;
+begin
+  if not FAITranslationActive then
+    Exit;
+  SnapshotFile := TAITranslationWorkflow.SnapshotFileName(
+    FCatalogFileName);
+  if TFile.Exists(SnapshotFile) then
+  begin
+    RestoredCatalog := TCatalogJson.LoadFromFile(SnapshotFile);
+    FreeAndNil(FTranslationCatalog);
+    FTranslationCatalog := RestoredCatalog;
+    FApplyingExternalCatalog := True;
+    try
+      TCatalogJson.SaveToFile(FTranslationCatalog, FCatalogFileName);
+    finally
+      FApplyingExternalCatalog := False;
+    end;
+    FCatalogFileHash := TAITranslationWorkflow.FileHash(
+      FCatalogFileName);
+    TFile.Delete(SnapshotFile);
+  end;
+  SetAITranslationMode(False);
+  DisplayCatalogLanguage;
+  DisplayCatalogEntries;
+  InvalidateValidation;
+  lblStatus.Text :=
+    'AI translation canceled. The pre-translation catalog was restored.';
 end;
 
 procedure TfrmTranslationStudio.DisplaySelectedIntegrationChange;
@@ -405,7 +508,7 @@ begin
   edtProviderApiKey.Text := '';
   cboDeepLPlan.Enabled := SelectedProvider = tpDeepL;
   lblCredentialStatus.Text :=
-    'Optional provider configuration has not been opened.';
+    'Provider configuration has not been opened.';
 end;
 
 procedure TfrmTranslationStudio.SaveProviderSettings;
@@ -512,7 +615,8 @@ begin
     if FTranslationCatalog <> nil then
       for Entry in FTranslationCatalog.Entries do
         lstCatalogEntries.Items.Add(Entry.Key + '  [' +
-          TranslationStatusToString(Entry.Status) + ']');
+          TranslationStatusToString(Entry.Status) + ' / ' +
+          TranslationOriginDisplayName(Entry.TranslationOrigin) + ']');
   finally
     lstCatalogEntries.EndUpdate;
   end;
@@ -534,6 +638,7 @@ procedure TfrmTranslationStudio.UpdateCatalogReadiness;
 var
   ActiveCount: Integer;
   ApprovedCount: Integer;
+  AIDraftCount: Integer;
   AutomaticCount: Integer;
   Entry: TTranslationEntry;
   ManualConfirmedCount: Integer;
@@ -541,6 +646,7 @@ var
   ReviewedCount: Integer;
   TranslatedCount: Integer;
 begin
+  AIDraftCount := 0;
   ActiveCount := 0;
   ApprovedCount := 0;
   AutomaticCount := 0;
@@ -559,6 +665,8 @@ begin
           Inc(ReviewedCount);
         if Entry.Status = tsApproved then
           Inc(ApprovedCount);
+        if Entry.Status = tsAIDraft then
+          Inc(AIDraftCount);
         if Entry.RuntimeApplication = rakAutomatic then
           Inc(AutomaticCount)
         else
@@ -572,9 +680,11 @@ begin
     lblCatalogReadiness.Text := 'Translation and runtime readiness: no catalog'
   else
     lblCatalogReadiness.Text := Format(
-      'Text %d/%d  |  Reviewed+ %d  |  Approved %d' + sLineBreak +
+      'Text %d/%d  |  AI drafts %d  |  Reviewed+ %d  |  Approved %d' +
+      sLineBreak +
       'Runtime automatic %d  |  Manual wiring %d/%d confirmed',
-      [TranslatedCount, ActiveCount, ReviewedCount, ApprovedCount,
+      [TranslatedCount, ActiveCount, AIDraftCount, ReviewedCount,
+       ApprovedCount,
        AutomaticCount, ManualConfirmedCount, ManualCount]);
 end;
 
@@ -700,9 +810,11 @@ end;
 
 procedure TfrmTranslationStudio.ResetCatalog;
 begin
+  SetAITranslationMode(False);
   FreeAndNil(FValidationResult);
   FreeAndNil(FTranslationCatalog);
   FCatalogFileName := '';
+  FCatalogFileHash := '';
   edtSourceLanguage.Text := 'en-US';
   edtTargetLanguageCode.Text := '';
   edtNativeLanguageName.Text := '';
@@ -847,12 +959,21 @@ end;
 
 procedure TfrmTranslationStudio.SaveCatalog;
 begin
+  if FAITranslationActive and not FApplyingExternalCatalog then
+    raise Exception.Create(
+      'The catalog is locked for in-place AI translation. Reload or cancel ' +
+      'the AI session before saving Studio edits.');
   UpdateCatalogFromLanguageEditors;
   if FCatalogFileName = '' then
     FCatalogFileName :=
       TTranslationWorkspace.DevelopmentCatalogFileName(FProjectProfile,
         FTranslationCatalog.Locale.LanguageCode);
+  if not FApplyingExternalCatalog and CatalogHasExternalChanges then
+    raise Exception.Create(
+      'The catalog changed on disk after it was loaded. Saving was stopped ' +
+      'to protect the external work. Reload the catalog before continuing.');
   TCatalogJson.SaveToFile(FTranslationCatalog, FCatalogFileName);
+  FCatalogFileHash := TAITranslationWorkflow.FileHash(FCatalogFileName);
   lblCatalogPathValue.Text := FCatalogFileName;
   lblStatus.Text := 'Development catalog saved.';
 end;
@@ -1226,6 +1347,8 @@ begin
     FreeAndNil(FTranslationCatalog);
     FTranslationCatalog := LoadedCatalog;
     FCatalogFileName := dlgOpenCatalog.FileName;
+    FCatalogFileHash := TAITranslationWorkflow.FileHash(
+      FCatalogFileName);
     lblCatalogPathValue.Text := FCatalogFileName;
     DisplayCatalogLanguage;
     DisplayCatalogEntries;
@@ -1348,7 +1471,9 @@ begin
     memSourceText.Text := Entry.SourceText;
     memTranslatedText.Text := Entry.TranslatedText;
     lblRuntimeApplicationValue.Text := 'Runtime: ' +
-      RuntimeApplicationDisplayName(Entry.RuntimeApplication);
+      RuntimeApplicationKindToString(Entry.RuntimeApplication) +
+      ' | Origin: ' +
+      TranslationOriginDisplayName(Entry.TranslationOrigin);
     chkRuntimeWiringConfirmed.Enabled :=
       Entry.RuntimeApplication = rakManualTranslateText;
     chkRuntimeWiringConfirmed.IsChecked :=
@@ -1380,6 +1505,9 @@ begin
     Entry.Status := tsNeedsTranslation
   else
     Entry.Status := tsEdited;
+  Entry.TranslationOrigin := torHuman;
+  Entry.TranslationConfidence := '';
+  Entry.TranslationReviewNote := '';
   lstCatalogEntries.Items[lstCatalogEntries.ItemIndex] :=
     Entry.Key + '  [' + TranslationStatusToString(Entry.Status) + ']';
   btnMarkTranslationReviewed.Enabled :=
@@ -1434,6 +1562,9 @@ begin
   Entry := FTranslationCatalog.Entries[lstCatalogEntries.ItemIndex];
   Entry.TranslatedText := SuggestedEntry.TranslatedText;
   Entry.Status := tsEdited;
+  Entry.TranslationOrigin := torSuggestion;
+  Entry.TranslationConfidence := '';
+  Entry.TranslationReviewNote := '';
   memTranslatedText.Text := Entry.TranslatedText;
   lstCatalogEntries.Items[lstCatalogEntries.ItemIndex] :=
     Entry.Key + '  [' + TranslationStatusToString(Entry.Status) + ']';
@@ -1508,6 +1639,204 @@ begin
   lblStatus.Text := 'Translation approved.';
 end;
 
+procedure TfrmTranslationStudio.btnBeginAITranslationClick(Sender: TObject);
+var
+  RestoredCatalog: TTranslationCatalog;
+  SnapshotFile: string;
+begin
+  if FAITranslationActive then
+  begin
+    if TDialogServiceSync.MessageDialog(
+      'Cancel this AI translation session and restore the exact ' +
+      'pre-translation catalog?',
+      TMsgDlgType.mtConfirmation,
+      [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo],
+      TMsgDlgBtn.mbNo, 0) = mrYes then
+      CancelAITranslationAndRestore;
+    Exit;
+  end;
+  if FTranslationCatalog = nil then
+  begin
+    lblStatus.Text := 'Scan a project or open a catalog first.';
+    Exit;
+  end;
+  try
+    SaveCatalog;
+    SnapshotFile := TAITranslationWorkflow.SnapshotFileName(
+      FCatalogFileName);
+    if TFile.Exists(SnapshotFile) and
+       (TDialogServiceSync.MessageDialog(
+        'An unfinished AI-session snapshot exists. Restore it before ' +
+        'starting another session?',
+        TMsgDlgType.mtConfirmation,
+        [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo],
+        TMsgDlgBtn.mbYes, 0) = mrYes) then
+    begin
+      RestoredCatalog := TCatalogJson.LoadFromFile(SnapshotFile);
+      FreeAndNil(FTranslationCatalog);
+      FTranslationCatalog := RestoredCatalog;
+      TCatalogJson.SaveToFile(FTranslationCatalog, FCatalogFileName);
+      FCatalogFileHash := TAITranslationWorkflow.FileHash(
+        FCatalogFileName);
+      TFile.Delete(SnapshotFile);
+      DisplayCatalogLanguage;
+      DisplayCatalogEntries;
+      lblStatus.Text :=
+        'The unfinished AI session was restored. Click Begin AI Mode again.';
+      Exit;
+    end;
+
+    FAIOriginalCatalogJson :=
+      TCatalogJson.Serialize(FTranslationCatalog);
+    TAITranslationWorkflow.PrepareSession(FTranslationCatalog,
+      FCatalogFileName);
+    FCatalogFileHash := TAITranslationWorkflow.FileHash(
+      FCatalogFileName);
+    SetAITranslationMode(True);
+    lblStatus.Text :=
+      'AI Translation Mode is active. Give Codex or Claude the copied ' +
+      'instructions, then use Reload AI Work when changes are detected.';
+    btnCopyAIInstructionsClick(btnCopyAIInstructions);
+  except
+    on E: Exception do
+      lblStatus.Text := 'Unable to begin AI translation: ' + E.Message;
+  end;
+end;
+
+procedure TfrmTranslationStudio.btnCopyAIInstructionsClick(
+  Sender: TObject);
+var
+  ClipboardService: IFMXClipboardService;
+  Instructions: string;
+begin
+  if (FTranslationCatalog = nil) or (FCatalogFileName = '') then
+    Exit;
+  Instructions := TAITranslationWorkflow.BuildInstructions(
+    FTranslationCatalog, FCatalogFileName);
+  if TPlatformServices.Current.SupportsPlatformService(
+    IFMXClipboardService, ClipboardService) then
+  begin
+    ClipboardService.SetClipboard(Instructions);
+    lblStatus.Text :=
+      'AI translation instructions copied. The agent will edit the catalog ' +
+      'directly in place.'
+  end
+  else
+    lblStatus.Text := 'Clipboard service is unavailable. Instructions: ' +
+      TAITranslationWorkflow.InstructionsFileName(FCatalogFileName);
+end;
+
+procedure TfrmTranslationStudio.btnReloadAITranslationClick(
+  Sender: TObject);
+var
+  ExternalCatalog: TTranslationCatalog;
+  IssueIndex: Integer;
+  MessageText: string;
+  OriginalCatalog: TTranslationCatalog;
+  Review: TAITranslationReview;
+  SnapshotFile: string;
+begin
+  if not FAITranslationActive then
+    Exit;
+  ExternalCatalog := nil;
+  OriginalCatalog := nil;
+  Review := nil;
+  try
+    try
+      OriginalCatalog := TCatalogJson.Deserialize(
+        FAIOriginalCatalogJson);
+      ExternalCatalog := TCatalogJson.LoadFromFile(
+        FCatalogFileName);
+      Review := TAITranslationWorkflow.AnalyzeExternalCatalog(
+        OriginalCatalog, ExternalCatalog);
+      if Review.HasBlockingIssues then
+      begin
+        MessageText := Review.Summary + sLineBreak + sLineBreak;
+        for IssueIndex := 0 to Min(Review.Issues.Count - 1, 9) do
+          MessageText := MessageText + Review.Issues[IssueIndex] +
+            sLineBreak;
+        if Review.Issues.Count > 10 then
+          MessageText := MessageText + Format('...and %d more.',
+            [Review.Issues.Count - 10]);
+        TDialogServiceSync.MessageDialog(MessageText,
+          TMsgDlgType.mtError, [TMsgDlgBtn.mbOK],
+          TMsgDlgBtn.mbOK, 0);
+        lblStatus.Text :=
+          'AI changes were not loaded because protected catalog data changed.';
+        Exit;
+      end;
+      if Review.ChangedCount = 0 then
+      begin
+        lblStatus.Text :=
+          'No new in-place translation changes are ready to reload.';
+        Exit;
+      end;
+
+      TAITranslationWorkflow.ApplyExternalTranslations(
+        FTranslationCatalog, ExternalCatalog);
+      FApplyingExternalCatalog := True;
+      try
+        TCatalogJson.SaveToFile(FTranslationCatalog,
+          FCatalogFileName);
+      finally
+        FApplyingExternalCatalog := False;
+      end;
+      FCatalogFileHash := TAITranslationWorkflow.FileHash(
+        FCatalogFileName);
+      SnapshotFile := TAITranslationWorkflow.SnapshotFileName(
+        FCatalogFileName);
+      if TFile.Exists(SnapshotFile) then
+        TFile.Delete(SnapshotFile);
+      SetAITranslationMode(False);
+      DisplayCatalogEntries;
+      InvalidateValidation;
+      RunCatalogValidation;
+      lblStatus.Text := 'In-place AI translation loaded safely. ' +
+        Review.Summary;
+    except
+      on E: Exception do
+        lblStatus.Text :=
+          'AI work is not ready to reload: ' + E.Message;
+    end;
+  finally
+    Review.Free;
+    ExternalCatalog.Free;
+    OriginalCatalog.Free;
+  end;
+end;
+
+procedure TfrmTranslationStudio.tmrAITranslationTimer(Sender: TObject);
+var
+  CurrentHash: string;
+begin
+  if not FAITranslationActive or
+     (FCatalogFileName = '') or
+     not TFile.Exists(FCatalogFileName) then
+    Exit;
+  CurrentHash := TAITranslationWorkflow.FileHash(
+    FCatalogFileName);
+  if SameText(CurrentHash, FCatalogFileHash) then
+  begin
+    FLastObservedCatalogHash := '';
+    FObservedCatalogHashCount := 0;
+    btnReloadAITranslation.Enabled := False;
+    Exit;
+  end;
+  if SameText(CurrentHash, FLastObservedCatalogHash) then
+    Inc(FObservedCatalogHashCount)
+  else
+  begin
+    FLastObservedCatalogHash := CurrentHash;
+    FObservedCatalogHashCount := 1;
+  end;
+  if FObservedCatalogHashCount >= 2 then
+  begin
+    btnReloadAITranslation.Enabled := True;
+    lblStatus.Text :=
+      'Stable external catalog changes detected. Click Reload AI Work.';
+  end;
+end;
+
 procedure TfrmTranslationStudio.btnTranslateMissingClick(Sender: TObject);
 var
   ApiKey: string;
@@ -1541,7 +1870,7 @@ begin
       Exit;
     end;
     if TDialogServiceSync.MessageDialog(Format(
-      'Send %d unresolved source strings to the selected optional Internet provider? Reviewed and approved entries will remain unchanged. Translation suggestions are never applied automatically.',
+      'Send %d unresolved source strings directly to the selected Internet provider? Reviewed and approved entries will remain unchanged. Translation suggestions are never applied automatically.',
       [MissingCount]), TMsgDlgType.mtConfirmation,
       [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo],
       TMsgDlgBtn.mbNo, 0) <> mrYes then
@@ -1588,6 +1917,12 @@ begin
       Entry := FTranslationCatalog.Entries[EntryIndexes[Index]];
       Entry.TranslatedText := TranslatedTexts[Index];
       Entry.Status := tsMachineTranslated;
+      if Provider = tpGoogle then
+        Entry.TranslationOrigin := torGoogle
+      else
+        Entry.TranslationOrigin := torDeepL;
+      Entry.TranslationConfidence := '';
+      Entry.TranslationReviewNote := '';
     end;
     DisplayCatalogEntries;
     InvalidateValidation;

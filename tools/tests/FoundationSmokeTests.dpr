@@ -10,6 +10,7 @@ uses
   DAT.Core.Types in '..\..\source\core\DAT.Core.Types.pas',
   DAT.Core.ProjectDetection in '..\..\source\core\DAT.Core.ProjectDetection.pas',
   DAT.Core.CatalogJson in '..\..\source\core\DAT.Core.CatalogJson.pas',
+  DAT.Core.AITranslation in '..\..\source\core\DAT.Core.AITranslation.pas',
   DAT.Core.TranslationWorkspace in '..\..\source\core\DAT.Core.TranslationWorkspace.pas',
   DAT.Core.RuntimePack in '..\..\source\core\DAT.Core.RuntimePack.pas',
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
@@ -171,6 +172,9 @@ begin
     Entry.SourceLine := 42;
     Entry.SourceKind := 'Form property';
     Entry.Status := tsApproved;
+    Entry.TranslationOrigin := torCodex;
+    Entry.TranslationConfidence := 'high';
+    Entry.TranslationReviewNote := 'Second pass complete';
     Entry.RuntimeApplication := rakManualTranslateText;
     Entry.RuntimeWiringConfirmed := True;
     SourceCatalog.Entries.Add(Entry);
@@ -188,6 +192,11 @@ begin
         'Translated text was not preserved.');
       Require(LoadedCatalog.Entries[0].Status = tsApproved,
         'Translation status was not preserved.');
+      Require((LoadedCatalog.Entries[0].TranslationOrigin = torCodex) and
+        (LoadedCatalog.Entries[0].TranslationConfidence = 'high') and
+        (LoadedCatalog.Entries[0].TranslationReviewNote =
+          'Second pass complete'),
+        'AI translation provenance was not preserved.');
       Require(LoadedCatalog.Entries[0].RuntimeApplication =
         rakManualTranslateText,
         'Runtime application mode was not preserved.');
@@ -207,8 +216,8 @@ begin
       '"sourceText":"Message","sourceKind":"Resource string",' +
       '"status":"needsTranslation"}]}');
     try
-      Require(LoadedCatalog.SchemaVersion = 2,
-        'A schema version 1 catalog was not migrated to version 2.');
+      Require(LoadedCatalog.SchemaVersion = 3,
+        'A schema version 1 catalog was not migrated to version 3.');
       Require(LoadedCatalog.Entries[0].RuntimeApplication =
         rakManualTranslateText,
         'Legacy resourcestring runtime mode was not derived.');
@@ -809,10 +818,10 @@ procedure ExportItalianFixturePack(const AProfile: TProjectProfile);
 var
   Catalog: TTranslationCatalog;
   CatalogFileName: string;
-  CsvFileName: string;
   Entry: TTranslationEntry;
-  ImportCatalog: TTranslationCatalog;
-  ImportPlan: TCatalogCsvImportPlan;
+  ExternalCatalog: TTranslationCatalog;
+  OriginalCatalog: TTranslationCatalog;
+  Review: TAITranslationReview;
   ScanResult: TProjectScanResult;
   ValidationResult: TCatalogValidationResult;
 begin
@@ -837,80 +846,71 @@ begin
     finally
       ScanResult.Free;
     end;
-    for Entry in Catalog.Entries do
-    begin
-      Entry.TranslatedText := ItalianPilotTranslation(Entry.SourceText);
-      Entry.Status := tsEdited;
+    CatalogFileName :=
+      TTranslationWorkspace.DevelopmentCatalogFileName(
+        AProfile, 'it-IT');
+    TCatalogJson.SaveToFile(Catalog, CatalogFileName);
+    TAITranslationWorkflow.PrepareSession(Catalog, CatalogFileName);
+
+    ExternalCatalog := TCatalogJson.LoadFromFile(CatalogFileName);
+    try
+      for Entry in ExternalCatalog.Entries do
+      begin
+        Entry.TranslatedText := ItalianPilotTranslation(Entry.SourceText);
+        Entry.Status := tsAIDraft;
+        Entry.TranslationOrigin := torCodex;
+        Entry.TranslationConfidence := 'high';
+      end;
+      TCatalogJson.SaveToFile(ExternalCatalog, CatalogFileName);
+    finally
+      ExternalCatalog.Free;
     end;
 
-    CsvFileName := TPath.Combine(
-      TPath.GetDirectoryName(AProfile.ProjectFileName),
-      'Localization\Development\' + AProfile.ProjectName +
-      '.it-IT.pilot.csv');
-    TCatalogCsv.ExportToFile(Catalog, CsvFileName);
-
-    ImportCatalog := TTranslationCatalog.Create;
+    OriginalCatalog := TCatalogJson.LoadFromFile(
+      TAITranslationWorkflow.SnapshotFileName(CatalogFileName));
     try
-      ImportCatalog.ApplicationId := AProfile.ProjectName;
-      ImportCatalog.Framework := AProfile.Framework;
-      ImportCatalog.SourceLanguage := 'en-US';
-      ImportCatalog.Locale.LanguageCode := Catalog.Locale.LanguageCode;
-      ImportCatalog.Locale.NativeLanguageName :=
-        Catalog.Locale.NativeLanguageName;
-      ImportCatalog.Locale.TextDirection := Catalog.Locale.TextDirection;
-      ImportCatalog.Locale.ShortDateFormat :=
-        Catalog.Locale.ShortDateFormat;
-      ImportCatalog.Locale.LongDateFormat :=
-        Catalog.Locale.LongDateFormat;
-      ImportCatalog.Locale.ShortTimeFormat :=
-        Catalog.Locale.ShortTimeFormat;
-      ImportCatalog.Locale.LongTimeFormat :=
-        Catalog.Locale.LongTimeFormat;
-      ImportCatalog.Locale.DecimalSeparator :=
-        Catalog.Locale.DecimalSeparator;
-      ImportCatalog.Locale.ThousandSeparator :=
-        Catalog.Locale.ThousandSeparator;
-      ImportCatalog.Locale.CurrencySymbol :=
-        Catalog.Locale.CurrencySymbol;
-      ScanResult := TProjectScanner.Scan(AProfile);
+      ExternalCatalog := TCatalogJson.LoadFromFile(CatalogFileName);
       try
-        TScanCatalogMerger.Merge(ScanResult, ImportCatalog);
+        Review := TAITranslationWorkflow.AnalyzeExternalCatalog(
+          OriginalCatalog, ExternalCatalog);
+        try
+          Require(not Review.HasBlockingIssues,
+            'The in-place AI pilot failed protected-field review: ' +
+            Review.Summary);
+          Require(Review.ChangedCount = OriginalCatalog.Entries.Count,
+            'The in-place AI pilot did not translate every scanned entry.');
+          TAITranslationWorkflow.ApplyExternalTranslations(
+            OriginalCatalog, ExternalCatalog);
+        finally
+          Review.Free;
+        end;
       finally
-        ScanResult.Free;
+        ExternalCatalog.Free;
       end;
-      ImportPlan := TCatalogCsv.AnalyzeImport(ImportCatalog, CsvFileName);
-      try
-        Require(ImportPlan.Changes.Count = ImportCatalog.Entries.Count,
-          'The API-free pilot CSV did not stage every scanned entry.');
-        Require(ImportPlan.Issues.Count = 0,
-          'The API-free pilot CSV reported unexpected import issues.');
-        ImportPlan.Apply;
-      finally
-        ImportPlan.Free;
-      end;
-      for Entry in ImportCatalog.Entries do
+
+      for Entry in OriginalCatalog.Entries do
       begin
-        Require(Entry.Status = tsImported,
-          'An API-free pilot translation bypassed Imported review status.');
+        Require(Entry.Status = tsAIDraft,
+          'An in-place AI pilot translation did not retain AI Draft status.');
+        Require(Entry.TranslationOrigin = torCodex,
+          'An in-place AI pilot translation did not retain Codex provenance.');
         Entry.Status := tsReviewed;
         Entry.Status := tsApproved;
       end;
-      ValidationResult := TCatalogValidator.Validate(ImportCatalog);
+      ValidationResult := TCatalogValidator.Validate(OriginalCatalog);
       try
         Require(not ValidationResult.HasErrors,
-          'The API-free pilot catalog failed structural validation.');
+          'The in-place AI pilot catalog failed structural validation.');
       finally
         ValidationResult.Free;
       end;
-      CatalogFileName :=
-        TTranslationWorkspace.DevelopmentCatalogFileName(
-          AProfile, 'it-IT');
-      TCatalogJson.SaveToFile(ImportCatalog, CatalogFileName);
-      TRuntimePackBuilder.ExportToFile(ImportCatalog,
+      TCatalogJson.SaveToFile(OriginalCatalog, CatalogFileName);
+      TRuntimePackBuilder.ExportToFile(OriginalCatalog,
         TTranslationWorkspace.RuntimePackFileName(AProfile, 'it-IT'));
     finally
-      ImportCatalog.Free;
+      OriginalCatalog.Free;
     end;
+    TFile.Delete(TAITranslationWorkflow.SnapshotFileName(CatalogFileName));
   finally
     Catalog.Free;
   end;
@@ -1102,6 +1102,116 @@ begin
   end;
 end;
 
+procedure TestInPlaceAITranslationWorkflow;
+var
+  Catalog: TTranslationCatalog;
+  CatalogFile: string;
+  Entry: TTranslationEntry;
+  ExternalCatalog: TTranslationCatalog;
+  Review: TAITranslationReview;
+  TestDirectory: string;
+begin
+  TestDirectory := TPath.Combine(TPath.GetTempPath,
+    'DAT-AI-' + TPath.GetRandomFileName);
+  TDirectory.CreateDirectory(TestDirectory);
+  Catalog := TTranslationCatalog.Create;
+  ExternalCatalog := nil;
+  Review := nil;
+  try
+    Catalog.ApplicationId := 'AIWorkflowFixture';
+    Catalog.Framework := tfFireMonkey;
+    Catalog.SourceLanguage := 'en-US';
+    Catalog.Locale.LanguageCode := 'it-IT';
+    Catalog.Locale.NativeLanguageName := 'Italiano';
+    Entry := TTranslationEntry.Create;
+    Entry.Key := 'frmMain.btnSave.Text';
+    Entry.SourceText := 'Save';
+    Entry.SourceChecksum := 'fixture-checksum';
+    Entry.FormName := 'frmMain';
+    Entry.ComponentName := 'btnSave';
+    Entry.ComponentClassName := 'TButton';
+    Entry.PropertyName := 'Text';
+    Entry.SourceKind := 'Form property';
+    Entry.RuntimeApplication := rakAutomatic;
+    Entry.RuntimeWiringConfirmed := True;
+    Entry.Status := tsNeedsTranslation;
+    Catalog.Entries.Add(Entry);
+    CatalogFile := TPath.Combine(TestDirectory,
+      'AIWorkflowFixture.it-IT.translation-project.json');
+    TCatalogJson.SaveToFile(Catalog, CatalogFile);
+    TAITranslationWorkflow.PrepareSession(Catalog, CatalogFile);
+    Require(TFile.Exists(
+      TAITranslationWorkflow.ProfileFileName(CatalogFile)),
+      'AI translation profile was not created.');
+    Require(TFile.Exists(
+      TAITranslationWorkflow.InstructionsFileName(CatalogFile)),
+      'AI translation instructions were not created.');
+    Require(TFile.Exists(
+      TAITranslationWorkflow.SnapshotFileName(CatalogFile)),
+      'AI recovery snapshot was not created.');
+
+    ExternalCatalog := TCatalogJson.Deserialize(
+      TCatalogJson.Serialize(Catalog));
+    ExternalCatalog.Entries[0].TranslatedText := 'Salva';
+    ExternalCatalog.Entries[0].Status := tsAIDraft;
+    ExternalCatalog.Entries[0].TranslationOrigin := torCodex;
+    ExternalCatalog.Entries[0].TranslationConfidence := 'high';
+    Review := TAITranslationWorkflow.AnalyzeExternalCatalog(
+      Catalog, ExternalCatalog);
+    Require(not Review.HasBlockingIssues,
+      'A valid in-place AI translation was rejected.');
+    Require(Review.ChangedCount = 1,
+      'The AI translation change was not counted.');
+    TAITranslationWorkflow.ApplyExternalTranslations(
+      Catalog, ExternalCatalog);
+    Require((Catalog.Entries[0].TranslatedText = 'Salva') and
+      (Catalog.Entries[0].Status = tsAIDraft) and
+      (Catalog.Entries[0].TranslationOrigin = torCodex),
+      'The valid AI translation was not adopted safely.');
+    FreeAndNil(Review);
+    ExternalCatalog.SourceLanguage := 'de-DE';
+    Review := TAITranslationWorkflow.AnalyzeExternalCatalog(
+      Catalog, ExternalCatalog);
+    Require(Review.HasBlockingIssues,
+      'A protected catalog mutation was not rejected.');
+    FreeAndNil(Review);
+
+    ExternalCatalog.SourceLanguage := Catalog.SourceLanguage;
+    Catalog.Entries[0].Status := tsSourceChanged;
+    ExternalCatalog.Entries[0].Status := tsAIDraft;
+    ExternalCatalog.Entries[0].TranslationOrigin := torClaude;
+    ExternalCatalog.Entries[0].TranslationConfidence := 'medium';
+    ExternalCatalog.Entries[0].TranslationReviewNote :=
+      'Existing wording remains correct after the source edit.';
+    Review := TAITranslationWorkflow.AnalyzeExternalCatalog(
+      Catalog, ExternalCatalog);
+    Require(not Review.HasBlockingIssues,
+      'A valid metadata-only AI confirmation was rejected.');
+    Require(Review.ChangedCount = 1,
+      'A metadata-only AI confirmation was not counted.');
+    TAITranslationWorkflow.ApplyExternalTranslations(
+      Catalog, ExternalCatalog);
+    Require((Catalog.Entries[0].Status = tsAIDraft) and
+      (Catalog.Entries[0].TranslationOrigin = torClaude) and
+      (Catalog.Entries[0].TranslationConfidence = 'medium'),
+      'A metadata-only AI confirmation was not adopted.');
+    FreeAndNil(Review);
+
+    Catalog.Entries[0].Status := tsExcluded;
+    ExternalCatalog.Entries[0].TranslatedText := 'Non applicare';
+    Review := TAITranslationWorkflow.AnalyzeExternalCatalog(
+      Catalog, ExternalCatalog);
+    Require(Review.HasBlockingIssues,
+      'A change to an excluded entry was not rejected.');
+  finally
+    Review.Free;
+    ExternalCatalog.Free;
+    Catalog.Free;
+    if TDirectory.Exists(TestDirectory) then
+      TDirectory.Delete(TestDirectory, True);
+  end;
+end;
+
 begin
   try
     TestProjectDetection;
@@ -1120,6 +1230,7 @@ begin
     TestTransactionalTargetIntegration;
     TestStudioSelfIntegrationChangeSet;
     TestExactIntegrationReview;
+    TestInPlaceAITranslationWorkflow;
     Writeln('Foundation, scanner, catalog, runtime, validation, and export tests passed.');
   except
     on E: Exception do

@@ -102,6 +102,9 @@ begin
   begin
     Change.Entry.TranslatedText := Change.TranslatedText;
     Change.Entry.Status := tsImported;
+    Change.Entry.TranslationOrigin := torImported;
+    Change.Entry.TranslationConfidence := '';
+    Change.Entry.TranslationReviewNote := '';
   end;
 end;
 
@@ -183,6 +186,12 @@ begin
       EntryObject.AddPair('sourceChecksum', Entry.SourceChecksum);
       EntryObject.AddPair('developerNote', Entry.DeveloperNote);
       EntryObject.AddPair('status', TranslationStatusToString(Entry.Status));
+      EntryObject.AddPair('translationOrigin',
+        TranslationOriginToString(Entry.TranslationOrigin));
+      EntryObject.AddPair('translationConfidence',
+        Entry.TranslationConfidence);
+      EntryObject.AddPair('translationReviewNote',
+        Entry.TranslationReviewNote);
       EntryObject.AddPair('runtimeApplication',
         RuntimeApplicationKindToString(Entry.RuntimeApplication));
       EntryObject.AddPair('runtimeWiringConfirmed',
@@ -282,6 +291,12 @@ begin
               JsonValueText(EntryObject, 'developerNote', '');
             Entry.Status := StringToTranslationStatus(
               JsonValueText(EntryObject, 'status', 'needsTranslation'));
+            Entry.TranslationOrigin := StringToTranslationOrigin(
+              JsonValueText(EntryObject, 'translationOrigin', 'unknown'));
+            Entry.TranslationConfidence := JsonValueText(EntryObject,
+              'translationConfidence', '');
+            Entry.TranslationReviewNote := JsonValueText(EntryObject,
+              'translationReviewNote', '');
             if EntryObject.GetValue('runtimeApplication') <> nil then
               Entry.RuntimeApplication := StringToRuntimeApplicationKind(
                 JsonValueText(EntryObject, 'runtimeApplication',
@@ -296,8 +311,8 @@ begin
               'true');
             Result.Entries.Add(Entry);
           end;
-      if Result.SchemaVersion < 2 then
-        Result.SchemaVersion := 2;
+      if Result.SchemaVersion < 3 then
+        Result.SchemaVersion := 3;
     except
       Result.Free;
       raise;

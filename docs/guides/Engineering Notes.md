@@ -998,3 +998,81 @@ The strengthened Win32 and Win64 runtime suite passed:
 
 Optional live-provider testing remains an external acceptance activity and is
 not a release blocker for the API-free workflow.
+
+## In-Place Codex and Claude Translation Architecture
+
+Implemented on August 7, 2026.
+
+The primary workflow no longer assumes a CSV round trip or translation-provider
+API. `DAT.Core.AITranslation` coordinates direct edits to the existing
+development catalog. The Studio persists all controls in the FMX resource.
+
+### Schema and Provenance
+
+Development schema version 3 adds `translationOrigin`,
+`translationConfidence`, and `translationReviewNote`. Origin is independent of
+status. An AI result is `aiDraft` with `codex` or `claude` origin; it is not
+silently Reviewed or Approved. Legacy catalogs migrate to version 3 in memory.
+
+### Session Safety
+
+Beginning AI Mode first saves the catalog, records its SHA-256 fingerprint,
+writes an exact `.pre-ai.json` recovery snapshot, ensures the project-local
+`translation-profile.json`, and writes `.ai-instructions.md`. Studio editing,
+provider translation, CSV operations, and saving are disabled during the
+session.
+
+A designer-owned 1.5-second `TTimer` observes the file fingerprint. Reload is
+enabled only after the same changed hash is observed twice. The Studio never
+adopts a change merely because the file changed.
+
+Normal catalog saves compare the current disk hash with the hash recorded at
+load or save. A mismatch stops the save, preventing stale in-memory data from
+overwriting external work.
+
+### Protected Reload
+
+Reload parses both the original snapshot and external catalog. Application,
+framework, language, locale formats, entry count/order, stable keys, source
+text/checksums, source locations, component context, developer notes, runtime
+classification, and wiring confirmation are immutable. Only Needs Translation,
+Source Changed, Error, and existing AI Draft entries are eligible.
+Machine-translated, Imported, Edited, Reviewed, Approved, Excluded, and
+Obsolete entries are protected.
+
+Only translated text, origin, confidence, and review notes are adopted.
+Accepted changes are normalized to AI Draft. Any protected mutation rejects the
+entire reload and leaves the session active for correction or restore.
+Metadata-only confirmation is adopted when an existing translation remains
+valid after a source change. Changed entries must identify Codex or Claude and
+record high, medium, or low confidence.
+
+### Context and QA
+
+The terminology profile records application description, domain, audience,
+tone, formality, protected terms, preferred terminology, and additional
+instructions. The generated prompt requires context-aware translation,
+placeholder and accelerator preservation, consistent terminology, valid JSON
+checkpoints, a second linguistic pass, and final counts.
+
+Validation remains structural and exception-focused. It reports low-confidence
+entries, explicit AI review notes, inconsistent translations for repeated
+source text, placeholder and accelerator defects, source changes, and manual
+runtime wiring. A structurally valid AI draft does not flood the exception list
+solely because it has not been marked Reviewed.
+
+### In-Place Release Validation
+
+The August 7, 2026 gate passed:
+
+- Schema version 3, provenance, migration, snapshot, generated contract, valid
+  reload, and protected mutation rejection passed in the foundation suite.
+- Real VCL and FMX samples completed direct canonical-JSON translation,
+  protected reload, AI Draft provenance, review, approval, validation, runtime
+  pack export, integration, build, deployment, and Italian launch under Win32
+  and Win64.
+- The Studio built with zero warnings and errors in Win32/Win64 Debug and
+  Release.
+- Direct FMX form streaming passed under Win32 and Win64.
+- Normal launch and Italian self-localization passed in all four Studio
+  configurations.

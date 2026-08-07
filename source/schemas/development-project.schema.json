@@ -126,7 +126,8 @@
           "status": {
             "enum": [
               "needsTranslation",
-            "machineTranslated",
+              "aiDraft",
+              "machineTranslated",
               "imported",
               "edited",
               "reviewed",
@@ -136,6 +137,29 @@
               "obsolete",
               "error"
             ]
+          },
+          "translationOrigin": {
+            "enum": [
+              "unknown",
+              "codex",
+              "claude",
+              "google",
+              "deepL",
+              "human",
+              "imported",
+              "suggestion"
+            ]
+          },
+          "translationConfidence": {
+            "enum": [
+              "",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "translationReviewNote": {
+            "type": "string"
           },
           "runtimeApplication": {
             "enum": [

@@ -271,6 +271,30 @@ The authoritative scope, gates, safeguards, pilot-selection rules, deferred
 work, and release standard are maintained in
 `API-Free Workflow Plan.md`.
 
+## In-Place AI Translation Program
+
+Status: Groups 1 through 5 complete
+
+The approved primary workflow now uses Codex or Claude to modify the saved
+development JSON directly in place. The Studio creates a recovery snapshot,
+terminology profile, and exact agent contract; locks its own catalog editor;
+detects stable external changes; verifies every protected field; and adopts
+only permitted translation data. Google/DeepL and CSV remain alternatives.
+
+The five controlled groups are:
+
+1. Schema version 3 translation provenance and corrected product definition.
+2. Safe AI Translation Mode, file fingerprints, and conflict protection.
+3. Agent instructions, project terminology profile, and protected reload.
+4. Exception-focused QA and resumable large-catalog behavior.
+5. VCL/FMX/self pilots, documentation, packaging, Git, and release validation.
+
+The authoritative record is `In-Place AI Translation Plan.md`.
+
+Release proof completed on August 7, 2026: direct-edit Codex-style VCL and FMX
+pilots passed under Win32 and Win64; all four Studio configurations built,
+streamed, launched, and self-localized successfully.
+
 Stages 5 through 10 were completed on August 7, 2026. Integration now provides
 a complete line-numbered original/proposed diff, records every viewed file,
 and requires an explicit final review confirmation before Apply. Provider
