@@ -1168,10 +1168,14 @@ begin
       FProjectProfile, edtLanguageMenuName.Text);
     try
       lstIntegrationPlan.Items.Assign(IntegrationPlan.Lines);
-      lblIntegrationSummary.Text := Format(
-        '%d language pack(s) found. Existing menu: %s.',
-        [IntegrationPlan.LanguageCount,
-         BoolToStr(IntegrationPlan.MenuFound, True)]);
+      if IntegrationPlan.MenuFound then
+        lblIntegrationSummary.Text := Format(
+          '%d language pack(s) found. Existing designer menu will be populated.',
+          [IntegrationPlan.LanguageCount])
+      else
+        lblIntegrationSummary.Text := Format(
+          '%d language pack(s) found. A designer menu will be added to the primary form.',
+          [IntegrationPlan.LanguageCount]);
       btnGenerateIntegrationPackage.Enabled := True;
       lblStatus.Text :=
         'Integration plan ready. No target source files were changed.';

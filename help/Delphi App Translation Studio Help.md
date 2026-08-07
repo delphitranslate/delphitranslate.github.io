@@ -88,6 +88,12 @@ until every file is viewed and review is explicitly confirmed. Applying creates
 a verified backup and manifest. Use **Restore** to recover the recorded
 pre-integration files.
 
+If the named Language menu already exists, Integration populates it. If it is
+missing, Integration adds a designer-persisted `TMenuBar`/`TMenuItem` for FMX
+or `TMainMenu`/`TMenuItem` for VCL to the primary form, together with matching
+form-class fields and event wiring. These controls remain editable in Delphi's
+Form Designer; the target application does not construct them at runtime.
+
 ## Support
 
 Consult the User Guide for detailed Google and DeepL account/key instructions,

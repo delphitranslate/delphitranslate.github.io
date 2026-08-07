@@ -225,7 +225,17 @@ try {
             -Platform $Target.Platform
         Invoke-IntegratedProjectBuild `
             -ProjectDirectory (Join-Path $TargetIntegrationSmokeDirectory `
+                'VCLWithoutMenu') `
+            -ProjectFileName 'SampleVCLApp.dproj' `
+            -Platform $Target.Platform
+        Invoke-IntegratedProjectBuild `
+            -ProjectDirectory (Join-Path $TargetIntegrationSmokeDirectory `
                 'FMXBasic') `
+            -ProjectFileName 'SampleFMXApp.dproj' `
+            -Platform $Target.Platform
+        Invoke-IntegratedProjectBuild `
+            -ProjectDirectory (Join-Path $TargetIntegrationSmokeDirectory `
+                'FMXWithoutMenu') `
             -ProjectFileName 'SampleFMXApp.dproj' `
             -Platform $Target.Platform
         Deploy-PilotLanguagePacks -PackageName 'SampleVCLApp' `

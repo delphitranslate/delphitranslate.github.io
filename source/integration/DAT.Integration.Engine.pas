@@ -78,6 +78,8 @@ class function TTargetIntegrationEngine.BuildChangeSet(
   const AProfile: TProjectProfile; const APackageDirectory,
   ALanguageMenuName: string): TIntegrationChangeSet;
 var
+  ContainerClassName: string;
+  ContainerName: string;
   DprojFileName: string;
   DprojText: string;
   DprFileName: string;
@@ -90,6 +92,7 @@ var
   LanguageDirectory: string;
   Languages: TObjectList<TLanguagePackDescriptor>;
   MenuEdit: TMenuResourceEdit;
+  MenuUnitName: string;
   PackageRuntimeDirectory: string;
   ProjectDirectory: string;
   ProjectText: string;
@@ -165,9 +168,35 @@ begin
           MenuEdit.NewText);
         FormSourceFileName := FindFormSource(ProjectDirectory,
           MenuEdit.FileName, MenuEdit.FormClassName);
+        FormSourceText := TFile.ReadAllText(FormSourceFileName);
+        ContainerName := '';
+        ContainerClassName := '';
+        if AProfile.Framework = tfVCL then
+        begin
+          MenuUnitName := 'Vcl.Menus';
+          if ContainsText(MenuEdit.NewText,
+            'object datTranslationMainMenu: TMainMenu') then
+          begin
+            ContainerName := 'datTranslationMainMenu';
+            ContainerClassName := 'TMainMenu';
+          end;
+        end
+        else
+        begin
+          MenuUnitName := 'FMX.Menus';
+          if ContainsText(MenuEdit.NewText,
+            'object datTranslationMenuBar: TMenuBar') then
+          begin
+            ContainerName := 'datTranslationMenuBar';
+            ContainerClassName := 'TMenuBar';
+          end;
+        end;
+        FormSourceText := TDelphiIntegrationSourceEditor.AddFormDesignerMenuDeclarations(
+          FormSourceText,
+            MenuEdit.FormClassName, MenuUnitName, ALanguageMenuName,
+            'TMenuItem', ContainerName, ContainerClassName);
         FormSourceText := TDelphiIntegrationSourceEditor.AddFormLanguageHandler(
-          TFile.ReadAllText(FormSourceFileName), MenuEdit.FormClassName,
-          IntegrationUnitName);
+          FormSourceText, MenuEdit.FormClassName, IntegrationUnitName);
         if AProfile.Framework = tfFireMonkey then
           FormSourceText :=
             TDelphiIntegrationSourceEditor.AddFMXFormCreateTranslation(

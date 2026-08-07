@@ -33,7 +33,8 @@ applications do not contain API keys and do not require Internet access.
 - Exact line-numbered original/proposed integration review for every file.
 - Mandatory view-all and final-confirmation gates before transactional Apply.
 - Verified backup, atomic writes, rollback, manifest, and Restore.
-- Designer-persisted VCL and FMX language menu items.
+- Designer-persisted VCL and FMX language menus, created on the primary form
+  when the named menu does not already exist.
 - Offline JSON pack discovery and per-user language preference.
 
 ## Provider-Only Automatic Translation

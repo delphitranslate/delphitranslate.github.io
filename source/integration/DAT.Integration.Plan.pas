@@ -77,7 +77,7 @@ begin
   if AProfile.ProjectFileName = '' then
     raise EArgumentException.Create('Open a Delphi project first.');
   if Trim(ALanguageMenuName) = '' then
-    raise EArgumentException.Create('Enter the existing Language menu name.');
+    raise EArgumentException.Create('Enter the Language menu component name.');
 
   Result := TIntegrationPlan.Create;
   try

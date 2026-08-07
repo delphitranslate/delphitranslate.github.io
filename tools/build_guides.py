@@ -678,14 +678,14 @@ def build_user_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "Integration adds the offline runtime, generated application-specific unit, startup calls, event wiring, and designer-persisted language menu items. It does not add provider access to the target.",
+            "Integration adds the offline runtime, generated application-specific unit, startup calls, event wiring, and designer-persisted language menu items. It populates the named menu when present; when absent, it adds an FMX TMenuBar/TMenuItem or VCL TMainMenu/TMenuItem to the primary form and adds matching form-class declarations. It does not add provider access to the target.",
         ],
     )
     add_steps(
         document,
         [
             "Close or save the target project in Delphi.",
-            "Select Integration and confirm the designated language menu component, normally mnuLanguage.",
+            "Select Integration and confirm the designated language menu component name, normally mnuLanguage. The plan states whether that designer menu will be populated or added to the primary form.",
             "Choose Build Integration Plan and review each proposed operation.",
             "Choose Generate Preview. Select every changed file and read its line-numbered original/proposed text. Newly generated files are shown in full.",
             "After every file has been viewed, check I reviewed every exact change. Apply remains disabled until that confirmation is checked.",
@@ -1076,7 +1076,7 @@ def build_engineering_guide() -> Path:
         [
             "DAT.Integration.Plan builds a human-readable plan. DAT.Integration.Package creates the generated application unit, framework adapter, shared runtime units, JSON packs, language-menu manifest, and deployment script. DAT.Integration.Engine builds every proposed file change in memory. TIntegrationFileChange.ExactReviewText produces a complete line-numbered original/proposed LCS diff; generated files are shown in full.",
             "The Studio records each selected preview file as viewed. The final review checkbox remains disabled until every file has been viewed, and Apply remains disabled until the checkbox is explicitly checked. DAT.Integration.Transaction then checks source state, creates a verified pre-change backup, writes files atomically, rolls back failures, and records a manifest for restore.",
-            "DAT.Integration.MenuResource modifies text DFM/FMX menus idempotently and preserves designer editability. DAT.Integration.DelphiSource applies narrowly scoped DPR, PAS, and DPROJ wiring. For FMX, it preserves an existing root OnCreate handler or persists datTranslationFormCreate in the FMX and adds ApplyTranslation(Self) to its Pascal method. This respects the FMX form streaming lifecycle and avoids translating the first form from the DPR immediately after CreateForm.",
+            "DAT.Integration.MenuResource modifies text DFM/FMX menus idempotently and preserves designer editability. It locates the first DPR-created form when a menu must be added, reuses an existing TMenuBar/TMainMenu when available, or persists a new framework-appropriate container and menu. DAT.Integration.DelphiSource adds matching component fields and applies narrowly scoped DPR, PAS, and DPROJ wiring. For FMX, it preserves an existing root OnCreate handler or persists datTranslationFormCreate in the FMX and adds ApplyTranslation(Self) to its Pascal method. This respects the FMX form streaming lifecycle and avoids translating the first form from the DPR immediately after CreateForm.",
         ],
     )
     document.add_heading("12.1 Generated startup contract", level=2)

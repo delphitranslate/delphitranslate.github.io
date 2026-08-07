@@ -1123,3 +1123,27 @@ Backward catalog compatibility is preserved: schema values for historical AI
 Draft/Codex/Claude provenance can still round-trip, but the Studio no longer
 creates them. Existing foundation tests for schema compatibility remain useful
 and do not represent a supported current translation path.
+
+## Missing Designer Menu Integration Correction
+
+Correction date: August 7, 2026
+
+The Integration planner already promised to add the named Language menu when
+it was absent, but the resource editor previously supported only population of
+an existing menu. Package preview therefore failed after reporting
+`Existing menu: False`.
+
+`DAT.Integration.MenuResource` now locates the primary form from the first
+`Application.CreateForm` call in the DPR. When the named menu is absent, it
+reuses an existing framework menu container or persists a new FMX `TMenuBar`
+or VCL `TMainMenu`, then adds the named `TMenuItem` and generated language
+items. `DAT.Integration.DelphiSource` adds matching form-class component fields
+and the appropriate interface menu unit so VCL and FMX resources stream and
+remain editable in the Delphi Form Designer. No menu UI is constructed at
+runtime.
+
+The planner summary now distinguishes between populating an existing designer
+menu and adding one to the primary form. Deterministic regression fixtures
+remove all designer menus from the VCL and FMX samples, run transactional
+integration, compile the modified targets under Win32 and Win64, deploy their
+JSON runtime packs, and verify translated application startup.

@@ -9,6 +9,9 @@ type
       AUnitName, AUnitFileName: string): string; static;
     class function AddFormLanguageHandler(const ASourceText,
       AFormClassName, AIntegrationUnitName: string): string; static;
+    class function AddFormDesignerMenuDeclarations(const ASourceText,
+      AFormClassName, AMenuUnitName, AMenuName, AMenuClassName,
+      AContainerName, AContainerClassName: string): string; static;
     class function AddFMXFormCreateTranslation(const ASourceText,
       AFormClassName, AHandlerName,
       AIntegrationUnitName: string): string; static;
@@ -87,6 +90,90 @@ begin
   ALines[SemicolonIndex] := StringReplace(
     ALines[SemicolonIndex], ';', ',', []);
   ALines.Insert(SemicolonIndex + 1, '  ' + AUnitName + ';');
+end;
+
+procedure AddInterfaceUnit(const ALines: TStrings;
+  const AUnitName: string);
+var
+  ImplementationIndex: Integer;
+  InterfaceIndex: Integer;
+  LineIndex: Integer;
+  SemicolonIndex: Integer;
+  UsesIndex: Integer;
+begin
+  InterfaceIndex := FindLineContaining(ALines, 'interface');
+  ImplementationIndex := FindLineContaining(ALines, 'implementation');
+  if (InterfaceIndex < 0) or (ImplementationIndex < 0) then
+    raise Exception.Create(
+      'The Pascal unit interface section could not be identified.');
+  for LineIndex := InterfaceIndex + 1 to ImplementationIndex - 1 do
+    if ContainsText(ALines[LineIndex], AUnitName) then
+      Exit;
+
+  UsesIndex := -1;
+  for LineIndex := InterfaceIndex + 1 to ImplementationIndex - 1 do
+    if SameText(Trim(ALines[LineIndex]), 'uses') then
+    begin
+      UsesIndex := LineIndex;
+      Break;
+    end;
+  if UsesIndex < 0 then
+  begin
+    ALines.Insert(InterfaceIndex + 1, '');
+    ALines.Insert(InterfaceIndex + 2, 'uses');
+    ALines.Insert(InterfaceIndex + 3, '  ' + AUnitName + ';');
+    Exit;
+  end;
+
+  SemicolonIndex := UsesIndex + 1;
+  while (SemicolonIndex < ImplementationIndex) and
+    not ContainsText(ALines[SemicolonIndex], ';') do
+    Inc(SemicolonIndex);
+  if SemicolonIndex >= ImplementationIndex then
+    raise Exception.Create('The interface uses clause is incomplete.');
+  ALines[SemicolonIndex] := StringReplace(
+    ALines[SemicolonIndex], ';', ',', []);
+  ALines.Insert(SemicolonIndex + 1, '  ' + AUnitName + ';');
+end;
+
+class function TDelphiIntegrationSourceEditor.AddFormDesignerMenuDeclarations(
+  const ASourceText, AFormClassName,
+  AMenuUnitName, AMenuName, AMenuClassName, AContainerName,
+  AContainerClassName: string): string;
+var
+  ClassIndex: Integer;
+  FormLines: TStringList;
+  InsertIndex: Integer;
+  MemberIndent: string;
+begin
+  FormLines := TStringList.Create;
+  try
+    FormLines.Text := ASourceText;
+    AddInterfaceUnit(FormLines, AMenuUnitName);
+    ClassIndex := FindLineContaining(FormLines,
+      AFormClassName + ' = class');
+    if ClassIndex < 0 then
+      raise Exception.CreateFmt(
+        'Form class %s was not found in its Pascal unit.',
+        [AFormClassName]);
+    InsertIndex := ClassIndex + 1;
+    MemberIndent := LineIndent(FormLines[ClassIndex]) + '  ';
+    if (Trim(AContainerName) <> '') and
+       not ContainsText(FormLines.Text,
+         AContainerName + ': ' + AContainerClassName + ';') then
+    begin
+      FormLines.Insert(InsertIndex, MemberIndent + AContainerName +
+        ': ' + AContainerClassName + ';');
+      Inc(InsertIndex);
+    end;
+    if not ContainsText(FormLines.Text,
+      AMenuName + ': ' + AMenuClassName + ';') then
+      FormLines.Insert(InsertIndex, MemberIndent + AMenuName +
+        ': ' + AMenuClassName + ';');
+    Result := FormLines.Text;
+  finally
+    FormLines.Free;
+  end;
 end;
 
 class function TDelphiIntegrationSourceEditor.AddFormLanguageHandler(

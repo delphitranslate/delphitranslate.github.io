@@ -3,6 +3,7 @@ program FoundationSmokeTests;
 {$APPTYPE CONSOLE}
 
 uses
+  System.Classes,
   System.SysUtils,
   System.IOUtils,
   System.JSON,
@@ -916,12 +917,114 @@ begin
   end;
 end;
 
+procedure RemoveFMXDesignerMenuFixture(const AFixtureDirectory,
+  AFormResourceFileName: string);
+var
+  FormFileName: string;
+  FormText: string;
+  MenuEndPosition: Integer;
+  MenuStartPosition: Integer;
+  SourceFileName: string;
+  SourceText: string;
+begin
+  FormFileName := TPath.Combine(AFixtureDirectory,
+    AFormResourceFileName);
+  FormText := TFile.ReadAllText(FormFileName);
+  MenuStartPosition := Pos('  object MainMenuBar: TMenuBar', FormText);
+  MenuEndPosition := PosEx('  object ContentLayout: TLayout', FormText,
+    MenuStartPosition);
+  Require((MenuStartPosition > 0) and
+    (MenuEndPosition > MenuStartPosition),
+    'The no-menu FMX fixture could not remove its designer menu.');
+  Delete(FormText, MenuStartPosition,
+    MenuEndPosition - MenuStartPosition);
+  TFile.WriteAllText(FormFileName, FormText);
+
+  SourceFileName := TPath.ChangeExtension(FormFileName, '.pas');
+  SourceText := TFile.ReadAllText(SourceFileName);
+  SourceText := StringReplace(SourceText,
+    '    MainMenuBar: TMenuBar;', '', []);
+  SourceText := StringReplace(SourceText,
+    '    mnuFile: TMenuItem;', '', []);
+  SourceText := StringReplace(SourceText,
+    '    mnuExit: TMenuItem;', '', []);
+  SourceText := StringReplace(SourceText,
+    '    mnuLanguage: TMenuItem;', '', []);
+  TFile.WriteAllText(SourceFileName, SourceText);
+end;
+
+procedure RemoveVCLDesignerMenuFixture(const AFixtureDirectory,
+  AFormResourceFileName: string);
+var
+  Depth: Integer;
+  FormFileName: string;
+  FormLines: TStringList;
+  LineIndex: Integer;
+  MenuEndIndex: Integer;
+  MenuStartIndex: Integer;
+  SourceFileName: string;
+  SourceText: string;
+begin
+  FormFileName := TPath.Combine(AFixtureDirectory,
+    AFormResourceFileName);
+  FormLines := TStringList.Create;
+  try
+    FormLines.LoadFromFile(FormFileName);
+    MenuStartIndex := -1;
+    for LineIndex := 0 to FormLines.Count - 1 do
+      if SameText(Trim(FormLines[LineIndex]),
+        'object MainMenu: TMainMenu') then
+      begin
+        MenuStartIndex := LineIndex;
+        Break;
+      end;
+    MenuEndIndex := -1;
+    Depth := 0;
+    if MenuStartIndex >= 0 then
+      for LineIndex := MenuStartIndex to FormLines.Count - 1 do
+      begin
+        if StartsText('object ', Trim(FormLines[LineIndex])) then
+          Inc(Depth)
+        else if SameText(Trim(FormLines[LineIndex]), 'end') then
+          Dec(Depth);
+        if Depth = 0 then
+        begin
+          MenuEndIndex := LineIndex;
+          Break;
+        end;
+      end;
+    Require((MenuStartIndex >= 0) and
+      (MenuEndIndex >= MenuStartIndex),
+      'The no-menu VCL fixture could not remove its designer menu.');
+    for LineIndex := MenuEndIndex downto MenuStartIndex do
+      FormLines.Delete(LineIndex);
+    FormLines.SaveToFile(FormFileName);
+  finally
+    FormLines.Free;
+  end;
+
+  SourceFileName := TPath.ChangeExtension(FormFileName, '.pas');
+  SourceText := TFile.ReadAllText(SourceFileName);
+  SourceText := StringReplace(SourceText,
+    '    MainMenu: TMainMenu;', '', []);
+  SourceText := StringReplace(SourceText,
+    '    mnuFile: TMenuItem;', '', []);
+  SourceText := StringReplace(SourceText,
+    '    mnuExit: TMenuItem;', '', []);
+  SourceText := StringReplace(SourceText,
+    '    mnuLanguage: TMenuItem;', '', []);
+  TFile.WriteAllText(SourceFileName, SourceText);
+end;
+
 procedure TestTargetIntegration(const AProjectRoot, ASampleDirectory,
-  AProjectFileName, AFormResourceFileName: string);
+  AProjectFileName, AFormResourceFileName: string;
+  const AFixtureDirectoryName: string = '';
+  const ARemoveDesignerMenu: Boolean = False);
 var
   BackupDirectory: string;
   ChangeSet: TIntegrationChangeSet;
   FixtureDirectory: string;
+  FixtureDirectoryName: string;
   FormText: string;
   IntegrationUnitName: string;
   PackageDirectory: string;
@@ -930,10 +1033,20 @@ var
   ResultInfo: TIntegrationApplyResult;
   SourceText: string;
 begin
+  FixtureDirectoryName := AFixtureDirectoryName;
+  if FixtureDirectoryName = '' then
+    FixtureDirectoryName := ASampleDirectory;
   FixtureDirectory := TPath.Combine(AProjectRoot,
-    'export\TargetIntegrationSmoke\' + ASampleDirectory);
+    'export\TargetIntegrationSmoke\' + FixtureDirectoryName);
   CopyFixtureDirectory(TPath.Combine(
     AProjectRoot, 'samples\' + ASampleDirectory), FixtureDirectory);
+  if ARemoveDesignerMenu then
+    if SameText(TPath.GetExtension(AFormResourceFileName), '.fmx') then
+      RemoveFMXDesignerMenuFixture(FixtureDirectory,
+        AFormResourceFileName)
+    else
+      RemoveVCLDesignerMenuFixture(FixtureDirectory,
+        AFormResourceFileName);
   Profile := TProjectDetector.Detect(TPath.Combine(
     FixtureDirectory, AProjectFileName));
   ExportItalianFixturePack(Profile);
@@ -947,7 +1060,7 @@ begin
     Require(ChangeSet.Changes.Count >= 9,
       'The target integration change set is incomplete.');
     BackupDirectory := TPath.Combine(AProjectRoot,
-      'export\TargetIntegrationBackups\' + ASampleDirectory + '\First');
+      'export\TargetIntegrationBackups\' + FixtureDirectoryName + '\First');
     ResultInfo := TIntegrationTransaction.Apply(
       ChangeSet, BackupDirectory);
     try
@@ -970,12 +1083,42 @@ begin
     'The Italian menu item is missing or duplicated.');
   Require(ContainsText(FormText, 'Italiano'),
     'The native Italian language name was not persisted.');
+  if ARemoveDesignerMenu then
+  begin
+    if Profile.Framework = tfFireMonkey then
+      Require(ContainsText(FormText,
+        'object datTranslationMenuBar: TMenuBar'),
+        'The missing FMX designer menu bar was not created.')
+    else
+    begin
+      Require(ContainsText(FormText,
+        'object datTranslationMainMenu: TMainMenu'),
+        'The missing VCL designer main menu was not created.');
+    end;
+    Require(ContainsText(FormText,
+      'object mnuLanguage: TMenuItem'),
+      'The missing Language menu was not created.');
+  end;
 
   SourceText := TFile.ReadAllText(TPath.ChangeExtension(
     TPath.Combine(FixtureDirectory, AFormResourceFileName), '.pas'));
   Require(CountTextOccurrences(SourceText,
     'procedure datLanguageMenuItemClick(Sender: TObject);') = 1,
     'The form language handler declaration is missing or duplicated.');
+  if ARemoveDesignerMenu then
+  begin
+    Require(ContainsText(SourceText,
+      'mnuLanguage: TMenuItem;'),
+      'The generated Language menu lacks its form-class field.');
+    if Profile.Framework = tfFireMonkey then
+      Require(ContainsText(SourceText,
+        'datTranslationMenuBar: TMenuBar;'),
+        'The generated FMX menu bar lacks its form-class field.')
+    else
+      Require(ContainsText(SourceText,
+        'datTranslationMainMenu: TMainMenu;'),
+        'The generated VCL main menu lacks its form-class field.');
+  end;
 
   ProjectText := TFile.ReadAllText(TPath.Combine(
     FixtureDirectory, TPath.ChangeExtension(
@@ -1028,7 +1171,8 @@ begin
   try
     ResultInfo := TIntegrationTransaction.Apply(ChangeSet,
       TPath.Combine(AProjectRoot,
-        'export\TargetIntegrationBackups\' + ASampleDirectory + '\Final'));
+        'export\TargetIntegrationBackups\' + FixtureDirectoryName +
+        '\Final'));
     ResultInfo.Free;
   finally
     ChangeSet.Free;
@@ -1042,8 +1186,14 @@ begin
   ProjectRoot := TPath.GetFullPath(GetCurrentDir);
   TestTargetIntegration(ProjectRoot, 'VCLBasic',
     'SampleVCLApp.dproj', 'SampleVCL.MainForm.dfm');
+  TestTargetIntegration(ProjectRoot, 'VCLBasic',
+    'SampleVCLApp.dproj', 'SampleVCL.MainForm.dfm',
+    'VCLWithoutMenu', True);
   TestTargetIntegration(ProjectRoot, 'FMXBasic',
     'SampleFMXApp.dproj', 'SampleFMX.MainForm.fmx');
+  TestTargetIntegration(ProjectRoot, 'FMXBasic',
+    'SampleFMXApp.dproj', 'SampleFMX.MainForm.fmx',
+    'FMXWithoutMenu', True);
 end;
 
 procedure TestStudioSelfIntegrationChangeSet;

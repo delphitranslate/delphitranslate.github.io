@@ -84,6 +84,98 @@ begin
   end;
 end;
 
+function FindObjectByClass(const ALines: TStrings;
+  const AClassName: string): Integer;
+var
+  LineIndex: Integer;
+  TrimmedLine: string;
+begin
+  Result := -1;
+  for LineIndex := 0 to ALines.Count - 1 do
+  begin
+    TrimmedLine := Trim(ALines[LineIndex]);
+    if (StartsText('object ', TrimmedLine) or
+        StartsText('inherited ', TrimmedLine)) and
+       EndsText(': ' + AClassName, TrimmedLine) then
+      Exit(LineIndex);
+  end;
+end;
+
+function RootChildIndex(const ALines: TStrings): Integer;
+var
+  LineIndex: Integer;
+  TrimmedLine: string;
+begin
+  for LineIndex := 1 to ALines.Count - 1 do
+  begin
+    TrimmedLine := Trim(ALines[LineIndex]);
+    if StartsText('object ', TrimmedLine) or
+       StartsText('inherited ', TrimmedLine) or
+       StartsText('inline ', TrimmedLine) then
+      Exit(LineIndex);
+  end;
+  Result := FindObjectEnd(ALines, 0);
+end;
+
+function AddDesignerMenu(const ALines: TStrings;
+  const AFramework: TTargetFramework; const AMenuName,
+  ATextPropertyName: string): Integer;
+var
+  ContainerIndex: Integer;
+  Indent: string;
+  InsertIndex: Integer;
+begin
+  if AFramework = tfVCL then
+    ContainerIndex := FindObjectByClass(ALines, 'TMainMenu')
+  else
+    ContainerIndex := FindObjectByClass(ALines, 'TMenuBar');
+
+  if ContainerIndex >= 0 then
+  begin
+    InsertIndex := FindObjectEnd(ALines, ContainerIndex);
+    Indent := Copy(ALines[ContainerIndex], 1,
+      Length(ALines[ContainerIndex]) -
+      Length(TrimLeft(ALines[ContainerIndex]))) + '  ';
+    ALines.Insert(InsertIndex, Indent + 'object ' + AMenuName +
+      ': TMenuItem');
+    ALines.Insert(InsertIndex + 1, Indent + '  ' + ATextPropertyName +
+      ' = ''&Language''');
+    ALines.Insert(InsertIndex + 2, Indent + 'end');
+    Exit(InsertIndex);
+  end;
+
+  InsertIndex := RootChildIndex(ALines);
+  if AFramework = tfVCL then
+  begin
+    ALines.Insert(InsertIndex,
+      '  object datTranslationMainMenu: TMainMenu');
+    ALines.Insert(InsertIndex + 1, '    object ' + AMenuName +
+      ': TMenuItem');
+    ALines.Insert(InsertIndex + 2, '      Caption = ''&Language''');
+    ALines.Insert(InsertIndex + 3, '    end');
+    ALines.Insert(InsertIndex + 4, '  end');
+    Result := InsertIndex + 1;
+  end
+  else
+  begin
+    ALines.Insert(InsertIndex,
+      '  object datTranslationMenuBar: TMenuBar');
+    ALines.Insert(InsertIndex + 1, '    Align = Top');
+    ALines.Insert(InsertIndex + 2,
+      '    Size.Width = 800.000000000000000000');
+    ALines.Insert(InsertIndex + 3,
+      '    Size.Height = 24.000000000000000000');
+    ALines.Insert(InsertIndex + 4,
+      '    Size.PlatformDefault = False');
+    ALines.Insert(InsertIndex + 5, '    object ' + AMenuName +
+      ': TMenuItem');
+    ALines.Insert(InsertIndex + 6, '      Text = ''&Language''');
+    ALines.Insert(InsertIndex + 7, '    end');
+    ALines.Insert(InsertIndex + 8, '  end');
+    Result := InsertIndex + 5;
+  end;
+end;
+
 function RootFormClassName(const ALines: TStrings): string;
 var
   ColonPosition: Integer;
@@ -96,6 +188,83 @@ begin
   if ColonPosition = 0 then
     raise Exception.Create('The root form declaration is invalid.');
   Result := Trim(Copy(DeclarationText, ColonPosition + 1, MaxInt));
+end;
+
+function IsExcludedProjectFile(const AFileName: string): Boolean;
+begin
+  Result := ContainsText(AFileName, '\Localization\') or
+    ContainsText(AFileName, '\bin\') or
+    ContainsText(AFileName, '\dcu\');
+end;
+
+function ProjectMainFormClassName(const AProfile: TProjectProfile): string;
+var
+  ClosingPosition: Integer;
+  CommaPosition: Integer;
+  DprFileName: string;
+  OpenPosition: Integer;
+  ProjectText: string;
+begin
+  Result := '';
+  if SameText(TPath.GetExtension(AProfile.ProjectFileName), '.dpr') then
+    DprFileName := AProfile.ProjectFileName
+  else
+    DprFileName := TPath.ChangeExtension(AProfile.ProjectFileName, '.dpr');
+  if not TFile.Exists(DprFileName) then
+    Exit;
+  ProjectText := TFile.ReadAllText(DprFileName);
+  OpenPosition := Pos('application.createform(', LowerCase(ProjectText));
+  if OpenPosition = 0 then
+    Exit;
+  Inc(OpenPosition, Length('application.createform('));
+  CommaPosition := PosEx(',', ProjectText, OpenPosition);
+  ClosingPosition := PosEx(')', ProjectText, OpenPosition);
+  if (CommaPosition = 0) or
+     ((ClosingPosition > 0) and (ClosingPosition < CommaPosition)) then
+    Exit;
+  Result := Trim(Copy(ProjectText, OpenPosition,
+    CommaPosition - OpenPosition));
+end;
+
+function PrimaryFormResourceFileName(const AProfile: TProjectProfile;
+  const AExtension: string): string;
+var
+  CandidateFiles: TStringList;
+  FileName: string;
+  FormLines: TStringList;
+  MainFormClassName: string;
+  ProjectDirectory: string;
+begin
+  Result := '';
+  ProjectDirectory := TPath.GetDirectoryName(AProfile.ProjectFileName);
+  MainFormClassName := ProjectMainFormClassName(AProfile);
+  CandidateFiles := TStringList.Create;
+  try
+    for FileName in TDirectory.GetFiles(ProjectDirectory, AExtension,
+      TSearchOption.soAllDirectories) do
+      if not IsExcludedProjectFile(FileName) then
+        CandidateFiles.Add(FileName);
+    CandidateFiles.Sort;
+    if CandidateFiles.Count = 0 then
+      raise Exception.CreateFmt(
+        'No text %s form resource was found in the project.',
+        [Copy(AExtension, 2, MaxInt)]);
+    if MainFormClassName <> '' then
+      for FileName in CandidateFiles do
+      begin
+        FormLines := TStringList.Create;
+        try
+          FormLines.LoadFromFile(FileName);
+          if SameText(RootFormClassName(FormLines), MainFormClassName) then
+            Exit(FileName);
+        finally
+          FormLines.Free;
+        end;
+      end;
+    Result := CandidateFiles[0];
+  finally
+    CandidateFiles.Free;
+  end;
 end;
 
 function EnsureFMXFormCreateHandler(const ALines: TStrings): string;
@@ -234,8 +403,7 @@ begin
   for FileName in TDirectory.GetFiles(
     ProjectDirectory, Extension, TSearchOption.soAllDirectories) do
   begin
-    if ContainsText(FileName, '\Localization\') or
-      ContainsText(FileName, '\bin\') or ContainsText(FileName, '\dcu\') then
+    if IsExcludedProjectFile(FileName) then
       Continue;
     FormLines := TStringList.Create;
     try
@@ -276,9 +444,39 @@ begin
     end;
   end;
 
-  raise Exception.CreateFmt(
-    'The designer menu "%s" was not found in a text %s resource.',
-    [AMenuName, Copy(Extension, 2, MaxInt)]);
+  FileName := PrimaryFormResourceFileName(AProfile, Extension);
+  FormLines := TStringList.Create;
+  try
+    FormLines.LoadFromFile(FileName);
+    MenuIndex := AddDesignerMenu(FormLines, AProfile.Framework,
+      AMenuName, TextPropertyName);
+    InsertIndex := FindObjectEnd(FormLines, MenuIndex);
+    Indent := Copy(FormLines[MenuIndex], 1,
+      Length(FormLines[MenuIndex]) - Length(TrimLeft(FormLines[MenuIndex]))) +
+      '  ';
+    AddMenuItem(FormLines, InsertIndex, Indent,
+      ASourceLanguageCode, SourceLanguageName(ASourceLanguageCode),
+      TextPropertyName);
+    Inc(InsertIndex, 4);
+    for Descriptor in ALanguages do
+    begin
+      if SameText(Descriptor.LanguageCode, ASourceLanguageCode) then
+        Continue;
+      AddMenuItem(FormLines, InsertIndex, Indent,
+        Descriptor.LanguageCode, Descriptor.NativeLanguageName,
+        TextPropertyName);
+      Inc(InsertIndex, 4);
+    end;
+
+    Result := TMenuResourceEdit.Create;
+    Result.FileName := FileName;
+    Result.FormClassName := RootFormClassName(FormLines);
+    if AProfile.Framework = tfFireMonkey then
+      Result.FormCreateHandlerName := EnsureFMXFormCreateHandler(FormLines);
+    Result.NewText := FormLines.Text;
+  finally
+    FormLines.Free;
+  end;
 end;
 
 end.
