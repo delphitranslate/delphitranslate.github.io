@@ -1,0 +1,287 @@
+unit DAT.Runtime.LanguagePack;
+
+interface
+
+uses
+  System.Classes,
+  System.Generics.Collections,
+  System.SysUtils;
+
+type
+  ELanguagePackError = class(Exception);
+
+  TRuntimeLocale = class
+  private
+    FShortDateFormat: string;
+    FLongDateFormat: string;
+    FShortTimeFormat: string;
+    FLongTimeFormat: string;
+    FDecimalSeparator: string;
+    FThousandSeparator: string;
+    FCurrencySymbol: string;
+  public
+    property ShortDateFormat: string read FShortDateFormat write FShortDateFormat;
+    property LongDateFormat: string read FLongDateFormat write FLongDateFormat;
+    property ShortTimeFormat: string read FShortTimeFormat write FShortTimeFormat;
+    property LongTimeFormat: string read FLongTimeFormat write FLongTimeFormat;
+    property DecimalSeparator: string read FDecimalSeparator write FDecimalSeparator;
+    property ThousandSeparator: string read FThousandSeparator write FThousandSeparator;
+    property CurrencySymbol: string read FCurrencySymbol write FCurrencySymbol;
+  end;
+
+  TRuntimeLanguagePack = class
+  private
+    FSchemaVersion: Integer;
+    FApplicationId: string;
+    FApplicationVersion: string;
+    FFramework: string;
+    FSourceLanguage: string;
+    FSourceCatalogChecksum: string;
+    FLanguageCode: string;
+    FNativeLanguageName: string;
+    FTextDirection: string;
+    FLocale: TRuntimeLocale;
+    FStrings: TDictionary<string, string>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    class function LoadFromJson(const AJsonText: string): TRuntimeLanguagePack; static;
+    class function LoadFromFile(const AFileName: string): TRuntimeLanguagePack; static;
+    function TryGetText(const AKey: string; out AText: string): Boolean;
+    function GetText(const AKey, AFallbackText: string): string;
+    function ReadIndexedStrings(const AKeyPrefix: string;
+      const AValues: TStrings): Integer;
+    property SchemaVersion: Integer read FSchemaVersion;
+    property ApplicationId: string read FApplicationId;
+    property ApplicationVersion: string read FApplicationVersion;
+    property Framework: string read FFramework;
+    property SourceLanguage: string read FSourceLanguage;
+    property SourceCatalogChecksum: string read FSourceCatalogChecksum;
+    property LanguageCode: string read FLanguageCode;
+    property NativeLanguageName: string read FNativeLanguageName;
+    property TextDirection: string read FTextDirection;
+    property Locale: TRuntimeLocale read FLocale;
+    property Strings: TDictionary<string, string> read FStrings;
+  end;
+
+  TLanguagePackDescriptor = class
+  private
+    FFileName: string;
+    FLanguageCode: string;
+    FNativeLanguageName: string;
+    FTextDirection: string;
+    FSourceLanguage: string;
+  public
+    property FileName: string read FFileName write FFileName;
+    property LanguageCode: string read FLanguageCode write FLanguageCode;
+    property NativeLanguageName: string read FNativeLanguageName write FNativeLanguageName;
+    property TextDirection: string read FTextDirection write FTextDirection;
+    property SourceLanguage: string read FSourceLanguage write FSourceLanguage;
+  end;
+
+  TLanguagePackDiscovery = class
+  public
+    class function Discover(const ADirectoryName,
+      AExpectedApplicationId: string): TObjectList<TLanguagePackDescriptor>; static;
+  end;
+
+implementation
+
+uses
+  System.IOUtils,
+  System.JSON;
+
+function RequiredObject(const AParent: TJSONObject;
+  const AName: string): TJSONObject;
+begin
+  Result := AParent.GetValue(AName) as TJSONObject;
+  if Result = nil then
+    raise ELanguagePackError.CreateFmt(
+      'The runtime language pack is missing the "%s" object.', [AName]);
+end;
+
+function JsonString(const AObject: TJSONObject;
+  const AName: string; const ARequired: Boolean = False): string;
+var
+  JsonValue: TJSONValue;
+begin
+  Result := '';
+  JsonValue := AObject.GetValue(AName);
+  if JsonValue <> nil then
+    Result := JsonValue.Value
+  else if ARequired then
+    raise ELanguagePackError.CreateFmt(
+      'The runtime language pack is missing "%s".', [AName]);
+end;
+
+constructor TRuntimeLanguagePack.Create;
+begin
+  inherited Create;
+  FLocale := TRuntimeLocale.Create;
+  FStrings := TDictionary<string, string>.Create;
+end;
+
+destructor TRuntimeLanguagePack.Destroy;
+begin
+  FStrings.Free;
+  FLocale.Free;
+  inherited Destroy;
+end;
+
+class function TRuntimeLanguagePack.LoadFromJson(
+  const AJsonText: string): TRuntimeLanguagePack;
+var
+  JsonPair: TJSONPair;
+  JsonRoot: TJSONObject;
+  JsonValue: TJSONValue;
+  LanguageObject: TJSONObject;
+  LocaleObject: TJSONObject;
+  StringsObject: TJSONObject;
+begin
+  JsonValue := TJSONObject.ParseJSONValue(AJsonText);
+  if not (JsonValue is TJSONObject) then
+  begin
+    JsonValue.Free;
+    raise ELanguagePackError.Create(
+      'The runtime language pack root must be a JSON object.');
+  end;
+
+  JsonRoot := TJSONObject(JsonValue);
+  try
+    Result := TRuntimeLanguagePack.Create;
+    try
+      Result.FSchemaVersion := JsonRoot.GetValue<Integer>('schemaVersion', 0);
+      if Result.FSchemaVersion <> 1 then
+        raise ELanguagePackError.CreateFmt(
+          'Runtime language-pack schema %d is not supported.',
+          [Result.FSchemaVersion]);
+
+      Result.FApplicationId := JsonString(JsonRoot, 'applicationId', True);
+      Result.FApplicationVersion := JsonString(JsonRoot, 'applicationVersion');
+      Result.FFramework := JsonString(JsonRoot, 'framework', True);
+      Result.FSourceLanguage := JsonString(JsonRoot, 'sourceLanguage', True);
+      Result.FSourceCatalogChecksum :=
+        JsonString(JsonRoot, 'sourceCatalogChecksum', True);
+
+      LanguageObject := RequiredObject(JsonRoot, 'language');
+      Result.FLanguageCode := JsonString(LanguageObject, 'code', True);
+      Result.FNativeLanguageName :=
+        JsonString(LanguageObject, 'nativeName', True);
+      Result.FTextDirection := JsonString(LanguageObject, 'direction');
+
+      LocaleObject := RequiredObject(JsonRoot, 'locale');
+      Result.FLocale.ShortDateFormat :=
+        JsonString(LocaleObject, 'shortDateFormat');
+      Result.FLocale.LongDateFormat :=
+        JsonString(LocaleObject, 'longDateFormat');
+      Result.FLocale.ShortTimeFormat :=
+        JsonString(LocaleObject, 'shortTimeFormat');
+      Result.FLocale.LongTimeFormat :=
+        JsonString(LocaleObject, 'longTimeFormat');
+      Result.FLocale.DecimalSeparator :=
+        JsonString(LocaleObject, 'decimalSeparator');
+      Result.FLocale.ThousandSeparator :=
+        JsonString(LocaleObject, 'thousandSeparator');
+      Result.FLocale.CurrencySymbol :=
+        JsonString(LocaleObject, 'currencySymbol');
+
+      StringsObject := RequiredObject(JsonRoot, 'strings');
+      for JsonPair in StringsObject do
+        Result.FStrings.AddOrSetValue(JsonPair.JsonString.Value,
+          JsonPair.JsonValue.Value);
+    except
+      Result.Free;
+      raise;
+    end;
+  finally
+    JsonRoot.Free;
+  end;
+end;
+
+class function TRuntimeLanguagePack.LoadFromFile(
+  const AFileName: string): TRuntimeLanguagePack;
+begin
+  if not TFile.Exists(AFileName) then
+    raise ELanguagePackError.CreateFmt(
+      'Runtime language pack not found: %s', [AFileName]);
+  Result := LoadFromJson(TFile.ReadAllText(AFileName, TEncoding.UTF8));
+end;
+
+function TRuntimeLanguagePack.TryGetText(
+  const AKey: string; out AText: string): Boolean;
+begin
+  Result := FStrings.TryGetValue(AKey, AText) and (AText <> '');
+end;
+
+function TRuntimeLanguagePack.GetText(
+  const AKey, AFallbackText: string): string;
+begin
+  if not TryGetText(AKey, Result) then
+    Result := AFallbackText;
+end;
+
+function TRuntimeLanguagePack.ReadIndexedStrings(
+  const AKeyPrefix: string; const AValues: TStrings): Integer;
+var
+  Index: Integer;
+  TextValue: string;
+begin
+  if AValues = nil then
+    raise EArgumentNilException.Create('A string collection is required.');
+  if not TryGetText(AKeyPrefix + '.0', TextValue) then
+    Exit(0);
+  AValues.BeginUpdate;
+  try
+    AValues.Clear;
+    AValues.Add(TextValue);
+    Index := 1;
+    while TryGetText(AKeyPrefix + '.' + Index.ToString, TextValue) do
+    begin
+      AValues.Add(TextValue);
+      Inc(Index);
+    end;
+    Result := Index;
+  finally
+    AValues.EndUpdate;
+  end;
+end;
+
+class function TLanguagePackDiscovery.Discover(const ADirectoryName,
+  AExpectedApplicationId: string): TObjectList<TLanguagePackDescriptor>;
+var
+  Descriptor: TLanguagePackDescriptor;
+  FileName: string;
+  Pack: TRuntimeLanguagePack;
+begin
+  Result := TObjectList<TLanguagePackDescriptor>.Create(True);
+  if not TDirectory.Exists(ADirectoryName) then
+    Exit;
+
+  for FileName in TDirectory.GetFiles(ADirectoryName, '*.json') do
+  begin
+    Pack := nil;
+    try
+      try
+        Pack := TRuntimeLanguagePack.LoadFromFile(FileName);
+        if (AExpectedApplicationId = '') or
+          SameText(Pack.ApplicationId, AExpectedApplicationId) then
+        begin
+          Descriptor := TLanguagePackDescriptor.Create;
+          Descriptor.FileName := FileName;
+          Descriptor.LanguageCode := Pack.LanguageCode;
+          Descriptor.NativeLanguageName := Pack.NativeLanguageName;
+          Descriptor.TextDirection := Pack.TextDirection;
+          Descriptor.SourceLanguage := Pack.SourceLanguage;
+          Result.Add(Descriptor);
+        end;
+      finally
+        Pack.Free;
+      end;
+    except
+      on Exception do
+        Continue;
+    end;
+  end;
+end;
+
+end.

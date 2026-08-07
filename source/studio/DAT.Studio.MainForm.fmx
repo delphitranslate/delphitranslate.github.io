@@ -53,7 +53,9 @@ object frmTranslationStudio: TfrmTranslationStudio
         Size.PlatformDefault = False
         TextSettings.Font.Size = 14.000000000000000000
         TextSettings.FontColor = xFFD7E8FF
-        Text = 'Offline language packs for Delphi VCL and FireMonkey applications'
+        Text = 
+          'Offline language packs for Delphi VCL and FireMonkey application' +
+          's'
       end
     end
     object BodyLayout: TLayout
@@ -126,7 +128,7 @@ object frmTranslationStudio: TfrmTranslationStudio
         object lblNavigationLanguages: TLabel
           StyledSettings = []
           Position.X = 30.000000000000000000
-          Position.Y = 192.000000000000000000
+          Position.Y = 188.000000000000000000
           Size.Width = 180.000000000000000000
           Size.Height = 32.000000000000000000
           Size.PlatformDefault = False
@@ -168,7 +170,8 @@ object frmTranslationStudio: TfrmTranslationStudio
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
-          Text = '6  Integration (planned)'
+          Text = '6  Integration'
+          OnClick = lblNavigationIntegrationClick
         end
       end
       object ContentLayout: TLayout
@@ -208,8 +211,9 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.PlatformDefault = False
             TextSettings.Font.Size = 14.000000000000000000
             TextSettings.FontColor = xFF365674
-            TextSettings.WordWrap = True
-            Text = 'Select a .dproj or .dpr file. The Studio will identify VCL or FireMonkey and inventory the project without changing it.'
+            Text = 
+              'Select a .dproj or .dpr file. The Studio will identify VCL or Fi' +
+              'reMonkey and inventory the project without changing it.'
           end
           object btnOpenProject: TButton
             Position.X = 694.000000000000000000
@@ -400,7 +404,6 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Width = 428.000000000000000000
             Size.Height = 22.000000000000000000
             Size.PlatformDefault = False
-            TextSettings.Font.Size = 12.000000000000000000
             TextSettings.FontColor = xFF365674
             Text = 'Open a project, then scan its forms and resourcestrings.'
           end
@@ -411,11 +414,18 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 154.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 1
+            DisableFocusEffect = True
+            DefaultItemStyles.ItemStyle = ''
+            DefaultItemStyles.GroupHeaderStyle = ''
+            DefaultItemStyles.GroupFooterStyle = ''
+            Viewport.Width = 424.000000000000000000
+            Viewport.Height = 150.000000000000000000
           end
         end
         object StatusCard: TRectangle
           Align = Bottom
           Fill.Color = xFFE8F3FF
+          Position.Y = 522.000000000000000000
           Size.Width = 916.000000000000000000
           Size.Height = 78.000000000000000000
           Size.PlatformDefault = False
@@ -435,13 +445,11 @@ object frmTranslationStudio: TfrmTranslationStudio
             StyledSettings = []
             Margins.Left = 24.000000000000000000
             Margins.Right = 18.000000000000000000
-            Size.Width = 884.000000000000000000
+            Size.Width = 866.000000000000000000
             Size.Height = 78.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 14.000000000000000000
             TextSettings.FontColor = xFF163A63
-            TextSettings.VertAlign = Center
-            TextSettings.WordWrap = True
             Text = 'Ready. Open a Delphi project to begin.'
           end
         end
@@ -476,13 +484,14 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Source language'
           end
           object edtSourceLanguage: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 0
+            Text = 'en-US'
             Position.X = 26.000000000000000000
             Position.Y = 80.000000000000000000
             Size.Width = 120.000000000000000000
             Size.Height = 32.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 0
-            Text = 'en-US'
           end
           object lblTargetLanguageCode: TLabel
             Position.X = 158.000000000000000000
@@ -493,12 +502,13 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Target code'
           end
           object edtTargetLanguageCode: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 1
             Position.X = 158.000000000000000000
             Position.Y = 80.000000000000000000
             Size.Width = 120.000000000000000000
             Size.Height = 32.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 1
             TextPrompt = 'de-DE'
           end
           object lblNativeLanguageName: TLabel
@@ -510,12 +520,13 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Native language name'
           end
           object edtNativeLanguageName: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 2
             Position.X = 290.000000000000000000
             Position.Y = 80.000000000000000000
             Size.Width = 160.000000000000000000
             Size.Height = 32.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 2
             TextPrompt = 'Deutsch'
           end
           object lblTextDirection: TLabel
@@ -527,13 +538,14 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Direction'
           end
           object edtTextDirection: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 3
+            Text = 'ltr'
             Position.X = 462.000000000000000000
             Position.Y = 80.000000000000000000
             Size.Width = 92.000000000000000000
             Size.Height = 32.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 3
-            Text = 'ltr'
           end
           object btnOpenCatalog: TButton
             Position.X = 574.000000000000000000
@@ -556,66 +568,73 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnClick = btnSaveCatalogClick
           end
           object edtShortDateFormat: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 6
             Position.X = 26.000000000000000000
             Position.Y = 126.000000000000000000
             Size.Width = 132.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 6
             TextPrompt = 'Short date'
           end
           object edtLongDateFormat: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 7
             Position.X = 168.000000000000000000
             Position.Y = 126.000000000000000000
             Size.Width = 170.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 7
             TextPrompt = 'Long date'
           end
           object edtShortTimeFormat: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 8
             Position.X = 348.000000000000000000
             Position.Y = 126.000000000000000000
             Size.Width = 120.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 8
             TextPrompt = 'Short time'
           end
           object edtLongTimeFormat: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 9
             Position.X = 478.000000000000000000
             Position.Y = 126.000000000000000000
             Size.Width = 120.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 9
             TextPrompt = 'Long time'
           end
           object edtDecimalSeparator: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 10
             Position.X = 608.000000000000000000
             Position.Y = 126.000000000000000000
             Size.Width = 86.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 10
             TextPrompt = 'Decimal'
           end
           object edtThousandSeparator: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 11
             Position.X = 704.000000000000000000
             Position.Y = 126.000000000000000000
             Size.Width = 86.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 11
             TextPrompt = 'Thousands'
           end
           object edtCurrencySymbol: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 12
             Position.X = 800.000000000000000000
             Position.Y = 126.000000000000000000
             Size.Width = 86.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 12
             TextPrompt = 'Currency'
           end
           object lblCatalogPathValue: TLabel
@@ -636,7 +655,13 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 282.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 13
+            DisableFocusEffect = True
+            DefaultItemStyles.ItemStyle = ''
+            DefaultItemStyles.GroupHeaderStyle = ''
+            DefaultItemStyles.GroupFooterStyle = ''
             OnChange = lstCatalogEntriesChange
+            Viewport.Width = 390.000000000000000000
+            Viewport.Height = 278.000000000000000000
           end
           object lblSourceTextEditor: TLabel
             Position.X = 446.000000000000000000
@@ -647,13 +672,17 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Source text'
           end
           object memSourceText: TMemo
+            Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+            DataDetectorTypes = []
+            ReadOnly = True
             Position.X = 446.000000000000000000
             Position.Y = 212.000000000000000000
             Size.Width = 440.000000000000000000
             Size.Height = 86.000000000000000000
             Size.PlatformDefault = False
-            ReadOnly = True
             TabOrder = 14
+            Viewport.Width = 436.000000000000000000
+            Viewport.Height = 82.000000000000000000
           end
           object lblTranslatedTextEditor: TLabel
             Position.X = 446.000000000000000000
@@ -664,12 +693,16 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Translated text'
           end
           object memTranslatedText: TMemo
+            Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+            DataDetectorTypes = []
             Position.X = 446.000000000000000000
             Position.Y = 332.000000000000000000
             Size.Width = 440.000000000000000000
             Size.Height = 94.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 15
+            Viewport.Width = 436.000000000000000000
+            Viewport.Height = 90.000000000000000000
           end
           object btnApplyTranslation: TButton
             Position.X = 706.000000000000000000
@@ -713,8 +746,9 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.PlatformDefault = False
             TextSettings.Font.Size = 13.000000000000000000
             TextSettings.FontColor = xFF365674
-            TextSettings.WordWrap = True
-            Text = 'Checks required translations, placeholders, accelerator keys, source changes, duplicate keys, and catalog metadata.'
+            Text = 
+              'Checks required translations, placeholders, accelerator keys, so' +
+              'urce changes, duplicate keys, and catalog metadata.'
           end
           object btnValidateCatalog: TButton
             Position.X = 700.000000000000000000
@@ -745,6 +779,12 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 308.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 1
+            DisableFocusEffect = True
+            DefaultItemStyles.ItemStyle = ''
+            DefaultItemStyles.GroupHeaderStyle = ''
+            DefaultItemStyles.GroupFooterStyle = ''
+            Viewport.Width = 846.000000000000000000
+            Viewport.Height = 304.000000000000000000
           end
         end
         object ExportPageCard: TRectangle
@@ -778,8 +818,10 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.PlatformDefault = False
             TextSettings.Font.Size = 14.000000000000000000
             TextSettings.FontColor = xFF365674
-            TextSettings.WordWrap = True
-            Text = 'The runtime pack contains approved offline strings and locale settings only. Export is blocked until the development catalog has no validation errors.'
+            Text = 
+              'The runtime pack contains approved offline strings and locale se' +
+              'ttings only. Export is blocked until the development catalog has' +
+              ' no validation errors.'
           end
           object ExportAccentCard: TRectangle
             Fill.Color = xFFE8F3FF
@@ -810,9 +852,7 @@ object frmTranslationStudio: TfrmTranslationStudio
               Size.Width = 800.000000000000000000
               Size.Height = 70.000000000000000000
               Size.PlatformDefault = False
-              TextSettings.Font.Size = 12.000000000000000000
               TextSettings.FontColor = xFF365674
-              TextSettings.WordWrap = True
               Text = 'Output path will appear here.'
             end
           end
@@ -828,19 +868,134 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnClick = btnExportRuntimePackClick
           end
         end
+        object IntegrationPageCard: TRectangle
+          Align = Top
+          Fill.Color = claWhite
+          Size.Width = 916.000000000000000000
+          Size.Height = 504.000000000000000000
+          Size.PlatformDefault = False
+          Stroke.Color = xFFD7E5F6
+          Visible = False
+          XRadius = 18.000000000000000000
+          YRadius = 18.000000000000000000
+          object lblIntegrationPageTitle: TLabel
+            StyledSettings = []
+            Position.X = 28.000000000000000000
+            Position.Y = 22.000000000000000000
+            Size.Width = 500.000000000000000000
+            Size.Height = 36.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 21.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'Integrate offline translation'
+          end
+          object lblIntegrationDescription: TLabel
+            StyledSettings = []
+            Position.X = 30.000000000000000000
+            Position.Y = 62.000000000000000000
+            Size.Width = 850.000000000000000000
+            Size.Height = 42.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 13.000000000000000000
+            TextSettings.FontColor = xFF365674
+            Text = 
+              'Build a reviewable VCL or FMX runtime package. Menu controls rema' +
+              'in designer-authored; the package supplies language choices and ' +
+              'event integration.'
+          end
+          object lblLanguageMenuName: TLabel
+            Position.X = 30.000000000000000000
+            Position.Y = 116.000000000000000000
+            Size.Width = 190.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Language menu component'
+          end
+          object edtLanguageMenuName: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            TabOrder = 0
+            Text = 'mnuLanguage'
+            Position.X = 30.000000000000000000
+            Position.Y = 138.000000000000000000
+            Size.Width = 230.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+          end
+          object btnBuildIntegrationPlan: TButton
+            Enabled = False
+            Position.X = 278.000000000000000000
+            Position.Y = 134.000000000000000000
+            Size.Width = 190.000000000000000000
+            Size.Height = 42.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 1
+            Text = 'Build Integration Plan'
+            OnClick = btnBuildIntegrationPlanClick
+          end
+          object lblIntegrationSummary: TLabel
+            StyledSettings = []
+            Position.X = 486.000000000000000000
+            Position.Y = 140.000000000000000000
+            Size.Width = 394.000000000000000000
+            Size.Height = 28.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'Open a Delphi project to build a plan.'
+          end
+          object lstIntegrationPlan: TListBox
+            Position.X = 30.000000000000000000
+            Position.Y = 190.000000000000000000
+            Size.Width = 850.000000000000000000
+            Size.Height = 210.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 2
+            DisableFocusEffect = True
+            DefaultItemStyles.ItemStyle = ''
+            DefaultItemStyles.GroupHeaderStyle = ''
+            DefaultItemStyles.GroupFooterStyle = ''
+          end
+          object btnGenerateIntegrationPackage: TButton
+            Enabled = False
+            Position.X = 650.000000000000000000
+            Position.Y = 418.000000000000000000
+            Size.Width = 230.000000000000000000
+            Size.Height = 44.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 3
+            Text = 'Generate Review Package'
+            OnClick = btnGenerateIntegrationPackageClick
+          end
+          object lblIntegrationOutput: TLabel
+            StyledSettings = []
+            Position.X = 30.000000000000000000
+            Position.Y = 416.000000000000000000
+            Size.Width = 600.000000000000000000
+            Size.Height = 50.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 11.000000000000000000
+            TextSettings.FontColor = xFF365674
+            Text = 'Generated package path will appear here.'
+          end
+        end
       end
     end
   end
   object dlgOpenProject: TOpenDialog
     DefaultExt = 'dproj'
-    Filter = 'Delphi projects (*.dproj;*.dpr)|*.dproj;*.dpr|Delphi project files (*.dproj)|*.dproj|Delphi source projects (*.dpr)|*.dpr'
+    Filter = 
+      'Delphi projects (*.dproj;*.dpr)|*.dproj;*.dpr|Delphi project fil' +
+      'es (*.dproj)|*.dproj|Delphi source projects (*.dpr)|*.dpr'
     Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
     Left = 1104
     Top = 52
   end
   object dlgOpenCatalog: TOpenDialog
     DefaultExt = 'json'
-    Filter = 'Translation project (*.translation-project.json)|*.translation-project.json|JSON files (*.json)|*.json'
+    Filter = 
+      'Translation project (*.translation-project.json)|*.translation-p' +
+      'roject.json|JSON files (*.json)|*.json'
     Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
     Left = 1040
     Top = 52

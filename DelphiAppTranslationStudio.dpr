@@ -18,7 +18,13 @@ uses
   DAT.Scan.PascalResources in 'source\scan\DAT.Scan.PascalResources.pas',
   DAT.Scan.Project in 'source\scan\DAT.Scan.Project.pas',
   DAT.Scan.CatalogMerge in 'source\scan\DAT.Scan.CatalogMerge.pas',
-  DAT.Validation.Catalog in 'source\validation\DAT.Validation.Catalog.pas';
+  DAT.Validation.Catalog in 'source\validation\DAT.Validation.Catalog.pas',
+  DAT.Runtime.LanguagePack in 'source\runtime\DAT.Runtime.LanguagePack.pas',
+  DAT.Runtime.Preference in 'source\runtime\DAT.Runtime.Preference.pas',
+  DAT.Runtime.Manager in 'source\runtime\DAT.Runtime.Manager.pas',
+  DAT.Runtime.FMX in 'source\runtime\DAT.Runtime.FMX.pas',
+  DAT.Integration.Plan in 'source\integration\DAT.Integration.Plan.pas',
+  DAT.Integration.Package in 'source\integration\DAT.Integration.Package.pas';
 
 begin
   Application.Initialize;

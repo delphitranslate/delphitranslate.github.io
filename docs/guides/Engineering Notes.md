@@ -500,6 +500,58 @@ Implemented on August 6, 2026:
 Online provider access is intentionally not part of this tranche. Manual editing
 and offline pack generation work without an Internet connection.
 
+## Implemented Offline Runtime and Integration Foundation
+
+Implemented on August 6, 2026:
+
+- A framework-neutral runtime loader validates schema version 1 language packs,
+  application identity, language metadata, locale settings, and translated
+  key/value pairs.
+- Runtime language discovery inventories valid JSON packs in
+  `Localization\Languages` and ignores malformed or unrelated application packs.
+- A runtime manager loads the saved language at application startup, falls back
+  to the source language, and exposes pack-specific `TFormatSettings`.
+- The selected language is stored in a developer-chosen INI path. The runtime
+  makes no Internet request and does not depend on AppData.
+- Separate VCL and FMX applicators use published-property RTTI to apply only
+  scanned properties to forms and their owned components. VCL and FMX units are
+  separate so a target links only its own framework.
+- Caption, Text, Hint, TextHint, TextPrompt, Items, and Lines mappings follow the
+  scanner's stable keys. An absent translation retains the original
+  designer-authored value.
+- The Studio's designer-authored Integration page detects an existing language
+  menu by component name, lists exported languages in their native names, and
+  presents the proposed integration steps.
+- The Studio generates a review package under `export\integration`. The package
+  contains framework-neutral runtime units, the correct VCL or FMX adapter, a
+  target-specific integration unit, the available runtime packs, and a
+  `language-menu.json` manifest.
+- Package generation does not modify the selected application. Automatic,
+  transactional updates to the target project's persisted DFM/FMX menu and
+  Pascal event handlers remain the next integration tranche, with the backup and
+  preview safeguards described above.
+- Regression programs instantiate representative VCL and FMX forms, apply a
+  language pack, and verify form titles, labels, menu text, and memo lines. The
+  generated VCL and FMX integration units also compile independently.
+- `tools\tests\RunRuntimeSmokeTests.ps1` repeats those checks with both the
+  Win32 and Win64 Delphi compilers and removes its generated package fixtures
+  after validation.
+
+The generated integration unit provides five explicit entry points:
+
+1. `InitializeTranslation` creates the offline runtime and loads the saved
+   language.
+2. `ApplyTranslation` applies the active pack after a form is created.
+3. `SelectLanguage` saves and activates a menu-selected language.
+4. `TranslateText` translates scanned resourcestring or other source-code text
+   while retaining the supplied source-language fallback.
+5. `TranslationRuntime` exposes available-language discovery and locale format
+   settings to the application.
+
+This keeps the target application's original DFM/FMX design intact. The
+developer remains responsible for placing the language menu in the designer
+until the safeguarded automatic menu-edit phase is implemented.
+
 ## FMX Form-Streaming Validation
 
 FMX application validation must include launching the compiled executable. A
@@ -535,8 +587,8 @@ character and an element name, and it omitted `<` characters from closing
 
 The form resource was not involved. The project file was repaired and now
 contains valid `Icon_MainIcon`, `UWP_DelphiLogo44`, and `UWP_DelphiLogo150`
-properties pointing to the files under `Images`. The UWP logo deployment entries
-remain under the `BorlandProject` deployment section.
+properties pointing to the project icon and files under `images and icons`. The
+logo deployment entries remain under the `BorlandProject` deployment section.
 
 Icon changes require more than a successful XML parse. Validation must also:
 

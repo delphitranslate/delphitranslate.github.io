@@ -12,6 +12,11 @@ uses
   DAT.Core.CatalogJson in '..\..\source\core\DAT.Core.CatalogJson.pas',
   DAT.Core.TranslationWorkspace in '..\..\source\core\DAT.Core.TranslationWorkspace.pas',
   DAT.Core.RuntimePack in '..\..\source\core\DAT.Core.RuntimePack.pas',
+  DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
+  DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
+  DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
+  DAT.Integration.Plan in '..\..\source\integration\DAT.Integration.Plan.pas',
+  DAT.Integration.Package in '..\..\source\integration\DAT.Integration.Package.pas',
   DAT.Scan.Types in '..\..\source\scan\DAT.Scan.Types.pas',
   DAT.Scan.Rules in '..\..\source\scan\DAT.Scan.Rules.pas',
   DAT.Scan.TextCodec in '..\..\source\scan\DAT.Scan.TextCodec.pas',
@@ -390,6 +395,114 @@ begin
   end;
 end;
 
+procedure TestRuntimeLoadingAndPreference;
+var
+  Catalog: TTranslationCatalog;
+  LanguageDirectory: string;
+  Pack: TRuntimeLanguagePack;
+  PackFileName: string;
+  PreferenceFileName: string;
+  Runtime: TTranslationRuntime;
+begin
+  LanguageDirectory := TPath.Combine(TPath.GetFullPath(GetCurrentDir),
+    'export\RuntimeLoaderTest\Languages');
+  PackFileName := TPath.Combine(LanguageDirectory, 'de-DE.json');
+  PreferenceFileName := TPath.Combine(
+    TPath.GetDirectoryName(LanguageDirectory), 'language.ini');
+  Catalog := CreateCompleteCatalog;
+  try
+    TRuntimePackBuilder.ExportToFile(Catalog, PackFileName);
+  finally
+    Catalog.Free;
+  end;
+
+  Pack := TRuntimeLanguagePack.LoadFromFile(PackFileName);
+  try
+    Require(Pack.LanguageCode = 'de-DE',
+      'The runtime loader did not read the language code.');
+    Require(Pack.GetText('MainForm.Exit.Text', 'Exit') = '&Beenden',
+      'The runtime loader did not return translated text.');
+    Require(Pack.GetText('Missing.Key', 'Fallback') = 'Fallback',
+      'The runtime loader did not preserve fallback text.');
+  finally
+    Pack.Free;
+  end;
+
+  Runtime := TTranslationRuntime.Create('OfflineWorkflowTest',
+    LanguageDirectory, PreferenceFileName, 'en-US');
+  try
+    Require(Runtime.LoadLanguage('de-DE'),
+      'The runtime manager did not load the exported pack.');
+    Require(Runtime.Translate('MainForm.Greeting.Text', 'Hello') = 'Hallo %s',
+      'The runtime manager did not translate a key.');
+    Require(Runtime.FormatSettings.DecimalSeparator = ',',
+      'The locale decimal separator was not applied.');
+  finally
+    Runtime.Free;
+  end;
+
+  Runtime := TTranslationRuntime.Create('OfflineWorkflowTest',
+    LanguageDirectory, PreferenceFileName, 'en-US');
+  try
+    Require(Runtime.LoadPreferredLanguage,
+      'The saved language preference was not loaded.');
+    Require((Runtime.ActivePack <> nil) and
+      (Runtime.ActivePack.LanguageCode = 'de-DE'),
+      'The preferred runtime pack was not activated.');
+  finally
+    Runtime.Free;
+  end;
+
+  if TDirectory.Exists(TPath.GetDirectoryName(LanguageDirectory)) then
+    TDirectory.Delete(TPath.GetDirectoryName(LanguageDirectory), True);
+end;
+
+procedure TestIntegrationPlanningAndPackage;
+var
+  OutputDirectory: string;
+  Plan: TIntegrationPlan;
+  Profile: TProjectProfile;
+  ProjectRoot: string;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
+    'samples\VCLBasic\SampleVCLApp.dproj'));
+  Plan := TIntegrationPlanner.Build(Profile, 'mnuLanguage');
+  try
+    Require(Plan.MenuFound,
+      'The VCL sample language menu was not found.');
+    Require(Plan.Lines.Count >= 6,
+      'The integration plan is incomplete.');
+  finally
+    Plan.Free;
+  end;
+
+  OutputDirectory := TIntegrationPackageGenerator.Generate(
+    Profile, TPath.Combine(ProjectRoot, 'export\IntegrationSmoke'),
+    TPath.Combine(ProjectRoot, 'source\runtime'));
+  Require(TFile.Exists(TPath.Combine(OutputDirectory,
+    'SampleVCLApp.Translation.pas')),
+    'The generated VCL integration unit is missing.');
+  Require(TFile.Exists(TPath.Combine(OutputDirectory,
+    'Runtime\DAT.Runtime.VCL.pas')),
+    'The VCL runtime adapter was not packaged.');
+  Require(TFile.Exists(TPath.Combine(OutputDirectory,
+    'language-menu.json')),
+    'The language menu manifest was not packaged.');
+
+  Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
+    'samples\FMXBasic\SampleFMXApp.dproj'));
+  OutputDirectory := TIntegrationPackageGenerator.Generate(
+    Profile, TPath.Combine(ProjectRoot, 'export\IntegrationSmoke'),
+    TPath.Combine(ProjectRoot, 'source\runtime'));
+  Require(TFile.Exists(TPath.Combine(OutputDirectory,
+    'SampleFMXApp.Translation.pas')),
+    'The generated FMX integration unit is missing.');
+  Require(TFile.Exists(TPath.Combine(OutputDirectory,
+    'Runtime\DAT.Runtime.FMX.pas')),
+    'The FMX runtime adapter was not packaged.');
+end;
+
 begin
   try
     TestProjectDetection;
@@ -401,7 +514,9 @@ begin
     TestWorkspacePaths;
     TestCatalogValidation;
     TestRuntimePack;
-    Writeln('Foundation, scanner, catalog, validation, and export tests passed.');
+    TestRuntimeLoadingAndPreference;
+    TestIntegrationPlanningAndPackage;
+    Writeln('Foundation, scanner, catalog, runtime, validation, and export tests passed.');
   except
     on E: Exception do
     begin

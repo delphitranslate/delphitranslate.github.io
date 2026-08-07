@@ -16,7 +16,8 @@ uses
   FMX.Dialogs,
   DAT.Core.Types,
   DAT.Scan.Types,
-  DAT.Validation.Catalog;
+  DAT.Validation.Catalog, FMX.Memo.Types, FMX.ScrollBox,
+  FMX.Controls.Presentation;
 
 type
   TfrmTranslationStudio = class(TForm)
@@ -99,6 +100,16 @@ type
     lblExportSummary: TLabel;
     lblExportPathValue: TLabel;
     btnExportRuntimePack: TButton;
+    IntegrationPageCard: TRectangle;
+    lblIntegrationPageTitle: TLabel;
+    lblIntegrationDescription: TLabel;
+    lblLanguageMenuName: TLabel;
+    edtLanguageMenuName: TEdit;
+    btnBuildIntegrationPlan: TButton;
+    lstIntegrationPlan: TListBox;
+    lblIntegrationSummary: TLabel;
+    btnGenerateIntegrationPackage: TButton;
+    lblIntegrationOutput: TLabel;
     dlgOpenProject: TOpenDialog;
     dlgOpenCatalog: TOpenDialog;
     procedure btnOpenProjectClick(Sender: TObject);
@@ -114,6 +125,9 @@ type
     procedure btnApplyTranslationClick(Sender: TObject);
     procedure btnValidateCatalogClick(Sender: TObject);
     procedure btnExportRuntimePackClick(Sender: TObject);
+    procedure lblNavigationIntegrationClick(Sender: TObject);
+    procedure btnBuildIntegrationPlanClick(Sender: TObject);
+    procedure btnGenerateIntegrationPackageClick(Sender: TObject);
   private
     FProjectProfile: TProjectProfile;
     FScanResult: TProjectScanResult;
@@ -143,12 +157,15 @@ var
 implementation
 
 uses
+  System.IOUtils,
   System.SysUtils,
   System.UITypes,
   DAT.Core.CatalogJson,
   DAT.Core.ProjectDetection,
   DAT.Core.RuntimePack,
   DAT.Core.TranslationWorkspace,
+  DAT.Integration.Package,
+  DAT.Integration.Plan,
   DAT.Scan.CatalogMerge,
   DAT.Scan.Project;
 
@@ -163,6 +180,11 @@ begin
   lblFormsValue.Text := '-';
   lblSourcesValue.Text := '-';
   btnScanProject.Enabled := False;
+  btnBuildIntegrationPlan.Enabled := False;
+  btnGenerateIntegrationPackage.Enabled := False;
+  lstIntegrationPlan.Items.Clear;
+  lblIntegrationSummary.Text := 'Open a Delphi project to build a plan.';
+  lblIntegrationOutput.Text := 'Generated package path will appear here.';
   ClearScanSummary;
   ResetCatalog;
   SetWorkflowStep(1);
@@ -197,6 +219,7 @@ begin
   ClearScanSummary;
   ResetCatalog;
   btnScanProject.Enabled := AProfile.Framework <> tfUnknown;
+  btnBuildIntegrationPlan.Enabled := AProfile.Framework <> tfUnknown;
   SetWorkflowStep(1);
 
   if AProfile.Framework = tfUnknown then
@@ -346,10 +369,12 @@ begin
   lblNavigationLanguages.TextSettings.FontColor := InactiveColor;
   lblNavigationValidation.TextSettings.FontColor := InactiveColor;
   lblNavigationExport.TextSettings.FontColor := InactiveColor;
+  lblNavigationIntegration.TextSettings.FontColor := InactiveColor;
 
   LanguagePageCard.Visible := AStep = 3;
   ValidationPageCard.Visible := AStep = 4;
   ExportPageCard.Visible := AStep = 5;
+  IntegrationPageCard.Visible := AStep = 6;
 
   case AStep of
     1:
@@ -379,6 +404,12 @@ begin
         NavigationSelection.Position.Y := 296;
         lblNavigationExport.TextSettings.FontColor := ActiveColor;
         ExportPageCard.BringToFront;
+      end;
+    6:
+      begin
+        NavigationSelection.Position.Y := 352;
+        lblNavigationIntegration.TextSettings.FontColor := ActiveColor;
+        IntegrationPageCard.BringToFront;
       end;
   end;
 end;
@@ -531,6 +562,78 @@ end;
 procedure TfrmTranslationStudio.lblNavigationExportClick(Sender: TObject);
 begin
   SetWorkflowStep(5);
+end;
+
+procedure TfrmTranslationStudio.lblNavigationIntegrationClick(Sender: TObject);
+begin
+  SetWorkflowStep(6);
+end;
+
+procedure TfrmTranslationStudio.btnBuildIntegrationPlanClick(Sender: TObject);
+var
+  IntegrationPlan: TIntegrationPlan;
+begin
+  try
+    IntegrationPlan := TIntegrationPlanner.Build(
+      FProjectProfile, edtLanguageMenuName.Text);
+    try
+      lstIntegrationPlan.Items.Assign(IntegrationPlan.Lines);
+      lblIntegrationSummary.Text := Format(
+        '%d language pack(s) found. Existing menu: %s.',
+        [IntegrationPlan.LanguageCount,
+         BoolToStr(IntegrationPlan.MenuFound, True)]);
+      btnGenerateIntegrationPackage.Enabled := True;
+      lblStatus.Text :=
+        'Integration plan ready. No target source files were changed.';
+    finally
+      IntegrationPlan.Free;
+    end;
+  except
+    on E: Exception do
+      lblStatus.Text := 'Unable to build integration plan: ' + E.Message;
+  end;
+end;
+
+function FindStudioProjectRoot: string;
+var
+  CandidateDirectory: string;
+  ParentDirectory: string;
+begin
+  CandidateDirectory := TPath.GetFullPath(
+    ExtractFilePath(ParamStr(0)));
+  while CandidateDirectory <> '' do
+  begin
+    if TFile.Exists(TPath.Combine(CandidateDirectory,
+      'DelphiAppTranslationStudio.dproj')) then
+      Exit(CandidateDirectory);
+    ParentDirectory := TPath.GetDirectoryName(CandidateDirectory);
+    if SameText(ParentDirectory, CandidateDirectory) then
+      Break;
+    CandidateDirectory := ParentDirectory;
+  end;
+  raise Exception.Create(
+    'The Studio project root could not be located.');
+end;
+
+procedure TfrmTranslationStudio.btnGenerateIntegrationPackageClick(
+  Sender: TObject);
+var
+  OutputDirectory: string;
+  StudioProjectRoot: string;
+begin
+  try
+    StudioProjectRoot := FindStudioProjectRoot;
+    OutputDirectory := TIntegrationPackageGenerator.Generate(
+      FProjectProfile,
+      TPath.Combine(StudioProjectRoot, 'export\integration'),
+      TPath.Combine(StudioProjectRoot, 'source\runtime'));
+    lblIntegrationOutput.Text := OutputDirectory;
+    lblStatus.Text :=
+      'Reviewable integration package generated. Target source is unchanged.';
+  except
+    on E: Exception do
+      lblStatus.Text := 'Unable to generate integration package: ' + E.Message;
+  end;
 end;
 
 procedure TfrmTranslationStudio.btnOpenCatalogClick(Sender: TObject);
