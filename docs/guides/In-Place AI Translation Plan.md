@@ -2,7 +2,11 @@
 
 Last changed: August 7, 2026
 
-Status: Groups 1 through 5 complete
+Status: Retired and superseded by the provider-only workflow on August 7, 2026
+
+> Historical engineering record only. The Codex/Claude command-line product
+> path described below has been removed. Current releases use only Google Cloud
+> Translation or DeepL through the Studio's built-in provider client.
 
 ## Product Direction
 

@@ -58,25 +58,17 @@ begin
          not Assigned(frmTranslationStudio.btnApproveTranslation.OnClick) then
         raise Exception.Create(
           'The linguistic review actions are not designer-wired.');
-      if not Assigned(
-           frmTranslationStudio.btnBeginAITranslation.OnClick) or
+      if not Assigned(frmTranslationStudio.btnTranslateMissing.OnClick) or
+         (frmTranslationStudio.btnTranslateMissing.Text <>
+          'Translate Automatically') then
+        raise Exception.Create(
+          'The provider translation action is not configured correctly.');
+      if not Assigned(frmTranslationStudio.btnSaveProviderKey.OnClick) or
          not Assigned(
-           frmTranslationStudio.btnCopyAIInstructions.OnClick) or
-         not Assigned(
-           frmTranslationStudio.btnReloadAITranslation.OnClick) then
+           frmTranslationStudio.btnTestProviderConnection.OnClick) or
+         not Assigned(frmTranslationStudio.btnRemoveProviderKey.OnClick) then
         raise Exception.Create(
-          'The in-place AI translation controls are not designer-wired.');
-      if (frmTranslationStudio.cboAgentEngine.Items.Count <> 2) or
-         not Assigned(frmTranslationStudio.cboAgentEngine.OnChange) or
-         not Assigned(frmTranslationStudio.btnBrowseAgentExecutable.OnClick) or
-         not Assigned(frmTranslationStudio.btnDetectAgent.OnClick) or
-         not Assigned(frmTranslationStudio.btnTestAgent.OnClick) then
-        raise Exception.Create(
-          'The automatic translation agent settings are not designer-wired.');
-      if not Assigned(frmTranslationStudio.tmrAITranslation.OnTimer) or
-         frmTranslationStudio.tmrAITranslation.Enabled then
-        raise Exception.Create(
-          'The designer-owned AI change detector is not configured safely.');
+          'The provider credential actions are not designer-wired.');
       if not frmTranslationStudio.memIntegrationDiff.ReadOnly then
         raise Exception.Create(
           'The exact integration review must remain read-only.');
@@ -120,7 +112,8 @@ begin
           'The Languages workflow label did not activate its page.');
       frmTranslationStudio.lblNavigationSettingsClick(nil);
       if not frmTranslationStudio.SettingsPageCard.Visible then
-        raise Exception.Create('The Engine Settings workflow page did not activate.');
+        raise Exception.Create(
+          'The Provider Settings workflow page did not activate.');
       Writeln('Studio FMX form creation and streaming passed.');
     finally
       frmTranslationStudio.Free;

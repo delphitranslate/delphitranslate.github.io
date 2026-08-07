@@ -1095,3 +1095,31 @@ target language, text direction, engine, model, provider, and DeepL plan are
 list selections. The August 7 visual audit covered Project/Scan, Translate,
 Validation, Export, Integration, and Engine Settings at 1600x900 with no
 control extending below its page.
+
+## Provider-Only Automatic Translation Revision
+
+Decision date: August 7, 2026
+
+The command-line Codex/Claude experiment is retired. It required developers to
+install, locate, authenticate, and maintain another vendor program, which made
+the primary workflow harder to understand and support. `DAT.Agent.Execution`,
+its smoke test, the process monitor, Prompt/Reload/Cancel controls, executable
+and model controls, and project references were removed.
+
+The product now has one automatic translation contract. Provider Settings
+selects Google Cloud Translation Basic v2 or DeepL API Free/Pro, manages a
+masked key through Windows Credential Manager or process memory, and tests the
+connection. Translate Automatically counts eligible unresolved entries, names
+the selected provider in its confirmation, translates in bounded batches,
+records Google or DeepL provenance, marks results Machine translated, and
+saves the canonical development catalog automatically.
+
+`DAT.Studio.MainForm.fmx` remains the sole UI authority. Provider Settings was
+re-laid out to use the upper workspace professionally, and Translate now has a
+single primary automatic action. No CLI, model, executable, agent status,
+Prompt, Reload, cancellation, or monitoring controls remain in the form.
+
+Backward catalog compatibility is preserved: schema values for historical AI
+Draft/Codex/Claude provenance can still round-trip, but the Studio no longer
+creates them. Existing foundation tests for schema compatibility remain useful
+and do not represent a supported current translation path.

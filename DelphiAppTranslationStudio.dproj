@@ -293,7 +293,6 @@
         <DCCReference Include="source\provider\DAT.Provider.CredentialStore.pas"/>
         <DCCReference Include="source\provider\DAT.Provider.Client.pas"/>
         <DCCReference Include="source\studio\DAT.Studio.Translation.pas"/>
-        <DCCReference Include="source\agent\DAT.Agent.Execution.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

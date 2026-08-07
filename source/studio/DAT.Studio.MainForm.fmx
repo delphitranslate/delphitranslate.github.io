@@ -205,7 +205,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
-            Text = '7  Engine Settings'
+            Text = '7  Provider Settings'
           OnClick = lblNavigationSettingsClick
         end
       end
@@ -782,38 +782,6 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.FontColor = xFF5D7693
             Text = 'Catalog has not been saved.'
           end
-          object btnBeginAITranslation: TButton
-            Position.X = 384.000000000000000000
-            Position.Y = 156.000000000000000000
-            Size.Width = 170.000000000000000000
-            Size.Height = 30.000000000000000000
-            Size.PlatformDefault = False
-            TabOrder = 13
-            Text = 'Translate Automatically'
-            OnClick = btnBeginAITranslationClick
-          end
-          object btnCopyAIInstructions: TButton
-            Enabled = False
-            Position.X = 562.000000000000000000
-            Position.Y = 156.000000000000000000
-            Size.Width = 80.000000000000000000
-            Size.Height = 30.000000000000000000
-            Size.PlatformDefault = False
-            TabOrder = 14
-            Text = 'Prompt'
-            OnClick = btnCopyAIInstructionsClick
-          end
-          object btnReloadAITranslation: TButton
-            Enabled = False
-            Position.X = 650.000000000000000000
-            Position.Y = 156.000000000000000000
-            Size.Width = 80.000000000000000000
-            Size.Height = 30.000000000000000000
-            Size.PlatformDefault = False
-            TabOrder = 15
-            Text = 'Reload'
-            OnClick = btnReloadAITranslationClick
-          end
           object btnExportCatalogCsv: TButton
             Position.X = 738.000000000000000000
             Position.Y = 156.000000000000000000
@@ -997,14 +965,13 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnClick = btnApplyTranslationClick
           end
           object btnTranslateMissing: TButton
-            Anchors = [akRight, akBottom]
-            Position.X = 446.000000000000000000
-            Position.Y = 438.000000000000000000
-            Size.Width = 242.000000000000000000
-            Size.Height = 38.000000000000000000
+            Position.X = 384.000000000000000000
+            Position.Y = 156.000000000000000000
+            Size.Width = 250.000000000000000000
+            Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 22
-            Text = 'Google / DeepL Translation'
+            Text = 'Translate Automatically'
             OnClick = btnTranslateMissingClick
           end
         end
@@ -1375,7 +1342,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.Font.Size = 21.000000000000000000
             TextSettings.Font.StyleExt = {00070000000000000004000000}
             TextSettings.FontColor = xFF163A63
-            Text = 'Translation engine settings'
+            Text = 'Automatic translation provider settings'
           end
           object lblSettingsDescription: TLabel
             StyledSettings = []
@@ -1387,117 +1354,13 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.Font.Size = 13.000000000000000000
             TextSettings.FontColor = xFF365674
             Text =
-              'Primary: run an installed, signed-in Codex CLI or Claude Code ag' +
-              'ent. Optional: use Google or DeepL directly with a secured API k' +
-              'ey. Target applications remain completely offline.'
-          end
-          object lblAgentEngine: TLabel
-            Position.X = 30.000000000000000000
-            Position.Y = 108.000000000000000000
-            Size.Width = 150.000000000000000000
-            Size.Height = 20.000000000000000000
-            Size.PlatformDefault = False
-            Text = 'Automatic agent'
-          end
-          object cboAgentEngine: TComboBox
-            Position.X = 30.000000000000000000
-            Position.Y = 130.000000000000000000
-            Size.Width = 150.000000000000000000
-            Size.Height = 34.000000000000000000
-            Size.PlatformDefault = False
-            TabOrder = 0
-            ItemIndex = 0
-            OnChange = cboAgentEngineChange
-            Items.Strings = (
-              'Codex CLI'
-              'Claude Code')
-          end
-          object lblAgentExecutable: TLabel
-            Position.X = 192.000000000000000000
-            Position.Y = 108.000000000000000000
-            Size.Width = 360.000000000000000000
-            Size.Height = 20.000000000000000000
-            Size.PlatformDefault = False
-            Text = 'Command-line executable'
-          end
-          object edtAgentExecutable: TEdit
-            Anchors = [akLeft, akTop, akRight]
-            Touch.InteractiveGestures = [LongTap, DoubleTap]
-            Position.X = 192.000000000000000000
-            Position.Y = 130.000000000000000000
-            Size.Width = 360.000000000000000000
-            Size.Height = 34.000000000000000000
-            Size.PlatformDefault = False
-            TabOrder = 1
-            TextPrompt = 'Path to codex.cmd, codex.exe, or claude.exe'
-          end
-          object btnBrowseAgentExecutable: TButton
-            Anchors = [akTop, akRight]
-            Position.X = 560.000000000000000000
-            Position.Y = 128.000000000000000000
-            Size.Width = 72.000000000000000000
-            Size.Height = 38.000000000000000000
-            Size.PlatformDefault = False
-            TabOrder = 2
-            Text = 'Browse'
-            OnClick = btnBrowseAgentExecutableClick
-          end
-          object btnDetectAgent: TButton
-            Anchors = [akTop, akRight]
-            Position.X = 640.000000000000000000
-            Position.Y = 128.000000000000000000
-            Size.Width = 88.000000000000000000
-            Size.Height = 38.000000000000000000
-            Size.PlatformDefault = False
-            TabOrder = 3
-            Text = 'Detect'
-            OnClick = btnDetectAgentClick
-          end
-          object lblAgentModel: TLabel
-            Anchors = [akTop, akRight]
-            Position.X = 738.000000000000000000
-            Position.Y = 108.000000000000000000
-            Size.Width = 148.000000000000000000
-            Size.Height = 20.000000000000000000
-            Size.PlatformDefault = False
-            Text = 'Model'
-          end
-          object cboAgentModel: TComboBox
-            Anchors = [akTop, akRight]
-            Position.X = 738.000000000000000000
-            Position.Y = 130.000000000000000000
-            Size.Width = 148.000000000000000000
-            Size.Height = 34.000000000000000000
-            Size.PlatformDefault = False
-            TabOrder = 4
-            ItemIndex = 0
-            Items.Strings = (
-              'Default')
-          end
-          object btnTestAgent: TButton
-            Position.X = 30.000000000000000000
-            Position.Y = 174.000000000000000000
-            Size.Width = 150.000000000000000000
-            Size.Height = 34.000000000000000000
-            Size.PlatformDefault = False
-            TabOrder = 5
-            Text = 'Check Installation'
-            OnClick = btnTestAgentClick
-          end
-          object lblAgentStatus: TLabel
-            Anchors = [akLeft, akTop, akRight]
-            StyledSettings = []
-            Position.X = 192.000000000000000000
-            Position.Y = 174.000000000000000000
-            Size.Width = 694.000000000000000000
-            Size.Height = 34.000000000000000000
-            Size.PlatformDefault = False
-            TextSettings.FontColor = xFF365674
-            Text = 'No command-line agent is configured.'
+              'Choose Google Cloud Translation or DeepL, save its API key secu' +
+              'rely, and translate scanned text automatically. Target applicat' +
+              'ions remain completely offline.'
           end
           object lblProviderName: TLabel
             Position.X = 30.000000000000000000
-            Position.Y = 220.000000000000000000
+            Position.Y = 124.000000000000000000
             Size.Width = 190.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -1505,7 +1368,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object cboTranslationProvider: TComboBox
             Position.X = 30.000000000000000000
-            Position.Y = 242.000000000000000000
+            Position.Y = 146.000000000000000000
             Size.Width = 250.000000000000000000
             Size.Height = 34.000000000000000000
             Size.PlatformDefault = False
@@ -1518,7 +1381,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object lblDeepLPlan: TLabel
             Position.X = 300.000000000000000000
-            Position.Y = 220.000000000000000000
+            Position.Y = 124.000000000000000000
             Size.Width = 190.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -1526,7 +1389,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object cboDeepLPlan: TComboBox
             Position.X = 300.000000000000000000
-            Position.Y = 242.000000000000000000
+            Position.Y = 146.000000000000000000
             Size.Width = 180.000000000000000000
             Size.Height = 34.000000000000000000
             Size.PlatformDefault = False
@@ -1538,7 +1401,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object lblRequestTimeout: TLabel
             Position.X = 500.000000000000000000
-            Position.Y = 220.000000000000000000
+            Position.Y = 124.000000000000000000
             Size.Width = 150.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -1547,7 +1410,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           object edtRequestTimeout: TEdit
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             Position.X = 500.000000000000000000
-            Position.Y = 242.000000000000000000
+            Position.Y = 146.000000000000000000
             Size.Width = 130.000000000000000000
             Size.Height = 34.000000000000000000
             Size.PlatformDefault = False
@@ -1557,7 +1420,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object lblBatchSize: TLabel
             Position.X = 650.000000000000000000
-            Position.Y = 220.000000000000000000
+            Position.Y = 124.000000000000000000
             Size.Width = 150.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -1566,7 +1429,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           object edtProviderBatchSize: TEdit
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             Position.X = 650.000000000000000000
-            Position.Y = 242.000000000000000000
+            Position.Y = 146.000000000000000000
             Size.Width = 130.000000000000000000
             Size.Height = 34.000000000000000000
             Size.PlatformDefault = False
@@ -1576,7 +1439,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object lblProviderApiKey: TLabel
             Position.X = 30.000000000000000000
-            Position.Y = 288.000000000000000000
+            Position.Y = 198.000000000000000000
             Size.Width = 250.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -1587,7 +1450,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             Password = True
             Position.X = 30.000000000000000000
-            Position.Y = 310.000000000000000000
+            Position.Y = 220.000000000000000000
             Size.Width = 856.000000000000000000
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
@@ -1597,7 +1460,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           object chkRememberCredential: TCheckBox
             IsChecked = True
             Position.X = 30.000000000000000000
-            Position.Y = 356.000000000000000000
+            Position.Y = 270.000000000000000000
             Size.Width = 350.000000000000000000
             Size.Height = 24.000000000000000000
             Size.PlatformDefault = False
@@ -1608,7 +1471,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 390.000000000000000000
-            Position.Y = 352.000000000000000000
+            Position.Y = 266.000000000000000000
             Size.Width = 496.000000000000000000
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
@@ -1621,7 +1484,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object btnSaveProviderKey: TButton
             Position.X = 30.000000000000000000
-            Position.Y = 398.000000000000000000
+            Position.Y = 312.000000000000000000
             Size.Width = 190.000000000000000000
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
@@ -1631,7 +1494,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object btnTestProviderConnection: TButton
             Position.X = 236.000000000000000000
-            Position.Y = 398.000000000000000000
+            Position.Y = 312.000000000000000000
             Size.Width = 180.000000000000000000
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
@@ -1641,7 +1504,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object btnRemoveProviderKey: TButton
             Position.X = 432.000000000000000000
-            Position.Y = 398.000000000000000000
+            Position.Y = 312.000000000000000000
             Size.Width = 150.000000000000000000
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
@@ -1653,7 +1516,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 30.000000000000000000
-            Position.Y = 448.000000000000000000
+            Position.Y = 362.000000000000000000
             Size.Width = 850.000000000000000000
             Size.Height = 32.000000000000000000
             Size.PlatformDefault = False
@@ -1698,21 +1561,6 @@ object frmTranslationStudio: TfrmTranslationStudio
       ofEnableSizing]
     Title = 'Export translation CSV'
     Left = 912
-    Top = 52
-  end
-  object dlgAgentExecutable: TOpenDialog
-    Filter =
-      'Command-line programs (*.exe;*.cmd;*.bat)|*.exe;*.cmd;*.bat|All files (*.*)|*.*'
-    Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
-    Title = 'Select Codex CLI or Claude Code executable'
-    Left = 784
-    Top = 52
-  end
-  object tmrAITranslation: TTimer
-    Enabled = False
-    Interval = 1500
-    OnTimer = tmrAITranslationTimer
-    Left = 848
     Top = 52
   end
 end

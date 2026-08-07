@@ -335,3 +335,26 @@ pages use the available desktop area with client alignment and responsive
 anchors. Visual page-fit review and all Win32/Win64 Debug/Release builds,
 runtime suites, launch tests, and self-localization tests passed on August 7,
 2026.
+
+## Provider-Only Product Correction
+
+Status: Complete on August 7, 2026
+
+The automatic-agent phase above is retained as historical context but is no
+longer the product direction. The final workflow removes Codex CLI and Claude
+Code installation, detection, model selection, execution, monitoring, and
+recovery UI. Google Cloud Translation Basic v2 and DeepL API Free/Pro are the
+only automatic translation providers.
+
+Completed correction groups:
+
+1. Removed command-line agent project/source-distribution references and tests.
+2. Removed all CLI and in-place-agent controls from the designer-authored FMX
+   form and consolidated the page as Provider Settings.
+3. Promoted the direct provider action to Translate Automatically, added
+   missing-key guidance, provider-specific confirmation, provenance, and
+   automatic catalog saving.
+4. Updated help, release notes, User Guide, Engineering Guide, and historical
+   engineering records to identify the provider-only contract.
+5. Revalidated FMX streaming, Win32/Win64 builds, offline VCL/FMX runtime,
+   integration, packaging, and release artifacts.

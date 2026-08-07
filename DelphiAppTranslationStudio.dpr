@@ -34,8 +34,7 @@ uses
   DAT.Provider.Settings in 'source\provider\DAT.Provider.Settings.pas',
   DAT.Provider.CredentialStore in 'source\provider\DAT.Provider.CredentialStore.pas',
   DAT.Provider.Client in 'source\provider\DAT.Provider.Client.pas',
-  DAT.Studio.Translation in 'source\studio\DAT.Studio.Translation.pas',
-  DAT.Agent.Execution in 'source\agent\DAT.Agent.Execution.pas';
+  DAT.Studio.Translation in 'source\studio\DAT.Studio.Translation.pas';
 
 begin
   Application.Initialize;

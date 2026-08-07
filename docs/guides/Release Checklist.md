@@ -9,7 +9,7 @@ Last changed: August 7, 2026
   environment.
 - Run foundation, runtime, VCL, FMX, self-localization, and direct FMX
   form-streaming smoke tests.
-- Run the deterministic in-place Codex-style VCL and FMX reference pilots under
+- Run the deterministic provider-contract VCL and FMX reference pilots under
   Win32 and Win64. Require protected-field review, AI Draft provenance, final
   review/approval, and the Italian title on launch.
 - Verify unfinished-session recovery restores the exact pre-AI snapshot and

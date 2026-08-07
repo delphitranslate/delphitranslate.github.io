@@ -7,38 +7,27 @@ Last changed: August 7, 2026
 Version 1.0 delivers a Windows Win32/Win64, offline-first localization workflow
 for Delphi VCL and FireMonkey applications. The Studio scans designer text and
 Pascal `resourcestring` declarations, maintains development JSON catalogs,
-supports automatic in-place Codex/Claude translation, safe UTF-8 CSV
-interchange, validates Delphi formatting contracts,
-exports compact runtime packs, and integrates an offline runtime plus
-designer-persisted language menu.
+translates unresolved text automatically through Google Cloud Translation or
+DeepL, validates Delphi formatting contracts, exports compact runtime packs,
+and integrates an offline runtime plus designer-persisted language menu.
 
-Codex or Claude can edit the development catalog directly in the project
-workspace without a translation-provider key. DeepL and Google Cloud
-Translation remain alternative Studio-only inputs. Target applications do not
-contain API keys and do not require Internet access.
+Only the Studio uses provider Internet access and credentials. Target
+applications do not contain API keys and do not require Internet access.
 
 ## Professional Workflow
 
 - Read-only VCL/FMX project detection and text-resource scanning.
 - Stable catalog keys and source-checksum incremental merge.
-- Schema version 3 provenance separate from linguistic status.
-- Designer-authored AI Translation Mode with generated instructions and
-  terminology profile.
-- Pre-session recovery snapshot, local-edit lock, stable file-change detection,
-  protected-field comparison, and safe reload.
-- Checksum conflict prevention that stops stale Studio data from overwriting
-  external work.
-- Exception-focused QA for low confidence, AI review notes, inconsistent
-  repeated terminology, placeholders, accelerators, and runtime wiring.
-- API-free development JSON and UTF-8 CSV export/import.
-- Staged import with duplicate, unknown-key, stale-source, and protected-work
-  reporting.
-- Imported, Edited, Machine translated, Reviewed, and Approved linguistic
+- Built-in Google Cloud Translation Basic v2 and DeepL API Free/Pro clients.
+- Masked key entry, session-only use, or Windows Credential Manager storage.
+- Provider connection test, bounded batching, retries for transient failures,
+  provider provenance, and automatic catalog saving.
+- Machine translated, Imported, Edited, Reviewed, and Approved linguistic
   states with explicit review progression.
+- Safe UTF-8 CSV interchange as an optional collaboration path.
 - Context-ranked exact-source suggestions that require explicit acceptance and
   never inherit approval.
-- Delphi argument-aware placeholder validation, including valid indexed
-  reordering.
+- Delphi argument-aware placeholder and accelerator validation.
 - Separate structural, linguistic, automatic-runtime, and manual
   `resourcestring` wiring readiness.
 - Exact line-numbered original/proposed integration review for every file.
@@ -47,41 +36,38 @@ contain API keys and do not require Internet access.
 - Designer-persisted VCL and FMX language menu items.
 - Offline JSON pack discovery and per-user language preference.
 
-## FMX Lifecycle
+## Provider-Only Automatic Translation
 
-FMX target integration applies translations from a designer-persisted form
-`OnCreate` handler after form streaming. Existing root handlers are preserved.
-VCL target integration retains its DPR startup application path.
+The former command-line Codex/Claude experiment has been removed from the
+product UI, project, source distribution, and smoke-test surface. The Studio no
+longer asks developers to install or authenticate a separate AI command-line
+tool. **Translate Automatically** now means one thing: translate eligible
+catalog entries through the configured Google or DeepL API and save them as
+Machine translated drafts for review.
+
+## FMX Interface
+
+The Studio starts maximized. All seven designer-authored pages expand into the
+available workspace. Provider Settings contains only Google and DeepL controls,
+and the Translate page presents a single primary automatic-translation action.
+All controls remain persisted in the FMX resource and editable in RAD Studio.
 
 ## Validation
 
-The controlled VCL and FMX reference applications completed the in-place AI
-workflow with both Win32 and Win64 compilers: scan, deterministic Italian
-Codex/Claude-style direct catalog modification, protected-field validation,
-translation provenance, validation, runtime export,
-integration, build, deployment, and offline launch with a required Italian
-title. Representative translated forms were visually reviewed for clipping,
-overlap, and untranslated designated properties.
+The deterministic Win32 and Win64 suites cover project detection, VCL/FMX
+scanning, catalog persistence, provider request/response contracts, validation,
+runtime export, integration, deployed offline packs, form streaming, launch,
+and Studio self-localization. Live provider acceptance requires an
+owner-supplied restricted key and is intentionally kept out of automated
+fixtures.
 
 ## Scope
 
 Supported targets are Delphi VCL and FireMonkey applications for Windows Win32
 and Win64. macOS, iOS, Android, Linux, C++Builder, automatic layout reflow,
-arbitrary Pascal-literal rewriting, and runtime cloud translation are outside
-version 1.0.
+arbitrary Pascal-literal rewriting, Google Advanced v3, and runtime cloud
+translation are outside version 1.0.
 
-Optional provider connectivity depends on third-party accounts, billing,
-quotas, network access, and current service terms; it is not required for the
-core workflow.
-
-## Automatic Agent and UI Update
-
-- Added one-button automatic in-place translation through an installed,
-  signed-in Codex CLI or Claude Code command.
-- Added safe child-process monitoring, diagnostic logs, automatic protected
-  reload/save/validation, cancellation, and exact snapshot restoration.
-- Added Engine Settings with engine/model lists, executable detection,
-  browsing, and installation checks; agent credentials remain vendor-owned.
-- Added built-in source and target language lists with locale defaults.
-- The Studio now starts maximized. All seven designer-authored pages expand
-  professionally and passed visual fit review without bottom clipping.
+Provider connectivity depends on third-party accounts, billing, quotas,
+network access, current API behavior, and service terms. Human review remains
+required before shipping machine-translated text.
