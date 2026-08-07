@@ -116,6 +116,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           YRadius = 12.000000000000000000
         end
         object lblNavigationProject: TLabel
+          HitTest = True
           StyledSettings = []
           Position.X = 30.000000000000000000
           Position.Y = 80.000000000000000000
@@ -129,6 +130,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           OnClick = lblNavigationProjectClick
         end
         object lblNavigationScan: TLabel
+          HitTest = True
           StyledSettings = []
           Position.X = 30.000000000000000000
           Position.Y = 136.000000000000000000
@@ -141,6 +143,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           OnClick = lblNavigationScanClick
         end
         object lblNavigationLanguages: TLabel
+          HitTest = True
           StyledSettings = []
           Position.X = 30.000000000000000000
           Position.Y = 188.000000000000000000
@@ -153,6 +156,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           OnClick = lblNavigationLanguagesClick
         end
         object lblNavigationValidation: TLabel
+          HitTest = True
           StyledSettings = []
           Position.X = 30.000000000000000000
           Position.Y = 248.000000000000000000
@@ -165,6 +169,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           OnClick = lblNavigationValidationClick
         end
         object lblNavigationExport: TLabel
+          HitTest = True
           StyledSettings = []
           Position.X = 30.000000000000000000
           Position.Y = 304.000000000000000000
@@ -177,6 +182,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           OnClick = lblNavigationExportClick
         end
         object lblNavigationIntegration: TLabel
+          HitTest = True
           StyledSettings = []
           Position.X = 30.000000000000000000
           Position.Y = 360.000000000000000000
@@ -189,6 +195,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           OnClick = lblNavigationIntegrationClick
         end
         object lblNavigationSettings: TLabel
+          HitTest = True
           StyledSettings = []
           Position.X = 30.000000000000000000
           Position.Y = 416.000000000000000000

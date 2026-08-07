@@ -797,6 +797,7 @@ def build_engineering_guide() -> Path:
         document,
         [
             "DAT.Studio.MainForm.fmx contains the complete orange-and-blue interface. The workflow selection rectangle moves among seven persisted pages. DAT.Studio.MainForm.pas contains event and state logic only; it does not construct controls.",
+            "Each workflow TLabel explicitly persists HitTest=True. FireMonkey labels default to HitTest=False, which would otherwise pass mouse events through the visible label even when an OnClick event is assigned. The setting remains editable in the Object Inspector.",
             "The form owns the project profile, scan result, catalog, validation result, integration change set, provider settings, and per-provider session-key strings. Destructors release owned objects. Catalog updates invalidate validation and export state.",
         ],
     )

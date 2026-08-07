@@ -780,3 +780,17 @@ change. Key-acquisition instructions therefore name the official console pages
 and recommend checking the provider's current documentation. Google keys should
 be restricted to the Cloud Translation API. DeepL users must select API Free or
 API Pro in the Studio to match their account endpoint.
+
+## FMX Workflow Label Hit Testing
+
+On August 6, 2026, testing found that the left workflow labels displayed their
+assigned `OnClick` events in the FMX resource but did not respond to the mouse.
+The cause was FireMonkey's `TLabel` default: `HitTest` is `False`, so pointer
+events pass through the label even when an `OnClick` handler is assigned.
+
+All seven workflow labels now persist `HitTest = True` in
+`DAT.Studio.MainForm.fmx`. This keeps the setting visible and editable in the
+Object Inspector and requires no runtime UI construction. The direct FMX form
+smoke test verifies every workflow label's hit-test state, verifies the
+navigation event wiring, and activates the Languages page through its persisted
+label event.
