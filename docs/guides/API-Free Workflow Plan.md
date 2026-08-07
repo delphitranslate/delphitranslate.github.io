@@ -2,7 +2,7 @@
 
 Last changed: August 7, 2026
 
-Status: Stage 0 approved and active
+Status: Stages 0 through 4 complete; Stage 5 is next
 
 ## Product Definition
 
@@ -96,11 +96,15 @@ Add a dependable API-free interchange path:
 
 ### Stage 0 — Baseline and Governance
 
+Status: Complete
+
 Record the approved product definition, preserve current architecture, protect
 developer-owned changes, establish the milestone and safeguards, and defer
 pilot selection until the pilot gate.
 
 ### Stage 1 — Runtime Coverage Contract
+
+Status: Complete
 
 Distinguish automatic form-property application from manual Pascal
 `resourcestring` wiring. Provide separate translation-completeness and
@@ -108,45 +112,63 @@ runtime-readiness reporting.
 
 ### Stage 2 — API-Free Interchange
 
+Status: Complete
+
 Implement robust development JSON and CSV export/import workflows with staged
 validation and an import summary.
 
 ### Stage 3 — Structural Validation
+
+Status: Complete
 
 Characterize RAD Studio 37 `System.SysUtils.Format` behavior and replace
 literal-token comparison with argument-aware placeholder validation.
 
 ### Stage 4 — Translation Suggestions
 
+Status: Complete
+
 Remove cross-key automatic reuse. Rank exact-source contextual suggestions and
 require explicit acceptance.
 
 ### Stage 5 — Exact Integration Review
+
+Status: Pending
 
 Add designer-authored, read-only review of exact `.pas`, `.dpr`, `.dproj`,
 `.dfm`, and `.fmx` changes before transactional Apply.
 
 ### Stage 6 — Optional Provider Positioning
 
+Status: Pending
+
 Keep provider functionality but remove it from the required linear workflow.
 The API-free path must work without visiting Provider Settings.
 
 ### Stage 7 — Real FMX Pilot
+
+Status: Pending
 
 Complete and visually review the full API-free workflow on an approved,
 backed-up real FMX application.
 
 ### Stage 8 — Real VCL Pilot
 
+Status: Pending
+
 Repeat the full API-free workflow on an approved, backed-up real VCL
 application.
 
 ### Stage 9 — Usability and Linguistic Review
 
+Status: Pending
+
 Separate structural readiness from linguistic certification and visually
 inspect translated layouts, menus, dialogs, and persistence behavior.
 
 ### Stage 10 — Documentation and Release Alignment
+
+Status: Pending
 
 Update guides, PDFs, help, release notes, and checklists only after the
 implemented behavior is proven by both pilots.

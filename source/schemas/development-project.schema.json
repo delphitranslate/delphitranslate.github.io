@@ -126,7 +126,8 @@
           "status": {
             "enum": [
               "needsTranslation",
-              "machineTranslated",
+            "machineTranslated",
+              "imported",
               "edited",
               "reviewed",
               "approved",
@@ -135,6 +136,15 @@
               "obsolete",
               "error"
             ]
+          },
+          "runtimeApplication": {
+            "enum": [
+              "automatic",
+              "manualTranslateText"
+            ]
+          },
+          "runtimeWiringConfirmed": {
+            "type": "boolean"
           }
         }
       }

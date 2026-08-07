@@ -15,6 +15,7 @@ type
   TTranslationStatus = (
     tsNeedsTranslation,
     tsMachineTranslated,
+    tsImported,
     tsEdited,
     tsReviewed,
     tsApproved,
@@ -22,6 +23,11 @@ type
     tsExcluded,
     tsObsolete,
     tsError
+  );
+
+  TRuntimeApplicationKind = (
+    rakAutomatic,
+    rakManualTranslateText
   );
 
   TProjectProfile = record
@@ -74,6 +80,8 @@ type
     FSourceChecksum: string;
     FDeveloperNote: string;
     FStatus: TTranslationStatus;
+    FRuntimeApplication: TRuntimeApplicationKind;
+    FRuntimeWiringConfirmed: Boolean;
   public
     property Key: string read FKey write FKey;
     property SourceText: string read FSourceText write FSourceText;
@@ -88,6 +96,10 @@ type
     property SourceChecksum: string read FSourceChecksum write FSourceChecksum;
     property DeveloperNote: string read FDeveloperNote write FDeveloperNote;
     property Status: TTranslationStatus read FStatus write FStatus;
+    property RuntimeApplication: TRuntimeApplicationKind
+      read FRuntimeApplication write FRuntimeApplication;
+    property RuntimeWiringConfirmed: Boolean read FRuntimeWiringConfirmed
+      write FRuntimeWiringConfirmed;
   end;
 
   TTranslationCatalog = class
@@ -117,6 +129,12 @@ function TargetFrameworkToString(const AFramework: TTargetFramework): string;
 function StringToTargetFramework(const AValue: string): TTargetFramework;
 function TranslationStatusToString(const AStatus: TTranslationStatus): string;
 function StringToTranslationStatus(const AValue: string): TTranslationStatus;
+function RuntimeApplicationKindToString(
+  const AKind: TRuntimeApplicationKind): string;
+function StringToRuntimeApplicationKind(
+  const AValue: string): TRuntimeApplicationKind;
+function RuntimeApplicationDisplayName(
+  const AKind: TRuntimeApplicationKind): string;
 function ProjectPlatformsDisplayName(const AProfile: TProjectProfile): string;
 
 implementation
@@ -127,7 +145,7 @@ uses
 constructor TTranslationCatalog.Create;
 begin
   inherited Create;
-  FSchemaVersion := 1;
+  FSchemaVersion := 2;
   FFramework := tfUnknown;
   FLocale := TLocaleProfile.Create;
   FLocale.TextDirection := 'ltr';
@@ -192,6 +210,8 @@ begin
       Result := 'needsTranslation';
     tsMachineTranslated:
       Result := 'machineTranslated';
+    tsImported:
+      Result := 'imported';
     tsEdited:
       Result := 'edited';
     tsReviewed:
@@ -216,6 +236,8 @@ function StringToTranslationStatus(
 begin
   if SameText(AValue, 'machineTranslated') then
     Result := tsMachineTranslated
+  else if SameText(AValue, 'imported') then
+    Result := tsImported
   else if SameText(AValue, 'edited') then
     Result := tsEdited
   else if SameText(AValue, 'reviewed') then
@@ -232,6 +254,37 @@ begin
     Result := tsError
   else
     Result := tsNeedsTranslation;
+end;
+
+function RuntimeApplicationKindToString(
+  const AKind: TRuntimeApplicationKind): string;
+begin
+  case AKind of
+    rakManualTranslateText:
+      Result := 'manualTranslateText';
+  else
+    Result := 'automatic';
+  end;
+end;
+
+function StringToRuntimeApplicationKind(
+  const AValue: string): TRuntimeApplicationKind;
+begin
+  if SameText(AValue, 'manualTranslateText') then
+    Result := rakManualTranslateText
+  else
+    Result := rakAutomatic;
+end;
+
+function RuntimeApplicationDisplayName(
+  const AKind: TRuntimeApplicationKind): string;
+begin
+  case AKind of
+    rakManualTranslateText:
+      Result := 'Manual: TranslateText call required';
+  else
+    Result := 'Automatic: form runtime adapter';
+  end;
 end;
 
 function ProjectPlatformsDisplayName(const AProfile: TProjectProfile): string;

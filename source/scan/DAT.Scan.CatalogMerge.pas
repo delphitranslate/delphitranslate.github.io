@@ -47,6 +47,13 @@ begin
   AEntry.SourceFileName := AScanItem.SourceFileName;
   AEntry.SourceLine := AScanItem.SourceLine;
   AEntry.SourceKind := ScannedTextKindDisplayName(AScanItem.Kind);
+  if AScanItem.Kind = stkResourceString then
+    AEntry.RuntimeApplication := rakManualTranslateText
+  else
+  begin
+    AEntry.RuntimeApplication := rakAutomatic;
+    AEntry.RuntimeWiringConfirmed := True;
+  end;
 end;
 
 class function TScanCatalogMerger.Merge(const AScanResult: TProjectScanResult;

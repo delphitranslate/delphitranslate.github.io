@@ -3,12 +3,52 @@ unit DAT.Core.CatalogJson;
 interface
 
 uses
+  System.Classes,
+  System.Generics.Collections,
   System.SysUtils,
   System.JSON,
   DAT.Core.Types;
 
 type
   ECatalogJsonError = class(Exception);
+  ECatalogCsvError = class(Exception);
+
+  TCatalogCsvImportChange = class
+  private
+    FEntry: TTranslationEntry;
+    FTranslatedText: string;
+  public
+    property Entry: TTranslationEntry read FEntry write FEntry;
+    property TranslatedText: string read FTranslatedText write FTranslatedText;
+  end;
+
+  TCatalogCsvImportPlan = class
+  private
+    FChanges: TObjectList<TCatalogCsvImportChange>;
+    FIssues: TStringList;
+    FRowsRead: Integer;
+    FUnchangedCount: Integer;
+    FStaleCount: Integer;
+    FUnknownCount: Integer;
+    FDuplicateCount: Integer;
+    FProtectedCount: Integer;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure Apply;
+    function Summary: string;
+    property Changes: TObjectList<TCatalogCsvImportChange> read FChanges;
+    property Issues: TStringList read FIssues;
+    property RowsRead: Integer read FRowsRead write FRowsRead;
+    property UnchangedCount: Integer read FUnchangedCount
+      write FUnchangedCount;
+    property StaleCount: Integer read FStaleCount write FStaleCount;
+    property UnknownCount: Integer read FUnknownCount write FUnknownCount;
+    property DuplicateCount: Integer read FDuplicateCount
+      write FDuplicateCount;
+    property ProtectedCount: Integer read FProtectedCount
+      write FProtectedCount;
+  end;
 
   TCatalogJson = class
   private
@@ -22,10 +62,62 @@ type
     class function LoadFromFile(const AFileName: string): TTranslationCatalog; static;
   end;
 
+  TCatalogCsv = class
+  private
+    class function EscapeField(const AValue: string): string; static;
+    class function ParseRows(const AText: string):
+      TObjectList<TStringList>; static;
+  public
+    class procedure ExportToFile(const ACatalog: TTranslationCatalog;
+      const AFileName: string); static;
+    class function AnalyzeImport(const ACatalog: TTranslationCatalog;
+      const AFileName: string): TCatalogCsvImportPlan; static;
+  end;
+
 implementation
 
 uses
-  System.IOUtils;
+  System.IOUtils,
+  System.StrUtils;
+
+constructor TCatalogCsvImportPlan.Create;
+begin
+  inherited Create;
+  FChanges := TObjectList<TCatalogCsvImportChange>.Create(True);
+  FIssues := TStringList.Create;
+end;
+
+destructor TCatalogCsvImportPlan.Destroy;
+begin
+  FIssues.Free;
+  FChanges.Free;
+  inherited Destroy;
+end;
+
+procedure TCatalogCsvImportPlan.Apply;
+var
+  Change: TCatalogCsvImportChange;
+begin
+  for Change in FChanges do
+  begin
+    Change.Entry.TranslatedText := Change.TranslatedText;
+    Change.Entry.Status := tsImported;
+  end;
+end;
+
+function TCatalogCsvImportPlan.Summary: string;
+begin
+  Result := Format(
+    '%d data rows read'#13#10 +
+    '%d translations ready to import'#13#10 +
+    '%d unchanged or empty'#13#10 +
+    '%d stale source rows'#13#10 +
+    '%d unknown keys'#13#10 +
+    '%d duplicate keys'#13#10 +
+    '%d reviewed/approved entries protected',
+    [FRowsRead, FChanges.Count, FUnchangedCount, FStaleCount,
+     FUnknownCount, FDuplicateCount, FProtectedCount]);
+end;
 
 class function TCatalogJson.JsonValueText(AObject: TJSONObject;
   const AName, ADefault: string): string;
@@ -91,6 +183,10 @@ begin
       EntryObject.AddPair('sourceChecksum', Entry.SourceChecksum);
       EntryObject.AddPair('developerNote', Entry.DeveloperNote);
       EntryObject.AddPair('status', TranslationStatusToString(Entry.Status));
+      EntryObject.AddPair('runtimeApplication',
+        RuntimeApplicationKindToString(Entry.RuntimeApplication));
+      EntryObject.AddPair('runtimeWiringConfirmed',
+        TJSONBool.Create(Entry.RuntimeWiringConfirmed));
       EntriesArray.AddElement(EntryObject);
     end;
     Root.AddPair('entries', EntriesArray);
@@ -186,8 +282,22 @@ begin
               JsonValueText(EntryObject, 'developerNote', '');
             Entry.Status := StringToTranslationStatus(
               JsonValueText(EntryObject, 'status', 'needsTranslation'));
+            if EntryObject.GetValue('runtimeApplication') <> nil then
+              Entry.RuntimeApplication := StringToRuntimeApplicationKind(
+                JsonValueText(EntryObject, 'runtimeApplication',
+                  'automatic'))
+            else if SameText(Entry.SourceKind, 'Resource string') then
+              Entry.RuntimeApplication := rakManualTranslateText
+            else
+              Entry.RuntimeApplication := rakAutomatic;
+            Entry.RuntimeWiringConfirmed := SameText(
+              JsonValueText(EntryObject, 'runtimeWiringConfirmed',
+                BoolToStr(Entry.RuntimeApplication = rakAutomatic, True)),
+              'true');
             Result.Entries.Add(Entry);
           end;
+      if Result.SchemaVersion < 2 then
+        Result.SchemaVersion := 2;
     except
       Result.Free;
       raise;
@@ -215,6 +325,263 @@ begin
   if DirectoryName <> '' then
     TDirectory.CreateDirectory(DirectoryName);
   TFile.WriteAllText(AFileName, Serialize(ACatalog), TEncoding.UTF8);
+end;
+
+class function TCatalogCsv.EscapeField(const AValue: string): string;
+begin
+  Result := '"' + StringReplace(AValue, '"', '""',
+    [rfReplaceAll]) + '"';
+end;
+
+class function TCatalogCsv.ParseRows(const AText: string):
+  TObjectList<TStringList>;
+var
+  CharacterIndex: Integer;
+  CurrentCharacter: Char;
+  Field: TStringBuilder;
+  InQuotes: Boolean;
+  Row: TStringList;
+
+  procedure FinishField;
+  begin
+    Row.Add(Field.ToString);
+    Field.Clear;
+  end;
+
+  procedure FinishRow;
+  begin
+    FinishField;
+    Result.Add(Row);
+    Row := TStringList.Create;
+  end;
+
+begin
+  Result := TObjectList<TStringList>.Create(True);
+  Field := TStringBuilder.Create;
+  Row := TStringList.Create;
+  try
+    InQuotes := False;
+    CharacterIndex := 1;
+    while CharacterIndex <= Length(AText) do
+    begin
+      CurrentCharacter := AText[CharacterIndex];
+      if InQuotes then
+      begin
+        if CurrentCharacter = '"' then
+        begin
+          if (CharacterIndex < Length(AText)) and
+             (AText[CharacterIndex + 1] = '"') then
+          begin
+            Field.Append('"');
+            Inc(CharacterIndex);
+          end
+          else
+            InQuotes := False;
+        end
+        else
+          Field.Append(CurrentCharacter);
+      end
+      else
+      begin
+        case CurrentCharacter of
+          '"':
+            if Field.Length = 0 then
+              InQuotes := True
+            else
+              raise ECatalogCsvError.CreateFmt(
+                'Unexpected quote at character %d.', [CharacterIndex]);
+          ',':
+            FinishField;
+          #13, #10:
+            begin
+              FinishRow;
+              if (CurrentCharacter = #13) and
+                 (CharacterIndex < Length(AText)) and
+                 (AText[CharacterIndex + 1] = #10) then
+                Inc(CharacterIndex);
+            end;
+        else
+          Field.Append(CurrentCharacter);
+        end;
+      end;
+      Inc(CharacterIndex);
+    end;
+    if InQuotes then
+      raise ECatalogCsvError.Create('The CSV ends inside a quoted field.');
+    if (Field.Length > 0) or (Row.Count > 0) then
+      FinishRow;
+    Row.Free;
+    Row := nil;
+  except
+    Row.Free;
+    Result.Free;
+    Field.Free;
+    raise;
+  end;
+  Field.Free;
+end;
+
+class procedure TCatalogCsv.ExportToFile(
+  const ACatalog: TTranslationCatalog; const AFileName: string);
+const
+  Header: array[0..6] of string = (
+    'Key', 'SourceText', 'Translation', 'Status', 'Context',
+    'SourceChecksum', 'RuntimeApplication');
+var
+  ColumnIndex: Integer;
+  DirectoryName: string;
+  Entry: TTranslationEntry;
+  Output: TStringBuilder;
+
+  procedure AddRow(const AValues: array of string);
+  var
+    ValueIndex: Integer;
+  begin
+    for ValueIndex := 0 to High(AValues) do
+    begin
+      if ValueIndex > 0 then
+        Output.Append(',');
+      Output.Append(EscapeField(AValues[ValueIndex]));
+    end;
+    Output.AppendLine;
+  end;
+
+begin
+  if ACatalog = nil then
+    raise ECatalogCsvError.Create('A catalog is required.');
+  Output := TStringBuilder.Create;
+  try
+    for ColumnIndex := Low(Header) to High(Header) do
+    begin
+      if ColumnIndex > 0 then
+        Output.Append(',');
+      Output.Append(EscapeField(Header[ColumnIndex]));
+    end;
+    Output.AppendLine;
+    for Entry in ACatalog.Entries do
+      AddRow([Entry.Key, Entry.SourceText, Entry.TranslatedText,
+        TranslationStatusToString(Entry.Status), Entry.DeveloperNote,
+        Entry.SourceChecksum,
+        RuntimeApplicationKindToString(Entry.RuntimeApplication)]);
+    DirectoryName := TPath.GetDirectoryName(AFileName);
+    if DirectoryName <> '' then
+      TDirectory.CreateDirectory(DirectoryName);
+    TFile.WriteAllText(AFileName, Output.ToString, TEncoding.UTF8);
+  finally
+    Output.Free;
+  end;
+end;
+
+class function TCatalogCsv.AnalyzeImport(
+  const ACatalog: TTranslationCatalog;
+  const AFileName: string): TCatalogCsvImportPlan;
+const
+  ExpectedHeader: array[0..6] of string = (
+    'Key', 'SourceText', 'Translation', 'Status', 'Context',
+    'SourceChecksum', 'RuntimeApplication');
+var
+  Change: TCatalogCsvImportChange;
+  ColumnIndex: Integer;
+  Entry: TTranslationEntry;
+  ImportedKeys: TStringList;
+  Row: TStringList;
+  RowIndex: Integer;
+  Rows: TObjectList<TStringList>;
+  SourceText: string;
+  SourceChecksum: string;
+  TranslatedText: string;
+begin
+  if ACatalog = nil then
+    raise ECatalogCsvError.Create('A catalog is required.');
+  if not TFile.Exists(AFileName) then
+    raise ECatalogCsvError.CreateFmt('CSV file not found: %s',
+      [AFileName]);
+
+  Rows := ParseRows(TFile.ReadAllText(AFileName, TEncoding.UTF8));
+  ImportedKeys := TStringList.Create;
+  Result := TCatalogCsvImportPlan.Create;
+  try
+    try
+      ImportedKeys.CaseSensitive := False;
+      ImportedKeys.Sorted := True;
+      if Rows.Count = 0 then
+        raise ECatalogCsvError.Create('The CSV file is empty.');
+      if Rows[0].Count <> Length(ExpectedHeader) then
+        raise ECatalogCsvError.CreateFmt(
+          'The CSV header must contain %d columns.',
+          [Length(ExpectedHeader)]);
+      for ColumnIndex := Low(ExpectedHeader) to High(ExpectedHeader) do
+        if not SameText(Rows[0][ColumnIndex],
+          ExpectedHeader[ColumnIndex]) then
+          raise ECatalogCsvError.CreateFmt(
+            'Unexpected CSV column %d. Expected "%s".',
+            [ColumnIndex + 1, ExpectedHeader[ColumnIndex]]);
+
+      for RowIndex := 1 to Rows.Count - 1 do
+      begin
+        Row := Rows[RowIndex];
+        if (Row.Count = 1) and (Row[0] = '') then
+          Continue;
+        Inc(Result.FRowsRead);
+        if Row.Count <> Length(ExpectedHeader) then
+          raise ECatalogCsvError.CreateFmt(
+            'CSV row %d contains %d columns; expected %d.',
+            [RowIndex + 1, Row.Count, Length(ExpectedHeader)]);
+        if ImportedKeys.IndexOf(Row[0]) >= 0 then
+        begin
+          Inc(Result.FDuplicateCount);
+          Result.Issues.Add(Format('Row %d: duplicate key %s',
+            [RowIndex + 1, Row[0]]));
+          Continue;
+        end;
+        ImportedKeys.Add(Row[0]);
+        Entry := ACatalog.FindEntry(Row[0]);
+        if Entry = nil then
+        begin
+          Inc(Result.FUnknownCount);
+          Result.Issues.Add(Format('Row %d: unknown key %s',
+            [RowIndex + 1, Row[0]]));
+          Continue;
+        end;
+        SourceText := Row[1];
+        TranslatedText := Row[2];
+        SourceChecksum := Row[5];
+        if (SourceText <> Entry.SourceText) or
+           not SameText(SourceChecksum, Entry.SourceChecksum) then
+        begin
+          Inc(Result.FStaleCount);
+          Result.Issues.Add(Format(
+            'Row %d: source text or checksum is stale for %s',
+            [RowIndex + 1, Row[0]]));
+          Continue;
+        end;
+        if Entry.Status in [tsReviewed, tsApproved] then
+        begin
+          Inc(Result.FProtectedCount);
+          Result.Issues.Add(Format(
+            'Row %d: reviewed/approved entry protected for %s',
+            [RowIndex + 1, Row[0]]));
+          Continue;
+        end;
+        if (TranslatedText = '') or
+           (TranslatedText = Entry.TranslatedText) then
+        begin
+          Inc(Result.FUnchangedCount);
+          Continue;
+        end;
+        Change := TCatalogCsvImportChange.Create;
+        Change.Entry := Entry;
+        Change.TranslatedText := TranslatedText;
+        Result.Changes.Add(Change);
+      end;
+    except
+      Result.Free;
+      raise;
+    end;
+  finally
+    ImportedKeys.Free;
+    Rows.Free;
+  end;
 end;
 
 end.

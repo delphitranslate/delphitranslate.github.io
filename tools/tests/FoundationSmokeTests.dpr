@@ -171,6 +171,8 @@ begin
     Entry.SourceLine := 42;
     Entry.SourceKind := 'Form property';
     Entry.Status := tsApproved;
+    Entry.RuntimeApplication := rakManualTranslateText;
+    Entry.RuntimeWiringConfirmed := True;
     SourceCatalog.Entries.Add(Entry);
 
     JsonText := TCatalogJson.Serialize(SourceCatalog);
@@ -186,6 +188,11 @@ begin
         'Translated text was not preserved.');
       Require(LoadedCatalog.Entries[0].Status = tsApproved,
         'Translation status was not preserved.');
+      Require(LoadedCatalog.Entries[0].RuntimeApplication =
+        rakManualTranslateText,
+        'Runtime application mode was not preserved.');
+      Require(LoadedCatalog.Entries[0].RuntimeWiringConfirmed,
+        'Runtime wiring confirmation was not preserved.');
       Require(LoadedCatalog.Entries[0].SourceFileName = 'MainForm.dfm',
         'Source filename was not preserved.');
       Require(LoadedCatalog.Entries[0].SourceLine = 42,
@@ -193,8 +200,101 @@ begin
     finally
       LoadedCatalog.Free;
     end;
+
+    LoadedCatalog := TCatalogJson.Deserialize(
+      '{"schemaVersion":1,"applicationId":"Legacy","framework":"VCL",' +
+      '"sourceLanguage":"en-US","entries":[{"key":"Unit1.SMessage",' +
+      '"sourceText":"Message","sourceKind":"Resource string",' +
+      '"status":"needsTranslation"}]}');
+    try
+      Require(LoadedCatalog.SchemaVersion = 2,
+        'A schema version 1 catalog was not migrated to version 2.');
+      Require(LoadedCatalog.Entries[0].RuntimeApplication =
+        rakManualTranslateText,
+        'Legacy resourcestring runtime mode was not derived.');
+      Require(not LoadedCatalog.Entries[0].RuntimeWiringConfirmed,
+        'Legacy resourcestring wiring should require confirmation.');
+    finally
+      LoadedCatalog.Free;
+    end;
   finally
     SourceCatalog.Free;
+  end;
+end;
+
+procedure TestCatalogCsvRoundTrip;
+var
+  Bytes: TBytes;
+  Catalog: TTranslationCatalog;
+  CsvFileName: string;
+  Entry: TTranslationEntry;
+  ImportPlan: TCatalogCsvImportPlan;
+  ProjectRoot: string;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  CsvFileName := TPath.Combine(ProjectRoot,
+    'export\FoundationSmokeTest.translation.csv');
+  Catalog := TTranslationCatalog.Create;
+  try
+    Entry := TTranslationEntry.Create;
+    Entry.Key := 'MainForm.Memo.Lines.Strings.0';
+    Entry.SourceText := 'Hello, "developer"' + sLineBreak + 'Second line';
+    Entry.TranslatedText := 'Hallo, "Entwickler"' + sLineBreak +
+      'Zweite Zeile';
+    Entry.SourceChecksum := 'csv-source-checksum';
+    Entry.DeveloperNote := 'Comma, quote, and multiline test';
+    Entry.Status := tsEdited;
+    Entry.RuntimeApplication := rakAutomatic;
+    Entry.RuntimeWiringConfirmed := True;
+    Catalog.Entries.Add(Entry);
+
+    TCatalogCsv.ExportToFile(Catalog, CsvFileName);
+    Require(TFile.Exists(CsvFileName), 'The CSV export was not created.');
+    Bytes := TFile.ReadAllBytes(CsvFileName);
+    Require((Length(Bytes) >= 3) and (Bytes[0] = $EF) and
+      (Bytes[1] = $BB) and (Bytes[2] = $BF),
+      'The CSV export is not UTF-8 with a BOM.');
+
+    Entry.TranslatedText := '';
+    Entry.Status := tsNeedsTranslation;
+    ImportPlan := TCatalogCsv.AnalyzeImport(Catalog, CsvFileName);
+    try
+      Require(ImportPlan.Changes.Count = 1,
+        'The CSV import did not stage one translation.');
+      ImportPlan.Apply;
+      Require(Entry.TranslatedText =
+        'Hallo, "Entwickler"' + sLineBreak + 'Zweite Zeile',
+        'CSV quoted or multiline text was not preserved.');
+      Require(Entry.Status = tsImported,
+        'CSV import did not mark the entry as imported.');
+    finally
+      ImportPlan.Free;
+    end;
+
+    Entry.Status := tsApproved;
+    ImportPlan := TCatalogCsv.AnalyzeImport(Catalog, CsvFileName);
+    try
+      Require((ImportPlan.Changes.Count = 0) and
+        (ImportPlan.ProtectedCount = 1),
+        'CSV import did not protect an approved entry.');
+    finally
+      ImportPlan.Free;
+    end;
+
+    Entry.Status := tsNeedsTranslation;
+    Entry.SourceChecksum := 'changed-after-export';
+    ImportPlan := TCatalogCsv.AnalyzeImport(Catalog, CsvFileName);
+    try
+      Require((ImportPlan.Changes.Count = 0) and
+        (ImportPlan.StaleCount = 1),
+        'CSV import did not reject a stale source checksum.');
+    finally
+      ImportPlan.Free;
+    end;
+  finally
+    Catalog.Free;
+    if TFile.Exists(CsvFileName) then
+      TFile.Delete(CsvFileName);
   end;
 end;
 
@@ -431,6 +531,9 @@ var
   Catalog: TTranslationCatalog;
   ValidationResult: TCatalogValidationResult;
 begin
+  Require(Format('%2:s|%0:s|%1:s', ['zero', 'one', 'two']) =
+    'two|zero|one',
+    'RAD Studio Format indexed-argument behavior changed.');
   Catalog := CreateCompleteCatalog;
   try
     ValidationResult := TCatalogValidator.Validate(Catalog);
@@ -446,6 +549,47 @@ begin
     try
       Require(ValidationResult.HasErrors,
         'A placeholder mismatch did not block export.');
+    finally
+      ValidationResult.Free;
+    end;
+
+    Catalog.Entries[0].SourceText := '%s defeats %s with %s';
+    Catalog.Entries[0].TranslatedText := '%1:s verliert gegen %0:s mit %2:s';
+    ValidationResult := TCatalogValidator.Validate(Catalog);
+    try
+      Require(not ValidationResult.HasErrors,
+        'Valid indexed placeholder reordering was rejected.');
+    finally
+      ValidationResult.Free;
+    end;
+
+    Catalog.Entries[0].TranslatedText := '%1:d verliert gegen %0:s mit %2:s';
+    ValidationResult := TCatalogValidator.Validate(Catalog);
+    try
+      Require(ValidationResult.HasErrors,
+        'An incompatible indexed placeholder type was accepted.');
+    finally
+      ValidationResult.Free;
+    end;
+
+    Catalog.Entries[0].TranslatedText := '%s verliert gegen %2:s mit %s';
+    ValidationResult := TCatalogValidator.Validate(Catalog);
+    try
+      Require(ValidationResult.HasErrors,
+        'Mixed placeholders with a missing argument were accepted.');
+    finally
+      ValidationResult.Free;
+    end;
+
+    Catalog.Entries[0].TranslatedText := '%1:s verliert gegen %0:s mit %2:s';
+    Catalog.Entries[0].RuntimeApplication := rakManualTranslateText;
+    Catalog.Entries[0].RuntimeWiringConfirmed := False;
+    ValidationResult := TCatalogValidator.Validate(Catalog);
+    try
+      Require(not ValidationResult.HasErrors,
+        'Unconfirmed manual wiring should warn without blocking export.');
+      Require(ValidationResult.CountBySeverity(vsWarning) > 0,
+        'Unconfirmed manual wiring did not produce a warning.');
     finally
       ValidationResult.Free;
     end;
@@ -810,6 +954,7 @@ begin
     TestStudioProjectScanning;
     TestIncrementalCatalogMerge;
     TestCatalogFilePersistence;
+    TestCatalogCsvRoundTrip;
     TestWorkspacePaths;
     TestCatalogValidation;
     TestRuntimePack;

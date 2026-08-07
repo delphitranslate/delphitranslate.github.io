@@ -833,3 +833,90 @@ remains available but will be positioned as optional.
 
 The authoritative staged plan and release gates are recorded in
 `API-Free Workflow Plan.md`.
+
+## Implemented API-Free Stages 1-4
+
+Stages 1 through 4 were implemented and validated on August 7, 2026.
+
+### Runtime Coverage Contract
+
+Development catalog schema version 2 adds `runtimeApplication` and
+`runtimeWiringConfirmed` to each entry. Form properties are classified as
+automatic and are applied by the framework adapter. Pascal `resourcestring`
+entries are classified as `manualTranslateText`; the developer must call the
+generated `TranslateText` function explicitly and can record that wiring as
+confirmed.
+
+The Languages page displays the selected entry's runtime mode, persists a
+designer-owned manual-wiring checkbox, and reports separate translated-entry,
+automatic-runtime, and confirmed-manual-wiring totals. Unconfirmed manual
+wiring produces a validation warning rather than silently implying runtime
+coverage or blocking an intentional pack export. Existing schema version 1
+catalogs derive the runtime mode from their recorded source kind when loaded.
+
+### CSV Interchange
+
+The existing development JSON remains the lossless canonical catalog. The
+Languages page now also contains designer-owned Export CSV and Import CSV
+controls and configured FMX file dialogs.
+
+CSV export uses UTF-8 with a BOM and quotes every field. Its stable columns are
+Key, SourceText, Translation, Status, Context, SourceChecksum, and
+RuntimeApplication. The parser supports commas, escaped quotes, Unicode, and
+embedded CR/LF text.
+
+Import is analyzed in memory before the developer is offered Apply. It matches
+only by stable key, reports duplicate and unknown keys, rejects stale source
+text/checksums, preserves missing rows, and protects Reviewed and Approved
+entries. Accepted text is marked Imported, never Approved. A malformed or
+canceled import makes no catalog changes.
+
+### Delphi Placeholder Validation
+
+Placeholder validation now resolves Delphi `Format` arguments by identity
+instead of comparing literal token strings. Sequential arguments advance from
+the current index; an explicit `N:` index selects argument N and advances the
+next argument to N+1, matching RAD Studio 37 behavior characterized against
+`System.SysUtils.Format`.
+
+The validator accepts valid reordering such as three sequential `%s`
+placeholders becoming `%2:s`, `%0:s`, `%1:s`. It rejects missing, additional,
+or incompatible integer, float, pointer, and string argument groups. Escaped
+`%%`, literal width, and precision text do not create translation arguments.
+
+### Explicit Translation Suggestions
+
+The prior provider path automatically copied exact reviewed translations by
+source text across stable keys. That behavior was removed.
+
+For the selected entry, the Languages page now ranks exact-source Reviewed or
+Approved entries using same-form, same-component-class/property,
+same-property, and same-source-kind signals. The Studio changes nothing until
+the developer clicks the designer-owned Accept button. Acceptance copies only
+the translated text, records Edited status, and never copies Reviewed or
+Approved status.
+
+Optional provider translation now sends every unresolved eligible string after
+confirmation and does not perform any hidden local cross-key reuse.
+
+### Stage 1-4 Validation
+
+The foundation suite verifies:
+
+- Schema version 2 JSON round trips and runtime-wiring persistence.
+- UTF-8 BOM CSV export.
+- Quoted commas, quotes, Unicode, and embedded line breaks.
+- Staged import and Imported status.
+- Reviewed/Approved protection.
+- Stale checksum rejection.
+- Valid indexed placeholder reordering.
+- Incompatible and missing placeholder rejection.
+- Nonblocking manual-wiring warnings.
+
+The full foundation, VCL runtime, FMX runtime, generated integration, and
+transactional integration suite passed under Win32 and Win64. The updated FMX
+form streamed successfully under both architectures. Debug and Release builds
+and launch smoke tests passed for Win32 and Win64.
+
+Stage 5, exact integration review, remains pending and is the next approved
+stage.

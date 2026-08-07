@@ -89,9 +89,17 @@ type
     edtThousandSeparator: TEdit;
     edtCurrencySymbol: TEdit;
     lblCatalogPathValue: TLabel;
+    btnExportCatalogCsv: TButton;
+    btnImportCatalogCsv: TButton;
+    lblCatalogReadiness: TLabel;
     lstCatalogEntries: TListBox;
     lblSourceTextEditor: TLabel;
+    lblRuntimeApplicationValue: TLabel;
     memSourceText: TMemo;
+    chkRuntimeWiringConfirmed: TCheckBox;
+    lblTranslationSuggestion: TLabel;
+    cboTranslationSuggestions: TComboBox;
+    btnAcceptSuggestion: TButton;
     lblTranslatedTextEditor: TLabel;
     memTranslatedText: TMemo;
     btnApplyTranslation: TButton;
@@ -142,6 +150,8 @@ type
     edtProviderBatchSize: TEdit;
     dlgOpenProject: TOpenDialog;
     dlgOpenCatalog: TOpenDialog;
+    dlgImportCatalogCsv: TOpenDialog;
+    dlgExportCatalogCsv: TSaveDialog;
     procedure btnOpenProjectClick(Sender: TObject);
     procedure btnScanProjectClick(Sender: TObject);
     procedure lblNavigationProjectClick(Sender: TObject);
@@ -166,6 +176,10 @@ type
     procedure btnTestProviderConnectionClick(Sender: TObject);
     procedure btnRemoveProviderKeyClick(Sender: TObject);
     procedure btnTranslateMissingClick(Sender: TObject);
+    procedure btnExportCatalogCsvClick(Sender: TObject);
+    procedure btnImportCatalogCsvClick(Sender: TObject);
+    procedure chkRuntimeWiringConfirmedChange(Sender: TObject);
+    procedure btnAcceptSuggestionClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure datLanguageMenuItemClick(Sender: TObject);
   private
@@ -179,6 +193,7 @@ type
     FCatalogFileName: string;
     FProviderSettings: TProviderSettings;
     FSessionApiKeys: array[TTranslationProvider] of string;
+    FUpdatingEntryControls: Boolean;
     procedure ClearProjectSummary;
     procedure ClearScanSummary;
     procedure ResetCatalog;
@@ -198,6 +213,9 @@ type
     procedure LoadProviderSettings;
     procedure SaveProviderSettings;
     procedure UpdateCredentialStatus;
+    procedure UpdateCatalogReadiness;
+    procedure UpdateTranslationSuggestions(
+      const AEntry: TTranslationEntry);
   public
     destructor Destroy; override;
   end;
@@ -208,8 +226,8 @@ var
 implementation
 
 uses
-  System.Generics.Collections,
   System.IOUtils,
+  System.Math,
   System.SysUtils,
   System.UITypes,
   FMX.DialogService.Sync,
@@ -426,14 +444,117 @@ begin
     lstCatalogEntries.Items.Clear;
     if FTranslationCatalog <> nil then
       for Entry in FTranslationCatalog.Entries do
-        lstCatalogEntries.Items.Add(Entry.Key);
+        lstCatalogEntries.Items.Add(Entry.Key + '  [' +
+          TranslationStatusToString(Entry.Status) + ']');
   finally
     lstCatalogEntries.EndUpdate;
   end;
   memSourceText.Text := '';
   memTranslatedText.Text := '';
+  lblRuntimeApplicationValue.Text := 'Runtime: select an entry';
+  chkRuntimeWiringConfirmed.IsChecked := False;
+  chkRuntimeWiringConfirmed.Enabled := False;
+  cboTranslationSuggestions.Items.Clear;
+  btnAcceptSuggestion.Enabled := False;
+  UpdateCatalogReadiness;
   if lstCatalogEntries.Count > 0 then
     lstCatalogEntries.ItemIndex := 0;
+end;
+
+procedure TfrmTranslationStudio.UpdateCatalogReadiness;
+var
+  ActiveCount: Integer;
+  AutomaticCount: Integer;
+  Entry: TTranslationEntry;
+  ManualConfirmedCount: Integer;
+  ManualCount: Integer;
+  TranslatedCount: Integer;
+begin
+  ActiveCount := 0;
+  AutomaticCount := 0;
+  ManualConfirmedCount := 0;
+  ManualCount := 0;
+  TranslatedCount := 0;
+  if FTranslationCatalog <> nil then
+    for Entry in FTranslationCatalog.Entries do
+      if not (Entry.Status in [tsExcluded, tsObsolete]) then
+      begin
+        Inc(ActiveCount);
+        if Trim(Entry.TranslatedText) <> '' then
+          Inc(TranslatedCount);
+        if Entry.RuntimeApplication = rakAutomatic then
+          Inc(AutomaticCount)
+        else
+        begin
+          Inc(ManualCount);
+          if Entry.RuntimeWiringConfirmed then
+            Inc(ManualConfirmedCount);
+        end;
+      end;
+  if FTranslationCatalog = nil then
+    lblCatalogReadiness.Text := 'Translation and runtime readiness: no catalog'
+  else
+    lblCatalogReadiness.Text := Format(
+      'Translated %d/%d  |  Runtime automatic %d  |  Manual wiring %d/%d confirmed',
+      [TranslatedCount, ActiveCount,
+       AutomaticCount, ManualConfirmedCount, ManualCount]);
+end;
+
+procedure TfrmTranslationStudio.UpdateTranslationSuggestions(
+  const AEntry: TTranslationEntry);
+var
+  Candidate: TTranslationEntry;
+  CandidateIndex: Integer;
+  CandidateSortText: string;
+  Candidates: TStringList;
+  Score: Integer;
+begin
+  cboTranslationSuggestions.Items.Clear;
+  btnAcceptSuggestion.Enabled := False;
+  if (FTranslationCatalog = nil) or (AEntry = nil) then
+    Exit;
+
+  Candidates := TStringList.Create;
+  try
+    Candidates.Sorted := True;
+    Candidates.Duplicates := dupAccept;
+    for Candidate in FTranslationCatalog.Entries do
+      if (Candidate <> AEntry) and
+         SameText(Candidate.SourceText, AEntry.SourceText) and
+         (Candidate.Status in [tsReviewed, tsApproved]) and
+         (Trim(Candidate.TranslatedText) <> '') then
+      begin
+        Score := 0;
+        if SameText(Candidate.FormName, AEntry.FormName) then
+          Inc(Score, 100);
+        if SameText(Candidate.ComponentClassName,
+          AEntry.ComponentClassName) and
+           SameText(Candidate.PropertyName, AEntry.PropertyName) then
+          Inc(Score, 60)
+        else if SameText(Candidate.PropertyName,
+          AEntry.PropertyName) then
+          Inc(Score, 20);
+        if SameText(Candidate.SourceKind, AEntry.SourceKind) then
+          Inc(Score, 10);
+        CandidateSortText := Format('%.4d|%s|%s',
+          [9999 - Score, Candidate.Key, Candidate.TranslatedText]);
+        Candidates.AddObject(CandidateSortText, Candidate);
+      end;
+
+    for CandidateIndex := 0 to Candidates.Count - 1 do
+    begin
+      Candidate := TTranslationEntry(Candidates.Objects[CandidateIndex]);
+      cboTranslationSuggestions.Items.AddObject(
+        Candidate.TranslatedText + '  —  ' + Candidate.Key, Candidate);
+    end;
+  finally
+    Candidates.Free;
+  end;
+  if cboTranslationSuggestions.Items.Count > 0 then
+  begin
+    cboTranslationSuggestions.ItemIndex := 0;
+    btnAcceptSuggestion.Enabled := True;
+  end;
 end;
 
 procedure TfrmTranslationStudio.DisplayCatalogLanguage;
@@ -519,6 +640,12 @@ begin
   lstCatalogEntries.Items.Clear;
   memSourceText.Text := '';
   memTranslatedText.Text := '';
+  lblRuntimeApplicationValue.Text := 'Runtime: select an entry';
+  chkRuntimeWiringConfirmed.IsChecked := False;
+  chkRuntimeWiringConfirmed.Enabled := False;
+  cboTranslationSuggestions.Items.Clear;
+  btnAcceptSuggestion.Enabled := False;
+  UpdateCatalogReadiness;
   DisplayValidationResult;
 end;
 
@@ -1012,6 +1139,92 @@ begin
   end;
 end;
 
+procedure TfrmTranslationStudio.btnExportCatalogCsvClick(Sender: TObject);
+begin
+  if FTranslationCatalog = nil then
+  begin
+    lblStatus.Text := 'Scan a project or open a catalog first.';
+    Exit;
+  end;
+  try
+    UpdateCatalogFromLanguageEditors;
+    if FCatalogFileName = '' then
+      SaveCatalog;
+    dlgExportCatalogCsv.FileName := TPath.ChangeExtension(
+      FCatalogFileName, '.csv');
+    if not dlgExportCatalogCsv.Execute then
+      Exit;
+    TCatalogCsv.ExportToFile(FTranslationCatalog,
+      dlgExportCatalogCsv.FileName);
+    lblStatus.Text := 'Translation CSV exported: ' +
+      dlgExportCatalogCsv.FileName;
+  except
+    on E: Exception do
+      lblStatus.Text := 'Unable to export CSV: ' + E.Message;
+  end;
+end;
+
+procedure TfrmTranslationStudio.btnImportCatalogCsvClick(Sender: TObject);
+var
+  ConfirmationText: string;
+  ImportPlan: TCatalogCsvImportPlan;
+  IssueIndex: Integer;
+begin
+  if FTranslationCatalog = nil then
+  begin
+    lblStatus.Text := 'Scan a project or open a catalog first.';
+    Exit;
+  end;
+  if not dlgImportCatalogCsv.Execute then
+    Exit;
+  ImportPlan := nil;
+  try
+    try
+      ImportPlan := TCatalogCsv.AnalyzeImport(FTranslationCatalog,
+        dlgImportCatalogCsv.FileName);
+      ConfirmationText := ImportPlan.Summary;
+      if ImportPlan.Issues.Count > 0 then
+      begin
+        ConfirmationText := ConfirmationText + sLineBreak + sLineBreak +
+          'Import issues:';
+        for IssueIndex := 0 to
+          Min(ImportPlan.Issues.Count - 1, 7) do
+          ConfirmationText := ConfirmationText + sLineBreak +
+            ImportPlan.Issues[IssueIndex];
+        if ImportPlan.Issues.Count > 8 then
+          ConfirmationText := ConfirmationText + sLineBreak +
+            Format('...and %d more issue(s).',
+              [ImportPlan.Issues.Count - 8]);
+      end;
+      ConfirmationText := ConfirmationText + sLineBreak + sLineBreak +
+        'Apply the staged translations?';
+      if TDialogServiceSync.MessageDialog(ConfirmationText,
+        TMsgDlgType.mtConfirmation,
+        [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo],
+        TMsgDlgBtn.mbNo, 0) <> mrYes then
+      begin
+        lblStatus.Text := 'CSV import canceled. ' +
+          StringReplace(ImportPlan.Summary, sLineBreak, ' | ',
+            [rfReplaceAll]);
+        Exit;
+      end;
+      ImportPlan.Apply;
+      InvalidateValidation;
+      DisplayCatalogEntries;
+      if FCatalogFileName <> '' then
+        SaveCatalog;
+      lblStatus.Text := 'CSV import complete. ' +
+        StringReplace(ImportPlan.Summary, sLineBreak, ' | ',
+          [rfReplaceAll]);
+    except
+      on E: Exception do
+        lblStatus.Text := 'Unable to import CSV: ' + E.Message;
+    end;
+  finally
+    ImportPlan.Free;
+  end;
+end;
+
 procedure TfrmTranslationStudio.lstCatalogEntriesChange(Sender: TObject);
 var
   Entry: TTranslationEntry;
@@ -1021,8 +1234,20 @@ begin
     (lstCatalogEntries.ItemIndex >= FTranslationCatalog.Entries.Count) then
     Exit;
   Entry := FTranslationCatalog.Entries[lstCatalogEntries.ItemIndex];
-  memSourceText.Text := Entry.SourceText;
-  memTranslatedText.Text := Entry.TranslatedText;
+  FUpdatingEntryControls := True;
+  try
+    memSourceText.Text := Entry.SourceText;
+    memTranslatedText.Text := Entry.TranslatedText;
+    lblRuntimeApplicationValue.Text := 'Runtime: ' +
+      RuntimeApplicationDisplayName(Entry.RuntimeApplication);
+    chkRuntimeWiringConfirmed.Enabled :=
+      Entry.RuntimeApplication = rakManualTranslateText;
+    chkRuntimeWiringConfirmed.IsChecked :=
+      Entry.RuntimeWiringConfirmed;
+    UpdateTranslationSuggestions(Entry);
+  finally
+    FUpdatingEntryControls := False;
+  end;
 end;
 
 procedure TfrmTranslationStudio.btnApplyTranslationClick(Sender: TObject);
@@ -1042,7 +1267,11 @@ begin
     Entry.Status := tsNeedsTranslation
   else
     Entry.Status := tsEdited;
+  lstCatalogEntries.Items[lstCatalogEntries.ItemIndex] :=
+    Entry.Key + '  [' + TranslationStatusToString(Entry.Status) + ']';
+  UpdateTranslationSuggestions(Entry);
   InvalidateValidation;
+  UpdateCatalogReadiness;
   try
     if FCatalogFileName <> '' then
       SaveCatalog;
@@ -1051,6 +1280,53 @@ begin
     on E: Exception do
       lblStatus.Text := 'Translation applied but not saved: ' + E.Message;
   end;
+end;
+
+procedure TfrmTranslationStudio.chkRuntimeWiringConfirmedChange(
+  Sender: TObject);
+var
+  Entry: TTranslationEntry;
+begin
+  if FUpdatingEntryControls or (FTranslationCatalog = nil) or
+     (lstCatalogEntries.ItemIndex < 0) then
+    Exit;
+  Entry := FTranslationCatalog.Entries[lstCatalogEntries.ItemIndex];
+  if Entry.RuntimeApplication <> rakManualTranslateText then
+    Exit;
+  Entry.RuntimeWiringConfirmed :=
+    chkRuntimeWiringConfirmed.IsChecked;
+  InvalidateValidation;
+  UpdateCatalogReadiness;
+  if FCatalogFileName <> '' then
+    SaveCatalog;
+end;
+
+procedure TfrmTranslationStudio.btnAcceptSuggestionClick(Sender: TObject);
+var
+  Entry: TTranslationEntry;
+  SuggestedEntry: TTranslationEntry;
+begin
+  if (FTranslationCatalog = nil) or
+     (lstCatalogEntries.ItemIndex < 0) or
+     (cboTranslationSuggestions.ItemIndex < 0) then
+    Exit;
+  SuggestedEntry := TTranslationEntry(
+    cboTranslationSuggestions.Items.Objects[
+      cboTranslationSuggestions.ItemIndex]);
+  if SuggestedEntry = nil then
+    Exit;
+  Entry := FTranslationCatalog.Entries[lstCatalogEntries.ItemIndex];
+  Entry.TranslatedText := SuggestedEntry.TranslatedText;
+  Entry.Status := tsEdited;
+  memTranslatedText.Text := Entry.TranslatedText;
+  lstCatalogEntries.Items[lstCatalogEntries.ItemIndex] :=
+    Entry.Key + '  [' + TranslationStatusToString(Entry.Status) + ']';
+  InvalidateValidation;
+  UpdateCatalogReadiness;
+  UpdateTranslationSuggestions(Entry);
+  lblStatus.Text := 'Translation suggestion accepted for review.';
+  if FCatalogFileName <> '' then
+    SaveCatalog;
 end;
 
 procedure TfrmTranslationStudio.btnTranslateMissingClick(Sender: TObject);
@@ -1062,14 +1338,7 @@ var
   Index: Integer;
   MissingCount: Integer;
   Provider: TTranslationProvider;
-  ProviderCount: Integer;
-  ReusableEntry: TTranslationEntry;
-  ReuseCount: Integer;
-  ReuseIndexes: TArray<Integer>;
-  ReuseStatuses: TArray<TTranslationStatus>;
-  ReuseTexts: TArray<string>;
   SourceTexts: TArray<string>;
-  TranslationMemory: TDictionary<string, TTranslationEntry>;
   TranslatedTexts: TArray<string>;
 begin
   if FTranslationCatalog = nil then
@@ -1079,134 +1348,75 @@ begin
   end;
   try
     UpdateCatalogFromLanguageEditors;
-    TranslationMemory :=
-      TDictionary<string, TTranslationEntry>.Create;
+    MissingCount := 0;
+    for Entry in FTranslationCatalog.Entries do
+      if not (Entry.Status in [tsExcluded, tsObsolete,
+        tsReviewed, tsApproved]) and
+         ((Trim(Entry.TranslatedText) = '') or
+          (Entry.Status in [tsNeedsTranslation, tsSourceChanged,
+            tsError])) then
+        Inc(MissingCount);
+    if MissingCount = 0 then
+    begin
+      lblStatus.Text := 'No missing translations were found.';
+      Exit;
+    end;
+    if TDialogServiceSync.MessageDialog(Format(
+      'Send %d unresolved source strings to the selected optional Internet provider? Reviewed and approved entries will remain unchanged. Translation suggestions are never applied automatically.',
+      [MissingCount]), TMsgDlgType.mtConfirmation,
+      [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo],
+      TMsgDlgBtn.mbNo, 0) <> mrYes then
+      Exit;
+
+    SetLength(EntryIndexes, MissingCount);
+    SetLength(SourceTexts, MissingCount);
+    MissingCount := 0;
+    for Index := 0 to FTranslationCatalog.Entries.Count - 1 do
+    begin
+      Entry := FTranslationCatalog.Entries[Index];
+      if not (Entry.Status in [tsExcluded, tsObsolete,
+        tsReviewed, tsApproved]) and
+         ((Trim(Entry.TranslatedText) = '') or
+          (Entry.Status in [tsNeedsTranslation, tsSourceChanged,
+            tsError])) then
+      begin
+        EntryIndexes[MissingCount] := Index;
+        SourceTexts[MissingCount] := Entry.SourceText;
+        Inc(MissingCount);
+      end;
+    end;
+
+    btnTranslateMissing.Enabled := False;
+    SaveProviderSettings;
+    Provider := FProviderSettings.Provider;
+    ApiKey := EffectiveApiKey(Provider);
+    lblStatus.Text := Format('Translating %d strings with %s...',
+      [MissingCount, TranslationProviderDisplayName(Provider)]);
+    Application.ProcessMessages;
+    Client := TTranslationProviderClient.Create(Provider,
+      FProviderSettings.DeepLPlan, ApiKey,
+      FProviderSettings.RequestTimeoutSeconds,
+      FProviderSettings.BatchSize);
     try
-      for Entry in FTranslationCatalog.Entries do
-        if (Entry.Status in [tsReviewed, tsApproved]) and
-           (Trim(Entry.TranslatedText) <> '') then
-          TranslationMemory.AddOrSetValue(
-            Entry.SourceText, Entry);
-
-      MissingCount := 0;
-      ProviderCount := 0;
-      ReuseCount := 0;
-      for Entry in FTranslationCatalog.Entries do
-        if (Entry.Status <> tsExcluded) and
-           (Entry.Status <> tsObsolete) and
-           ((Trim(Entry.TranslatedText) = '') or
-            (Entry.Status = tsNeedsTranslation) or
-            (Entry.Status = tsSourceChanged) or
-            (Entry.Status = tsError)) then
-        begin
-          Inc(MissingCount);
-          if TranslationMemory.TryGetValue(
-            Entry.SourceText, ReusableEntry) and
-            (ReusableEntry <> Entry) then
-            Inc(ReuseCount)
-          else
-            Inc(ProviderCount);
-        end;
-      if MissingCount = 0 then
-      begin
-        lblStatus.Text := 'No missing translations were found.';
-        Exit;
-      end;
-      if TDialogServiceSync.MessageDialog(Format(
-        'Prepare %d missing translations? %d exact reviewed translations will be reused locally and %d source strings will be sent to the selected internet provider. Existing reviewed and approved entries will not be replaced.',
-        [MissingCount, ReuseCount, ProviderCount]),
-        TMsgDlgType.mtConfirmation,
-        [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo],
-        TMsgDlgBtn.mbNo, 0) <> mrYes then
-        Exit;
-
-      SetLength(EntryIndexes, ProviderCount);
-      SetLength(SourceTexts, ProviderCount);
-      SetLength(ReuseIndexes, ReuseCount);
-      SetLength(ReuseTexts, ReuseCount);
-      SetLength(ReuseStatuses, ReuseCount);
-      ProviderCount := 0;
-      ReuseCount := 0;
-      for Index := 0 to FTranslationCatalog.Entries.Count - 1 do
-      begin
-        Entry := FTranslationCatalog.Entries[Index];
-        if (Entry.Status <> tsExcluded) and
-           (Entry.Status <> tsObsolete) and
-           ((Trim(Entry.TranslatedText) = '') or
-            (Entry.Status = tsNeedsTranslation) or
-            (Entry.Status = tsSourceChanged) or
-            (Entry.Status = tsError)) then
-        begin
-          if TranslationMemory.TryGetValue(
-            Entry.SourceText, ReusableEntry) and
-            (ReusableEntry <> Entry) then
-          begin
-            ReuseIndexes[ReuseCount] := Index;
-            ReuseTexts[ReuseCount] :=
-              ReusableEntry.TranslatedText;
-            ReuseStatuses[ReuseCount] :=
-              ReusableEntry.Status;
-            Inc(ReuseCount);
-          end
-          else
-          begin
-            EntryIndexes[ProviderCount] := Index;
-            SourceTexts[ProviderCount] := Entry.SourceText;
-            Inc(ProviderCount);
-          end;
-        end;
-      end;
-
-      btnTranslateMissing.Enabled := False;
-      if ProviderCount > 0 then
-      begin
-        SaveProviderSettings;
-        Provider := FProviderSettings.Provider;
-        ApiKey := EffectiveApiKey(Provider);
-        lblStatus.Text := Format(
-          'Translating %d strings with %s...',
-          [ProviderCount,
-           TranslationProviderDisplayName(Provider)]);
-        Application.ProcessMessages;
-        Client := TTranslationProviderClient.Create(Provider,
-          FProviderSettings.DeepLPlan, ApiKey,
-          FProviderSettings.RequestTimeoutSeconds,
-          FProviderSettings.BatchSize);
-        try
-          TranslatedTexts := Client.Translate(SourceTexts,
-            FTranslationCatalog.SourceLanguage,
-            FTranslationCatalog.Locale.LanguageCode);
-        finally
-          Client.Free;
-        end;
-      end
-      else
-        SetLength(TranslatedTexts, 0);
-
-      for Index := 0 to High(ReuseIndexes) do
-      begin
-        Entry := FTranslationCatalog.Entries[
-          ReuseIndexes[Index]];
-        Entry.TranslatedText := ReuseTexts[Index];
-        Entry.Status := ReuseStatuses[Index];
-      end;
-      for Index := 0 to High(TranslatedTexts) do
-      begin
-        Entry := FTranslationCatalog.Entries[
-          EntryIndexes[Index]];
-        Entry.TranslatedText := TranslatedTexts[Index];
-        Entry.Status := tsMachineTranslated;
-      end;
+      TranslatedTexts := Client.Translate(SourceTexts,
+        FTranslationCatalog.SourceLanguage,
+        FTranslationCatalog.Locale.LanguageCode);
     finally
-      TranslationMemory.Free;
+      Client.Free;
+    end;
+    for Index := 0 to High(TranslatedTexts) do
+    begin
+      Entry := FTranslationCatalog.Entries[EntryIndexes[Index]];
+      Entry.TranslatedText := TranslatedTexts[Index];
+      Entry.Status := tsMachineTranslated;
     end;
     DisplayCatalogEntries;
     InvalidateValidation;
     if FCatalogFileName <> '' then
       SaveCatalog;
     lblStatus.Text := Format(
-      '%d reviewed translations reused and %d machine translations recorded. Review provider results before export.',
-      [Length(ReuseIndexes), Length(TranslatedTexts)]);
+      '%d machine translations recorded. Review provider results before export.',
+      [Length(TranslatedTexts)]);
   except
     on E: Exception do
       lblStatus.Text := 'Bulk translation failed: ' + E.Message;

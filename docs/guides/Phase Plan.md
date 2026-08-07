@@ -246,7 +246,7 @@ Win32/Win64 build and smoke-test matrices.
 
 ## Approved Professional Validation Program
 
-Status: Stage 0 active
+Status: Stages 0 through 4 complete; Stage 5 is next
 
 On August 7, 2026, the project direction was revised after comparing the Studio
 with Poker Galaxy's offline FMX localization. The review separated translation

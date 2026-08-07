@@ -675,27 +675,59 @@ object frmTranslationStudio: TfrmTranslationStudio
             StyledSettings = []
             Position.X = 26.000000000000000000
             Position.Y = 162.000000000000000000
-            Size.Width = 860.000000000000000000
+            Size.Width = 570.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 11.000000000000000000
             TextSettings.FontColor = xFF5D7693
             Text = 'Catalog has not been saved.'
           end
+          object btnExportCatalogCsv: TButton
+            Position.X = 610.000000000000000000
+            Position.Y = 156.000000000000000000
+            Size.Width = 132.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 13
+            Text = 'Export CSV...'
+            OnClick = btnExportCatalogCsvClick
+          end
+          object btnImportCatalogCsv: TButton
+            Position.X = 754.000000000000000000
+            Position.Y = 156.000000000000000000
+            Size.Width = 132.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 14
+            Text = 'Import CSV...'
+            OnClick = btnImportCatalogCsvClick
+          end
+          object lblCatalogReadiness: TLabel
+            StyledSettings = []
+            Position.X = 26.000000000000000000
+            Position.Y = 450.000000000000000000
+            Size.Width = 394.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 11.000000000000000000
+            TextSettings.FontColor = xFF5D7693
+            Text = 'Translation and runtime readiness: no catalog'
+            WordWrap = True
+          end
           object lstCatalogEntries: TListBox
             Position.X = 26.000000000000000000
             Position.Y = 190.000000000000000000
             Size.Width = 394.000000000000000000
-            Size.Height = 282.000000000000000000
+            Size.Height = 250.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 13
+            TabOrder = 15
             DisableFocusEffect = True
             DefaultItemStyles.ItemStyle = ''
             DefaultItemStyles.GroupHeaderStyle = ''
             DefaultItemStyles.GroupFooterStyle = ''
             OnChange = lstCatalogEntriesChange
             Viewport.Width = 390.000000000000000000
-            Viewport.Height = 278.000000000000000000
+            Viewport.Height = 246.000000000000000000
           end
           object lblSourceTextEditor: TLabel
             Position.X = 446.000000000000000000
@@ -705,6 +737,18 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.PlatformDefault = False
             Text = 'Source text'
           end
+          object lblRuntimeApplicationValue: TLabel
+            StyledSettings = []
+            Position.X = 606.000000000000000000
+            Position.Y = 190.000000000000000000
+            Size.Width = 280.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.HorzAlign = Trailing
+            TextSettings.Font.Size = 11.000000000000000000
+            TextSettings.FontColor = xFF5D7693
+            Text = 'Runtime: select an entry'
+          end
           object memSourceText: TMemo
             Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
             DataDetectorTypes = []
@@ -712,15 +756,53 @@ object frmTranslationStudio: TfrmTranslationStudio
             Position.X = 446.000000000000000000
             Position.Y = 212.000000000000000000
             Size.Width = 440.000000000000000000
-            Size.Height = 86.000000000000000000
+            Size.Height = 70.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 14
+            TabOrder = 16
             Viewport.Width = 436.000000000000000000
-            Viewport.Height = 82.000000000000000000
+            Viewport.Height = 66.000000000000000000
+          end
+          object chkRuntimeWiringConfirmed: TCheckBox
+            Enabled = False
+            Position.X = 446.000000000000000000
+            Position.Y = 286.000000000000000000
+            Size.Width = 260.000000000000000000
+            Size.Height = 24.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 17
+            Text = 'Manual TranslateText wiring confirmed'
+            OnChange = chkRuntimeWiringConfirmedChange
+          end
+          object lblTranslationSuggestion: TLabel
+            Position.X = 446.000000000000000000
+            Position.Y = 312.000000000000000000
+            Size.Width = 98.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Suggestion'
+          end
+          object cboTranslationSuggestions: TComboBox
+            Position.X = 550.000000000000000000
+            Position.Y = 306.000000000000000000
+            Size.Width = 210.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 18
+          end
+          object btnAcceptSuggestion: TButton
+            Enabled = False
+            Position.X = 770.000000000000000000
+            Position.Y = 306.000000000000000000
+            Size.Width = 116.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 19
+            Text = 'Accept'
+            OnClick = btnAcceptSuggestionClick
           end
           object lblTranslatedTextEditor: TLabel
             Position.X = 446.000000000000000000
-            Position.Y = 310.000000000000000000
+            Position.Y = 342.000000000000000000
             Size.Width = 180.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -730,13 +812,13 @@ object frmTranslationStudio: TfrmTranslationStudio
             Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
             DataDetectorTypes = []
             Position.X = 446.000000000000000000
-            Position.Y = 332.000000000000000000
+            Position.Y = 364.000000000000000000
             Size.Width = 440.000000000000000000
-            Size.Height = 94.000000000000000000
+            Size.Height = 62.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 15
+            TabOrder = 20
             Viewport.Width = 436.000000000000000000
-            Viewport.Height = 90.000000000000000000
+            Viewport.Height = 58.000000000000000000
           end
           object btnApplyTranslation: TButton
             Position.X = 706.000000000000000000
@@ -744,7 +826,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Width = 180.000000000000000000
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 16
+            TabOrder = 21
             Text = 'Apply Translation'
             OnClick = btnApplyTranslationClick
           end
@@ -754,7 +836,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Width = 242.000000000000000000
             Size.Height = 38.000000000000000000
             Size.PlatformDefault = False
-            TabOrder = 17
+            TabOrder = 22
             Text = 'Translate Missing with Provider'
             OnClick = btnTranslateMissingClick
           end
@@ -1264,6 +1346,23 @@ object frmTranslationStudio: TfrmTranslationStudio
       'roject.json|JSON files (*.json)|*.json'
     Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
     Left = 1040
+    Top = 52
+  end
+  object dlgImportCatalogCsv: TOpenDialog
+    DefaultExt = 'csv'
+    Filter = 'Translation CSV (*.csv)|*.csv|All files (*.*)|*.*'
+    Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
+    Title = 'Import translation CSV'
+    Left = 976
+    Top = 52
+  end
+  object dlgExportCatalogCsv: TSaveDialog
+    DefaultExt = 'csv'
+    Filter = 'Translation CSV (*.csv)|*.csv|All files (*.*)|*.*'
+    Options = [ofOverwritePrompt, ofHideReadOnly, ofPathMustExist,
+      ofEnableSizing]
+    Title = 'Export translation CSV'
+    Left = 912
     Top = 52
   end
 end

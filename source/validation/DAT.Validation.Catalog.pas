@@ -128,15 +128,48 @@ const
   FormatTypes = ['D', 'E', 'F', 'G', 'M', 'N', 'P', 'S', 'U', 'X',
     'd', 'e', 'f', 'g', 'm', 'n', 'p', 's', 'u', 'x'];
 var
+  ArgumentIndex: Integer;
   BraceEnd: Integer;
   CharacterIndex: Integer;
-  PlaceholderStart: Integer;
+  ExplicitIndex: Integer;
+  FormatType: Char;
+  NextArgumentIndex: Integer;
+  IndexText: string;
+  ScanIndex: Integer;
   Placeholders: TStringList;
+
+  function TypeGroup(const AType: Char): string;
+  begin
+    case AType of
+      'D', 'U', 'X', 'd', 'u', 'x':
+        Result := 'integer';
+      'E', 'F', 'G', 'M', 'N', 'e', 'f', 'g', 'm', 'n':
+        Result := 'float';
+      'P', 'p':
+        Result := 'pointer';
+    else
+      Result := 'string';
+    end;
+  end;
+
+  procedure AddArgument(const AIndex: Integer; const AType: Char);
+  var
+    ExistingIndex: Integer;
+    Value: string;
+  begin
+    Value := Format('arg:%d=%s', [AIndex, TypeGroup(AType)]);
+    ExistingIndex := Placeholders.IndexOf(Value);
+    if ExistingIndex < 0 then
+      Placeholders.Add(Value);
+  end;
+
 begin
   Placeholders := TStringList.Create;
   try
     Placeholders.CaseSensitive := False;
     Placeholders.Sorted := True;
+    Placeholders.Duplicates := dupIgnore;
+    NextArgumentIndex := 0;
     CharacterIndex := 1;
     while CharacterIndex <= Length(AText) do
     begin
@@ -148,22 +181,46 @@ begin
           Inc(CharacterIndex, 2);
           Continue;
         end;
-        PlaceholderStart := CharacterIndex;
-        Inc(CharacterIndex);
-        while (CharacterIndex <= Length(AText)) and
-          not CharInSet(AText[CharacterIndex], FormatTypes) do
-          Inc(CharacterIndex);
-        if CharacterIndex <= Length(AText) then
-          Placeholders.Add(LowerCase(Copy(AText, PlaceholderStart,
-            CharacterIndex - PlaceholderStart + 1)));
+        ScanIndex := CharacterIndex + 1;
+        ExplicitIndex := -1;
+        IndexText := '';
+        while (ScanIndex <= Length(AText)) and
+          CharInSet(AText[ScanIndex], ['0'..'9']) do
+        begin
+          IndexText := IndexText + AText[ScanIndex];
+          Inc(ScanIndex);
+        end;
+        if (IndexText <> '') and (ScanIndex <= Length(AText)) and
+           (AText[ScanIndex] = ':') then
+        begin
+          ExplicitIndex := StrToIntDef(IndexText, -1);
+          Inc(ScanIndex);
+        end
+        else
+          ScanIndex := CharacterIndex + 1;
+        while (ScanIndex <= Length(AText)) and
+          not CharInSet(AText[ScanIndex], FormatTypes) do
+          Inc(ScanIndex);
+        if ScanIndex <= Length(AText) then
+        begin
+          FormatType := AText[ScanIndex];
+          if ExplicitIndex >= 0 then
+            ArgumentIndex := ExplicitIndex
+          else
+            ArgumentIndex := NextArgumentIndex;
+          AddArgument(ArgumentIndex, FormatType);
+          NextArgumentIndex := ArgumentIndex + 1;
+          CharacterIndex := ScanIndex;
+        end;
       end
       else if AText[CharacterIndex] = '{' then
       begin
         BraceEnd := Pos('}', AText, CharacterIndex + 1);
         if BraceEnd > CharacterIndex + 1 then
         begin
-          Placeholders.Add(LowerCase(Copy(AText, CharacterIndex,
-            BraceEnd - CharacterIndex + 1)));
+          Placeholders.Add('brace:' + LowerCase(
+            Copy(AText, CharacterIndex,
+              BraceEnd - CharacterIndex + 1)));
           CharacterIndex := BraceEnd;
         end;
       end;
@@ -263,6 +320,10 @@ begin
       if Entry.Status = tsSourceChanged then
         AddIssue(Result, vsError, 'entry.sourceChanged', Entry.Key,
           'Changed source text must be reviewed before export.');
+      if (Entry.RuntimeApplication = rakManualTranslateText) and
+         not Entry.RuntimeWiringConfirmed then
+        AddIssue(Result, vsWarning, 'entry.runtimeWiring', Entry.Key,
+          'Pascal resourcestring requires a confirmed TranslateText call.');
     end;
   finally
     KnownKeys.Free;

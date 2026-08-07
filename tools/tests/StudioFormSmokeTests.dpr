@@ -20,6 +20,20 @@ begin
         raise Exception.Create('The provider API key field is not masked.');
       if frmTranslationStudio.cboTranslationProvider.Items.Count <> 2 then
         raise Exception.Create('The provider list is incomplete.');
+      if not Assigned(frmTranslationStudio.btnExportCatalogCsv.OnClick) or
+         not Assigned(frmTranslationStudio.btnImportCatalogCsv.OnClick) then
+        raise Exception.Create('The CSV interchange controls are not wired.');
+      if not Assigned(
+        frmTranslationStudio.chkRuntimeWiringConfirmed.OnChange) then
+        raise Exception.Create(
+          'The runtime wiring confirmation is not designer-wired.');
+      if not Assigned(frmTranslationStudio.btnAcceptSuggestion.OnClick) then
+        raise Exception.Create(
+          'The translation suggestion action is not designer-wired.');
+      if frmTranslationStudio.dlgImportCatalogCsv.DefaultExt <> 'csv' then
+        raise Exception.Create('The CSV import dialog is not configured.');
+      if frmTranslationStudio.dlgExportCatalogCsv.DefaultExt <> 'csv' then
+        raise Exception.Create('The CSV export dialog is not configured.');
       if not frmTranslationStudio.lblNavigationProject.HitTest or
          not frmTranslationStudio.lblNavigationScan.HitTest or
          not frmTranslationStudio.lblNavigationLanguages.HitTest or

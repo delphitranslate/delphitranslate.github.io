@@ -45,8 +45,17 @@ provides:
 - Project-local development catalogs under
   `Localization\Development`.
 - Manual language metadata, locale-format, and translation editing.
+- Explicit runtime coverage for automatically applied form properties and
+  manually wired Pascal `resourcestring` entries.
+- Separate translation-completeness and manual-wiring readiness summaries.
+- UTF-8 CSV export/import with stable-key matching, multiline fields, stale
+  source detection, duplicate/unknown-key reporting, and reviewed-work
+  protection.
 - Catalog validation for missing translations, duplicate keys, changed source
-  text, placeholders, and accelerator keys.
+  text, Delphi indexed/sequential placeholders, accelerator keys, and manual
+  runtime-wiring warnings.
+- Context-ranked exact-source translation suggestions that require explicit
+  acceptance and never inherit approval status.
 - Compact offline runtime packs under `Localization\Languages`.
 - Active workflow-step navigation for Project, Scan, Languages, Validation, and
   Export, Integration, and Provider Settings.
@@ -67,13 +76,17 @@ provides:
 2. Scan the project.
 3. Open **Languages**, enter the target code and native language name, and create
    the development catalog.
-4. Enter translations manually, or configure DeepL/Google under **Provider
-   Settings** and use **Translate Missing with Provider**. Provider results
-   remain marked for developer review.
-5. Run **Validation**.
-6. When there are no validation errors, use **Export** to create the offline
+4. Enter translations manually, export/import a CSV for an external human or
+   AI-assisted workflow, accept an explicitly reviewed catalog suggestion, or
+   optionally configure DeepL/Google under **Provider Settings**. Imported,
+   suggested, and provider results remain marked for developer review.
+5. For cataloged Pascal `resourcestring` entries, add the documented
+   `TranslateText` call at each intended call site and mark manual wiring
+   confirmed. The Studio does not rewrite Pascal call sites.
+6. Run **Validation**.
+7. When there are no validation errors, use **Export** to create the offline
    runtime JSON pack.
-7. Use **Integration** to preview, back up, apply, or restore the target-project
+8. Use **Integration** to preview, back up, apply, or restore the target-project
    runtime and designer-authored language menu changes.
 
 Scanning remains read-only. The `Localization` folder is created only when the
