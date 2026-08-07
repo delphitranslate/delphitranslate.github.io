@@ -50,13 +50,20 @@ end;
 procedure InitializeStudioTranslation;
 var
   ApplicationDirectory: string;
+  LocalApplicationData: string;
+  PreferenceDirectory: string;
 begin
   ApplicationDirectory := FindStudioApplicationDirectory;
+  LocalApplicationData := GetEnvironmentVariable('LOCALAPPDATA');
+  if LocalApplicationData = '' then
+    LocalApplicationData := TPath.GetHomePath;
+  PreferenceDirectory := TPath.Combine(LocalApplicationData,
+    'DelphiAppTranslationStudio');
   FreeAndNil(TranslationRuntimeInstance);
   TranslationRuntimeInstance := TTranslationRuntime.Create(
     'DelphiAppTranslationStudio',
     TPath.Combine(ApplicationDirectory, 'Localization\Languages'),
-    TPath.Combine(ApplicationDirectory, 'Localization\language.ini'),
+    TPath.Combine(PreferenceDirectory, 'language.ini'),
     'en-US');
   TranslationRuntimeInstance.LoadPreferredLanguage;
 end;

@@ -29,12 +29,100 @@ uses
   DAT.Scan.PascalResources in '..\..\source\scan\DAT.Scan.PascalResources.pas',
   DAT.Scan.Project in '..\..\source\scan\DAT.Scan.Project.pas',
   DAT.Scan.CatalogMerge in '..\..\source\scan\DAT.Scan.CatalogMerge.pas',
+  DAT.Provider.Types in '..\..\source\provider\DAT.Provider.Types.pas',
+  DAT.Provider.Client in '..\..\source\provider\DAT.Provider.Client.pas',
   DAT.Validation.Catalog in '..\..\source\validation\DAT.Validation.Catalog.pas';
+
+type
+  TProviderClientAccess = class(TTranslationProviderClient)
+  public
+    function PublicBuildRequestBody(const ATexts: TArray<string>;
+      const ASourceLanguage, ATargetLanguage: string): string;
+    function PublicEndpoint: string;
+    function PublicParseResponse(
+      const AResponseText: string): TArray<string>;
+  end;
+
+function TProviderClientAccess.PublicBuildRequestBody(
+  const ATexts: TArray<string>; const ASourceLanguage,
+  ATargetLanguage: string): string;
+begin
+  Result := BuildRequestBody(ATexts,
+    ASourceLanguage, ATargetLanguage);
+end;
+
+function TProviderClientAccess.PublicEndpoint: string;
+begin
+  Result := Endpoint;
+end;
+
+function TProviderClientAccess.PublicParseResponse(
+  const AResponseText: string): TArray<string>;
+begin
+  Result := ParseResponse(AResponseText);
+end;
 
 procedure Require(const ACondition: Boolean; const AMessage: string);
 begin
   if not ACondition then
     raise Exception.Create(AMessage);
+end;
+
+procedure TestProviderProtocolFixtures;
+var
+  Client: TProviderClientAccess;
+  RequestBody: string;
+  SourceTexts: TArray<string>;
+  Translations: TArray<string>;
+begin
+  SetLength(SourceTexts, 2);
+  SourceTexts[0] := 'Save';
+  SourceTexts[1] := 'Cancel';
+
+  Client := TProviderClientAccess.Create(tpDeepL, dpFree,
+    'fixture-key-not-sent', 30, 40);
+  try
+    Require(ContainsText(Client.PublicEndpoint, 'api-free.deepl.com'),
+      'The DeepL Free endpoint is incorrect.');
+    RequestBody := Client.PublicBuildRequestBody(
+      SourceTexts, 'en-US', 'it-IT');
+    Require(ContainsText(RequestBody, '"text":["Save","Cancel"]'),
+      'The DeepL request text array is incorrect.');
+    Require(ContainsText(RequestBody, '"source_lang":"EN"'),
+      'The DeepL source language is incorrect.');
+    Translations := Client.PublicParseResponse(
+      '{"translations":[{"text":"Salva"},{"text":"Annulla"}]}');
+    Require((Length(Translations) = 2) and
+      (Translations[0] = 'Salva') and
+      (Translations[1] = 'Annulla'),
+      'The DeepL response fixture was parsed incorrectly.');
+  finally
+    Client.Free;
+  end;
+
+  Client := TProviderClientAccess.Create(tpGoogle, dpFree,
+    'fixture-key-not-sent', 30, 40);
+  try
+    Require(ContainsText(Client.PublicEndpoint,
+      'translation.googleapis.com'),
+      'The Google endpoint is incorrect.');
+    RequestBody := Client.PublicBuildRequestBody(
+      SourceTexts, 'en-US', 'it-IT');
+    Require(ContainsText(RequestBody, '"q":["Save","Cancel"]'),
+      'The Google request text array is incorrect.');
+    Require(ContainsText(RequestBody, '"target":"it"'),
+      'The Google target language is incorrect.');
+    Translations := Client.PublicParseResponse(
+      '{"data":{"translations":[' +
+      '{"translatedText":"Salva"},' +
+      '{"translatedText":"Annulla"}]}}');
+    Require((Length(Translations) = 2) and
+      (Translations[0] = 'Salva') and
+      (Translations[1] = 'Annulla'),
+      'The Google response fixture was parsed incorrectly.');
+  finally
+    Client.Free;
+  end;
 end;
 
 procedure TestProjectDetection;
@@ -494,6 +582,12 @@ begin
   Require(TFile.Exists(TPath.Combine(OutputDirectory,
     'language-menu.json')),
     'The language menu manifest was not packaged.');
+  Require(TFile.Exists(TPath.Combine(OutputDirectory,
+    'Deploy-LanguagePacks.ps1')),
+    'The language-pack deployment script was not packaged.');
+  Require(ContainsText(TFile.ReadAllText(TPath.Combine(OutputDirectory,
+    'SampleVCLApp.Translation.pas')), 'LOCALAPPDATA'),
+    'The generated runtime preference is not stored per user.');
 
   Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
     'samples\FMXBasic\SampleFMXApp.dproj'));
@@ -710,6 +804,7 @@ end;
 begin
   try
     TestProjectDetection;
+    TestProviderProtocolFixtures;
     TestCatalogRoundTrip;
     TestProjectScanning;
     TestStudioProjectScanning;

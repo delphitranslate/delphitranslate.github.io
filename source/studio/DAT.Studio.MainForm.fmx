@@ -188,6 +188,18 @@ object frmTranslationStudio: TfrmTranslationStudio
           Text = '6  Integration'
           OnClick = lblNavigationIntegrationClick
         end
+        object lblNavigationSettings: TLabel
+          StyledSettings = []
+          Position.X = 30.000000000000000000
+          Position.Y = 416.000000000000000000
+          Size.Width = 180.000000000000000000
+          Size.Height = 32.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 14.000000000000000000
+          TextSettings.FontColor = xFFD7E8FF
+          Text = '7  Provider Settings'
+          OnClick = lblNavigationSettingsClick
+        end
       end
       object ContentLayout: TLayout
         Align = Client
@@ -729,6 +741,16 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Apply Translation'
             OnClick = btnApplyTranslationClick
           end
+          object btnTranslateMissing: TButton
+            Position.X = 446.000000000000000000
+            Position.Y = 438.000000000000000000
+            Size.Width = 242.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 17
+            Text = 'Translate Missing with Provider'
+            OnClick = btnTranslateMissingClick
+          end
         end
         object ValidationPageCard: TRectangle
           Align = Top
@@ -914,7 +936,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.PlatformDefault = False
             TextSettings.Font.Size = 13.000000000000000000
             TextSettings.FontColor = xFF365674
-            Text = 
+            Text =
               'Build a reviewable VCL or FMX runtime package. Menu controls rema' +
               'in designer-authored; the package supplies language choices and ' +
               'event integration.'
@@ -1014,6 +1036,206 @@ object frmTranslationStudio: TfrmTranslationStudio
             TabOrder = 5
             Text = 'Restore'
             OnClick = btnRestoreIntegrationClick
+          end
+        end
+        object SettingsPageCard: TRectangle
+          Align = Top
+          Fill.Color = claWhite
+          Size.Width = 916.000000000000000000
+          Size.Height = 504.000000000000000000
+          Size.PlatformDefault = False
+          Stroke.Color = xFFD7E5F6
+          Visible = False
+          XRadius = 18.000000000000000000
+          YRadius = 18.000000000000000000
+          object lblSettingsPageTitle: TLabel
+            StyledSettings = []
+            Position.X = 28.000000000000000000
+            Position.Y = 22.000000000000000000
+            Size.Width = 500.000000000000000000
+            Size.Height = 36.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 21.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'Translation provider settings'
+          end
+          object lblSettingsDescription: TLabel
+            StyledSettings = []
+            Position.X = 30.000000000000000000
+            Position.Y = 64.000000000000000000
+            Size.Width = 850.000000000000000000
+            Size.Height = 48.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 13.000000000000000000
+            TextSettings.FontColor = xFF365674
+            Text =
+              'Internet access is used only here in the developer Studio. Expor' +
+              'ted VCL and FMX applications use offline JSON packs and never re' +
+              'ceive this API key.'
+          end
+          object lblProviderName: TLabel
+            Position.X = 30.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 190.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Provider'
+          end
+          object cboTranslationProvider: TComboBox
+            Position.X = 30.000000000000000000
+            Position.Y = 148.000000000000000000
+            Size.Width = 250.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 0
+            ItemIndex = 0
+            OnChange = cboTranslationProviderChange
+            Items.Strings = (
+              'DeepL'
+              'Google Cloud Translation')
+          end
+          object lblDeepLPlan: TLabel
+            Position.X = 300.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 190.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'DeepL API plan'
+          end
+          object cboDeepLPlan: TComboBox
+            Position.X = 300.000000000000000000
+            Position.Y = 148.000000000000000000
+            Size.Width = 180.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 1
+            ItemIndex = 0
+            Items.Strings = (
+              'API Free'
+              'API Pro')
+          end
+          object lblRequestTimeout: TLabel
+            Position.X = 500.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 150.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Timeout (seconds)'
+          end
+          object edtRequestTimeout: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            Position.X = 500.000000000000000000
+            Position.Y = 148.000000000000000000
+            Size.Width = 130.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 2
+            Text = '30'
+            KeyboardType = NumberPad
+          end
+          object lblBatchSize: TLabel
+            Position.X = 650.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 150.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Strings per request'
+          end
+          object edtProviderBatchSize: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            Position.X = 650.000000000000000000
+            Position.Y = 148.000000000000000000
+            Size.Width = 130.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 3
+            Text = '40'
+            KeyboardType = NumberPad
+          end
+          object lblProviderApiKey: TLabel
+            Position.X = 30.000000000000000000
+            Position.Y = 206.000000000000000000
+            Size.Width = 250.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'API key (masked)'
+          end
+          object edtProviderApiKey: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            Password = True
+            Position.X = 30.000000000000000000
+            Position.Y = 228.000000000000000000
+            Size.Width = 750.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 4
+            TextPrompt = 'Paste a new or replacement API key'
+          end
+          object chkRememberCredential: TCheckBox
+            IsChecked = True
+            Position.X = 30.000000000000000000
+            Position.Y = 282.000000000000000000
+            Size.Width = 350.000000000000000000
+            Size.Height = 24.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 5
+            Text = 'Remember securely on this computer'
+          end
+          object lblCredentialExplanation: TLabel
+            StyledSettings = []
+            Position.X = 30.000000000000000000
+            Position.Y = 312.000000000000000000
+            Size.Width = 850.000000000000000000
+            Size.Height = 48.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 12.000000000000000000
+            TextSettings.FontColor = xFF365674
+            Text =
+              'Checked: store the key in Windows Credential Manager. Unchecked:' +
+              ' use it for this session only and remove any stored key for this ' +
+              'provider.'
+          end
+          object btnSaveProviderKey: TButton
+            Position.X = 30.000000000000000000
+            Position.Y = 376.000000000000000000
+            Size.Width = 190.000000000000000000
+            Size.Height = 42.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 6
+            Text = 'Replace / Save Key'
+            OnClick = btnSaveProviderKeyClick
+          end
+          object btnTestProviderConnection: TButton
+            Position.X = 236.000000000000000000
+            Position.Y = 376.000000000000000000
+            Size.Width = 180.000000000000000000
+            Size.Height = 42.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 7
+            Text = 'Test Connection'
+            OnClick = btnTestProviderConnectionClick
+          end
+          object btnRemoveProviderKey: TButton
+            Position.X = 432.000000000000000000
+            Position.Y = 376.000000000000000000
+            Size.Width = 150.000000000000000000
+            Size.Height = 42.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 8
+            Text = 'Remove Key'
+            OnClick = btnRemoveProviderKeyClick
+          end
+          object lblCredentialStatus: TLabel
+            StyledSettings = []
+            Position.X = 30.000000000000000000
+            Position.Y = 438.000000000000000000
+            Size.Width = 850.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'No API key is configured for this provider.'
           end
         end
       end

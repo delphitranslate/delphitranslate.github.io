@@ -30,6 +30,10 @@ uses
   DAT.Integration.DelphiSource in 'source\integration\DAT.Integration.DelphiSource.pas',
   DAT.Integration.Transaction in 'source\integration\DAT.Integration.Transaction.pas',
   DAT.Integration.Engine in 'source\integration\DAT.Integration.Engine.pas',
+  DAT.Provider.Types in 'source\provider\DAT.Provider.Types.pas',
+  DAT.Provider.Settings in 'source\provider\DAT.Provider.Settings.pas',
+  DAT.Provider.CredentialStore in 'source\provider\DAT.Provider.CredentialStore.pas',
+  DAT.Provider.Client in 'source\provider\DAT.Provider.Client.pas',
   DAT.Studio.Translation in 'source\studio\DAT.Studio.Translation.pas';
 
 begin

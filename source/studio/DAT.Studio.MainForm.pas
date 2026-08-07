@@ -17,6 +17,8 @@ uses
   FMX.Menus,
   DAT.Core.Types,
   DAT.Integration.Types,
+  DAT.Provider.Settings,
+  DAT.Provider.Types,
   DAT.Scan.Types,
   DAT.Validation.Catalog, FMX.Memo.Types, FMX.ScrollBox,
   FMX.Controls.Presentation;
@@ -41,6 +43,7 @@ type
     lblNavigationValidation: TLabel;
     lblNavigationExport: TLabel;
     lblNavigationIntegration: TLabel;
+    lblNavigationSettings: TLabel;
     ContentLayout: TLayout;
     ProjectCard: TRectangle;
     lblProjectCardTitle: TLabel;
@@ -92,6 +95,7 @@ type
     lblTranslatedTextEditor: TLabel;
     memTranslatedText: TMemo;
     btnApplyTranslation: TButton;
+    btnTranslateMissing: TButton;
     ValidationPageCard: TRectangle;
     lblValidationPageTitle: TLabel;
     lblValidationDescription: TLabel;
@@ -117,6 +121,25 @@ type
     lblIntegrationOutput: TLabel;
     btnApplyIntegration: TButton;
     btnRestoreIntegration: TButton;
+    SettingsPageCard: TRectangle;
+    lblSettingsPageTitle: TLabel;
+    lblSettingsDescription: TLabel;
+    lblProviderName: TLabel;
+    cboTranslationProvider: TComboBox;
+    lblDeepLPlan: TLabel;
+    cboDeepLPlan: TComboBox;
+    lblProviderApiKey: TLabel;
+    edtProviderApiKey: TEdit;
+    chkRememberCredential: TCheckBox;
+    lblCredentialExplanation: TLabel;
+    btnSaveProviderKey: TButton;
+    btnTestProviderConnection: TButton;
+    btnRemoveProviderKey: TButton;
+    lblCredentialStatus: TLabel;
+    lblRequestTimeout: TLabel;
+    edtRequestTimeout: TEdit;
+    lblBatchSize: TLabel;
+    edtProviderBatchSize: TEdit;
     dlgOpenProject: TOpenDialog;
     dlgOpenCatalog: TOpenDialog;
     procedure btnOpenProjectClick(Sender: TObject);
@@ -137,6 +160,12 @@ type
     procedure btnGenerateIntegrationPackageClick(Sender: TObject);
     procedure btnApplyIntegrationClick(Sender: TObject);
     procedure btnRestoreIntegrationClick(Sender: TObject);
+    procedure lblNavigationSettingsClick(Sender: TObject);
+    procedure cboTranslationProviderChange(Sender: TObject);
+    procedure btnSaveProviderKeyClick(Sender: TObject);
+    procedure btnTestProviderConnectionClick(Sender: TObject);
+    procedure btnRemoveProviderKeyClick(Sender: TObject);
+    procedure btnTranslateMissingClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure datLanguageMenuItemClick(Sender: TObject);
   private
@@ -148,6 +177,8 @@ type
     FIntegrationPackageDirectory: string;
     FLastIntegrationBackupDirectory: string;
     FCatalogFileName: string;
+    FProviderSettings: TProviderSettings;
+    FSessionApiKeys: array[TTranslationProvider] of string;
     procedure ClearProjectSummary;
     procedure ClearScanSummary;
     procedure ResetCatalog;
@@ -161,6 +192,12 @@ type
     procedure UpdateCatalogFromLanguageEditors;
     procedure SaveCatalog;
     procedure RunCatalogValidation;
+    function SelectedProvider: TTranslationProvider;
+    function EffectiveApiKey(
+      const AProvider: TTranslationProvider): string;
+    procedure LoadProviderSettings;
+    procedure SaveProviderSettings;
+    procedure UpdateCredentialStatus;
   public
     destructor Destroy; override;
   end;
@@ -171,9 +208,11 @@ var
 implementation
 
 uses
+  System.Generics.Collections,
   System.IOUtils,
   System.SysUtils,
   System.UITypes,
+  FMX.DialogService.Sync,
   DAT.Core.CatalogJson,
   DAT.Core.ProjectDetection,
   DAT.Core.RuntimePack,
@@ -182,6 +221,8 @@ uses
   DAT.Integration.Plan,
   DAT.Integration.Engine,
   DAT.Integration.Transaction,
+  DAT.Provider.Client,
+  DAT.Provider.CredentialStore,
   DAT.Studio.Translation,
   DAT.Scan.CatalogMerge,
   DAT.Scan.Project;
@@ -191,6 +232,7 @@ uses
 procedure TfrmTranslationStudio.FormCreate(Sender: TObject);
 begin
   ApplyStudioTranslation(Self);
+  LoadProviderSettings;
 end;
 
 procedure TfrmTranslationStudio.datLanguageMenuItemClick(Sender: TObject);
@@ -237,11 +279,95 @@ end;
 
 destructor TfrmTranslationStudio.Destroy;
 begin
+  FProviderSettings.Free;
   FValidationResult.Free;
   FIntegrationChangeSet.Free;
   FTranslationCatalog.Free;
   FScanResult.Free;
   inherited Destroy;
+end;
+
+function TfrmTranslationStudio.SelectedProvider: TTranslationProvider;
+begin
+  if cboTranslationProvider.ItemIndex = 1 then
+    Result := tpGoogle
+  else
+    Result := tpDeepL;
+end;
+
+function TfrmTranslationStudio.EffectiveApiKey(
+  const AProvider: TTranslationProvider): string;
+begin
+  Result := Trim(edtProviderApiKey.Text);
+  if Result <> '' then
+    Exit;
+  Result := FSessionApiKeys[AProvider];
+  if (Result = '') and TProviderCredentialStore.Exists(AProvider) then
+    Result := TProviderCredentialStore.Read(AProvider);
+end;
+
+procedure TfrmTranslationStudio.LoadProviderSettings;
+begin
+  FreeAndNil(FProviderSettings);
+  FProviderSettings := TProviderSettings.Load;
+  cboTranslationProvider.ItemIndex := Ord(FProviderSettings.Provider);
+  cboDeepLPlan.ItemIndex := Ord(FProviderSettings.DeepLPlan);
+  chkRememberCredential.IsChecked :=
+    FProviderSettings.RememberCredential;
+  edtRequestTimeout.Text :=
+    FProviderSettings.RequestTimeoutSeconds.ToString;
+  edtProviderBatchSize.Text := FProviderSettings.BatchSize.ToString;
+  edtProviderApiKey.Text := '';
+  cboDeepLPlan.Enabled := SelectedProvider = tpDeepL;
+  lblCredentialStatus.Text :=
+    'Open Provider Settings to check the configured key.';
+end;
+
+procedure TfrmTranslationStudio.SaveProviderSettings;
+begin
+  FProviderSettings.Provider := SelectedProvider;
+  if cboDeepLPlan.ItemIndex = 1 then
+    FProviderSettings.DeepLPlan := dpPro
+  else
+    FProviderSettings.DeepLPlan := dpFree;
+  FProviderSettings.RememberCredential :=
+    chkRememberCredential.IsChecked;
+  FProviderSettings.RequestTimeoutSeconds :=
+    StrToIntDef(edtRequestTimeout.Text, 30);
+  FProviderSettings.BatchSize :=
+    StrToIntDef(edtProviderBatchSize.Text, 40);
+  if FProviderSettings.RequestTimeoutSeconds < 5 then
+    FProviderSettings.RequestTimeoutSeconds := 5;
+  if FProviderSettings.RequestTimeoutSeconds > 300 then
+    FProviderSettings.RequestTimeoutSeconds := 300;
+  if FProviderSettings.BatchSize < 1 then
+    FProviderSettings.BatchSize := 1;
+  if FProviderSettings.BatchSize > 50 then
+    FProviderSettings.BatchSize := 50;
+  edtRequestTimeout.Text :=
+    FProviderSettings.RequestTimeoutSeconds.ToString;
+  edtProviderBatchSize.Text :=
+    FProviderSettings.BatchSize.ToString;
+  FProviderSettings.Save;
+end;
+
+procedure TfrmTranslationStudio.UpdateCredentialStatus;
+var
+  Provider: TTranslationProvider;
+begin
+  Provider := SelectedProvider;
+  if Trim(edtProviderApiKey.Text) <> '' then
+    lblCredentialStatus.Text :=
+      'A new masked key is ready to save or use for this session.'
+  else if FSessionApiKeys[Provider] <> '' then
+    lblCredentialStatus.Text :=
+      'A session-only key is active. It will be forgotten when the Studio closes.'
+  else if TProviderCredentialStore.Exists(Provider) then
+    lblCredentialStatus.Text :=
+      'A key is stored securely in Windows Credential Manager.'
+  else
+    lblCredentialStatus.Text :=
+      'No API key is configured for this provider.';
 end;
 
 procedure TfrmTranslationStudio.DisplayProjectSummary(
@@ -407,11 +533,13 @@ begin
   lblNavigationValidation.TextSettings.FontColor := InactiveColor;
   lblNavigationExport.TextSettings.FontColor := InactiveColor;
   lblNavigationIntegration.TextSettings.FontColor := InactiveColor;
+  lblNavigationSettings.TextSettings.FontColor := InactiveColor;
 
   LanguagePageCard.Visible := AStep = 3;
   ValidationPageCard.Visible := AStep = 4;
   ExportPageCard.Visible := AStep = 5;
   IntegrationPageCard.Visible := AStep = 6;
+  SettingsPageCard.Visible := AStep = 7;
 
   case AStep of
     1:
@@ -447,6 +575,13 @@ begin
         NavigationSelection.Position.Y := 352;
         lblNavigationIntegration.TextSettings.FontColor := ActiveColor;
         IntegrationPageCard.BringToFront;
+      end;
+    7:
+      begin
+        NavigationSelection.Position.Y := 408;
+        lblNavigationSettings.TextSettings.FontColor := ActiveColor;
+        SettingsPageCard.BringToFront;
+        UpdateCredentialStatus;
       end;
   end;
 end;
@@ -604,6 +739,97 @@ end;
 procedure TfrmTranslationStudio.lblNavigationIntegrationClick(Sender: TObject);
 begin
   SetWorkflowStep(6);
+end;
+
+procedure TfrmTranslationStudio.lblNavigationSettingsClick(Sender: TObject);
+begin
+  SetWorkflowStep(7);
+end;
+
+procedure TfrmTranslationStudio.cboTranslationProviderChange(Sender: TObject);
+begin
+  cboDeepLPlan.Enabled := SelectedProvider = tpDeepL;
+  edtProviderApiKey.Text := '';
+  UpdateCredentialStatus;
+end;
+
+procedure TfrmTranslationStudio.btnSaveProviderKeyClick(Sender: TObject);
+var
+  ApiKey: string;
+  Provider: TTranslationProvider;
+begin
+  try
+    Provider := SelectedProvider;
+    ApiKey := Trim(edtProviderApiKey.Text);
+    if ApiKey = '' then
+      raise Exception.Create(
+        'Enter the new API key in the masked field first.');
+    SaveProviderSettings;
+    if chkRememberCredential.IsChecked then
+    begin
+      TProviderCredentialStore.Write(Provider, ApiKey);
+      FSessionApiKeys[Provider] := '';
+      lblStatus.Text :=
+        'API key saved securely in Windows Credential Manager.';
+    end
+    else
+    begin
+      TProviderCredentialStore.Delete(Provider);
+      FSessionApiKeys[Provider] := ApiKey;
+      lblStatus.Text :=
+        'API key is available for this Studio session only.';
+    end;
+    edtProviderApiKey.Text := '';
+    UpdateCredentialStatus;
+  except
+    on E: Exception do
+      lblStatus.Text := 'Unable to save provider settings: ' + E.Message;
+  end;
+end;
+
+procedure TfrmTranslationStudio.btnRemoveProviderKeyClick(Sender: TObject);
+var
+  Provider: TTranslationProvider;
+begin
+  try
+    Provider := SelectedProvider;
+    TProviderCredentialStore.Delete(Provider);
+    FSessionApiKeys[Provider] := '';
+    edtProviderApiKey.Text := '';
+    UpdateCredentialStatus;
+    lblStatus.Text := 'The selected provider key was removed.';
+  except
+    on E: Exception do
+      lblStatus.Text := 'Unable to remove the provider key: ' + E.Message;
+  end;
+end;
+
+procedure TfrmTranslationStudio.btnTestProviderConnectionClick(
+  Sender: TObject);
+var
+  Client: TTranslationProviderClient;
+begin
+  btnTestProviderConnection.Enabled := False;
+  try
+    SaveProviderSettings;
+    Client := TTranslationProviderClient.Create(
+      FProviderSettings.Provider, FProviderSettings.DeepLPlan,
+      EffectiveApiKey(FProviderSettings.Provider),
+      FProviderSettings.RequestTimeoutSeconds,
+      FProviderSettings.BatchSize);
+    try
+      Client.TestConnection;
+      lblStatus.Text := Format(
+        '%s connection test passed.',
+        [TranslationProviderDisplayName(FProviderSettings.Provider)]);
+    finally
+      Client.Free;
+    end;
+  except
+    on E: Exception do
+      lblStatus.Text := 'Connection test failed: ' + E.Message;
+  end;
+  btnTestProviderConnection.Enabled := True;
 end;
 
 procedure TfrmTranslationStudio.btnBuildIntegrationPlanClick(Sender: TObject);
@@ -825,6 +1051,167 @@ begin
     on E: Exception do
       lblStatus.Text := 'Translation applied but not saved: ' + E.Message;
   end;
+end;
+
+procedure TfrmTranslationStudio.btnTranslateMissingClick(Sender: TObject);
+var
+  ApiKey: string;
+  Client: TTranslationProviderClient;
+  Entry: TTranslationEntry;
+  EntryIndexes: TArray<Integer>;
+  Index: Integer;
+  MissingCount: Integer;
+  Provider: TTranslationProvider;
+  ProviderCount: Integer;
+  ReusableEntry: TTranslationEntry;
+  ReuseCount: Integer;
+  ReuseIndexes: TArray<Integer>;
+  ReuseStatuses: TArray<TTranslationStatus>;
+  ReuseTexts: TArray<string>;
+  SourceTexts: TArray<string>;
+  TranslationMemory: TDictionary<string, TTranslationEntry>;
+  TranslatedTexts: TArray<string>;
+begin
+  if FTranslationCatalog = nil then
+  begin
+    lblStatus.Text := 'Scan a project or open a catalog first.';
+    Exit;
+  end;
+  try
+    UpdateCatalogFromLanguageEditors;
+    TranslationMemory :=
+      TDictionary<string, TTranslationEntry>.Create;
+    try
+      for Entry in FTranslationCatalog.Entries do
+        if (Entry.Status in [tsReviewed, tsApproved]) and
+           (Trim(Entry.TranslatedText) <> '') then
+          TranslationMemory.AddOrSetValue(
+            Entry.SourceText, Entry);
+
+      MissingCount := 0;
+      ProviderCount := 0;
+      ReuseCount := 0;
+      for Entry in FTranslationCatalog.Entries do
+        if (Entry.Status <> tsExcluded) and
+           (Entry.Status <> tsObsolete) and
+           ((Trim(Entry.TranslatedText) = '') or
+            (Entry.Status = tsNeedsTranslation) or
+            (Entry.Status = tsSourceChanged) or
+            (Entry.Status = tsError)) then
+        begin
+          Inc(MissingCount);
+          if TranslationMemory.TryGetValue(
+            Entry.SourceText, ReusableEntry) and
+            (ReusableEntry <> Entry) then
+            Inc(ReuseCount)
+          else
+            Inc(ProviderCount);
+        end;
+      if MissingCount = 0 then
+      begin
+        lblStatus.Text := 'No missing translations were found.';
+        Exit;
+      end;
+      if TDialogServiceSync.MessageDialog(Format(
+        'Prepare %d missing translations? %d exact reviewed translations will be reused locally and %d source strings will be sent to the selected internet provider. Existing reviewed and approved entries will not be replaced.',
+        [MissingCount, ReuseCount, ProviderCount]),
+        TMsgDlgType.mtConfirmation,
+        [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo],
+        TMsgDlgBtn.mbNo, 0) <> mrYes then
+        Exit;
+
+      SetLength(EntryIndexes, ProviderCount);
+      SetLength(SourceTexts, ProviderCount);
+      SetLength(ReuseIndexes, ReuseCount);
+      SetLength(ReuseTexts, ReuseCount);
+      SetLength(ReuseStatuses, ReuseCount);
+      ProviderCount := 0;
+      ReuseCount := 0;
+      for Index := 0 to FTranslationCatalog.Entries.Count - 1 do
+      begin
+        Entry := FTranslationCatalog.Entries[Index];
+        if (Entry.Status <> tsExcluded) and
+           (Entry.Status <> tsObsolete) and
+           ((Trim(Entry.TranslatedText) = '') or
+            (Entry.Status = tsNeedsTranslation) or
+            (Entry.Status = tsSourceChanged) or
+            (Entry.Status = tsError)) then
+        begin
+          if TranslationMemory.TryGetValue(
+            Entry.SourceText, ReusableEntry) and
+            (ReusableEntry <> Entry) then
+          begin
+            ReuseIndexes[ReuseCount] := Index;
+            ReuseTexts[ReuseCount] :=
+              ReusableEntry.TranslatedText;
+            ReuseStatuses[ReuseCount] :=
+              ReusableEntry.Status;
+            Inc(ReuseCount);
+          end
+          else
+          begin
+            EntryIndexes[ProviderCount] := Index;
+            SourceTexts[ProviderCount] := Entry.SourceText;
+            Inc(ProviderCount);
+          end;
+        end;
+      end;
+
+      btnTranslateMissing.Enabled := False;
+      if ProviderCount > 0 then
+      begin
+        SaveProviderSettings;
+        Provider := FProviderSettings.Provider;
+        ApiKey := EffectiveApiKey(Provider);
+        lblStatus.Text := Format(
+          'Translating %d strings with %s...',
+          [ProviderCount,
+           TranslationProviderDisplayName(Provider)]);
+        Application.ProcessMessages;
+        Client := TTranslationProviderClient.Create(Provider,
+          FProviderSettings.DeepLPlan, ApiKey,
+          FProviderSettings.RequestTimeoutSeconds,
+          FProviderSettings.BatchSize);
+        try
+          TranslatedTexts := Client.Translate(SourceTexts,
+            FTranslationCatalog.SourceLanguage,
+            FTranslationCatalog.Locale.LanguageCode);
+        finally
+          Client.Free;
+        end;
+      end
+      else
+        SetLength(TranslatedTexts, 0);
+
+      for Index := 0 to High(ReuseIndexes) do
+      begin
+        Entry := FTranslationCatalog.Entries[
+          ReuseIndexes[Index]];
+        Entry.TranslatedText := ReuseTexts[Index];
+        Entry.Status := ReuseStatuses[Index];
+      end;
+      for Index := 0 to High(TranslatedTexts) do
+      begin
+        Entry := FTranslationCatalog.Entries[
+          EntryIndexes[Index]];
+        Entry.TranslatedText := TranslatedTexts[Index];
+        Entry.Status := tsMachineTranslated;
+      end;
+    finally
+      TranslationMemory.Free;
+    end;
+    DisplayCatalogEntries;
+    InvalidateValidation;
+    if FCatalogFileName <> '' then
+      SaveCatalog;
+    lblStatus.Text := Format(
+      '%d reviewed translations reused and %d machine translations recorded. Review provider results before export.',
+      [Length(ReuseIndexes), Length(TranslatedTexts)]);
+  except
+    on E: Exception do
+      lblStatus.Text := 'Bulk translation failed: ' + E.Message;
+  end;
+  btnTranslateMissing.Enabled := True;
 end;
 
 procedure TfrmTranslationStudio.btnValidateCatalogClick(Sender: TObject);

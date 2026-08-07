@@ -736,3 +736,47 @@ When the full guides are requested:
   unimplemented concepts.
 - Both guides will be produced as editable `.docx` files and companion `.pdf`
   files with a title page, last-changed date, and table of contents.
+
+## Phases 21-30: Provider Translation and Release Completion
+
+The developer Studio now supports DeepL API Free, DeepL API Pro, and Google
+Cloud Translation Basic v2. Provider access is intentionally isolated from the
+translated application. The Studio sends source strings only after the
+developer confirms the count. The target VCL or FMX executable receives only
+validated offline JSON packs.
+
+Nonsecret choices are saved under
+`%LOCALAPPDATA%\DelphiAppTranslationStudio\provider-settings.json`. A remembered
+API key is a Windows Generic Credential whose target begins with
+`TMartinDub/DelphiAppTranslationStudio/`. A session-only key remains in process
+memory and is forgotten at shutdown. Keys are not written into a catalog,
+runtime pack, project, integration package, diagnostic, or repository file.
+
+DeepL requests use the current `Authorization: DeepL-Auth-Key` header and the
+plan-specific endpoint. Google requests use Cloud Translation Basic v2 with the
+`X-Goog-Api-Key` header. Provider errors report the HTTP status and corrective
+categories without logging request headers or response bodies. Requests are
+limited to 1-50 strings per batch, have a configurable 5-300 second timeout,
+retry HTTP 429 and server failures, validate response counts, and expose a
+cancellation check between batches.
+
+Bulk translation does not overwrite excluded or obsolete entries, nor does it
+replace complete reviewed/approved work. Results are recorded with
+`machine-translated` status so validation and human review remain mandatory.
+The Studio continues to support manual edits and all existing status values:
+needs translation, machine translated, edited, reviewed, approved, source
+changed, excluded, obsolete, and error.
+
+Generated integration units now store the selected-language preference under
+`%LOCALAPPDATA%\<ApplicationId>\language.ini`, avoiding installed-folder write
+failures. Runtime JSON packs remain beside the executable under
+`Localization\Languages`. Each preview package includes
+`Deploy-LanguagePacks.ps1` for copying those packs beside a chosen executable.
+The Studio's own language preference follows the same per-user rule.
+
+Release documentation must explain that provider accounts, billing, quotas,
+pricing, and supported languages are controlled by Google or DeepL and can
+change. Key-acquisition instructions therefore name the official console pages
+and recommend checking the provider's current documentation. Google keys should
+be restricted to the Cloud Translation API. DeepL users must select API Free or
+API Pro in the Studio to match their account endpoint.

@@ -92,13 +92,20 @@ begin
     'procedure InitializeTranslation;' + sLineBreak +
     'var' + sLineBreak +
     '  ApplicationDirectory: string;' + sLineBreak +
+    '  LocalApplicationData: string;' + sLineBreak +
+    '  PreferenceDirectory: string;' + sLineBreak +
     'begin' + sLineBreak +
     '  ApplicationDirectory := ExtractFilePath(ParamStr(0));' + sLineBreak +
+    '  LocalApplicationData := GetEnvironmentVariable(''LOCALAPPDATA'');' + sLineBreak +
+    '  if LocalApplicationData = '''' then' + sLineBreak +
+    '    LocalApplicationData := TPath.GetHomePath;' + sLineBreak +
+    '  PreferenceDirectory := TPath.Combine(LocalApplicationData,' + sLineBreak +
+    '    ''' + PascalIdentifier(AProfile.ProjectName) + ''');' + sLineBreak +
     '  ApplicationTranslationRuntime.Free;' + sLineBreak +
     '  ApplicationTranslationRuntime := TTranslationRuntime.Create(' + sLineBreak +
     '    ''' + AProfile.ProjectName + ''',' + sLineBreak +
     '    TPath.Combine(ApplicationDirectory, ''Localization\Languages''),' + sLineBreak +
-    '    TPath.Combine(ApplicationDirectory, ''Localization\language.ini''),' + sLineBreak +
+    '    TPath.Combine(PreferenceDirectory, ''language.ini''),' + sLineBreak +
     '    ''' + ASourceLanguageCode + ''');' + sLineBreak +
     '  ApplicationTranslationRuntime.LoadPreferredLanguage;' + sLineBreak +
     'end;' + sLineBreak + sLineBreak +
@@ -165,6 +172,7 @@ var
   RuntimeDirectory: string;
   SourceLanguageCode: string;
   UnitFileName: string;
+  DeploymentScript: string;
 begin
   if AProfile.ProjectFileName = '' then
     raise EArgumentException.Create('Open a Delphi project first.');
@@ -219,6 +227,21 @@ begin
       end;
       TFile.WriteAllText(TPath.Combine(PackageDirectory,
         'language-menu.json'), JsonArray.ToJSON, TEncoding.UTF8);
+      DeploymentScript :=
+        'param([Parameter(Mandatory=$true)][string]$ApplicationDirectory)' +
+        sLineBreak + '$ErrorActionPreference = ''Stop''' + sLineBreak +
+        '$source = Join-Path $PSScriptRoot ''Localization\Languages''' +
+        sLineBreak +
+        '$destination = Join-Path $ApplicationDirectory ''Localization\Languages''' +
+        sLineBreak +
+        'New-Item -ItemType Directory -Path $destination -Force | Out-Null' +
+        sLineBreak +
+        'Copy-Item -Path (Join-Path $source ''*.json'') -Destination $destination -Force' +
+        sLineBreak +
+        'Write-Output ""Language packs deployed to $destination""' +
+        sLineBreak;
+      TFile.WriteAllText(TPath.Combine(PackageDirectory,
+        'Deploy-LanguagePacks.ps1'), DeploymentScript, TEncoding.UTF8);
     finally
       JsonArray.Free;
     end;

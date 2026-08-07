@@ -9,8 +9,8 @@ Translation Studio. A phase is marked complete only after its implementation is
 validated and committed. Engineering details and discoveries remain in
 `Engineering Notes.md`.
 
-Current status: Phases 1 through 20 are complete. The next approved
-implementation tranche will begin with Phase 21.
+Current status: Phases 1 through 20 are complete. Phases 21 through 30 are the
+final provider, review, release, and documentation tranche.
 
 ## Completed Foundation
 
@@ -165,13 +165,78 @@ record the implemented workflow in the engineering notes.
 
 ## Later Product Work
 
-The following work begins after Phase 20 and will receive phase numbers when its
-scope is approved:
+### Phase 21 — Runtime Deployment and Writable Preferences
 
-- Google Cloud Translation and DeepL provider connections.
-- Translation batching, retry, cancellation, character counts, and cost review.
-- Translation-memory and terminology features.
-- Richer reviewer and approval workflow.
-- Source-code diagnostic and resourcestring integration improvements.
-- Layout overflow and localization quality checks.
-- Full Engineering Guide, User Guide, help project, and release packaging.
+Status: Complete
+
+Resolve development and deployed language-pack locations, keep user preferences
+in a writable per-user location, and package language files for application
+deployment.
+
+### Phase 22 — Provider Settings Page
+
+Status: Complete
+
+Add a designer-authored Settings page for DeepL and Google, masked credentials,
+secure persistence choice, session-only use, connection testing, replacement,
+and removal.
+
+### Phase 23 — Windows Credential Security
+
+Status: Complete
+
+Store remembered provider secrets as Windows Generic Credentials, keep
+session-only keys only in memory, redact diagnostics, and ensure secrets never
+enter projects, catalogs, logs, exports, or backups.
+
+### Phase 24 — DeepL and Google Translation Clients
+
+Status: Complete
+
+Implement official HTTPS APIs, provider-specific authentication, batching,
+timeouts, retry, cancellation, response validation, and actionable errors.
+
+### Phase 25 — Confirmed Bulk Translation
+
+Status: Complete
+
+Count entries and characters, preserve existing translations, obtain explicit
+confirmation, translate eligible entries, and mark results as machine
+translated.
+
+### Phase 26 — Review and Multi-Language Workflow
+
+Status: Complete
+
+Improve language inventory and review filters for untranslated,
+machine-translated, edited, reviewed, approved, changed, excluded, and obsolete
+entries.
+
+### Phase 27 — Translation Reuse and Quality Checks
+
+Status: Complete
+
+Reuse exact reviewed translations where context permits and expand placeholder,
+accelerator, formatting, locale, and likely-overflow diagnostics.
+
+### Phase 28 — Provider and Integration Hardening
+
+Status: Complete
+
+Exercise provider transports with deterministic fixtures, harden error handling,
+complete deployment tooling, and expand real-project integration diagnostics.
+
+### Phase 29 — Release Help and Packaging
+
+Status: Complete
+
+Prepare Help Doc Creator-compatible help sources, sample provider configuration,
+release checklists, and clean source-distribution content without credentials.
+
+### Phase 30 — Complete Guides and Release Validation
+
+Status: Complete
+
+Create the full User Guide and Engineering Guide as editable Word documents with
+real TOCs and companion PDFs, verify pagination visually, and complete the final
+Win32/Win64 build and smoke-test matrices.

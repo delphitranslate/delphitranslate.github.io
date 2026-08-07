@@ -1,0 +1,7 @@
+{
+  "provider": "deepl",
+  "deepLPlan": "free",
+  "rememberCredential": true,
+  "requestTimeoutSeconds": 30,
+  "batchSize": 40
+}

@@ -33,12 +33,16 @@ provides:
   text, placeholders, and accelerator keys.
 - Compact offline runtime packs under `Localization\Languages`.
 - Active workflow-step navigation for Project, Scan, Languages, Validation, and
-  Export.
-- Win32 and Win64 foundation, scanner, catalog, validation, and export tests.
-
-Binary DFM conversion, editable custom extraction rules, online translation
-provider integration, target-application runtime loading, and automatic menu
-integration remain planned phases.
+  Export, Integration, and Provider Settings.
+- DeepL API Free/API Pro and Google Cloud Translation Basic v2 provider support.
+- Masked API-key entry, Windows Credential Manager persistence, session-only
+  keys, replacement, removal, and connection testing.
+- Confirmed batched translation that preserves reviewed work and marks provider
+  results as machine translated.
+- Offline VCL and FMX runtime loading, designer-persisted language menus,
+  transactional integration, rollback, and deployment scripting.
+- Win32 and Win64 foundation, runtime, integration, form-streaming, and launch
+  tests.
 
 ## Current Studio Workflow
 
@@ -46,12 +50,14 @@ integration remain planned phases.
 2. Scan the project.
 3. Open **Languages**, enter the target code and native language name, and create
    the development catalog.
-4. Select catalog entries and enter translations. Locale fields left blank are
-   populated through Delphi `TFormatSettings` for the target locale and remain
-   editable.
+4. Enter translations manually, or configure DeepL/Google under **Provider
+   Settings** and use **Translate Missing with Provider**. Provider results
+   remain marked for developer review.
 5. Run **Validation**.
 6. When there are no validation errors, use **Export** to create the offline
    runtime JSON pack.
+7. Use **Integration** to preview, back up, apply, or restore the target-project
+   runtime and designer-authored language menu changes.
 
 Scanning remains read-only. The `Localization` folder is created only when the
 developer explicitly saves a catalog or exports a runtime pack.
@@ -111,7 +117,7 @@ images and icons/      Product artwork
 samples/               VCL and FireMonkey scanner fixtures
 source/core/           Framework-neutral catalog and project model
 source/integration/    Target-project integration
-source/providers/      Translation provider implementations
+source/provider/       Translation provider implementations
 source/runtime/        Generated/runtime language support
 source/scan/           VCL, FMX, and Delphi source scanners
 source/schemas/        Versioned JSON schemas
@@ -122,9 +128,10 @@ tools/tests/           Automated workflow and launch smoke tests
 
 ## Design Principle
 
-Normal project scanning and translation-pack building are read-only with respect to
-the target application. Runtime and language-menu integration will be a separate,
-previewed, backed-up, developer-confirmed operation.
+Normal project scanning, provider translation, and language-pack building are
+read-only with respect to target source. Runtime and language-menu integration
+is a separate previewed, backed-up, developer-confirmed operation. Integrated
+applications use only local JSON packs and never contain provider credentials.
 
 ## Documentation
 

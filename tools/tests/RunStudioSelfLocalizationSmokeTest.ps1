@@ -10,7 +10,9 @@ $FixturePack = Join-Path $ProjectRoot `
 $LocalizationDirectory = Join-Path $ProjectRoot 'Localization'
 $LanguagesDirectory = Join-Path $LocalizationDirectory 'Languages'
 $TargetPack = Join-Path $LanguagesDirectory 'it-IT.json'
-$PreferenceFile = Join-Path $LocalizationDirectory 'language.ini'
+$PreferenceDirectory = Join-Path $env:LOCALAPPDATA `
+    'DelphiAppTranslationStudio'
+$PreferenceFile = Join-Path $PreferenceDirectory 'language.ini'
 $ExpectedTitle = 'Studio di traduzione app Delphi'
 $TemporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) `
     ('DAT-SelfLocalization-' + [Guid]::NewGuid().ToString('N'))
@@ -30,6 +32,7 @@ if ($PreferenceExisted) {
 
 try {
     New-Item -ItemType Directory -Path $LanguagesDirectory -Force | Out-Null
+    New-Item -ItemType Directory -Path $PreferenceDirectory -Force | Out-Null
     Copy-Item -LiteralPath $FixturePack -Destination $TargetPack -Force
     [System.IO.File]::WriteAllText(
         $PreferenceFile,
@@ -95,6 +98,10 @@ finally {
     }
     elseif (Test-Path -LiteralPath $PreferenceFile) {
         Remove-Item -LiteralPath $PreferenceFile -Force
+    }
+    if ((Test-Path -LiteralPath $PreferenceDirectory) -and
+        ((Get-ChildItem -LiteralPath $PreferenceDirectory -Force).Count -eq 0)) {
+        Remove-Item -LiteralPath $PreferenceDirectory -Force
     }
 
     if ((Test-Path -LiteralPath $LanguagesDirectory) -and
