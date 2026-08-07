@@ -1,6 +1,6 @@
 # Delphi App Translation Studio — Numbered Phase Plan
 
-Last changed: August 6, 2026
+Last changed: August 7, 2026
 
 ## Purpose
 
@@ -9,8 +9,11 @@ Translation Studio. A phase is marked complete only after its implementation is
 validated and committed. Engineering details and discoveries remain in
 `Engineering Notes.md`.
 
-Current status: Phases 1 through 20 are complete. Phases 21 through 30 are the
-final provider, review, release, and documentation tranche.
+Current status: Phases 1 through 30 record the completed implementation
+foundation. Professional release work continues under the approved
+**API-Free End-to-End Translation Workflow** stages documented in
+`API-Free Workflow Plan.md`. Completion of the historical phases does not by
+itself constitute a professional 1.0 release.
 
 ## Completed Foundation
 
@@ -240,3 +243,30 @@ Status: Complete
 Create the full User Guide and Engineering Guide as editable Word documents with
 real TOCs and companion PDFs, verify pagination visually, and complete the final
 Win32/Win64 build and smoke-test matrices.
+
+## Approved Professional Validation Program
+
+Status: Stage 0 active
+
+On August 7, 2026, the project direction was revised after comparing the Studio
+with Poker Galaxy's offline FMX localization. The review separated translation
+management from translation creation and established that provider APIs are
+optional inputs, not requirements of the product.
+
+The approved post-foundation stages are:
+
+0. Baseline and governance.
+1. Honest runtime-coverage and `resourcestring` contract.
+2. API-free development JSON and CSV interchange.
+3. Argument-aware Delphi placeholder validation.
+4. Developer-accepted translation suggestions.
+5. Exact integration review.
+6. Optional provider positioning.
+7. Real FMX pilot.
+8. Real VCL pilot.
+9. Usability and linguistic review.
+10. Documentation and release alignment.
+
+The authoritative scope, gates, safeguards, pilot-selection rules, deferred
+work, and release standard are maintained in
+`API-Free Workflow Plan.md`.

@@ -5,6 +5,22 @@ and FireMonkey applications. The Studio is written in Delphi with a
 designer-authored FireMonkey interface and is intended to build offline JSON
 language packs for Win32 and Win64 applications.
 
+## Product Definition
+
+The Studio is an offline-first translation-management, validation, packaging,
+and Delphi-integration application. It does not require one particular source
+of translated language. Translations may be prepared manually, supplied by a
+human or AI assistant, imported from an external workflow, or obtained through
+an optional online provider.
+
+Translated applications load local language packs and do not require Internet
+access or provider credentials. Google and DeepL support is optional and is not
+the foundation of the core workflow.
+
+The approved next milestone is **API-Free End-to-End Translation Workflow**.
+The professional validation plan is recorded in
+`docs\guides\API-Free Workflow Plan.md`.
+
 ## Current Status
 
 The project now has a working offline translation workflow. The current source
@@ -37,8 +53,9 @@ provides:
 - DeepL API Free/API Pro and Google Cloud Translation Basic v2 provider support.
 - Masked API-key entry, Windows Credential Manager persistence, session-only
   keys, replacement, removal, and connection testing.
-- Confirmed batched translation that preserves reviewed work and marks provider
-  results as machine translated.
+- Implemented batched provider translation that preserves reviewed work and
+  marks provider results as machine translated. Live owner-credential
+  verification remains a release task.
 - Offline VCL and FMX runtime loading, designer-persisted language menus,
   transactional integration, rollback, and deployment scripting.
 - Win32 and Win64 foundation, runtime, integration, form-streaming, and launch

@@ -794,3 +794,42 @@ Object Inspector and requires no runtime UI construction. The direct FMX form
 smoke test verifies every workflow label's hit-test state, verifies the
 navigation event wiring, and activates the Languages page through its persisted
 label event.
+
+## Approved API-Free Product Direction
+
+On August 7, 2026, the developer approved a professional refinement plan after
+an architectural comparison with Poker Galaxy and a written Codex/Claude
+review.
+
+The Studio's product is translation management, validation, packaging, and
+Delphi integration. Translation creation is a separate input supplied by a
+human, AI assistant, imported file, translation memory, or optional provider.
+Provider accounts are not prerequisites for the core workflow, and translated
+applications remain entirely offline.
+
+The existing JSON catalog, runtime packs, scanners, VCL and FMX adapters,
+transactional integration, credential security, and provider clients are
+preserved. This is a targeted correction and proof program, not a rewrite.
+
+The review identified four release-significant gaps:
+
+1. Designer-property entries are applied automatically, while scanned Pascal
+   `resourcestring` entries require explicit developer calls to the generated
+   `TranslateText` function. Catalog completeness must not imply automatic
+   runtime coverage.
+2. The current literal placeholder signature does not correctly model valid
+   sequential-to-indexed Delphi `Format` argument reordering.
+3. Exact-source translation reuse currently applies work across stable keys
+   automatically. Cross-key reuse must become a ranked suggestion requiring
+   explicit acceptance and must never copy approval status automatically.
+4. Integration currently presents affected files and descriptions but not a
+   complete exact textual review. Pascal and project changes require a
+   read-only exact diff before Apply can be described as safely reviewable.
+
+The active milestone adds robust development JSON and UTF-8 CSV interchange,
+then proves the entire API-free workflow on one authorized real FMX project and
+one authorized real VCL project under Win32 and Win64. Provider functionality
+remains available but will be positioned as optional.
+
+The authoritative staged plan and release gates are recorded in
+`API-Free Workflow Plan.md`.
