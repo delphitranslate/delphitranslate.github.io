@@ -1218,3 +1218,35 @@ safety backup automatically. The deterministic reset fixture integrates an
 FMX project, resets it, verifies the original form, confirms all three
 translation folders are gone, and confirms an unrelated developer file is
 unchanged under Win32 and Win64.
+
+## FMX Deferred Form Creation and Generated File Menu
+
+Correction date: August 7, 2026
+
+FireMonkey queues DPR `Application.CreateForm` registrations until
+`Application.Run` invokes `RealCreateForms`. Form variables are therefore nil
+immediately after DPR `CreateForm` calls. The earlier generator inserted
+`ApplyTranslation(FormVariable)` at that unsafe point for secondary forms.
+The defect remained hidden while the source language was active, then raised
+`EArgumentNilException` after a non-source language was saved and loaded at
+the next startup.
+
+FMX integration now removes every DPR form-translation call and retains only
+early runtime initialization. Every text FMX form resource receives a
+designer-persisted `OnCreate` event. Its existing handler is preserved and
+extended when present; otherwise the Studio adds a narrowly scoped
+`datTranslationFormCreate` method containing `ApplyTranslation(Self)`. The
+generated application wrapper also treats a nil form as a defensive no-op.
+VCL retains its safe post-`CreateForm` behavior.
+
+When the Studio creates a new FMX `TMenuBar` or VCL `TMainMenu`, it now adds a
+designer-authored **File > Exit** menu before **Language** and generates a
+form-owned `Close` handler. Re-integration upgrades an older Studio-generated
+menu container that lacks File/Exit without duplicating it. Developer-authored
+existing menus are not given new unrelated items automatically.
+
+Regression coverage verifies removal of all multi-form FMX DPR translation
+calls, designer startup wiring for secondary forms, nil-safe generated
+wrappers, File/Exit fields and events, idempotent re-integration, Win32/Win64
+compilation, deployed-pack startup, and the real WebsiteAnalytics restart with
+`Selected=es-ES`.

@@ -40,6 +40,12 @@ applications do not contain API keys and do not require Internet access.
   the `uses` clause and the project `begin` block.
 - Form-unit integration supports resource directives between `implementation`
   and an existing implementation `uses` clause without creating a duplicate.
+- Multi-form FMX integration applies saved languages from each form's
+  designer-persisted `OnCreate`, never from nil pre-`Application.Run` DPR form
+  variables, and includes a defensive nil-form guard.
+- Studio-created FMX and VCL menu containers include designer-authored
+  **File > Exit** and **Language** menus; older generated containers are
+  upgraded idempotently.
 - The maximized Integration page uses larger designer-persisted gutters around
   planning, exact-review, and authorization controls.
 - Offline JSON pack discovery and per-user language preference.

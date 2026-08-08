@@ -111,7 +111,8 @@ begin
     'end;' + sLineBreak + sLineBreak +
     'procedure ApplyTranslation(const AForm: ' + FormType + ');' + sLineBreak +
     'begin' + sLineBreak +
-    '  if (ApplicationTranslationRuntime <> nil) and' + sLineBreak +
+    '  if (AForm <> nil) and' + sLineBreak +
+    '    (ApplicationTranslationRuntime <> nil) and' + sLineBreak +
     '    (ApplicationTranslationRuntime.ActivePack <> nil) then' + sLineBreak;
 
   if AProfile.Framework = tfVCL then

@@ -9,6 +9,8 @@ type
       AUnitName, AUnitFileName: string): string; static;
     class function AddFormLanguageHandler(const ASourceText,
       AFormClassName, AIntegrationUnitName: string): string; static;
+    class function AddFormExitHandler(const ASourceText,
+      AFormClassName: string): string; static;
     class function AddFormDesignerMenuDeclarations(const ASourceText,
       AFormClassName, AMenuUnitName, AMenuName, AMenuClassName,
       AContainerName, AContainerClassName: string): string; static;
@@ -17,7 +19,7 @@ type
       AIntegrationUnitName: string): string; static;
     class function AddProjectStartup(const ASourceText,
       AIntegrationUnitName, AIntegrationUnitFileName: string;
-      const ASkipFirstFormApply: Boolean = False): string; static;
+      const ASkipDprFormApply: Boolean = False): string; static;
     class function AddProjectReference(const AProjectXml,
       AIntegrationUnitFileName: string): string; static;
   end;
@@ -259,6 +261,64 @@ begin
   end;
 end;
 
+class function TDelphiIntegrationSourceEditor.AddFormExitHandler(
+  const ASourceText, AFormClassName: string): string;
+const
+  DeclarationText = 'procedure datTranslationExitClick(Sender: TObject);';
+var
+  ClassIndex: Integer;
+  EndIndex: Integer;
+  FormLines: TStringList;
+  InsertIndex: Integer;
+  MethodIndent: string;
+begin
+  if ContainsText(ASourceText,
+    'procedure ' + AFormClassName +
+    '.datTranslationExitClick(Sender: TObject);') then
+    Exit(ASourceText);
+  FormLines := TStringList.Create;
+  try
+    FormLines.Text := ASourceText;
+    ClassIndex := FindLineContaining(FormLines,
+      AFormClassName + ' = class');
+    if ClassIndex < 0 then
+      raise Exception.CreateFmt(
+        'Form class %s was not found in its Pascal unit.',
+        [AFormClassName]);
+    if not ContainsText(FormLines.Text, DeclarationText) then
+    begin
+      InsertIndex := ClassIndex + 1;
+      while InsertIndex < FormLines.Count do
+      begin
+        if SameText(Trim(FormLines[InsertIndex]), 'private') or
+          SameText(Trim(FormLines[InsertIndex]), 'protected') or
+          SameText(Trim(FormLines[InsertIndex]), 'public') or
+          SameText(Trim(FormLines[InsertIndex]), 'published') or
+          SameText(Trim(FormLines[InsertIndex]), 'end;') then
+          Break;
+        Inc(InsertIndex);
+      end;
+      MethodIndent := LineIndent(FormLines[ClassIndex]) + '  ';
+      FormLines.Insert(InsertIndex, MethodIndent + DeclarationText);
+    end;
+    EndIndex := FormLines.Count - 1;
+    while (EndIndex >= 0) and
+      not SameText(Trim(FormLines[EndIndex]), 'end.') do
+      Dec(EndIndex);
+    if EndIndex < 0 then
+      raise Exception.Create('The Pascal unit terminator was not found.');
+    FormLines.Insert(EndIndex, '');
+    FormLines.Insert(EndIndex + 1, 'procedure ' + AFormClassName +
+      '.datTranslationExitClick(Sender: TObject);');
+    FormLines.Insert(EndIndex + 2, 'begin');
+    FormLines.Insert(EndIndex + 3, '  Close;');
+    FormLines.Insert(EndIndex + 4, 'end;');
+    Result := FormLines.Text;
+  finally
+    FormLines.Free;
+  end;
+end;
+
 class function TDelphiIntegrationSourceEditor.AddFMXFormCreateTranslation(
   const ASourceText, AFormClassName, AHandlerName,
   AIntegrationUnitName: string): string;
@@ -349,13 +409,12 @@ end;
 class function TDelphiIntegrationSourceEditor.AddProjectStartup(
   const ASourceText, AIntegrationUnitName,
   AIntegrationUnitFileName: string;
-  const ASkipFirstFormApply: Boolean): string;
+  const ASkipDprFormApply: Boolean): string;
 var
   BeginIndex: Integer;
   ClosingPosition: Integer;
   CommaPosition: Integer;
   FormVariableName: string;
-  FormCreateCount: Integer;
   LineIndex: Integer;
   ProjectLines: TStringList;
 begin
@@ -375,13 +434,17 @@ begin
     end;
 
     LineIndex := 0;
-    FormCreateCount := 0;
     while LineIndex < ProjectLines.Count do
     begin
+      if ASkipDprFormApply and StartsText('ApplyTranslation(',
+        Trim(ProjectLines[LineIndex])) then
+      begin
+        ProjectLines.Delete(LineIndex);
+        Continue;
+      end;
       if ContainsText(ProjectLines[LineIndex],
         'Application.CreateForm(') then
       begin
-        Inc(FormCreateCount);
         CommaPosition := Pos(',', ProjectLines[LineIndex]);
         ClosingPosition := PosEx(');', ProjectLines[LineIndex],
           CommaPosition + 1);
@@ -392,8 +455,7 @@ begin
           if (FormVariableName <> '') and not ContainsText(
             ProjectLines.Text, 'ApplyTranslation(' +
               FormVariableName + ');') and
-             not (ASkipFirstFormApply and
-               (FormCreateCount = 1)) then
+             not ASkipDprFormApply then
           begin
             ProjectLines.Insert(LineIndex + 1,
               '  ApplyTranslation(' + FormVariableName + ');');

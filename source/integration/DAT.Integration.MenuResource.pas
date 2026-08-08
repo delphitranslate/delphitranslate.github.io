@@ -28,6 +28,8 @@ type
       const AMenuName, ASourceLanguageCode: string;
       const ALanguages: TObjectList<TLanguagePackDescriptor>):
       TMenuResourceEdit; static;
+    class function EnsureFMXTranslationStartup(
+      const AFileName, AFormText: string): TMenuResourceEdit; static;
   end;
 
 implementation
@@ -149,12 +151,22 @@ begin
   begin
     ALines.Insert(InsertIndex,
       '  object datTranslationMainMenu: TMainMenu');
-    ALines.Insert(InsertIndex + 1, '    object ' + AMenuName +
+    ALines.Insert(InsertIndex + 1,
+      '    object datTranslationFileMenu: TMenuItem');
+    ALines.Insert(InsertIndex + 2, '      Caption = ''&File''');
+    ALines.Insert(InsertIndex + 3,
+      '      object datTranslationExitMenuItem: TMenuItem');
+    ALines.Insert(InsertIndex + 4, '        Caption = ''E&xit''');
+    ALines.Insert(InsertIndex + 5,
+      '        OnClick = datTranslationExitClick');
+    ALines.Insert(InsertIndex + 6, '      end');
+    ALines.Insert(InsertIndex + 7, '    end');
+    ALines.Insert(InsertIndex + 8, '    object ' + AMenuName +
       ': TMenuItem');
-    ALines.Insert(InsertIndex + 2, '      Caption = ''&Language''');
-    ALines.Insert(InsertIndex + 3, '    end');
-    ALines.Insert(InsertIndex + 4, '  end');
-    Result := InsertIndex + 1;
+    ALines.Insert(InsertIndex + 9, '      Caption = ''&Language''');
+    ALines.Insert(InsertIndex + 10, '    end');
+    ALines.Insert(InsertIndex + 11, '  end');
+    Result := InsertIndex + 8;
   end
   else
   begin
@@ -167,12 +179,22 @@ begin
       '    Size.Height = 24.000000000000000000');
     ALines.Insert(InsertIndex + 4,
       '    Size.PlatformDefault = False');
-    ALines.Insert(InsertIndex + 5, '    object ' + AMenuName +
+    ALines.Insert(InsertIndex + 5,
+      '    object datTranslationFileMenu: TMenuItem');
+    ALines.Insert(InsertIndex + 6, '      Text = ''&File''');
+    ALines.Insert(InsertIndex + 7,
+      '      object datTranslationExitMenuItem: TMenuItem');
+    ALines.Insert(InsertIndex + 8, '        Text = ''E&xit''');
+    ALines.Insert(InsertIndex + 9,
+      '        OnClick = datTranslationExitClick');
+    ALines.Insert(InsertIndex + 10, '      end');
+    ALines.Insert(InsertIndex + 11, '    end');
+    ALines.Insert(InsertIndex + 12, '    object ' + AMenuName +
       ': TMenuItem');
-    ALines.Insert(InsertIndex + 6, '      Text = ''&Language''');
-    ALines.Insert(InsertIndex + 7, '    end');
-    ALines.Insert(InsertIndex + 8, '  end');
-    Result := InsertIndex + 5;
+    ALines.Insert(InsertIndex + 13, '      Text = ''&Language''');
+    ALines.Insert(InsertIndex + 14, '    end');
+    ALines.Insert(InsertIndex + 15, '  end');
+    Result := InsertIndex + 12;
   end;
 end;
 
@@ -345,6 +367,41 @@ begin
   end;
 end;
 
+procedure EnsureGeneratedFileMenu(const ALines: TStrings;
+  const AFramework: TTargetFramework; const ALanguageMenuIndex: Integer);
+var
+  Indent: string;
+  TextPropertyName: string;
+begin
+  if FindMenuObject(ALines, 'datTranslationFileMenu') >= 0 then
+    Exit;
+  if (AFramework = tfFireMonkey) and
+     (FindMenuObject(ALines, 'datTranslationMenuBar') < 0) then
+    Exit;
+  if (AFramework = tfVCL) and
+     (FindMenuObject(ALines, 'datTranslationMainMenu') < 0) then
+    Exit;
+  Indent := Copy(ALines[ALanguageMenuIndex], 1,
+    Length(ALines[ALanguageMenuIndex]) -
+    Length(TrimLeft(ALines[ALanguageMenuIndex])));
+  if AFramework = tfVCL then
+    TextPropertyName := 'Caption'
+  else
+    TextPropertyName := 'Text';
+  ALines.Insert(ALanguageMenuIndex,
+    Indent + 'object datTranslationFileMenu: TMenuItem');
+  ALines.Insert(ALanguageMenuIndex + 1,
+    Indent + '  ' + TextPropertyName + ' = ''&File''');
+  ALines.Insert(ALanguageMenuIndex + 2,
+    Indent + '  object datTranslationExitMenuItem: TMenuItem');
+  ALines.Insert(ALanguageMenuIndex + 3,
+    Indent + '    ' + TextPropertyName + ' = ''E&xit''');
+  ALines.Insert(ALanguageMenuIndex + 4,
+    Indent + '    OnClick = datTranslationExitClick');
+  ALines.Insert(ALanguageMenuIndex + 5, Indent + '  end');
+  ALines.Insert(ALanguageMenuIndex + 6, Indent + 'end');
+end;
+
 procedure RemoveGeneratedMenuItems(const ALines: TStrings;
   const AMenuStartIndex: Integer);
 var
@@ -412,6 +469,10 @@ begin
       if MenuIndex < 0 then
         Continue;
 
+      EnsureGeneratedFileMenu(FormLines,
+        AProfile.Framework, MenuIndex);
+      MenuIndex := FindMenuObject(FormLines, AMenuName);
+
       RemoveGeneratedMenuItems(FormLines, MenuIndex);
       InsertIndex := FindObjectEnd(FormLines, MenuIndex);
       Indent := Copy(FormLines[MenuIndex], 1,
@@ -473,6 +534,25 @@ begin
     Result.FormClassName := RootFormClassName(FormLines);
     if AProfile.Framework = tfFireMonkey then
       Result.FormCreateHandlerName := EnsureFMXFormCreateHandler(FormLines);
+    Result.NewText := FormLines.Text;
+  finally
+    FormLines.Free;
+  end;
+end;
+
+class function TLanguageMenuResourceEditor.EnsureFMXTranslationStartup(
+  const AFileName, AFormText: string): TMenuResourceEdit;
+var
+  FormLines: TStringList;
+begin
+  FormLines := TStringList.Create;
+  try
+    FormLines.Text := AFormText;
+    Result := TMenuResourceEdit.Create;
+    Result.FileName := AFileName;
+    Result.FormClassName := RootFormClassName(FormLines);
+    Result.FormCreateHandlerName :=
+      EnsureFMXFormCreateHandler(FormLines);
     Result.NewText := FormLines.Text;
   finally
     FormLines.Free;

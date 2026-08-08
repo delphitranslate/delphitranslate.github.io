@@ -1142,6 +1142,15 @@ begin
     Require(ContainsText(FormText,
       'object mnuLanguage: TMenuItem'),
       'The missing Language menu was not created.');
+    Require(ContainsText(FormText,
+      'object datTranslationFileMenu: TMenuItem'),
+      'The generated menu container lacks a File menu.');
+    Require(ContainsText(FormText,
+      'object datTranslationExitMenuItem: TMenuItem'),
+      'The generated File menu lacks an Exit item.');
+    Require(ContainsText(FormText,
+      'OnClick = datTranslationExitClick'),
+      'The generated Exit item is not designer-wired.');
   end;
 
   SourceText := TFile.ReadAllText(TPath.ChangeExtension(
@@ -1162,6 +1171,17 @@ begin
       Require(ContainsText(SourceText,
         'datTranslationMainMenu: TMainMenu;'),
         'The generated VCL main menu lacks its form-class field.');
+    Require(ContainsText(SourceText,
+      'datTranslationFileMenu: TMenuItem;'),
+      'The generated File menu lacks its form-class field.');
+    Require(ContainsText(SourceText,
+      'datTranslationExitMenuItem: TMenuItem;'),
+      'The generated Exit item lacks its form-class field.');
+    Require(ContainsText(SourceText,
+      'procedure datTranslationExitClick(Sender: TObject);'),
+      'The generated Exit handler declaration is missing.');
+    Require(ContainsText(SourceText, '  Close;'),
+      'The generated Exit handler does not close its form.');
   end;
 
   ProjectText := TFile.ReadAllText(TPath.Combine(
@@ -1199,6 +1219,10 @@ begin
     Require(CountTextOccurrences(FormText,
       'object datLanguage_it_IT: TMenuItem') = 1,
       'A repeated integration preview duplicated the Italian menu item.');
+    if ARemoveDesignerMenu then
+      Require(CountTextOccurrences(FormText,
+        'object datTranslationFileMenu: TMenuItem') = 1,
+        'A repeated integration preview duplicated the generated File menu.');
   finally
     ChangeSet.Free;
   end;
@@ -1441,6 +1465,81 @@ begin
     'Integration created a duplicate implementation uses clause.');
 end;
 
+procedure TestFMXProjectStartupDefersTranslationToForms;
+var
+  ProjectText: string;
+  UpdatedText: string;
+begin
+  ProjectText :=
+    'program MultiFormFMX;' + sLineBreak + sLineBreak +
+    'uses' + sLineBreak +
+    '  FMX.Forms,' + sLineBreak +
+    '  MainForm in ''MainForm.pas'' {frmMain},' + sLineBreak +
+    '  ChildForm in ''ChildForm.pas'' {frmChild};' + sLineBreak + sLineBreak +
+    '{$R *.res}' + sLineBreak + sLineBreak +
+    'begin' + sLineBreak +
+    '  Application.Initialize;' + sLineBreak +
+    '  Application.CreateForm(TfrmMain, frmMain);' + sLineBreak +
+    '  ApplyTranslation(frmMain);' + sLineBreak +
+    '  Application.CreateForm(TfrmChild, frmChild);' + sLineBreak +
+    '  ApplyTranslation(frmChild);' + sLineBreak +
+    '  Application.Run;' + sLineBreak +
+    'end.';
+  UpdatedText := TDelphiIntegrationSourceEditor.AddProjectStartup(
+    ProjectText, 'MultiFormFMX.Translation',
+    'Localization\Runtime\MultiFormFMX.Translation.pas', True);
+  Require(CountTextOccurrences(UpdatedText,
+    'ApplyTranslation(') = 0,
+    'FMX DPR translation calls remained before RealCreateForms.');
+  Require(CountTextOccurrences(UpdatedText,
+    'Application.CreateForm(') = 2,
+    'FMX startup correction changed the project form registrations.');
+  Require(ContainsText(UpdatedText, 'InitializeTranslation;'),
+    'FMX startup correction removed translation initialization.');
+end;
+
+procedure TestSecondaryFMXFormStartupWiring;
+var
+  Edit: TMenuResourceEdit;
+  FormText: string;
+  SourceText: string;
+  UpdatedSource: string;
+begin
+  FormText :=
+    'object frmChild: TfrmChild' + sLineBreak +
+    '  Caption = ''Child''' + sLineBreak +
+    'end.';
+  Edit := TLanguageMenuResourceEditor.EnsureFMXTranslationStartup(
+    'ChildForm.fmx', FormText);
+  try
+    Require(ContainsText(Edit.NewText,
+      'OnCreate = datTranslationFormCreate'),
+      'A secondary FMX form did not receive designer startup wiring.');
+    SourceText :=
+      'unit ChildForm;' + sLineBreak + sLineBreak +
+      'interface' + sLineBreak + sLineBreak +
+      'uses System.Classes, FMX.Forms;' + sLineBreak + sLineBreak +
+      'type' + sLineBreak +
+      '  TfrmChild = class(TForm)' + sLineBreak +
+      '  end;' + sLineBreak + sLineBreak +
+      'implementation' + sLineBreak + sLineBreak +
+      '{$R *.fmx}' + sLineBreak + sLineBreak +
+      'end.';
+    UpdatedSource :=
+      TDelphiIntegrationSourceEditor.AddFMXFormCreateTranslation(
+        SourceText, Edit.FormClassName,
+        Edit.FormCreateHandlerName, 'MultiFormFMX.Translation');
+    Require(ContainsText(UpdatedSource,
+      'procedure datTranslationFormCreate(Sender: TObject);'),
+      'A secondary FMX form lacks its startup-handler declaration.');
+    Require(ContainsText(UpdatedSource,
+      'ApplyTranslation(Self);'),
+      'A secondary FMX form does not apply its selected language.');
+  finally
+    Edit.Free;
+  end;
+end;
+
 procedure TestInPlaceAITranslationWorkflow;
 var
   Catalog: TTranslationCatalog;
@@ -1572,6 +1671,8 @@ begin
     TestExactIntegrationReview;
     TestProjectUnitInsertionBeforeResourceDirective;
     TestImplementationUsesAfterResourceDirective;
+    TestFMXProjectStartupDefersTranslationToForms;
+    TestSecondaryFMXFormStartupWiring;
     TestInPlaceAITranslationWorkflow;
     Writeln('Foundation, scanner, catalog, runtime, validation, and export tests passed.');
   except

@@ -83,8 +83,12 @@ var
   DprojFileName: string;
   DprojText: string;
   DprFileName: string;
+  ExistingChange: TIntegrationFileChange;
   FormSourceFileName: string;
   FormSourceText: string;
+  FMXEdit: TMenuResourceEdit;
+  FMXFileName: string;
+  FMXText: string;
   IntegrationRelativeFileName: string;
   IntegrationUnitFileName: string;
   IntegrationUnitName: string;
@@ -195,6 +199,20 @@ begin
           FormSourceText,
             MenuEdit.FormClassName, MenuUnitName, ALanguageMenuName,
             'TMenuItem', ContainerName, ContainerClassName);
+        if ContainerName <> '' then
+        begin
+          FormSourceText :=
+            TDelphiIntegrationSourceEditor.AddFormDesignerMenuDeclarations(
+              FormSourceText, MenuEdit.FormClassName, MenuUnitName,
+              'datTranslationFileMenu', 'TMenuItem', '', '');
+          FormSourceText :=
+            TDelphiIntegrationSourceEditor.AddFormDesignerMenuDeclarations(
+              FormSourceText, MenuEdit.FormClassName, MenuUnitName,
+              'datTranslationExitMenuItem', 'TMenuItem', '', '');
+          FormSourceText :=
+            TDelphiIntegrationSourceEditor.AddFormExitHandler(
+              FormSourceText, MenuEdit.FormClassName);
+        end;
         FormSourceText := TDelphiIntegrationSourceEditor.AddFormLanguageHandler(
           FormSourceText, MenuEdit.FormClassName, IntegrationUnitName);
         if AProfile.Framework = tfFireMonkey then
@@ -205,6 +223,42 @@ begin
         Result.AddTextChange(ickFormSource, FormSourceFileName,
           'Connect designer-persisted translation event handlers',
           FormSourceText);
+
+        if AProfile.Framework = tfFireMonkey then
+          for FMXFileName in TDirectory.GetFiles(ProjectDirectory,
+            '*.fmx', TSearchOption.soAllDirectories) do
+          begin
+            if SameText(FMXFileName, MenuEdit.FileName) or
+              ContainsText(FMXFileName, '\Localization\') or
+              ContainsText(FMXFileName, '\bin\') or
+              ContainsText(FMXFileName, '\dcu\') then
+              Continue;
+            FMXText := TFile.ReadAllText(FMXFileName);
+            FMXEdit :=
+              TLanguageMenuResourceEditor.EnsureFMXTranslationStartup(
+                FMXFileName, FMXText);
+            try
+              Result.AddTextChange(ickFormResource, FMXFileName,
+                'Persist FMX startup translation on this form',
+                FMXEdit.NewText);
+              FormSourceFileName := FindFormSource(ProjectDirectory,
+                FMXFileName, FMXEdit.FormClassName);
+              ExistingChange := Result.FindChange(FormSourceFileName);
+              if ExistingChange <> nil then
+                FormSourceText := ExistingChange.NewText
+              else
+                FormSourceText := TFile.ReadAllText(FormSourceFileName);
+              FormSourceText :=
+                TDelphiIntegrationSourceEditor.AddFMXFormCreateTranslation(
+                  FormSourceText, FMXEdit.FormClassName,
+                  FMXEdit.FormCreateHandlerName, IntegrationUnitName);
+              Result.AddTextChange(ickFormSource, FormSourceFileName,
+                'Apply the selected language when this FMX form is created',
+                FormSourceText);
+            finally
+              FMXEdit.Free;
+            end;
+          end;
 
         DprFileName := ProjectSourceFileName(AProfile);
         ProjectText := TFile.ReadAllText(DprFileName);
