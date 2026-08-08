@@ -1365,3 +1365,28 @@ and released-form cleanup. Core, runtime, integration, and lifecycle regression
 suites also pass. The pristine GA4 application remains untouched. See
 `TDATLanguageManager Phase 3 FMX Adapter Report.md` for complete evidence and
 the remaining component-product boundaries.
+
+## TDATLanguageManager Phase 4 VCL Adapter
+
+Completion date: August 8, 2026
+
+The production `TDATVCLLanguageManager` uses a private `TApplicationEvents`
+instance for additive `OnIdle` and `OnModalBegin` handling. Idle inventory
+discovers normal and MDI forms without replacing `Application.OnIdle` or
+changing its `Done` flag. Modal inventory occurs before VCL calls `Show`, so a
+modal form is translated before `OnShow`. A configurable 100 ms idle throttle
+limits repeated inventory overhead.
+
+VCL has no public additive before-show event for every dynamic modeless form.
+The production contract therefore preserves the proven boundary: such forms may
+paint once in the source language before idle discovery. A strict pre-display
+case can call the manager's `ApplyToForm` after construction and before `Show`.
+The exclusive `Screen.OnActiveFormChange` signal remains rejected.
+
+The VCL applicator now accepts stable scanner identity and the preservation
+policy while retaining its original overload. Production Win32/Win64 tests pass
+for discovery, modal pre-show application, duplicate instances, immediate
+switching, hidden forms, selection preservation, independent application-event
+subscribers, explicit pre-display application, and deterministic cleanup. See
+`TDATLanguageManager Phase 4 VCL Adapter Report.md` for the full bounded
+contract and Phase 5 gate.

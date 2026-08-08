@@ -11,7 +11,10 @@ type
   TVCLTranslationApplicator = class
   public
     class function ApplyToForm(const AForm: TCustomForm;
-      const APack: TRuntimeLanguagePack): Integer; static;
+      const APack: TRuntimeLanguagePack): Integer; overload; static;
+    class function ApplyToForm(const AForm: TCustomForm;
+      const APack: TRuntimeLanguagePack; const AFormIdentity: string;
+      const APreserveControlState: Boolean = True): Integer; overload; static;
   end;
 
 implementation
@@ -20,16 +23,18 @@ uses
   System.SysUtils,
   System.TypInfo;
 
-function ComponentKey(const AForm, AComponent: TComponent;
+function ComponentKey(const AFormIdentity: string;
+  const AForm, AComponent: TComponent;
   const APropertyName: string): string;
 begin
   if AComponent = AForm then
-    Result := AForm.Name + '.' + APropertyName
+    Result := AFormIdentity + '.' + APropertyName
   else
-    Result := AForm.Name + '.' + AComponent.Name + '.' + APropertyName;
+    Result := AFormIdentity + '.' + AComponent.Name + '.' + APropertyName;
 end;
 
-function ApplyTextProperty(const AForm, AComponent: TComponent;
+function ApplyTextProperty(const AFormIdentity: string;
+  const AForm, AComponent: TComponent;
   const APropertyName: string; const APack: TRuntimeLanguagePack): Boolean;
 var
   PropertyInfo: PPropInfo;
@@ -39,16 +44,19 @@ begin
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName,
     [tkString, tkLString, tkWString, tkUString]);
   if (PropertyInfo <> nil) and APack.TryGetText(
-    ComponentKey(AForm, AComponent, APropertyName), TranslatedText) then
+    ComponentKey(AFormIdentity, AForm, AComponent, APropertyName),
+    TranslatedText) then
   begin
     SetStrProp(AComponent, PropertyInfo, TranslatedText);
     Result := True;
   end;
 end;
 
-function ApplyStringCollection(const AForm, AComponent: TComponent;
+function ApplyStringCollection(const AFormIdentity: string;
+  const AForm, AComponent: TComponent;
   const APropertyName, AKeyPropertyName: string;
-  const APack: TRuntimeLanguagePack): Integer;
+  const APack: TRuntimeLanguagePack;
+  const APreserveControlState: Boolean): Integer;
 var
   ChangeEventInfo: PPropInfo;
   EmptyChangeEvent: TMethod;
@@ -67,7 +75,7 @@ begin
   begin
     ItemIndexInfo := GetPropInfo(AComponent.ClassInfo, 'ItemIndex',
       [tkInteger, tkInt64]);
-    if ItemIndexInfo <> nil then
+    if APreserveControlState and (ItemIndexInfo <> nil) then
       SavedItemIndex := GetOrdProp(AComponent, ItemIndexInfo)
     else
       SavedItemIndex := -1;
@@ -82,9 +90,10 @@ begin
     end;
     try
       Result := APack.ReadIndexedStrings(
-        ComponentKey(AForm, AComponent, AKeyPropertyName),
+        ComponentKey(AFormIdentity, AForm, AComponent, AKeyPropertyName),
         TStrings(StringObject));
-      if (Result > 0) and (ItemIndexInfo <> nil) and
+      if APreserveControlState and (Result > 0) and
+        (ItemIndexInfo <> nil) and
         (SavedItemIndex >= -1) and
         (SavedItemIndex < TStrings(StringObject).Count) then
         SetOrdProp(AComponent, ItemIndexInfo, SavedItemIndex);
@@ -97,22 +106,37 @@ end;
 
 class function TVCLTranslationApplicator.ApplyToForm(
   const AForm: TCustomForm; const APack: TRuntimeLanguagePack): Integer;
+begin
+  if AForm = nil then
+    raise EArgumentNilException.Create('A VCL form is required.');
+  Result := ApplyToForm(AForm, APack, AForm.Name, True);
+end;
+
+class function TVCLTranslationApplicator.ApplyToForm(
+  const AForm: TCustomForm; const APack: TRuntimeLanguagePack;
+  const AFormIdentity: string;
+  const APreserveControlState: Boolean): Integer;
 const
   TextProperties: array[0..2] of string = ('Caption', 'Hint', 'TextHint');
   StringProperties: array[0..1] of string = ('Items', 'Lines');
 var
   Component: TComponent;
   ComponentIndex: Integer;
+  FormIdentity: string;
   PropertyName: string;
 begin
   if AForm = nil then
     raise EArgumentNilException.Create('A VCL form is required.');
   if APack = nil then
     Exit(0);
+  FormIdentity := Trim(AFormIdentity);
+  if FormIdentity = '' then
+    FormIdentity := AForm.Name;
 
   Result := 0;
   for PropertyName in TextProperties do
-    if ApplyTextProperty(AForm, AForm, PropertyName, APack) then
+    if ApplyTextProperty(FormIdentity, AForm, AForm, PropertyName,
+      APack) then
       Inc(Result);
 
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
@@ -121,11 +145,13 @@ begin
     if Component.Name = '' then
       Continue;
     for PropertyName in TextProperties do
-      if ApplyTextProperty(AForm, Component, PropertyName, APack) then
+      if ApplyTextProperty(FormIdentity, AForm, Component, PropertyName,
+        APack) then
         Inc(Result);
     for PropertyName in StringProperties do
       Inc(Result, ApplyStringCollection(
-        AForm, Component, PropertyName, PropertyName + '.Strings', APack));
+        FormIdentity, AForm, Component, PropertyName,
+        PropertyName + '.Strings', APack, APreserveControlState));
   end;
 end;
 
