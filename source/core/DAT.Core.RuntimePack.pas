@@ -26,6 +26,7 @@ uses
   System.Hash,
   System.IOUtils,
   System.JSON,
+  DAT.Runtime.LanguagePack,
   DAT.Validation.Catalog;
 
 class function TRuntimePackBuilder.SourceCatalogChecksum(
@@ -73,7 +74,8 @@ begin
     LanguageObject := TJSONObject.Create;
     LanguageObject.AddPair('code', ACatalog.Locale.LanguageCode);
     LanguageObject.AddPair('nativeName',
-      ACatalog.Locale.NativeLanguageName);
+      CanonicalNativeLanguageName(ACatalog.Locale.LanguageCode,
+        ACatalog.Locale.NativeLanguageName));
     LanguageObject.AddPair('direction', ACatalog.Locale.TextDirection);
     Root.AddPair('language', LanguageObject);
 

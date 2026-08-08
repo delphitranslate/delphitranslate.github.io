@@ -1250,3 +1250,32 @@ calls, designer startup wiring for secondary forms, nil-safe generated
 wrappers, File/Exit fields and events, idempotent re-integration, Win32/Win64
 compilation, deployed-pack startup, and the real WebsiteAnalytics restart with
 `Selected=es-ES`.
+
+## Runtime Language Refresh and Streamlined Integration
+
+Completion date: August 7, 2026
+
+Integration now scans the selected target while generating its package and
+builds `en-US.json` automatically from designer source text. The source locale
+therefore behaves like every other real pack: returning from Spanish, French,
+or another locale restores every scanned English property deterministically.
+Older deployments without an English pack retain the designer-text fallback.
+
+Pack discovery rejects invalid or empty packs, validates application identity,
+canonicalizes common native language names, removes duplicate locale codes,
+and suppresses a generic language code when a regional pack exists. This keeps
+designer-persisted language menus clean and prevents damaged metadata from
+surfacing as mojibake.
+
+The generated application unit exposes `ApplyTranslationToOpenForms` and calls
+it after each successful selection. Existing VCL and FMX forms change
+immediately; later FMX forms continue to use their designer-persisted OnCreate
+translation handler. Language choice remains stored per user.
+
+The exact change text remains available for inspection but is no longer a
+mandatory file-by-file ceremony. One authorization enables transactional Apply.
+Language packs are part of the same verified change set. The designer-authored
+Integration page also offers an opt-in platform/configuration build. It invokes
+Delphi 37 elevated, deploys package JSON below the standardized executable
+folder, reports build/deploy failure separately from successful source
+integration, and never launches the target.

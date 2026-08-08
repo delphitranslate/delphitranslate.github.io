@@ -31,6 +31,7 @@ uses
   DAT.Integration.Transaction in 'source\integration\DAT.Integration.Transaction.pas',
   DAT.Integration.Reset in 'source\integration\DAT.Integration.Reset.pas',
   DAT.Integration.Engine in 'source\integration\DAT.Integration.Engine.pas',
+  DAT.Integration.BuildDeploy in 'source\integration\DAT.Integration.BuildDeploy.pas',
   DAT.Provider.Types in 'source\provider\DAT.Provider.Types.pas',
   DAT.Provider.Settings in 'source\provider\DAT.Provider.Settings.pas',
   DAT.Provider.CredentialStore in 'source\provider\DAT.Provider.CredentialStore.pas',

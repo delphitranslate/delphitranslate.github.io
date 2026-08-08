@@ -85,12 +85,75 @@ type
       AExpectedApplicationId: string): TObjectList<TLanguagePackDescriptor>; static;
   end;
 
+function CanonicalNativeLanguageName(const ALanguageCode,
+  AFallbackName: string): string;
+
 implementation
 
 uses
   System.Generics.Defaults,
   System.IOUtils,
   System.JSON;
+
+function CanonicalNativeLanguageName(const ALanguageCode,
+  AFallbackName: string): string;
+var
+  BaseCode: string;
+  SeparatorPosition: Integer;
+begin
+  BaseCode := LowerCase(Trim(ALanguageCode));
+  SeparatorPosition := Pos('-', BaseCode);
+  if SeparatorPosition > 0 then
+    BaseCode := Copy(BaseCode, 1, SeparatorPosition - 1);
+  if BaseCode = 'en' then
+    Result := 'English'
+  else if BaseCode = 'es' then
+    Result := 'Espa' + #$00F1 + 'ol'
+  else if BaseCode = 'fr' then
+    Result := 'Fran' + #$00E7 + 'ais'
+  else if BaseCode = 'de' then
+    Result := 'Deutsch'
+  else if BaseCode = 'it' then
+    Result := 'Italiano'
+  else if BaseCode = 'pt' then
+    Result := 'Portugu' + #$00EA + 's'
+  else if BaseCode = 'nl' then
+    Result := 'Nederlands'
+  else if BaseCode = 'pl' then
+    Result := 'Polski'
+  else if BaseCode = 'sv' then
+    Result := 'Svenska'
+  else if BaseCode = 'da' then
+    Result := 'Dansk'
+  else if BaseCode = 'no' then
+    Result := 'Norsk'
+  else if BaseCode = 'fi' then
+    Result := 'Suomi'
+  else if BaseCode = 'cs' then
+    Result := #$010C + 'e' + #$0161 + 'tina'
+  else if BaseCode = 'ja' then
+    Result := #$65E5 + #$672C + #$8A9E
+  else if BaseCode = 'ko' then
+    Result := #$D55C + #$AD6D + #$C5B4
+  else if BaseCode = 'zh' then
+    Result := #$4E2D + #$6587
+  else if BaseCode = 'ar' then
+    Result := #$0627 + #$0644 + #$0639 + #$0631 + #$0628 + #$064A + #$0629
+  else
+    Result := Trim(AFallbackName);
+  if Result = '' then
+    Result := ALanguageCode;
+end;
+
+function BaseLanguageCode(const ALanguageCode: string): string;
+var
+  SeparatorPosition: Integer;
+begin
+  Result := LowerCase(Trim(ALanguageCode));
+  SeparatorPosition := Pos('-', Result);
+  if SeparatorPosition > 0 then
+    Result := Copy(Result, 1, SeparatorPosition - 1);
+end;
 
 function RequiredObject(const AParent: TJSONObject;
   const AName: string): TJSONObject;
@@ -250,8 +313,12 @@ end;
 class function TLanguagePackDiscovery.Discover(const ADirectoryName,
   AExpectedApplicationId: string): TObjectList<TLanguagePackDescriptor>;
 var
+  BaseCode: string;
   Descriptor: TLanguagePackDescriptor;
   FileName: string;
+  Index: Integer;
+  RegionalCodes: TDictionary<string, Boolean>;
+  SeenCodes: TDictionary<string, Boolean>;
   Pack: TRuntimeLanguagePack;
 begin
   Result := TObjectList<TLanguagePackDescriptor>.Create(True);
@@ -264,13 +331,16 @@ begin
     try
       try
         Pack := TRuntimeLanguagePack.LoadFromFile(FileName);
-        if (AExpectedApplicationId = '') or
-          SameText(Pack.ApplicationId, AExpectedApplicationId) then
+        if (((AExpectedApplicationId = '') or
+          SameText(Pack.ApplicationId, AExpectedApplicationId))) and
+          (Trim(Pack.LanguageCode) <> '') and
+          (Pack.Strings.Count > 0) then
         begin
           Descriptor := TLanguagePackDescriptor.Create;
           Descriptor.FileName := FileName;
           Descriptor.LanguageCode := Pack.LanguageCode;
-          Descriptor.NativeLanguageName := Pack.NativeLanguageName;
+          Descriptor.NativeLanguageName := CanonicalNativeLanguageName(
+            Pack.LanguageCode, Pack.NativeLanguageName);
           Descriptor.TextDirection := Pack.TextDirection;
           Descriptor.SourceLanguage := Pack.SourceLanguage;
           Result.Add(Descriptor);
@@ -282,6 +352,33 @@ begin
       on Exception do
         Continue;
     end;
+  end;
+  RegionalCodes := TDictionary<string, Boolean>.Create;
+  SeenCodes := TDictionary<string, Boolean>.Create;
+  try
+    for Index := Result.Count - 1 downto 0 do
+    begin
+      BaseCode := LowerCase(Result[Index].LanguageCode);
+      if SeenCodes.ContainsKey(BaseCode) then
+        Result.Delete(Index)
+      else
+        SeenCodes.Add(BaseCode, True);
+    end;
+    for Descriptor in Result do
+      if Pos('-', Descriptor.LanguageCode) > 0 then
+        RegionalCodes.AddOrSetValue(
+          BaseLanguageCode(Descriptor.LanguageCode), True);
+    for Index := Result.Count - 1 downto 0 do
+    begin
+      Descriptor := Result[Index];
+      BaseCode := BaseLanguageCode(Descriptor.LanguageCode);
+      if (Pos('-', Descriptor.LanguageCode) = 0) and
+        RegionalCodes.ContainsKey(BaseCode) then
+        Result.Delete(Index);
+    end;
+  finally
+    SeenCodes.Free;
+    RegionalCodes.Free;
   end;
   Result.Sort(TComparer<TLanguagePackDescriptor>.Construct(
     function(const ALeft, ARight: TLanguagePackDescriptor): Integer

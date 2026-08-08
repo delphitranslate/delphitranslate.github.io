@@ -7,6 +7,7 @@ uses
 
 type
   TIntegrationChangeKind = (
+    ickLanguagePack,
     ickRuntimeUnit,
     ickGeneratedUnit,
     ickFormResource,
@@ -212,6 +213,8 @@ function IntegrationChangeKindDisplayName(
   const AKind: TIntegrationChangeKind): string;
 begin
   case AKind of
+    ickLanguagePack:
+      Result := 'Language pack';
     ickRuntimeUnit:
       Result := 'Runtime unit';
     ickGeneratedUnit:

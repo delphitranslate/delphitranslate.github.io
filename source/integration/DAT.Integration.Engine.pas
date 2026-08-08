@@ -21,7 +21,6 @@ uses
   System.IOUtils,
   System.StrUtils,
   System.SysUtils,
-  DAT.Core.TranslationWorkspace,
   DAT.Integration.DelphiSource,
   DAT.Integration.MenuResource,
   DAT.Runtime.LanguagePack;
@@ -94,6 +93,7 @@ var
   IntegrationUnitName: string;
   IsStudioSelfIntegration: Boolean;
   LanguageDirectory: string;
+  LanguagePackFileName: string;
   Languages: TObjectList<TLanguagePackDescriptor>;
   MenuEdit: TMenuResourceEdit;
   MenuUnitName: string;
@@ -122,7 +122,8 @@ begin
       'The generated integration unit was not found: %s',
       [IntegrationUnitFileName]);
 
-  LanguageDirectory := TTranslationWorkspace.LanguagesDirectory(AProfile);
+  LanguageDirectory := TPath.Combine(
+    APackageDirectory, 'Localization\Languages');
   Languages := TLanguagePackDiscovery.Discover(
     LanguageDirectory, AProfile.ProjectName);
   try
@@ -144,6 +145,16 @@ begin
             MenuEdit.NewText);
           Exit;
         end;
+
+        for LanguagePackFileName in TDirectory.GetFiles(
+          LanguageDirectory, '*.json') do
+          Result.AddTextChange(ickLanguagePack,
+            TPath.Combine(ProjectDirectory,
+              'Localization\Languages\' +
+              TPath.GetFileName(LanguagePackFileName)),
+            'Install the offline language pack ' +
+              TPath.GetFileName(LanguagePackFileName),
+            TFile.ReadAllText(LanguagePackFileName));
 
         PackageRuntimeDirectory := TPath.Combine(
           APackageDirectory, 'Runtime');

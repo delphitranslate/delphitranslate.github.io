@@ -9,16 +9,13 @@ language packs for Win32 and Win64 applications.
 
 The Studio is an offline-first translation-management, validation, packaging,
 and Delphi-integration application. Its primary translation workflow is
-automatic, in-place catalog editing by Codex or Claude in the developer's
-workspace. Google and DeepL are direct-provider alternatives; CSV, JSON, and
+automatic, in-place catalog translation through Google Cloud Translation or
+DeepL from the developer's connected Studio. CSV, JSON, suggestions, and
 manual editing remain specialist interchange and fallback paths.
 
 Translated applications load local language packs and do not require Internet
-access or provider credentials. Google and DeepL are not required when a
-workspace agent translates the development catalog directly.
-
-The **In-Place AI Translation Workflow** milestone is complete and supplements
-the earlier API-free interchange record.
+access or provider credentials. Provider credentials never enter the target
+project or its runtime language packs.
 
 ## Current Status
 
@@ -77,12 +74,17 @@ provides:
   work and marks provider results as machine translated.
 - Offline VCL and FMX runtime loading, designer-persisted language menus,
   transactional integration, rollback, and deployment scripting.
-- Complete line-numbered original/proposed integration diffs, mandatory
-  per-file review, and explicit confirmation before Apply.
+- Optional complete line-numbered original/proposed integration diffs and one
+  explicit authorization before transactional Apply.
+- Automatic normalized English source-pack creation during integration.
+- Canonical, de-duplicated native-language menus without malformed metadata.
+- Immediate application of a newly selected language to every open form.
+- Optional elevated Win32/Win64 Debug/Release build and JSON deployment after
+  Apply; the target is never launched automatically.
 - FMX form translation through designer-persisted `OnCreate` handlers after
   form streaming; VCL startup wiring remains in the DPR.
 - Win32 and Win64 VCL/FMX reference pilots covering scan, in-place
-  Codex/Claude-style catalog modification, protected-field review, validation,
+  provider translation, protected-field review, validation,
   export, integration, build, deployment, and Italian offline launch behavior.
 
 ## Current Studio Workflow
@@ -91,21 +93,22 @@ provides:
 2. Scan the project.
 3. Open **Translate**, enter the target code and native language name, and create
    the development catalog.
-4. Select **Begin AI Mode**. Give the copied instruction to Codex or Claude,
-   which edits the saved development JSON directly in place.
-5. When the Studio detects a stable change, select **Reload AI Work**. Protected
-   fields are verified and allowed translations are adopted as AI drafts.
-6. Resolve the focused exception queue. Google/DeepL, CSV, suggestions, and
-   manual editing remain available alternatives.
+4. Configure Google or DeepL under **Provider Settings**, test the connection,
+   and return to **Translate**.
+5. Choose **Translate Automatically**. Eligible strings are translated in
+   bounded batches and the catalog is saved automatically.
+6. Resolve the focused exception queue. CSV, suggestions, and manual editing
+   remain available alternatives.
 7. For cataloged Pascal `resourcestring` entries, add the documented
    `TranslateText` call at each intended call site and mark manual wiring
    confirmed. The Studio does not rewrite Pascal call sites.
 8. Run **Validation**.
 9. When there are no validation errors, use **Export** to create the offline
    runtime JSON pack.
-10. Use **Integration** to inspect the exact diff for every changed file, confirm
-   review, back up, apply, or restore the target-project runtime and
-   designer-authored language menu changes.
+10. Use **Integration** to generate the package, optionally inspect any exact
+    diff, authorize once, and apply or restore the target-project runtime,
+    JSON packs, and designer-authored language menu changes. Optionally build
+    and deploy the selected Windows target without launching it.
 
 Scanning remains read-only. The `Localization` folder is created only when the
 developer explicitly saves a catalog or exports a runtime pack.

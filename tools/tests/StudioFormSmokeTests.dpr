@@ -90,6 +90,15 @@ begin
          frmTranslationStudio.lstIntegrationPlan.Position.Y then
         raise Exception.Create(
           'The Complete Reset control overlaps the integration plan.');
+      if (frmTranslationStudio.cboBuildPlatform.Items.Count <> 2) or
+         (frmTranslationStudio.cboBuildConfiguration.Items.Count <> 2) or
+         (frmTranslationStudio.cboBuildPlatform.ItemIndex < 0) or
+         (frmTranslationStudio.cboBuildConfiguration.ItemIndex < 0) then
+        raise Exception.Create(
+          'The target build/deploy selections are not configured.');
+      if frmTranslationStudio.chkBuildAfterIntegration.IsChecked then
+        raise Exception.Create(
+          'Automatic target build/deploy must remain opt-in.');
       if frmTranslationStudio.memIntegrationDiff.Position.X <
            frmTranslationStudio.lstIntegrationPlan.Position.X +
            frmTranslationStudio.lstIntegrationPlan.Width + 24 then

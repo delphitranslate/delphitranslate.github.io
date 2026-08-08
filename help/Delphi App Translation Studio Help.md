@@ -30,8 +30,10 @@ offline. No API key is added to the target application's source or deployment.
    terminology, tone, and available control space. Mark them Reviewed and then
    Approved when appropriate.
 8. Run **Validation**, correct every error, and export the offline pack.
-9. Under **Integration**, build the preview, inspect the complete line-numbered
-   diff for every file, confirm the review, and then apply it.
+9. Under **Integration**, build the preview, optionally inspect any complete
+   line-numbered diff, authorize the backed-up changes once, and apply them.
+   Select **Build and deploy after Apply** when the Studio should build the
+   chosen Win32/Win64 Debug/Release target and deploy packs without launching.
 
 ## Automatic Provider Translation
 
@@ -83,10 +85,15 @@ mark manual wiring confirmed only after reviewing that code location.
 ## Safety
 
 Scanning does not alter target source. Integration first produces an in-memory
-change set, exact per-file review, and preview package. Apply remains disabled
-until every file is viewed and review is explicitly confirmed. Applying creates
-a verified backup and manifest. Use **Restore** to recover the recorded
+change set, optional exact per-file inspection, and preview package. One
+explicit authorization enables Apply; every file need not be opened. Applying
+creates a verified backup and manifest. Use **Restore** to recover the recorded
 pre-integration files.
+
+Integration also creates a complete English runtime pack from the latest scan,
+normalizes and de-duplicates language names, and installs all JSON packs. A
+language selection immediately refreshes every open form; newly created forms
+receive the saved language through their designer-persisted startup handler.
 
 If the named Language menu already exists, Integration populates it. If it is
 missing, Integration adds a designer-persisted `TMenuBar`/`TMenuItem` for FMX

@@ -65,20 +65,20 @@ var
   CandidateFileName: string;
   NewPack: TRuntimeLanguagePack;
 begin
-  Result := SameText(ALanguageCode, FSourceLanguageCode);
-  if Result then
-  begin
-    FreeAndNil(FActivePack);
-    FFormatSettings := TFormatSettings.Create;
-    TLanguagePreference.WriteLanguageCode(
-      FPreferenceFileName, ALanguageCode);
-    Exit;
-  end;
-
   CandidateFileName := TPath.Combine(
     FLanguagesDirectory, ALanguageCode + '.json');
   if not TFile.Exists(CandidateFileName) then
-    Exit(False);
+  begin
+    Result := SameText(ALanguageCode, FSourceLanguageCode);
+    if Result then
+    begin
+      FreeAndNil(FActivePack);
+      FFormatSettings := TFormatSettings.Create;
+      TLanguagePreference.WriteLanguageCode(
+        FPreferenceFileName, ALanguageCode);
+    end;
+    Exit;
+  end;
 
   NewPack := TRuntimeLanguagePack.LoadFromFile(CandidateFileName);
   try

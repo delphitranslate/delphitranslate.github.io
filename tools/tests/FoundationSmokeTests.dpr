@@ -741,9 +741,15 @@ begin
   Require(TFile.Exists(TPath.Combine(OutputDirectory,
     'Deploy-LanguagePacks.ps1')),
     'The language-pack deployment script was not packaged.');
+  Require(TFile.Exists(TPath.Combine(OutputDirectory,
+    'Localization\Languages\en-US.json')),
+    'The automatic English source-language pack was not packaged.');
   Require(ContainsText(TFile.ReadAllText(TPath.Combine(OutputDirectory,
     'SampleVCLApp.Translation.pas')), 'LOCALAPPDATA'),
     'The generated runtime preference is not stored per user.');
+  Require(ContainsText(TFile.ReadAllText(TPath.Combine(OutputDirectory,
+    'SampleVCLApp.Translation.pas')), 'ApplyTranslationToOpenForms'),
+    'The generated unit does not refresh every open form after selection.');
 
   Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
     'samples\FMXBasic\SampleFMXApp.dproj'));
@@ -756,6 +762,9 @@ begin
   Require(TFile.Exists(TPath.Combine(OutputDirectory,
     'Runtime\DAT.Runtime.FMX.pas')),
     'The FMX runtime adapter was not packaged.');
+  Require(TFile.Exists(TPath.Combine(OutputDirectory,
+    'Localization\Languages\en-US.json')),
+    'The FMX package is missing its automatic English pack.');
 end;
 
 function CountTextOccurrences(const AText, ASearchText: string): Integer;

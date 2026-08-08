@@ -1212,6 +1212,37 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Prepare Complete Reset...'
             OnClick = btnCompleteResetClick
           end
+          object chkBuildAfterIntegration: TCheckBox
+            Position.X = 338.000000000000000000
+            Position.Y = 178.000000000000000000
+            Size.Width = 250.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 9
+            Text = 'Build and deploy after Apply'
+          end
+          object cboBuildPlatform: TComboBox
+            Position.X = 604.000000000000000000
+            Position.Y = 178.000000000000000000
+            Size.Width = 126.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 10
+            Items.Strings = (
+              'Win32'
+              'Win64')
+          end
+          object cboBuildConfiguration: TComboBox
+            Position.X = 744.000000000000000000
+            Position.Y = 178.000000000000000000
+            Size.Width = 136.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 11
+            Items.Strings = (
+              'Debug'
+              'Release')
+          end
           object lblIntegrationSummary: TLabel
             Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
@@ -1267,8 +1298,8 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.FontColor = xFF163A63
             WordWrap = False
             Text =
-              'Generate a preview, then select every changed file to review' +
-              ' its exact text.'
+              'Generate a preview, then optionally select any changed file' +
+              ' to inspect its exact text.'
             Viewport.Width = 538.000000000000000000
             Viewport.Height = 162.000000000000000000
           end
@@ -1281,7 +1312,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 24.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 4
-            Text = 'I reviewed every exact change and authorize transactional Apply'
+            Text = 'I authorize the backed-up, transactional integration changes'
             OnChange = chkIntegrationReviewConfirmedChange
           end
           object btnGenerateIntegrationPackage: TButton

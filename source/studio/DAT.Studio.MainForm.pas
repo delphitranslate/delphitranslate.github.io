@@ -136,6 +136,9 @@ type
     btnApplyIntegration: TButton;
     btnRestoreIntegration: TButton;
     btnCompleteReset: TButton;
+    chkBuildAfterIntegration: TCheckBox;
+    cboBuildPlatform: TComboBox;
+    cboBuildConfiguration: TComboBox;
     SettingsPageCard: TRectangle;
     lblSettingsPageTitle: TLabel;
     lblSettingsDescription: TLabel;
@@ -201,7 +204,6 @@ type
     FTranslationCatalog: TTranslationCatalog;
     FValidationResult: TCatalogValidationResult;
     FIntegrationChangeSet: TIntegrationChangeSet;
-    FReviewedIntegrationFiles: TStringList;
     FIntegrationPackageDirectory: string;
     FLastIntegrationBackupDirectory: string;
     FCompleteResetPlan: TCompleteResetPlan;
@@ -259,11 +261,13 @@ uses
   DAT.Core.RuntimePack,
   DAT.Core.TranslationWorkspace,
   DAT.Integration.Package,
+  DAT.Integration.BuildDeploy,
   DAT.Integration.Plan,
   DAT.Integration.Engine,
   DAT.Integration.Transaction,
   DAT.Provider.Client,
   DAT.Provider.CredentialStore,
+  DAT.Runtime.LanguagePack,
   DAT.Studio.Translation,
   DAT.Scan.CatalogMerge,
   DAT.Scan.Project;
@@ -272,12 +276,11 @@ uses
 
 procedure TfrmTranslationStudio.FormCreate(Sender: TObject);
 begin
-  FReviewedIntegrationFiles := TStringList.Create;
-  FReviewedIntegrationFiles.Sorted := True;
-  FReviewedIntegrationFiles.Duplicates := dupIgnore;
   ApplyStudioTranslation(Self);
   SelectLanguageCode(cboSourceLanguage, 'en-US');
   cboTextDirection.ItemIndex := 0;
+  cboBuildPlatform.ItemIndex := 0;
+  cboBuildConfiguration.ItemIndex := 0;
   LoadProviderSettings;
   SetWorkflowStep(1);
 end;
@@ -307,16 +310,15 @@ begin
   btnCompleteReset.Enabled := False;
   FreeAndNil(FIntegrationChangeSet);
   FreeAndNil(FCompleteResetPlan);
-  FReviewedIntegrationFiles.Clear;
   FIntegrationPackageDirectory := '';
   FLastIntegrationBackupDirectory := '';
   lstIntegrationPlan.Items.Clear;
   memIntegrationDiff.Text :=
-    'Generate a preview, then select every changed file to review its exact text.';
+    'Generate a preview, then optionally select any file to inspect its exact text.';
   chkIntegrationReviewConfirmed.IsChecked := False;
   chkIntegrationReviewConfirmed.Enabled := False;
   chkIntegrationReviewConfirmed.Text :=
-    'I reviewed every exact change and authorize transactional Apply';
+    'I authorize the backed-up, transactional integration changes';
   btnApplyIntegration.Text := 'Apply';
   lblIntegrationSummary.Text := 'Open a Delphi project to build a plan.';
   lblIntegrationOutput.Text := 'Generated package path will appear here.';
@@ -342,7 +344,6 @@ begin
   FCompleteResetPlan.Free;
   FTranslationCatalog.Free;
   FScanResult.Free;
-  FReviewedIntegrationFiles.Free;
   inherited Destroy;
 end;
 
@@ -457,13 +458,9 @@ begin
   Change := FIntegrationChangeSet.Changes[Index];
   memIntegrationDiff.Text := Change.ExactReviewText;
   memIntegrationDiff.GoToTextBegin;
-  FReviewedIntegrationFiles.Add(Change.TargetFileName);
-  UpdateIntegrationApplyState;
 end;
 
 procedure TfrmTranslationStudio.UpdateIntegrationApplyState;
-var
-  AllFilesReviewed: Boolean;
 begin
   if FCompleteResetPlan <> nil then
   begin
@@ -474,21 +471,14 @@ begin
       'Complete reset preview — one confirmation required';
     Exit;
   end;
-  AllFilesReviewed := (FIntegrationChangeSet <> nil) and
-    (FIntegrationChangeSet.Changes.Count > 0) and
-    (FReviewedIntegrationFiles.Count =
-      FIntegrationChangeSet.Changes.Count);
-  chkIntegrationReviewConfirmed.Enabled := AllFilesReviewed;
-  btnApplyIntegration.Enabled := AllFilesReviewed and
+  chkIntegrationReviewConfirmed.Enabled :=
+    (FIntegrationChangeSet <> nil) and
+    (FIntegrationChangeSet.Changes.Count > 0);
+  btnApplyIntegration.Enabled := chkIntegrationReviewConfirmed.Enabled and
     chkIntegrationReviewConfirmed.IsChecked;
-  if (FIntegrationChangeSet <> nil) and not AllFilesReviewed then
-    lblIntegrationDiffTitle.Text := Format(
-      'Exact changes — reviewed %d of %d files',
-      [FReviewedIntegrationFiles.Count,
-       FIntegrationChangeSet.Changes.Count])
-  else if AllFilesReviewed then
+  if FIntegrationChangeSet <> nil then
     lblIntegrationDiffTitle.Text :=
-      'Exact changes — all files viewed; confirm below to enable Apply'
+      'Optional exact-change preview — select any file to inspect'
   else
     lblIntegrationDiffTitle.Text := 'Exact changes';
 end;
@@ -778,8 +768,9 @@ begin
     FTranslationCatalog.SourceLanguage);
   SelectLanguageCode(cboTargetLanguage,
     FTranslationCatalog.Locale.LanguageCode);
-  edtNativeLanguageName.Text :=
-    FTranslationCatalog.Locale.NativeLanguageName;
+  edtNativeLanguageName.Text := CanonicalNativeLanguageName(
+    FTranslationCatalog.Locale.LanguageCode,
+    FTranslationCatalog.Locale.NativeLanguageName);
   if SameText(FTranslationCatalog.Locale.TextDirection, 'rtl') then
     cboTextDirection.ItemIndex := 1
   else
@@ -1192,7 +1183,7 @@ begin
   FreeAndNil(FCompleteResetPlan);
   btnApplyIntegration.Text := 'Apply';
   chkIntegrationReviewConfirmed.Text :=
-    'I reviewed every exact change and authorize transactional Apply';
+    'I authorize the backed-up, transactional integration changes';
   chkIntegrationReviewConfirmed.IsChecked := False;
   chkIntegrationReviewConfirmed.Enabled := False;
   btnApplyIntegration.Enabled := False;
@@ -1255,7 +1246,7 @@ begin
     FreeAndNil(FCompleteResetPlan);
     btnApplyIntegration.Text := 'Apply';
     chkIntegrationReviewConfirmed.Text :=
-      'I reviewed every exact change and authorize transactional Apply';
+      'I authorize the backed-up, transactional integration changes';
     StudioProjectRoot := FindStudioProjectRoot;
     OutputDirectory := TIntegrationPackageGenerator.Generate(
       FProjectProfile,
@@ -1266,9 +1257,9 @@ begin
     FIntegrationChangeSet := TTargetIntegrationEngine.BuildChangeSet(
       FProjectProfile, FIntegrationPackageDirectory,
       edtLanguageMenuName.Text);
-    FReviewedIntegrationFiles.Clear;
     chkIntegrationReviewConfirmed.IsChecked := False;
-    chkIntegrationReviewConfirmed.Enabled := False;
+    chkIntegrationReviewConfirmed.Enabled :=
+      FIntegrationChangeSet.Changes.Count > 0;
     btnApplyIntegration.Enabled := False;
     lstIntegrationPlan.Items.Clear;
     for Change in FIntegrationChangeSet.Changes do
@@ -1284,10 +1275,10 @@ begin
       memIntegrationDiff.Text := 'No target file changes are required.';
     lblIntegrationOutput.Text := OutputDirectory;
     lblIntegrationSummary.Text := Format(
-      '%d target file change(s) are ready for review.',
+      '%d target file change(s) are ready. Exact review is optional.',
       [FIntegrationChangeSet.Changes.Count]);
     lblStatus.Text :=
-      'Exact integration preview ready. Review every file before Apply.';
+      'Integration preview ready. Confirm once to enable Apply.';
   except
     on E: Exception do
       lblStatus.Text := 'Unable to generate integration package: ' + E.Message;
@@ -1297,6 +1288,7 @@ end;
 procedure TfrmTranslationStudio.btnApplyIntegrationClick(Sender: TObject);
 var
   ApplyResult: TIntegrationApplyResult;
+  BuildMessage: string;
   SafetyBackupDirectory: string;
 begin
   if FCompleteResetPlan <> nil then
@@ -1322,7 +1314,6 @@ begin
       SafetyBackupDirectory :=
         FCompleteResetPlan.SafetyBackupDirectory;
       FreeAndNil(FIntegrationChangeSet);
-      FReviewedIntegrationFiles.Clear;
       FIntegrationPackageDirectory := '';
       FLastIntegrationBackupDirectory := '';
       ClearScanSummary;
@@ -1337,7 +1328,7 @@ begin
       chkIntegrationReviewConfirmed.IsChecked := False;
       chkIntegrationReviewConfirmed.Enabled := False;
       chkIntegrationReviewConfirmed.Text :=
-        'I reviewed every exact change and authorize transactional Apply';
+        'I authorize the backed-up, transactional integration changes';
       btnApplyIntegration.Text := 'Apply';
       btnGenerateIntegrationPackage.Enabled := False;
       btnRestoreIntegration.Enabled := False;
@@ -1357,13 +1348,13 @@ begin
   end;
   if FIntegrationChangeSet = nil then
   begin
-    lblStatus.Text := 'Generate and review an integration package first.';
+    lblStatus.Text := 'Generate an integration package first.';
     Exit;
   end;
   if not chkIntegrationReviewConfirmed.IsChecked then
   begin
     lblStatus.Text :=
-      'Review every exact file change and confirm the review before Apply.';
+      'Confirm authorization before Apply.';
     Exit;
   end;
   btnApplyIntegration.Enabled := False;
@@ -1377,6 +1368,23 @@ begin
       lblStatus.Text :=
         'Target integration completed. Reopen and build the target project.';
       btnRestoreIntegration.Enabled := True;
+      if chkBuildAfterIntegration.IsChecked then
+      begin
+        try
+          BuildMessage := TTargetBuildDeployer.BuildAndDeploy(
+            FProjectProfile.ProjectFileName,
+            FProjectProfile.ProjectName,
+            cboBuildPlatform.Selected.Text,
+            cboBuildConfiguration.Selected.Text,
+            FIntegrationPackageDirectory);
+          lblStatus.Text := BuildMessage + ' The application was not launched.';
+        except
+          on E: Exception do
+            lblStatus.Text :=
+              'Integration succeeded, but automatic build/deploy failed: ' +
+              E.Message;
+        end;
+      end;
     finally
       ApplyResult.Free;
     end;
@@ -1406,7 +1414,6 @@ begin
     FCompleteResetPlan := TCompleteResetEngine.BuildPlan(
       FProjectProfile.ProjectName, ProjectDirectory);
     FreeAndNil(FIntegrationChangeSet);
-    FReviewedIntegrationFiles.Clear;
     lstIntegrationPlan.Items.Assign(FCompleteResetPlan.PreviewLines);
     memIntegrationDiff.Lines.Assign(FCompleteResetPlan.PreviewLines);
     memIntegrationDiff.GoToTextBegin;

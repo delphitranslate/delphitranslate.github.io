@@ -678,7 +678,7 @@ def build_user_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "Integration adds the offline runtime, generated application-specific unit, startup calls, event wiring, and designer-persisted language menu items. It populates the named menu when present; when absent, it adds an FMX TMenuBar/TMenuItem or VCL TMainMenu/TMenuItem to the primary form and adds matching form-class declarations. It does not add provider access to the target.",
+            "Integration adds the offline runtime, generated application-specific unit, startup calls, event wiring, and designer-persisted language menu items. It automatically builds an English source-language pack from the latest scan, normalizes and de-duplicates the available language list, and installs every JSON pack transactionally. It populates the named menu when present; when absent, it adds an FMX TMenuBar/TMenuItem or VCL TMainMenu/TMenuItem to the primary form and adds matching form-class declarations. It does not add provider access to the target.",
         ],
     )
     add_steps(
@@ -687,11 +687,12 @@ def build_user_guide() -> Path:
             "Close or save the target project in Delphi.",
             "Select Integration and confirm the designated language menu component name, normally mnuLanguage. The plan states whether that designer menu will be populated or added to the primary form.",
             "Choose Build Integration Plan and review each proposed operation.",
-            "Choose Generate Preview. Select every changed file and read its line-numbered original/proposed text. Newly generated files are shown in full.",
-            "After every file has been viewed, check I reviewed every exact change. Apply remains disabled until that confirmation is checked.",
+            "Choose Generate Preview. The exact-change viewer is optional; select any changed file when you want to inspect its line-numbered original/proposed text.",
+            "Check the single authorization box. You do not have to open or approve every file separately.",
+            "Optionally select Build and deploy after Apply, then choose Win32 or Win64 and Debug or Release. The Studio requests elevation for the Delphi build, deploys packs, and never launches the target.",
             "Choose Apply. The Studio creates and verifies a pre-change backup, writes atomically, and records a restore manifest.",
-            "Reopen the target project, inspect the DFM/FMX menu items in the IDE, and build Win32 and Win64.",
-            "Run the target, select a language, restart if required by the application's integration pattern, and verify all forms.",
+            "If automatic build/deploy was not selected, reopen the target project, inspect the DFM/FMX menu items in the IDE, build, and copy the packs beside the executable.",
+            "Run the target and select a language. Every currently open form is translated immediately; forms created later receive the saved language in their designer-persisted OnCreate path.",
             "Use Restore to recover the recorded pre-integration state if needed.",
         ],
     )
@@ -701,10 +702,11 @@ def build_user_guide() -> Path:
         document,
         [
             "Deploy JSON packs beside the target executable under Localization\\Languages.",
-            "Run Deploy-LanguagePacks.ps1 from the preview package with -ApplicationDirectory pointing to the output folder, or copy the files through the Delphi deployment manager.",
+            "Use Build and deploy after Apply for the automatic path. Deploy-LanguagePacks.ps1 and manual copying remain available for custom output layouts.",
             "The selected language is stored in %LOCALAPPDATA%\\<ApplicationId>\\language.ini.",
             "The executable folder can therefore remain read-only, as it normally is under Program Files.",
-            "VCL startup applies the first form through generated DPR wiring. FMX integration persists an OnCreate handler in the form resource and applies translation after FMX streaming; an existing handler is preserved.",
+            "VCL startup applies the first form through generated DPR wiring. FMX integration persists an OnCreate handler in every form resource and applies translation after FMX streaming; an existing handler is preserved.",
+            "Selecting or reselecting a language applies the selected pack to every open form immediately. English is a real generated pack, so returning from another language restores all scanned source strings without restarting.",
         ],
     )
 
@@ -718,7 +720,7 @@ def build_user_guide() -> Path:
             "Build the self-integration preview for mnuLanguage.",
             "Apply the persisted FMX menu-resource update.",
             "Close the running Studio, rebuild it, and start the newly built executable.",
-            "Select the new language. The preference is applied on the next launch.",
+            "Select the new language. Open forms change immediately and the preference is retained for the next launch.",
         ],
     )
     add_paragraphs(
@@ -1055,7 +1057,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Runtime.LanguagePack loads and discovers JSON packs, checks application identity, and provides fallback lookup. DAT.Runtime.Preference reads/writes the selected locale. DAT.Runtime.Manager owns the active pack, discovery, preference, translation lookup, and locale format settings.",
+            "DAT.Runtime.LanguagePack loads and discovers JSON packs, checks application identity, rejects empty/invalid packs, canonicalizes native language names, de-duplicates exact locale codes, and suppresses a generic locale when a regional variant exists. DAT.Runtime.Preference reads/writes the selected locale. DAT.Runtime.Manager owns the active pack, discovery, preference, translation lookup, and locale format settings. The source language loads its generated JSON pack when present and falls back to designer text only for older deployments without that pack.",
             "DAT.Runtime.VCL and DAT.Runtime.FMX traverse existing component trees and supported collection properties. They apply values by stable key to already designer-created controls. Missing keys retain source text. The adapters do not create controls or rearrange layouts.",
         ],
     )
@@ -1074,8 +1076,8 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Integration.Plan builds a human-readable plan. DAT.Integration.Package creates the generated application unit, framework adapter, shared runtime units, JSON packs, language-menu manifest, and deployment script. DAT.Integration.Engine builds every proposed file change in memory. TIntegrationFileChange.ExactReviewText produces a complete line-numbered original/proposed LCS diff; generated files are shown in full.",
-            "The Studio records each selected preview file as viewed. The final review checkbox remains disabled until every file has been viewed, and Apply remains disabled until the checkbox is explicitly checked. DAT.Integration.Transaction then checks source state, creates a verified pre-change backup, writes files atomically, rolls back failures, and records a manifest for restore.",
+            "DAT.Integration.Plan builds a human-readable plan. DAT.Integration.Package creates the generated application unit, framework adapter, shared runtime units, normalized JSON packs, automatic English source pack, language-menu manifest, and deployment script. DAT.Integration.Engine builds every proposed file change in memory, including language-pack installation. TIntegrationFileChange.ExactReviewText provides an optional complete line-numbered original/proposed LCS diff; generated files are shown in full.",
+            "One explicit authorization enables Apply; opening every diff is not required. DAT.Integration.Transaction checks source state, creates a verified pre-change backup, writes files atomically, rolls back failures, and records a manifest for restore. DAT.Integration.BuildDeploy can then invoke the Delphi 37 build elevated and deploy the package packs to the standardized executable output without launching it.",
             "DAT.Integration.MenuResource modifies text DFM/FMX menus idempotently and preserves designer editability. It locates the first DPR-created form when a menu must be added, reuses an existing TMenuBar/TMainMenu when available, or persists a new framework-appropriate container and menu. DAT.Integration.DelphiSource adds matching component fields and applies narrowly scoped DPR, PAS, and DPROJ wiring. For FMX, it preserves an existing root OnCreate handler or persists datTranslationFormCreate in the FMX and adds ApplyTranslation(Self) to its Pascal method. This respects the FMX form streaming lifecycle and avoids translating the first form from the DPR immediately after CreateForm.",
         ],
     )
@@ -1087,6 +1089,8 @@ def build_engineering_guide() -> Path:
             "VCL applies the first created form through the DPR startup wiring.",
             "FMX applies each form in its designer-persisted OnCreate handler after streaming is complete.",
             "SelectLanguageMenuItem derives a locale from datLanguage_<locale> component names.",
+            "SelectLanguage applies the chosen pack to every currently open form immediately.",
+            "The generated en-US pack makes switching back to source text deterministic.",
             "TranslateText provides resourcestring/code fallback access.",
             "Runtime ownership is finalized safely.",
         ],
@@ -1192,7 +1196,7 @@ def build_engineering_guide() -> Path:
             "Provider operations are explicit Studio actions; target runtime remains offline.",
             "No automatic control resizing/reflow is performed.",
             "Binary DFM conversion is outside the scanner.",
-            "The generated menu selection persists the locale; restarting is the conservative way to ensure every form and application-specific string is refreshed.",
+            "Automatic runtime application covers scanned designer properties. Application-specific strings still require the documented TranslateText wiring.",
             "Provider account terms and language support are external and must be rechecked for each release.",
         ],
     )

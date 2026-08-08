@@ -19,6 +19,10 @@ uses
   System.IOUtils,
   System.JSON,
   System.SysUtils,
+  DAT.Core.RuntimePack,
+  DAT.Scan.CatalogMerge,
+  DAT.Scan.Project,
+  DAT.Scan.Types,
   DAT.Core.TranslationWorkspace,
   DAT.Runtime.LanguagePack;
 
@@ -46,6 +50,46 @@ begin
       'Runtime source unit not found: %s', [SourceFileName]);
   TFile.Copy(SourceFileName,
     TPath.Combine(ADestinationDirectory, AUnitName + '.pas'), True);
+end;
+
+procedure GenerateSourceLanguagePack(const AProfile: TProjectProfile;
+  const AFileName: string);
+var
+  Catalog: TTranslationCatalog;
+  Entry: TTranslationEntry;
+  ScanResult: TProjectScanResult;
+begin
+  ScanResult := TProjectScanner.Scan(AProfile);
+  Catalog := TTranslationCatalog.Create;
+  try
+    Catalog.ApplicationId := AProfile.ProjectName;
+    Catalog.Framework := AProfile.Framework;
+    Catalog.SourceLanguage := 'en-US';
+    Catalog.Locale.LanguageCode := 'en-US';
+    Catalog.Locale.NativeLanguageName := 'English';
+    Catalog.Locale.TextDirection := 'ltr';
+    Catalog.Locale.ShortDateFormat := 'M/d/yyyy';
+    Catalog.Locale.LongDateFormat := 'dddd, MMMM d, yyyy';
+    Catalog.Locale.ShortTimeFormat := 'h:mm tt';
+    Catalog.Locale.LongTimeFormat := 'h:mm:ss tt';
+    Catalog.Locale.DecimalSeparator := '.';
+    Catalog.Locale.ThousandSeparator := ',';
+    Catalog.Locale.CurrencySymbol := '$';
+    TScanCatalogMerger.Merge(ScanResult, Catalog);
+    for Entry in Catalog.Entries do
+      if Entry.RuntimeApplication = rakAutomatic then
+      begin
+        Entry.TranslatedText := Entry.SourceText;
+        Entry.Status := tsApproved;
+        Entry.TranslationOrigin := torHuman;
+      end
+      else
+        Entry.Status := tsExcluded;
+    TRuntimePackBuilder.ExportToFile(Catalog, AFileName);
+  finally
+    Catalog.Free;
+    ScanResult.Free;
+  end;
 end;
 
 function GeneratedUnitText(const AProfile: TProjectProfile;
@@ -80,6 +124,7 @@ begin
     '  ' + AdapterUnit + ';' + sLineBreak + sLineBreak +
     'procedure InitializeTranslation;' + sLineBreak +
     'procedure ApplyTranslation(const AForm: ' + FormType + ');' + sLineBreak +
+    'procedure ApplyTranslationToOpenForms;' + sLineBreak +
     'function SelectLanguage(const ALanguageCode: string): Boolean;' + sLineBreak +
     'function SelectLanguageMenuItem(const AMenuItemName: string): Boolean;' + sLineBreak +
     'function TranslateText(const AKey, AFallbackText: string): string;' + sLineBreak +
@@ -125,10 +170,19 @@ begin
   Result := Result +
     '      ApplicationTranslationRuntime.ActivePack);' + sLineBreak +
     'end;' + sLineBreak + sLineBreak +
+    'procedure ApplyTranslationToOpenForms;' + sLineBreak +
+    'var' + sLineBreak +
+    '  FormIndex: Integer;' + sLineBreak +
+    'begin' + sLineBreak +
+    '  for FormIndex := 0 to Screen.FormCount - 1 do' + sLineBreak +
+    '    ApplyTranslation(Screen.Forms[FormIndex]);' + sLineBreak +
+    'end;' + sLineBreak + sLineBreak +
     'function SelectLanguage(const ALanguageCode: string): Boolean;' + sLineBreak +
     'begin' + sLineBreak +
     '  Result := (ApplicationTranslationRuntime <> nil) and' + sLineBreak +
     '    ApplicationTranslationRuntime.LoadLanguage(ALanguageCode);' + sLineBreak +
+    '  if Result then' + sLineBreak +
+    '    ApplyTranslationToOpenForms;' + sLineBreak +
     'end;' + sLineBreak + sLineBreak +
     'function SelectLanguageMenuItem(const AMenuItemName: string): Boolean;' + sLineBreak +
     'var' + sLineBreak +
@@ -195,10 +249,25 @@ begin
     AdapterUnit := 'DAT.Runtime.FMX';
   CopyRuntimeUnit(ARuntimeSourceDirectory, RuntimeDirectory, AdapterUnit);
 
-  LanguagesDirectory := TTranslationWorkspace.LanguagesDirectory(
-    AProfile);
+  PackageLanguagesDirectory := TPath.Combine(
+    PackageDirectory, 'Localization\Languages');
+  TDirectory.CreateDirectory(PackageLanguagesDirectory);
+  LanguagesDirectory := TTranslationWorkspace.LanguagesDirectory(AProfile);
   Languages := TLanguagePackDiscovery.Discover(
     LanguagesDirectory, AProfile.ProjectName);
+  try
+    for Descriptor in Languages do
+      TFile.Copy(Descriptor.FileName,
+        TPath.Combine(PackageLanguagesDirectory,
+          TPath.GetFileName(Descriptor.FileName)), True);
+  finally
+    Languages.Free;
+  end;
+  GenerateSourceLanguagePack(AProfile,
+    TPath.Combine(PackageLanguagesDirectory, 'en-US.json'));
+
+  Languages := TLanguagePackDiscovery.Discover(
+    PackageLanguagesDirectory, AProfile.ProjectName);
   try
     SourceLanguageCode := 'en-US';
     if Languages.Count > 0 then
@@ -211,14 +280,8 @@ begin
 
     JsonArray := TJSONArray.Create;
     try
-      PackageLanguagesDirectory := TPath.Combine(
-        PackageDirectory, 'Localization\Languages');
-      TDirectory.CreateDirectory(PackageLanguagesDirectory);
       for Descriptor in Languages do
       begin
-        TFile.Copy(Descriptor.FileName,
-          TPath.Combine(PackageLanguagesDirectory,
-            TPath.GetFileName(Descriptor.FileName)), True);
         JsonObject := TJSONObject.Create;
         JsonObject.AddPair('code', Descriptor.LanguageCode);
         JsonObject.AddPair('nativeName', Descriptor.NativeLanguageName);

@@ -30,8 +30,12 @@ applications do not contain API keys and do not require Internet access.
 - Delphi argument-aware placeholder and accelerator validation.
 - Separate structural, linguistic, automatic-runtime, and manual
   `resourcestring` wiring readiness.
-- Exact line-numbered original/proposed integration review for every file.
-- Mandatory view-all and final-confirmation gates before transactional Apply.
+- Optional exact line-numbered original/proposed integration inspection.
+- One final authorization gate before transactional Apply.
+- Automatic English source-pack creation, normalized/de-duplicated language
+  menus, and immediate open-form switching, including return to English.
+- Optional elevated target build and JSON deployment after Apply; the Studio
+  never launches the target automatically.
 - Automatic pre-change backup with manifest-recorded SHA-256 verification,
   atomic writes, rollback, and verified Restore.
 - Designer-persisted VCL and FMX language menus, created on the primary form
