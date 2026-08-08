@@ -1409,3 +1409,19 @@ the selected item changes language in place and no protected change handler
 fires. The full runtime and integration suite also passes on both targets. See
 `TDATLanguageManager Phase 5 Control State Report.md` for the exact contract,
 test evidence, opt-out behavior, and custom-control boundary.
+
+## TDATLanguageManager Phase 6 Runtime and Design Packages
+
+Completion date: August 8, 2026
+
+The distributable package graph now uses one shared runtime package, separate
+VCL and FMX runtime packages, and separate VCL and FMX design-time packages.
+This prevents duplicate common units and prevents either framework from leaking
+into the other package. The design registration units expose the applicable
+manager on the `DAT Localization` Tool Palette page.
+
+All runtime packages build for Win32 and Win64. Both design packages build for
+the installed Win32 RAD Studio IDE. Designer-authored DFM and FMX host fixtures
+containing the manager compile and stream their Object Inspector values on both
+application architectures. Packages were built and tested but were not silently
+installed into RAD Studio. See `TDATLanguageManager Phase 6 Package Report.md`.

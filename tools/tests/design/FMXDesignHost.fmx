@@ -1,0 +1,22 @@
+object frmFMXDesignHost: TfrmFMXDesignHost
+  Left = 0
+  Top = 0
+  Caption = 'FMX Designer Host'
+  ClientHeight = 240
+  ClientWidth = 420
+  Position = ScreenCenter
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  DesignerMasterStyle = 0
+  object DATLanguageManager: TDATFMXLanguageManager
+    ApplicationId = 'FMXDesignHost'
+    LanguagesFolder = 'Localization\Languages'
+    SourceLanguage = 'en-US'
+    AutoLoadPreferred = False
+    AutoTranslateOwner = False
+    ReapplyOpenForms = False
+    Left = 32
+    Top = 32
+  end
+end

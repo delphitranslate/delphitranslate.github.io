@@ -1,0 +1,16 @@
+package DATLanguageManagerVCLDesign;
+
+{$DESCRIPTION 'DAT Language Manager VCL design-time package'}
+{$DESIGNONLY}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  designide,
+  DATLanguageManagerCoreRuntime,
+  DATLanguageManagerVCLRuntime;
+
+contains
+  DAT.Design.VCL.Register in '..\..\source\design\DAT.Design.VCL.Register.pas';
+
+end.
