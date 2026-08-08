@@ -24,6 +24,7 @@ uses
   DAT.Integration.MenuResource in '..\..\source\integration\DAT.Integration.MenuResource.pas',
   DAT.Integration.DelphiSource in '..\..\source\integration\DAT.Integration.DelphiSource.pas',
   DAT.Integration.Transaction in '..\..\source\integration\DAT.Integration.Transaction.pas',
+  DAT.Integration.Reset in '..\..\source\integration\DAT.Integration.Reset.pas',
   DAT.Integration.Engine in '..\..\source\integration\DAT.Integration.Engine.pas',
   DAT.Scan.Types in '..\..\source\scan\DAT.Scan.Types.pas',
   DAT.Scan.Rules in '..\..\source\scan\DAT.Scan.Rules.pas',
@@ -1239,6 +1240,84 @@ begin
     'FMXWithoutMenu', True);
 end;
 
+procedure TestCompleteResetWorkflow;
+var
+  BackupDirectory: string;
+  ChangeSet: TIntegrationChangeSet;
+  FixtureDirectory: string;
+  FormFileName: string;
+  FormText: string;
+  PackageDirectory: string;
+  Plan: TCompleteResetPlan;
+  Profile: TProjectProfile;
+  ProjectRoot: string;
+  ResultInfo: TIntegrationApplyResult;
+  SafetyBackupDirectory: string;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  FixtureDirectory := TPath.Combine(ProjectRoot,
+    'export\CompleteResetSmoke\FMXBasic');
+  CopyFixtureDirectory(TPath.Combine(ProjectRoot,
+    'samples\FMXBasic'), FixtureDirectory);
+  TFile.WriteAllText(TPath.Combine(FixtureDirectory,
+    'developer-owned.txt'), 'preserve me', TEncoding.UTF8);
+  Profile := TProjectDetector.Detect(TPath.Combine(
+    FixtureDirectory, 'SampleFMXApp.dproj'));
+  ExportItalianFixturePack(Profile);
+  PackageDirectory := TIntegrationPackageGenerator.Generate(
+    Profile, TPath.Combine(ProjectRoot,
+      'export\CompleteResetSmoke\Packages'),
+    TPath.Combine(ProjectRoot, 'source\runtime'));
+  ChangeSet := TTargetIntegrationEngine.BuildChangeSet(
+    Profile, PackageDirectory, 'mnuLanguage');
+  try
+    BackupDirectory := TPath.Combine(FixtureDirectory,
+      'Localization\Integration Backups\Translation Integration Test');
+    ResultInfo := TIntegrationTransaction.Apply(
+      ChangeSet, BackupDirectory);
+    ResultInfo.Free;
+  finally
+    ChangeSet.Free;
+  end;
+
+  FormFileName := TPath.Combine(FixtureDirectory,
+    'SampleFMX.MainForm.fmx');
+  Require(ContainsText(TFile.ReadAllText(FormFileName),
+    'datLanguage_it_IT'),
+    'The complete-reset fixture was not integrated first.');
+  Plan := TCompleteResetEngine.BuildPlan(
+    Profile.ProjectName, FixtureDirectory);
+  try
+    Require(SameText(Plan.BaselineBackupDirectory,
+      BackupDirectory),
+      'Complete Reset did not select the original integration baseline.');
+    SafetyBackupDirectory := TPath.Combine(ProjectRoot,
+      'export\CompleteResetSmoke\SafetyBackup');
+    TCompleteResetEngine.Execute(Plan, SafetyBackupDirectory);
+    Require(TFile.Exists(TPath.Combine(
+      SafetyBackupDirectory, 'integration-backup.json')),
+      'Complete Reset did not retain its verified safety backup.');
+  finally
+    Plan.Free;
+  end;
+
+  FormText := TFile.ReadAllText(FormFileName);
+  Require(not ContainsText(FormText, 'datLanguage_it_IT'),
+    'Complete Reset did not restore the original form resource.');
+  Require(not TDirectory.Exists(TPath.Combine(
+    FixtureDirectory, 'Localization\Development')),
+    'Complete Reset retained the development catalogs.');
+  Require(not TDirectory.Exists(TPath.Combine(
+    FixtureDirectory, 'Localization\Languages')),
+    'Complete Reset retained the runtime language packs.');
+  Require(not TDirectory.Exists(TPath.Combine(
+    FixtureDirectory, 'Localization\Runtime')),
+    'Complete Reset retained the generated runtime units.');
+  Require(TFile.ReadAllText(TPath.Combine(FixtureDirectory,
+    'developer-owned.txt'), TEncoding.UTF8) = 'preserve me',
+    'Complete Reset changed an unrelated developer-owned file.');
+end;
+
 procedure TestStudioSelfIntegrationChangeSet;
 var
   ChangeSet: TIntegrationChangeSet;
@@ -1488,6 +1567,7 @@ begin
     TestRuntimeLoadingAndPreference;
     TestIntegrationPlanningAndPackage;
     TestTransactionalTargetIntegration;
+    TestCompleteResetWorkflow;
     TestStudioSelfIntegrationChangeSet;
     TestExactIntegrationReview;
     TestProjectUnitInsertionBeforeResourceDirective;

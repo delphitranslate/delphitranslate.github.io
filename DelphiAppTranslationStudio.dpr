@@ -29,6 +29,7 @@ uses
   DAT.Integration.MenuResource in 'source\integration\DAT.Integration.MenuResource.pas',
   DAT.Integration.DelphiSource in 'source\integration\DAT.Integration.DelphiSource.pas',
   DAT.Integration.Transaction in 'source\integration\DAT.Integration.Transaction.pas',
+  DAT.Integration.Reset in 'source\integration\DAT.Integration.Reset.pas',
   DAT.Integration.Engine in 'source\integration\DAT.Integration.Engine.pas',
   DAT.Provider.Types in 'source\provider\DAT.Provider.Types.pas',
   DAT.Provider.Settings in 'source\provider\DAT.Provider.Settings.pas',

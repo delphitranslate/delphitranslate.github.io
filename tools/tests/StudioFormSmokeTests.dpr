@@ -50,6 +50,9 @@ begin
         frmTranslationStudio.chkRuntimeWiringConfirmed.OnChange) then
         raise Exception.Create(
           'The runtime wiring confirmation is not designer-wired.');
+      if not Assigned(frmTranslationStudio.btnCompleteReset.OnClick) then
+        raise Exception.Create(
+          'The Complete Reset control is not designer-wired.');
       if not Assigned(frmTranslationStudio.btnAcceptSuggestion.OnClick) then
         raise Exception.Create(
           'The translation suggestion action is not designer-wired.');
@@ -82,6 +85,11 @@ begin
            frmTranslationStudio.btnBuildIntegrationPlan.Height + 30 then
         raise Exception.Create(
           'The integration plan is too close to the planning controls.');
+      if frmTranslationStudio.btnCompleteReset.Position.Y +
+         frmTranslationStudio.btnCompleteReset.Height >=
+         frmTranslationStudio.lstIntegrationPlan.Position.Y then
+        raise Exception.Create(
+          'The Complete Reset control overlaps the integration plan.');
       if frmTranslationStudio.memIntegrationDiff.Position.X <
            frmTranslationStudio.lstIntegrationPlan.Position.X +
            frmTranslationStudio.lstIntegrationPlan.Width + 24 then

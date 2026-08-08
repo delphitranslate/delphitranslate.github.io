@@ -13,6 +13,8 @@ $TargetIntegrationPackagesDirectory = Join-Path $ProjectRoot `
     'export\TargetIntegrationPackages'
 $TargetIntegrationBackupsDirectory = Join-Path $ProjectRoot `
     'export\TargetIntegrationBackups'
+$CompleteResetSmokeDirectory = Join-Path $ProjectRoot `
+    'export\CompleteResetSmoke'
 $PilotPreferenceBackupDirectory = Join-Path `
     ([System.IO.Path]::GetTempPath()) `
     ('DAT-PilotPreferences-' + [Guid]::NewGuid().ToString('N'))
@@ -279,6 +281,7 @@ finally {
         $TargetIntegrationSmokeDirectory,
         $TargetIntegrationPackagesDirectory,
         $TargetIntegrationBackupsDirectory,
+        $CompleteResetSmokeDirectory,
         (Join-Path $ProjectRoot 'export\bin\Samples\VCLBasic'),
         (Join-Path $ProjectRoot 'export\bin\Samples\FMXBasic'),
         (Join-Path $ProjectRoot 'export\dcu\Samples\VCLBasic'),

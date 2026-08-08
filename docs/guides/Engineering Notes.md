@@ -1191,3 +1191,30 @@ the first target write unless the copy matches exactly. The manifest records
 those hashes. Restore preflights the entire preserved set before touching
 source and verifies each restored file afterward. The integration suite deliberately
 alters a backup and confirms that Restore rejects it under Win32 and Win64.
+
+## Complete Reset
+
+Implementation date: August 7, 2026
+
+The Integration page includes a designer-authored **Prepare Complete Reset**
+control. Reset preparation is read-only. It searches the external project
+backup folder and the portable in-project fallback for the newest manifest
+that matches the selected project directory and represents the beginning of
+an integration cycle. It refuses to guess when no original pre-integration
+baseline exists.
+
+The preview identifies the baseline, every original source file to restore,
+every generated integration file to remove, and the Studio-owned
+`Localization\Development`, `Localization\Languages`, and
+`Localization\Runtime` folders. One final confirmation is required; there is
+no per-file reset approval loop.
+
+Before reset mutation, `DAT.Integration.Reset` creates a separate
+SHA-256-verified **Complete Reset Safety** backup of the project's current
+integrated state. It then restores the original transactional baseline and
+removes only the three Studio-owned translation folders. Integration backup
+folders and unrelated developer files are retained. Any failure invokes the
+safety backup automatically. The deterministic reset fixture integrates an
+FMX project, resets it, verifies the original form, confirms all three
+translation folders are gone, and confirms an unrelated developer file is
+unchanged under Win32 and Win64.

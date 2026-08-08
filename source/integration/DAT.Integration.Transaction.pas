@@ -22,13 +22,19 @@ type
   TIntegrationTransaction = class
   private
     class function DefaultBackupDirectory(
-      const AChangeSet: TIntegrationChangeSet): string; static;
+      const AChangeSet: TIntegrationChangeSet;
+      const ABackupPurpose: string): string; static;
     class procedure RestoreAppliedChanges(
       const AChangeSet: TIntegrationChangeSet;
       const ABackupDirectory: string;
       const AAppliedCount: Integer); static;
   public
     class procedure Validate(const AChangeSet: TIntegrationChangeSet); static;
+    class function CreateVerifiedBackup(
+      const AChangeSet: TIntegrationChangeSet;
+      const ABackupDirectory: string = '';
+      const ABackupPurpose: string = 'Translation Integration'):
+      string; static;
     class function Apply(const AChangeSet: TIntegrationChangeSet;
       const ABackupDirectory: string = ''):
       TIntegrationApplyResult; static;
@@ -103,7 +109,8 @@ begin
 end;
 
 class function TIntegrationTransaction.DefaultBackupDirectory(
-  const AChangeSet: TIntegrationChangeSet): string;
+  const AChangeSet: TIntegrationChangeSet;
+  const ABackupPurpose: string): string;
 var
   BackupRoot: string;
   Stamp: string;
@@ -116,7 +123,7 @@ begin
     BackupRoot := TPath.Combine(AChangeSet.ProjectDirectory,
       'Localization\Integration Backups');
   Result := TPath.Combine(BackupRoot,
-    'Translation Integration ' + Stamp);
+    ABackupPurpose + ' ' + Stamp);
 end;
 
 class procedure TIntegrationTransaction.Validate(
@@ -158,11 +165,10 @@ begin
   end;
 end;
 
-class function TIntegrationTransaction.Apply(
+class function TIntegrationTransaction.CreateVerifiedBackup(
   const AChangeSet: TIntegrationChangeSet;
-  const ABackupDirectory: string): TIntegrationApplyResult;
+  const ABackupDirectory, ABackupPurpose: string): string;
 var
-  AppliedCount: Integer;
   BackupDirectory: string;
   BackupFileName: string;
   Change: TIntegrationFileChange;
@@ -175,7 +181,8 @@ begin
   Validate(AChangeSet);
   BackupDirectory := ABackupDirectory;
   if BackupDirectory = '' then
-    BackupDirectory := DefaultBackupDirectory(AChangeSet);
+    BackupDirectory := DefaultBackupDirectory(
+      AChangeSet, ABackupPurpose);
   TDirectory.CreateDirectory(TPath.Combine(BackupDirectory, 'Files'));
 
   ManifestObject := TJSONObject.Create;
@@ -219,6 +226,20 @@ begin
   finally
     ManifestObject.Free;
   end;
+
+  Result := BackupDirectory;
+end;
+
+class function TIntegrationTransaction.Apply(
+  const AChangeSet: TIntegrationChangeSet;
+  const ABackupDirectory: string): TIntegrationApplyResult;
+var
+  AppliedCount: Integer;
+  BackupDirectory: string;
+  Change: TIntegrationFileChange;
+begin
+  BackupDirectory := CreateVerifiedBackup(
+    AChangeSet, ABackupDirectory);
 
   AppliedCount := 0;
   try

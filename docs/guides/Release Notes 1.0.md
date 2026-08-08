@@ -43,6 +43,9 @@ applications do not contain API keys and do not require Internet access.
 - The maximized Integration page uses larger designer-persisted gutters around
   planning, exact-review, and authorization controls.
 - Offline JSON pack discovery and per-user language preference.
+- Complete Reset preview and one-confirmation execution, with automatic
+  SHA-256 safety backup, original-source restoration, generated-file cleanup,
+  and preservation of unrelated developer files and all backups.
 
 ## Provider-Only Automatic Translation
 

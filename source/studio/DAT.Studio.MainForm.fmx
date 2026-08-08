@@ -1201,6 +1201,17 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Build Integration Plan'
             OnClick = btnBuildIntegrationPlanClick
           end
+          object btnCompleteReset: TButton
+            Enabled = False
+            Position.X = 30.000000000000000000
+            Position.Y = 180.000000000000000000
+            Size.Width = 280.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 8
+            Text = 'Prepare Complete Reset...'
+            OnClick = btnCompleteResetClick
+          end
           object lblIntegrationSummary: TLabel
             Anchors = [akLeft, akTop, akRight]
             StyledSettings = []

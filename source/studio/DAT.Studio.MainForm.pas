@@ -16,6 +16,7 @@ uses
   FMX.Dialogs,
   FMX.Menus,
   DAT.Core.Types,
+  DAT.Integration.Reset,
   DAT.Integration.Types,
   DAT.Provider.Settings,
   DAT.Provider.Types,
@@ -134,6 +135,7 @@ type
     lblIntegrationOutput: TLabel;
     btnApplyIntegration: TButton;
     btnRestoreIntegration: TButton;
+    btnCompleteReset: TButton;
     SettingsPageCard: TRectangle;
     lblSettingsPageTitle: TLabel;
     lblSettingsDescription: TLabel;
@@ -175,6 +177,7 @@ type
     procedure btnGenerateIntegrationPackageClick(Sender: TObject);
     procedure btnApplyIntegrationClick(Sender: TObject);
     procedure btnRestoreIntegrationClick(Sender: TObject);
+    procedure btnCompleteResetClick(Sender: TObject);
     procedure lstIntegrationPlanChange(Sender: TObject);
     procedure chkIntegrationReviewConfirmedChange(Sender: TObject);
     procedure lblNavigationSettingsClick(Sender: TObject);
@@ -201,6 +204,7 @@ type
     FReviewedIntegrationFiles: TStringList;
     FIntegrationPackageDirectory: string;
     FLastIntegrationBackupDirectory: string;
+    FCompleteResetPlan: TCompleteResetPlan;
     FCatalogFileName: string;
     FProviderSettings: TProviderSettings;
     FSessionApiKeys: array[TTranslationProvider] of string;
@@ -300,7 +304,9 @@ begin
   btnGenerateIntegrationPackage.Enabled := False;
   btnApplyIntegration.Enabled := False;
   btnRestoreIntegration.Enabled := False;
+  btnCompleteReset.Enabled := False;
   FreeAndNil(FIntegrationChangeSet);
+  FreeAndNil(FCompleteResetPlan);
   FReviewedIntegrationFiles.Clear;
   FIntegrationPackageDirectory := '';
   FLastIntegrationBackupDirectory := '';
@@ -309,6 +315,9 @@ begin
     'Generate a preview, then select every changed file to review its exact text.';
   chkIntegrationReviewConfirmed.IsChecked := False;
   chkIntegrationReviewConfirmed.Enabled := False;
+  chkIntegrationReviewConfirmed.Text :=
+    'I reviewed every exact change and authorize transactional Apply';
+  btnApplyIntegration.Text := 'Apply';
   lblIntegrationSummary.Text := 'Open a Delphi project to build a plan.';
   lblIntegrationOutput.Text := 'Generated package path will appear here.';
   ClearScanSummary;
@@ -330,6 +339,7 @@ begin
   FProviderSettings.Free;
   FValidationResult.Free;
   FIntegrationChangeSet.Free;
+  FCompleteResetPlan.Free;
   FTranslationCatalog.Free;
   FScanResult.Free;
   FReviewedIntegrationFiles.Free;
@@ -427,6 +437,12 @@ var
   Change: TIntegrationFileChange;
   Index: Integer;
 begin
+  if FCompleteResetPlan <> nil then
+  begin
+    memIntegrationDiff.Lines.Assign(FCompleteResetPlan.PreviewLines);
+    memIntegrationDiff.GoToTextBegin;
+    Exit;
+  end;
   if (FIntegrationChangeSet = nil) or
      (lstIntegrationPlan.ItemIndex < 0) or
      (lstIntegrationPlan.ItemIndex >=
@@ -449,6 +465,15 @@ procedure TfrmTranslationStudio.UpdateIntegrationApplyState;
 var
   AllFilesReviewed: Boolean;
 begin
+  if FCompleteResetPlan <> nil then
+  begin
+    chkIntegrationReviewConfirmed.Enabled := True;
+    btnApplyIntegration.Enabled :=
+      chkIntegrationReviewConfirmed.IsChecked;
+    lblIntegrationDiffTitle.Text :=
+      'Complete reset preview — one confirmation required';
+    Exit;
+  end;
   AllFilesReviewed := (FIntegrationChangeSet <> nil) and
     (FIntegrationChangeSet.Changes.Count > 0) and
     (FReviewedIntegrationFiles.Count =
@@ -570,6 +595,7 @@ begin
   ResetCatalog;
   btnScanProject.Enabled := AProfile.Framework <> tfUnknown;
   btnBuildIntegrationPlan.Enabled := AProfile.Framework <> tfUnknown;
+  btnCompleteReset.Enabled := AProfile.Framework <> tfUnknown;
   SetWorkflowStep(1);
 
   if AProfile.Framework = tfUnknown then
@@ -1163,6 +1189,15 @@ procedure TfrmTranslationStudio.btnBuildIntegrationPlanClick(Sender: TObject);
 var
   IntegrationPlan: TIntegrationPlan;
 begin
+  FreeAndNil(FCompleteResetPlan);
+  btnApplyIntegration.Text := 'Apply';
+  chkIntegrationReviewConfirmed.Text :=
+    'I reviewed every exact change and authorize transactional Apply';
+  chkIntegrationReviewConfirmed.IsChecked := False;
+  chkIntegrationReviewConfirmed.Enabled := False;
+  btnApplyIntegration.Enabled := False;
+  btnRestoreIntegration.Enabled :=
+    FLastIntegrationBackupDirectory <> '';
   try
     IntegrationPlan := TIntegrationPlanner.Build(
       FProjectProfile, edtLanguageMenuName.Text);
@@ -1217,6 +1252,10 @@ var
   StudioProjectRoot: string;
 begin
   try
+    FreeAndNil(FCompleteResetPlan);
+    btnApplyIntegration.Text := 'Apply';
+    chkIntegrationReviewConfirmed.Text :=
+      'I reviewed every exact change and authorize transactional Apply';
     StudioProjectRoot := FindStudioProjectRoot;
     OutputDirectory := TIntegrationPackageGenerator.Generate(
       FProjectProfile,
@@ -1258,7 +1297,64 @@ end;
 procedure TfrmTranslationStudio.btnApplyIntegrationClick(Sender: TObject);
 var
   ApplyResult: TIntegrationApplyResult;
+  SafetyBackupDirectory: string;
 begin
+  if FCompleteResetPlan <> nil then
+  begin
+    if not chkIntegrationReviewConfirmed.IsChecked then
+    begin
+      lblStatus.Text :=
+        'Review the reset preview and confirm before continuing.';
+      Exit;
+    end;
+    if TDialogServiceSync.MessageDialog(
+      'Complete Reset will restore the original pre-integration source and ' +
+      'remove the Development, Languages, and Runtime translation folders. ' +
+      'A new verified safety backup will be created first. Continue?',
+      TMsgDlgType.mtWarning,
+      [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo],
+      TMsgDlgBtn.mbNo, 0) <> mrYes then
+      Exit;
+    btnApplyIntegration.Enabled := False;
+    btnCompleteReset.Enabled := False;
+    try
+      TCompleteResetEngine.Execute(FCompleteResetPlan);
+      SafetyBackupDirectory :=
+        FCompleteResetPlan.SafetyBackupDirectory;
+      FreeAndNil(FIntegrationChangeSet);
+      FReviewedIntegrationFiles.Clear;
+      FIntegrationPackageDirectory := '';
+      FLastIntegrationBackupDirectory := '';
+      ClearScanSummary;
+      ResetCatalog;
+      lstIntegrationPlan.Items.Clear;
+      memIntegrationDiff.Text :=
+        'Complete Reset finished. Scan the project to begin again.';
+      lblIntegrationSummary.Text :=
+        'The target is back at its pre-translation state.';
+      lblIntegrationOutput.Text :=
+        'Pre-reset safety backup: ' + SafetyBackupDirectory;
+      chkIntegrationReviewConfirmed.IsChecked := False;
+      chkIntegrationReviewConfirmed.Enabled := False;
+      chkIntegrationReviewConfirmed.Text :=
+        'I reviewed every exact change and authorize transactional Apply';
+      btnApplyIntegration.Text := 'Apply';
+      btnGenerateIntegrationPackage.Enabled := False;
+      btnRestoreIntegration.Enabled := False;
+      btnCompleteReset.Enabled := True;
+      FreeAndNil(FCompleteResetPlan);
+      lblStatus.Text :=
+        'Complete Reset succeeded. The safety backup was retained.';
+    except
+      on E: Exception do
+      begin
+        btnCompleteReset.Enabled := True;
+        UpdateIntegrationApplyState;
+        lblStatus.Text := 'Complete Reset failed safely: ' + E.Message;
+      end;
+    end;
+    Exit;
+  end;
   if FIntegrationChangeSet = nil then
   begin
     lblStatus.Text := 'Generate and review an integration package first.';
@@ -1291,6 +1387,52 @@ begin
       lblStatus.Text := 'Integration failed and was rolled back: ' + E.Message;
     end;
   end;
+end;
+
+procedure TfrmTranslationStudio.btnCompleteResetClick(Sender: TObject);
+var
+  ProjectDirectory: string;
+begin
+  if FProjectProfile.ProjectFileName = '' then
+  begin
+    lblStatus.Text := 'Open the Delphi project to reset first.';
+    Exit;
+  end;
+  btnCompleteReset.Enabled := False;
+  try
+    ProjectDirectory := TPath.GetDirectoryName(
+      FProjectProfile.ProjectFileName);
+    FreeAndNil(FCompleteResetPlan);
+    FCompleteResetPlan := TCompleteResetEngine.BuildPlan(
+      FProjectProfile.ProjectName, ProjectDirectory);
+    FreeAndNil(FIntegrationChangeSet);
+    FReviewedIntegrationFiles.Clear;
+    lstIntegrationPlan.Items.Assign(FCompleteResetPlan.PreviewLines);
+    memIntegrationDiff.Lines.Assign(FCompleteResetPlan.PreviewLines);
+    memIntegrationDiff.GoToTextBegin;
+    lblIntegrationSummary.Text :=
+      'Complete Reset is ready. No project files have changed.';
+    lblIntegrationOutput.Text := 'Original baseline: ' +
+      FCompleteResetPlan.BaselineBackupDirectory;
+    chkIntegrationReviewConfirmed.IsChecked := False;
+    chkIntegrationReviewConfirmed.Text :=
+      'I reviewed this reset plan and authorize Complete Reset';
+    chkIntegrationReviewConfirmed.Enabled := True;
+    btnApplyIntegration.Text := 'Reset Project';
+    btnApplyIntegration.Enabled := False;
+    btnRestoreIntegration.Enabled := False;
+    lblIntegrationDiffTitle.Text :=
+      'Complete reset preview — one confirmation required';
+    lblStatus.Text :=
+      'Reset preview ready. One confirmation enables Reset Project.';
+  except
+    on E: Exception do
+    begin
+      FreeAndNil(FCompleteResetPlan);
+      lblStatus.Text := 'Unable to prepare Complete Reset: ' + E.Message;
+    end;
+  end;
+  btnCompleteReset.Enabled := True;
 end;
 
 procedure TfrmTranslationStudio.lstIntegrationPlanChange(Sender: TObject);
