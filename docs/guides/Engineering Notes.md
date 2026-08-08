@@ -1283,3 +1283,33 @@ Integration page also offers an opt-in platform/configuration build. It invokes
 Delphi 37 elevated, deploys package JSON below the standardized executable
 folder, reports build/deploy failure separately from successful source
 integration, and never launches the target.
+
+## TDATLanguageManager Phase 1 Lifecycle Spike
+
+Completion date: August 8, 2026
+
+The component-first investigation now has compiled Win32 and Win64 lifecycle
+evidence. `TDATFMXLanguageManagerSpike` used FireMonkey's additive
+`TFormBeforeShownMessage` and translated auto-created, dynamic, modeless,
+modal, ownerless, inherited, and popup-style forms after streaming and
+`OnCreate` but before `OnShow` and first paint. FMX therefore passed the
+one-manager lifecycle gate.
+
+`TDATVCLLanguageManagerSpike` used a private `TApplicationEvents` instance to
+inventory `Screen.CustomForms`. It discovered and eventually translated all
+normal and MDI cases without replacing `Application.OnIdle`, and a second
+`TApplicationEvents` subscriber continued to operate. Every VCL scenario
+painted once in the source language before idle application, so idle inventory
+is rejected as the sole professional first-display trigger.
+
+An instrumentation-only `Screen.OnActiveFormChange` handler fired after
+`OnShow` and before first paint in the primary VCL matrix. Its favorable timing
+does not remove the event's single-slot coexistence risk, so it is not approved
+as a production default. Windows hooks and per-form components remain rejected.
+
+Both frameworks renamed a second simultaneous instance of the same form
+resource with an `_1` suffix. Current runtime keys use the mutable instance
+`Name`; the second form was discovered but could not match its catalog keys.
+Phase 2 must introduce a scanner-backed stable form identity before production
+manager adapters are attempted. Full evidence and reproduction steps are in
+`TDATLanguageManager Phase 1 Lifecycle Spike Report.md`.

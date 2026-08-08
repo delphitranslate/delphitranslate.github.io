@@ -1,0 +1,34 @@
+object frmFMXLifecycle: TfrmFMXLifecycle
+  Left = 0
+  Top = 0
+  Caption = 'FMX Lifecycle Source'
+  ClientHeight = 180
+  ClientWidth = 420
+  Position = ScreenCenter
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnActivate = FormActivate
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnPaint = FormPaint
+  OnShow = FormShow
+  DesignerMasterStyle = 0
+  object lblProbe: TLabel
+    Position.X = 32.000000000000000000
+    Position.Y = 54.000000000000000000
+    Size.Width = 356.000000000000000000
+    Size.Height = 42.000000000000000000
+    Size.PlatformDefault = False
+    StyledSettings = []
+    TextSettings.Font.Size = 20.000000000000000000
+    Text = 'FMX source text'
+  end
+  object tmrModalClose: TTimer
+    Enabled = False
+    Interval = 30
+    OnTimer = tmrModalCloseTimer
+    Left = 344
+    Top = 120
+  end
+end
