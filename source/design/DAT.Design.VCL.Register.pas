@@ -8,11 +8,13 @@ implementation
 
 uses
   System.Classes,
-  DAT.Components.VCL;
+  DAT.Components.VCL,
+  DAT.Components.VCL.LanguageSelector;
 
 procedure Register;
 begin
-  RegisterComponents('DAT Localization', [TDATVCLLanguageManager]);
+  RegisterComponents('DAT Localization', [TDATVCLLanguageManager,
+    TDATVCLLanguageComboBox]);
 end;
 
 end.

@@ -11,6 +11,7 @@ requires
 
 contains
   DAT.Runtime.FMX in '..\..\source\runtime\DAT.Runtime.FMX.pas',
-  DAT.Components.FMX in '..\..\source\components\DAT.Components.FMX.pas';
+  DAT.Components.FMX in '..\..\source\components\DAT.Components.FMX.pas',
+  DAT.Components.FMX.LanguageSelector in '..\..\source\components\DAT.Components.FMX.LanguageSelector.pas';
 
 end.

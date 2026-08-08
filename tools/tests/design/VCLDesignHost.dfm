@@ -12,7 +12,16 @@ object frmVCLDesignHost: TfrmVCLDesignHost
     AutoLoadPreferred = False
     AutoTranslateOwner = False
     ReapplyOpenForms = False
+    PreferenceLocation = plExecutableFolder
     Left = 32
     Top = 32
+  end
+  object LanguageSelector: TDATVCLLanguageComboBox
+    Left = 32
+    Top = 80
+    Width = 220
+    Height = 21
+    LanguageManager = DATLanguageManager
+    TabOrder = 0
   end
 end

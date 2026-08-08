@@ -11,6 +11,7 @@ requires
 
 contains
   DAT.Runtime.VCL in '..\..\source\runtime\DAT.Runtime.VCL.pas',
-  DAT.Components.VCL in '..\..\source\components\DAT.Components.VCL.pas';
+  DAT.Components.VCL in '..\..\source\components\DAT.Components.VCL.pas',
+  DAT.Components.VCL.LanguageSelector in '..\..\source\components\DAT.Components.VCL.LanguageSelector.pas';
 
 end.

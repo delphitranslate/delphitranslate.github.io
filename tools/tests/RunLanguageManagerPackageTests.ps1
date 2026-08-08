@@ -92,4 +92,4 @@ foreach ($Target in $Targets) {
     }
 }
 
-Write-Output 'Phase 6 runtime/design packages and streaming tests passed.'
+Write-Output 'Phase 6/7 packages, streaming, discovery, and selector tests passed.'

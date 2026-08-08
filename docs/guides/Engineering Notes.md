@@ -1425,3 +1425,22 @@ the installed Win32 RAD Studio IDE. Designer-authored DFM and FMX host fixtures
 containing the manager compile and stream their Object Inspector values on both
 application architectures. Packages were built and tested but were not silently
 installed into RAD Studio. See `TDATLanguageManager Phase 6 Package Report.md`.
+
+## TDATLanguageManager Phase 7 Optional Language Selectors
+
+Completion date: August 8, 2026
+
+The VCL and FMX packages now include framework-native language combo boxes.
+They are ordinary designer-owned controls whose `LanguageManager`,
+`AutoPopulate`, and `ShowLanguageCode` properties are configured in the Object
+Inspector. No visual UI is created in code.
+
+At runtime the selectors populate from the manager's validated JSON pack
+descriptors, display canonical native language names, select the active locale,
+and call `SelectLanguage` when the user chooses another locale. Their inherited
+change notification remains available to the application. Public refresh and
+code-selection methods cover late pack deployment and custom navigation.
+
+Win32 and Win64 tests prove package compilation, DFM/FMX streaming, typed
+manager-reference streaming, two-pack discovery, and language selection. See
+`TDATLanguageManager Phase 7 Language Selector Report.md`.
