@@ -80,6 +80,20 @@ begin
            frmTranslationStudio.chkIntegrationReviewConfirmed.OnChange) then
         raise Exception.Create(
           'The exact integration-review controls are not designer-wired.');
+      if (frmTranslationStudio.cboIntegrationMode.Items.Count <> 2) or
+         (frmTranslationStudio.cboIntegrationMode.ItemIndex <> 0) or
+         not Assigned(frmTranslationStudio.cboIntegrationMode.OnChange) then
+        raise Exception.Create(
+          'Component Integration is not the designer-wired default mode.');
+      if frmTranslationStudio.btnGenerateIntegrationPackage.Text <>
+          'Generate Component Kit' then
+        raise Exception.Create(
+          'The recommended component-kit action is not displayed.');
+      if frmTranslationStudio.btnApplyIntegration.Visible or
+         frmTranslationStudio.chkIntegrationReviewConfirmed.Visible or
+         frmTranslationStudio.chkBuildAfterIntegration.Visible then
+        raise Exception.Create(
+          'Source-mutation controls are visible in Component Integration mode.');
       if frmTranslationStudio.lstIntegrationPlan.Position.Y <
            frmTranslationStudio.btnBuildIntegrationPlan.Position.Y +
            frmTranslationStudio.btnBuildIntegrationPlan.Height + 30 then

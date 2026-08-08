@@ -290,6 +290,7 @@
         <DCCReference Include="source\integration\DAT.Integration.Reset.pas"/>
         <DCCReference Include="source\integration\DAT.Integration.Engine.pas"/>
         <DCCReference Include="source\integration\DAT.Integration.BuildDeploy.pas"/>
+        <DCCReference Include="source\integration\DAT.Integration.ComponentPackage.pas"/>
         <DCCReference Include="source\provider\DAT.Provider.Types.pas"/>
         <DCCReference Include="source\provider\DAT.Provider.Settings.pas"/>
         <DCCReference Include="source\provider\DAT.Provider.CredentialStore.pas"/>

@@ -123,6 +123,8 @@ type
     IntegrationPageCard: TRectangle;
     lblIntegrationPageTitle: TLabel;
     lblIntegrationDescription: TLabel;
+    lblIntegrationMode: TLabel;
+    cboIntegrationMode: TComboBox;
     lblLanguageMenuName: TLabel;
     edtLanguageMenuName: TEdit;
     btnBuildIntegrationPlan: TButton;
@@ -183,6 +185,7 @@ type
     procedure btnCompleteResetClick(Sender: TObject);
     procedure lstIntegrationPlanChange(Sender: TObject);
     procedure chkIntegrationReviewConfirmedChange(Sender: TObject);
+    procedure cboIntegrationModeChange(Sender: TObject);
     procedure lblNavigationSettingsClick(Sender: TObject);
     procedure cboTranslationProviderChange(Sender: TObject);
     procedure btnSaveProviderKeyClick(Sender: TObject);
@@ -235,6 +238,8 @@ type
       const AEntry: TTranslationEntry);
     procedure DisplaySelectedIntegrationChange;
     procedure UpdateIntegrationApplyState;
+    procedure UpdateIntegrationModeUI;
+    function IsComponentIntegrationMode: Boolean;
     function SelectedLanguageCode(AComboBox: TComboBox): string;
     procedure SelectLanguageCode(AComboBox: TComboBox;
       const ALanguageCode: string);
@@ -249,6 +254,7 @@ var
 implementation
 
 uses
+  System.Generics.Collections,
   System.IOUtils,
   System.Math,
   System.Rtti,
@@ -262,6 +268,7 @@ uses
   DAT.Core.TranslationWorkspace,
   DAT.Integration.Package,
   DAT.Integration.BuildDeploy,
+  DAT.Integration.ComponentPackage,
   DAT.Integration.Plan,
   DAT.Integration.Engine,
   DAT.Integration.Transaction,
@@ -281,8 +288,69 @@ begin
   cboTextDirection.ItemIndex := 0;
   cboBuildPlatform.ItemIndex := 0;
   cboBuildConfiguration.ItemIndex := 0;
+  cboIntegrationMode.ItemIndex := 0;
+  UpdateIntegrationModeUI;
   LoadProviderSettings;
   SetWorkflowStep(1);
+end;
+
+function TfrmTranslationStudio.IsComponentIntegrationMode: Boolean;
+begin
+  Result := cboIntegrationMode.ItemIndex <= 0;
+end;
+
+procedure TfrmTranslationStudio.UpdateIntegrationModeUI;
+var
+  AdvancedMode: Boolean;
+begin
+  AdvancedMode := not IsComponentIntegrationMode;
+  lblLanguageMenuName.Enabled := AdvancedMode;
+  edtLanguageMenuName.Enabled := AdvancedMode;
+  chkBuildAfterIntegration.Visible := AdvancedMode;
+  cboBuildPlatform.Visible := AdvancedMode;
+  cboBuildConfiguration.Visible := AdvancedMode;
+  chkIntegrationReviewConfirmed.Visible := AdvancedMode;
+  btnApplyIntegration.Visible := AdvancedMode;
+  btnRestoreIntegration.Visible := AdvancedMode;
+  btnCompleteReset.Visible := AdvancedMode;
+  if AdvancedMode then
+  begin
+    btnGenerateIntegrationPackage.Text := 'Generate Preview';
+    lblIntegrationDescription.Text :=
+      'Advanced fallback: preview backed-up, transactional source changes. ' +
+      'Use only when component integration is unsuitable.';
+    lblIntegrationDiffTitle.Text := 'Exact changes';
+  end
+  else
+  begin
+    FreeAndNil(FIntegrationChangeSet);
+    FreeAndNil(FCompleteResetPlan);
+    btnGenerateIntegrationPackage.Text := 'Generate Component Kit';
+    lblIntegrationDescription.Text :=
+      'Recommended: generate a component setup kit without modifying any ' +
+      'target project or source file.';
+    lblIntegrationDiffTitle.Text := 'Setup instructions and generated files';
+    chkIntegrationReviewConfirmed.IsChecked := False;
+    btnApplyIntegration.Enabled := False;
+    btnRestoreIntegration.Enabled := False;
+  end;
+  lstIntegrationPlan.Items.Clear;
+  memIntegrationDiff.Text := 'Build the integration plan to begin.';
+  btnGenerateIntegrationPackage.Enabled := False;
+  if FProjectProfile.ProjectFileName <> '' then
+    btnBuildIntegrationPlan.Enabled :=
+      FProjectProfile.Framework <> tfUnknown;
+end;
+
+procedure TfrmTranslationStudio.cboIntegrationModeChange(Sender: TObject);
+begin
+  UpdateIntegrationModeUI;
+  if IsComponentIntegrationMode then
+    lblStatus.Text :=
+      'Component Integration selected. Target source will not be modified.'
+  else
+    lblStatus.Text :=
+      'Advanced Automatic Integration selected. Preview before applying.';
 end;
 
 procedure TfrmTranslationStudio.datLanguageMenuItemClick(Sender: TObject);
@@ -436,8 +504,28 @@ end;
 procedure TfrmTranslationStudio.DisplaySelectedIntegrationChange;
 var
   Change: TIntegrationFileChange;
+  ComponentFileName: string;
   Index: Integer;
 begin
+  if IsComponentIntegrationMode then
+  begin
+    if (FIntegrationPackageDirectory = '') or
+      (lstIntegrationPlan.ItemIndex < 0) then
+    begin
+      memIntegrationDiff.Text :=
+        'Generate the component kit to inspect its files and instructions.';
+      Exit;
+    end;
+    ComponentFileName := TPath.Combine(FIntegrationPackageDirectory,
+      lstIntegrationPlan.Items[lstIntegrationPlan.ItemIndex]);
+    if TFile.Exists(ComponentFileName) then
+      memIntegrationDiff.Lines.LoadFromFile(ComponentFileName)
+    else
+      memIntegrationDiff.Text := 'Generated file not found: ' +
+        ComponentFileName;
+    memIntegrationDiff.GoToTextBegin;
+    Exit;
+  end;
   if FCompleteResetPlan <> nil then
   begin
     memIntegrationDiff.Lines.Assign(FCompleteResetPlan.PreviewLines);
@@ -462,6 +550,13 @@ end;
 
 procedure TfrmTranslationStudio.UpdateIntegrationApplyState;
 begin
+  if IsComponentIntegrationMode then
+  begin
+    chkIntegrationReviewConfirmed.Enabled := False;
+    btnApplyIntegration.Enabled := False;
+    lblIntegrationDiffTitle.Text := 'Setup instructions and generated files';
+    Exit;
+  end;
   if FCompleteResetPlan <> nil then
   begin
     chkIntegrationReviewConfirmed.Enabled := True;
@@ -1178,7 +1273,9 @@ end;
 
 procedure TfrmTranslationStudio.btnBuildIntegrationPlanClick(Sender: TObject);
 var
+  Descriptor: TLanguagePackDescriptor;
   IntegrationPlan: TIntegrationPlan;
+  Languages: TObjectList<TLanguagePackDescriptor>;
 begin
   FreeAndNil(FCompleteResetPlan);
   btnApplyIntegration.Text := 'Apply';
@@ -1190,6 +1287,46 @@ begin
   btnRestoreIntegration.Enabled :=
     FLastIntegrationBackupDirectory <> '';
   try
+    if IsComponentIntegrationMode then
+    begin
+      lstIntegrationPlan.Items.Clear;
+      lstIntegrationPlan.Items.Add(
+        '1. Generate a self-contained component integration kit.');
+      if FProjectProfile.Framework = tfVCL then
+        lstIntegrationPlan.Items.Add(
+          '2. Install/place TDATVCLLanguageManager on the primary form.')
+      else
+        lstIntegrationPlan.Items.Add(
+          '2. Install/place TDATFMXLanguageManager on the primary form.');
+      lstIntegrationPlan.Items.Add(
+        '3. Configure ApplicationId and LanguagesFolder in Object Inspector.');
+      lstIntegrationPlan.Items.Add(
+        '4. Optionally place the matching DAT language combo box.');
+      lstIntegrationPlan.Items.Add(
+        '5. Deploy the JSON packs beside Win32 and Win64 executables.');
+      lstIntegrationPlan.Items.Add(
+        '6. Build and test. No Studio-written target changes are required.');
+      Languages := TLanguagePackDiscovery.Discover(
+        TTranslationWorkspace.LanguagesDirectory(FProjectProfile),
+        FProjectProfile.ProjectName);
+      try
+        lblIntegrationSummary.Text := Format(
+          '%d translated pack(s) found; English will be generated.',
+          [Languages.Count]);
+        for Descriptor in Languages do
+          lstIntegrationPlan.Items.Add(Format('   %s (%s)',
+            [Descriptor.NativeLanguageName, Descriptor.LanguageCode]));
+      finally
+        Languages.Free;
+      end;
+      memIntegrationDiff.Text :=
+        'The kit is written only under the Studio export folder. The target ' +
+        'project is not opened for writing.';
+      btnGenerateIntegrationPackage.Enabled := True;
+      lblStatus.Text :=
+        'Component plan ready. No target project or source files were changed.';
+      Exit;
+    end;
     IntegrationPlan := TIntegrationPlanner.Build(
       FProjectProfile, edtLanguageMenuName.Text);
     try
@@ -1239,6 +1376,7 @@ procedure TfrmTranslationStudio.btnGenerateIntegrationPackageClick(
   Sender: TObject);
 var
   Change: TIntegrationFileChange;
+  FileName: string;
   OutputDirectory: string;
   StudioProjectRoot: string;
 begin
@@ -1248,6 +1386,36 @@ begin
     chkIntegrationReviewConfirmed.Text :=
       'I authorize the backed-up, transactional integration changes';
     StudioProjectRoot := FindStudioProjectRoot;
+    if IsComponentIntegrationMode then
+    begin
+      OutputDirectory := TComponentIntegrationPackageGenerator.Generate(
+        FProjectProfile,
+        TPath.Combine(StudioProjectRoot, 'export\component-integration'),
+        TPath.Combine(StudioProjectRoot, 'source\runtime'),
+        TPath.Combine(StudioProjectRoot, 'source\components'));
+      FIntegrationPackageDirectory := OutputDirectory;
+      FreeAndNil(FIntegrationChangeSet);
+      lstIntegrationPlan.Items.Clear;
+      for FileName in TDirectory.GetFiles(OutputDirectory, '*',
+        TSearchOption.soAllDirectories) do
+        lstIntegrationPlan.Items.Add(FileName.Substring(
+          IncludeTrailingPathDelimiter(OutputDirectory).Length));
+      if lstIntegrationPlan.Items.Count > 0 then
+      begin
+        lstIntegrationPlan.ItemIndex :=
+          lstIntegrationPlan.Items.IndexOf('README.txt');
+        if lstIntegrationPlan.ItemIndex < 0 then
+          lstIntegrationPlan.ItemIndex := 0;
+        DisplaySelectedIntegrationChange;
+      end;
+      lblIntegrationOutput.Text := OutputDirectory;
+      lblIntegrationSummary.Text := Format(
+        '%d component-kit file(s) generated; target changes: zero.',
+        [lstIntegrationPlan.Items.Count]);
+      lblStatus.Text :=
+        'Component integration kit generated. The target project is unchanged.';
+      Exit;
+    end;
     OutputDirectory := TIntegrationPackageGenerator.Generate(
       FProjectProfile,
       TPath.Combine(StudioProjectRoot, 'export\integration'),

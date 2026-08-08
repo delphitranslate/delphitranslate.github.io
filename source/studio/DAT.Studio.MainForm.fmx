@@ -1173,7 +1173,7 @@ object frmTranslationStudio: TfrmTranslationStudio
               'event integration.'
           end
           object lblLanguageMenuName: TLabel
-            Position.X = 30.000000000000000000
+            Position.X = 296.000000000000000000
             Position.Y = 116.000000000000000000
             Size.Width = 190.000000000000000000
             Size.Height = 20.000000000000000000
@@ -1184,22 +1184,42 @@ object frmTranslationStudio: TfrmTranslationStudio
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             TabOrder = 0
             Text = 'mnuLanguage'
-            Position.X = 30.000000000000000000
+            Position.X = 296.000000000000000000
             Position.Y = 138.000000000000000000
-            Size.Width = 230.000000000000000000
+            Size.Width = 180.000000000000000000
             Size.Height = 34.000000000000000000
             Size.PlatformDefault = False
           end
           object btnBuildIntegrationPlan: TButton
             Enabled = False
-            Position.X = 286.000000000000000000
+            Position.X = 492.000000000000000000
             Position.Y = 134.000000000000000000
-            Size.Width = 190.000000000000000000
+            Size.Width = 180.000000000000000000
             Size.Height = 42.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 1
             Text = 'Build Integration Plan'
             OnClick = btnBuildIntegrationPlanClick
+          end
+          object lblIntegrationMode: TLabel
+            Position.X = 30.000000000000000000
+            Position.Y = 116.000000000000000000
+            Size.Width = 250.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Integration method'
+          end
+          object cboIntegrationMode: TComboBox
+            Position.X = 30.000000000000000000
+            Position.Y = 138.000000000000000000
+            Size.Width = 250.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 12
+            Items.Strings = (
+              'Component Integration (Recommended)'
+              'Automatic Source Integration (Advanced)')
+            OnChange = cboIntegrationModeChange
           end
           object btnCompleteReset: TButton
             Enabled = False
@@ -1246,9 +1266,9 @@ object frmTranslationStudio: TfrmTranslationStudio
           object lblIntegrationSummary: TLabel
             Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
-            Position.X = 506.000000000000000000
+            Position.X = 688.000000000000000000
             Position.Y = 140.000000000000000000
-            Size.Width = 374.000000000000000000
+            Size.Width = 192.000000000000000000
             Size.Height = 28.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.StyleExt = {00070000000000000004000000}

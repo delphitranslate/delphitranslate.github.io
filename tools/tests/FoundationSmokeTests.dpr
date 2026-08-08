@@ -20,6 +20,7 @@ uses
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
   DAT.Integration.Plan in '..\..\source\integration\DAT.Integration.Plan.pas',
   DAT.Integration.Package in '..\..\source\integration\DAT.Integration.Package.pas',
+  DAT.Integration.ComponentPackage in '..\..\source\integration\DAT.Integration.ComponentPackage.pas',
   DAT.Integration.Types in '..\..\source\integration\DAT.Integration.Types.pas',
   DAT.Integration.MenuResource in '..\..\source\integration\DAT.Integration.MenuResource.pas',
   DAT.Integration.DelphiSource in '..\..\source\integration\DAT.Integration.DelphiSource.pas',
@@ -708,14 +709,21 @@ end;
 
 procedure TestIntegrationPlanningAndPackage;
 var
+  ComponentOutputDirectory: string;
+  FormHashBefore: string;
   OutputDirectory: string;
   Plan: TIntegrationPlan;
   Profile: TProjectProfile;
   ProjectRoot: string;
+  ProjectHashBefore: string;
 begin
   ProjectRoot := TPath.GetFullPath(GetCurrentDir);
   Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
     'samples\VCLBasic\SampleVCLApp.dproj'));
+  ProjectHashBefore := THashSHA2.GetHashStringFromFile(
+    Profile.ProjectFileName);
+  FormHashBefore := THashSHA2.GetHashStringFromFile(TPath.Combine(
+    ProjectRoot, 'samples\VCLBasic\SampleVCL.MainForm.dfm'));
   Plan := TIntegrationPlanner.Build(Profile, 'mnuLanguage');
   try
     Require(Plan.MenuFound,
@@ -751,6 +759,33 @@ begin
     'SampleVCLApp.Translation.pas')), 'ApplyTranslationToOpenForms'),
     'The generated unit does not refresh every open form after selection.');
 
+  ComponentOutputDirectory :=
+    TComponentIntegrationPackageGenerator.Generate(Profile,
+      TPath.Combine(ProjectRoot, 'export\ComponentIntegrationSmoke'),
+      TPath.Combine(ProjectRoot, 'source\runtime'),
+      TPath.Combine(ProjectRoot, 'source\components'));
+  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'component-integration.json')),
+    'The VCL component manifest was not generated.');
+  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'README.txt')), 'The VCL component instructions were not generated.');
+  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'ComponentSource\DAT.Components.VCL.pas')),
+    'The VCL manager source was not packaged.');
+  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'ComponentSource\DAT.Components.VCL.LanguageSelector.pas')),
+    'The VCL selector source was not packaged.');
+  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'Localization\Languages\en-US.json')),
+    'The VCL component kit is missing its English pack.');
+  Require(SameText(ProjectHashBefore, THashSHA2.GetHashStringFromFile(
+    Profile.ProjectFileName)),
+    'Component integration changed the VCL project file.');
+  Require(SameText(FormHashBefore, THashSHA2.GetHashStringFromFile(
+    TPath.Combine(ProjectRoot,
+      'samples\VCLBasic\SampleVCL.MainForm.dfm'))),
+    'Component integration changed the VCL form resource.');
+
   Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
     'samples\FMXBasic\SampleFMXApp.dproj'));
   OutputDirectory := TIntegrationPackageGenerator.Generate(
@@ -765,6 +800,28 @@ begin
   Require(TFile.Exists(TPath.Combine(OutputDirectory,
     'Localization\Languages\en-US.json')),
     'The FMX package is missing its automatic English pack.');
+  ProjectHashBefore := THashSHA2.GetHashStringFromFile(
+    Profile.ProjectFileName);
+  FormHashBefore := THashSHA2.GetHashStringFromFile(TPath.Combine(
+    ProjectRoot, 'samples\FMXBasic\SampleFMX.MainForm.fmx'));
+  ComponentOutputDirectory :=
+    TComponentIntegrationPackageGenerator.Generate(Profile,
+      TPath.Combine(ProjectRoot, 'export\ComponentIntegrationSmoke'),
+      TPath.Combine(ProjectRoot, 'source\runtime'),
+      TPath.Combine(ProjectRoot, 'source\components'));
+  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'ComponentSource\DAT.Components.FMX.pas')),
+    'The FMX manager source was not packaged.');
+  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'ComponentSource\DAT.Components.FMX.LanguageSelector.pas')),
+    'The FMX selector source was not packaged.');
+  Require(SameText(ProjectHashBefore, THashSHA2.GetHashStringFromFile(
+    Profile.ProjectFileName)),
+    'Component integration changed the FMX project file.');
+  Require(SameText(FormHashBefore, THashSHA2.GetHashStringFromFile(
+    TPath.Combine(ProjectRoot,
+      'samples\FMXBasic\SampleFMX.MainForm.fmx'))),
+    'Component integration changed the FMX form resource.');
 end;
 
 function CountTextOccurrences(const AText, ASearchText: string): Integer;

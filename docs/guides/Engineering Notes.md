@@ -1444,3 +1444,25 @@ code-selection methods cover late pack deployment and custom navigation.
 Win32 and Win64 tests prove package compilation, DFM/FMX streaming, typed
 manager-reference streaming, two-pack discovery, and language selection. See
 `TDATLanguageManager Phase 7 Language Selector Report.md`.
+
+## TDATLanguageManager Phase 8 Non-Mutating Studio Integration
+
+Completion date: August 8, 2026
+
+The Studio's Integration page now defaults to Component Integration. It creates
+a self-contained kit under `export\component-integration` containing validated
+JSON packs, the English source pack, applicable runtime/component units, a JSON
+manifest, deployment script, and ordered IDE instructions. It performs no write
+inside the selected target project.
+
+Automatic Source Integration remains available as an explicitly labeled
+advanced fallback. Its transactional safety model is unchanged. In Component
+Integration mode, the mutation, authorization, restore, and automatic-build
+controls are hidden, while generated files can be inspected in the existing
+read-only preview area.
+
+Win32/Win64 foundation tests compare SHA-256 hashes of VCL and FMX sample
+project/form files before and after kit generation. All hashes remain equal.
+Both Studio architectures build, stream the designer-authored form, and pass
+launch smoke testing. See
+`TDATLanguageManager Phase 8 Component Integration Report.md`.
