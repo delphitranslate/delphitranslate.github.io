@@ -20,7 +20,7 @@ ICON = (
     / "images and icons"
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
-LAST_CHANGED = "August 7, 2026"
+LAST_CHANGED = "August 8, 2026"
 BLUE = "234C80"
 BRIGHT_BLUE = "1974DF"
 ORANGE = "F28A1B"
@@ -162,6 +162,7 @@ def setup_styles(document: Document) -> None:
     for name, size, color in (
         ("Title", 29, BLUE),
         ("Subtitle", 15, GRAY),
+        ("TOC Heading", 16, "2E74B5"),
         ("Heading 1", 16, "2E74B5"),
         ("Heading 2", 13, "2E74B5"),
         ("Heading 3", 12, "1F4D78"),
@@ -172,7 +173,7 @@ def setup_styles(document: Document) -> None:
         style.font.color.rgb = RGBColor.from_string(color)
         style.font.bold = name != "Subtitle"
         style.paragraph_format.keep_with_next = True
-        if name == "Heading 1":
+        if name in ("Heading 1", "TOC Heading"):
             style.paragraph_format.space_before = Pt(18)
             style.paragraph_format.space_after = Pt(10)
         elif name == "Heading 2":
@@ -265,7 +266,7 @@ def add_toc_section(document: Document, guide_title: str) -> None:
     configure_page(section)
     set_page_number_format(section, "lowerRoman", 1)
     add_header_footer(section, guide_title, True)
-    document.add_heading("Table of Contents", level=1)
+    document.add_paragraph("Table of Contents", style="TOC Heading")
     paragraph = document.add_paragraph()
     add_field(paragraph, 'TOC \\o "1-3" \\h \\z \\u')
     content_section = document.add_section(WD_SECTION.NEW_PAGE)
@@ -382,7 +383,7 @@ def finish_document(document: Document, path: Path) -> None:
 def build_user_guide() -> Path:
     document = Document()
     setup_styles(document)
-    title = "Delphi App Translation Studio — User Guide"
+    title = "Delphi App Translation Studio - User Guide"
     add_cover(
         document,
         "User Guide",
@@ -411,8 +412,9 @@ def build_user_guide() -> Path:
             "Scanning is read-only and does not alter the selected project.",
             "Saving creates project-local Localization\\Development catalog files.",
             "Export creates project-local Localization\\Languages runtime packs.",
-            "Integration is a separate explicit operation with preview, verified backup, apply, and restore.",
-            "Language menu items are persisted in the target DFM or FMX so they remain editable in the Delphi IDE.",
+            "Component Integration generates a setup kit under the Studio export folder and does not write to the selected target project.",
+            "The developer places one manager on the primary form in Delphi; those normal IDE-authored form and uses-clause changes remain visible in source control.",
+            "Automatic Source Integration remains an explicit advanced fallback with preview, verified backup, apply, and restore.",
         ],
     )
 
@@ -434,6 +436,23 @@ def build_user_guide() -> Path:
         ],
     )
 
+    document.add_heading("2.2 Install the localization components", level=2)
+    add_steps(
+        document,
+        [
+            "Build DATLanguageManagerCoreRuntime.dpk for the required application architectures.",
+            "Build DATLanguageManagerVCLRuntime.dpk and/or DATLanguageManagerFMXRuntime.dpk for Win32 and Win64.",
+            "Build the matching Win32 design package: DATLanguageManagerVCLDesign.dpk or DATLanguageManagerFMXDesign.dpk. The RAD Studio IDE loads Win32 design packages even when the target application also builds for Win64.",
+            "In Delphi, open Component > Install Packages, add the matching design BPL from bin\\packages\\Win32\\<Configuration>, and confirm the DAT Localization Tool Palette page appears.",
+            "Keep the related runtime BPLs together if the target uses runtime packages. A normally linked application may instead compile the generated kit's ComponentSource units into the executable.",
+        ],
+    )
+    add_callout(
+        document,
+        "No silent IDE installation.",
+        "The Studio builds and tests the packages but does not register them in RAD Studio automatically. Package installation is an explicit developer action.",
+    )
+
     document.add_heading("3. The End-to-End Workflow", level=1)
     add_table(
         document,
@@ -444,7 +463,7 @@ def build_user_guide() -> Path:
             ["3 Translate", "Select a language and translate unresolved text automatically.", "Saved machine-translation catalog"],
             ["4 Validation", "Check completeness and structural safety.", "Issue list"],
             ["5 Export", "Create the compact offline pack.", "Runtime JSON"],
-            ["6 Integration", "Preview/apply runtime and language-menu wiring.", "Integrated target project"],
+            ["6 Integration", "Generate a non-mutating component setup kit; optionally use advanced automatic integration.", "Component kit or advanced preview"],
             ["7 Provider Settings", "Configure and test Google Cloud Translation or DeepL.", "Secure provider configuration"],
         ],
     )
@@ -678,35 +697,71 @@ def build_user_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "Integration adds the offline runtime, generated application-specific unit, startup calls, event wiring, and designer-persisted language menu items. It automatically builds an English source-language pack from the latest scan, normalizes and de-duplicates the available language list, and installs every JSON pack transactionally. It populates the named menu when present; when absent, it adds an FMX TMenuBar/TMenuItem or VCL TMainMenu/TMenuItem to the primary form and adds matching form-class declarations. It does not add provider access to the target.",
+            "Component Integration is the recommended path. It generates validated JSON packs, an English source pack, the applicable component/runtime source, a machine-readable manifest, deployment script, and exact setup instructions. The Studio writes these files only under export\\component-integration and never opens the selected target project for writing.",
+            "The target application remains completely offline. Provider code and API keys are never added to it. One manager on the primary form supervises the application; ordinary forms do not need individual components.",
         ],
     )
     add_steps(
         document,
         [
-            "Close or save the target project in Delphi.",
-            "Select Integration and confirm the designated language menu component name, normally mnuLanguage. The plan states whether that designer menu will be populated or added to the primary form.",
-            "Choose Build Integration Plan and review each proposed operation.",
-            "Choose Generate Preview. The exact-change viewer is optional; select any changed file when you want to inspect its line-numbered original/proposed text.",
-            "Check the single authorization box. You do not have to open or approve every file separately.",
-            "Optionally select Build and deploy after Apply, then choose Win32 or Win64 and Debug or Release. The Studio requests elevation for the Delphi build, deploys packs, and never launches the target.",
-            "Choose Apply. The Studio creates and verifies a pre-change backup, writes atomically, and records a restore manifest.",
-            "If automatic build/deploy was not selected, reopen the target project, inspect the DFM/FMX menu items in the IDE, build, and copy the packs beside the executable.",
-            "Run the target and select a language. Every currently open form is translated immediately; forms created later receive the saved language in their designer-persisted OnCreate path.",
-            "Use Restore to recover the recorded pre-integration state if needed.",
+            "Select Integration and leave Integration method set to Component Integration (Recommended).",
+            "Choose Build Integration Plan. Confirm the detected framework and translated-pack count.",
+            "Choose Generate Component Kit. Select README.txt and the generated manifest/files in the read-only inspection panes.",
+            "Install the matching VCL or FMX design package if it is not already installed.",
+            "Open the target application's primary form in the Delphi Form Designer and place one TDATVCLLanguageManager or TDATFMXLanguageManager from DAT Localization.",
+            "Set ApplicationId exactly to the detected Delphi project name. Leave LanguagesFolder as Localization\\Languages and set SourceLanguage to the catalog source locale, normally en-US.",
+            "Optionally place TDATVCLLanguageComboBox or TDATFMXLanguageComboBox and set its LanguageManager property to the manager. Size and align it in the designer like every other visual control.",
+            "Add the kit's ComponentSource folder to the target Search Path, or reference the installed component source location. Delphi will persist the manager field and component unit through normal designer operations.",
+            "Copy the kit's Localization folder beside every built Win32/Win64 executable, or run Deploy-LanguagePacks.ps1 with that executable directory.",
+            "Build and run the target. The saved language is applied during startup. Choosing another locale from the optional selector immediately retranslates open forms and saves the preference.",
         ],
     )
 
-    document.add_heading("11.1 Runtime files and preferences", level=2)
+    document.add_heading("11.1 Component properties and behavior", level=2)
+    add_table(
+        document,
+        ["Property or control", "Purpose"],
+        [
+            ["ApplicationId", "Must match runtime-pack applicationId; normally the Delphi project name."],
+            ["LanguagesFolder", "Pack folder relative to the executable unless an absolute path is supplied."],
+            ["SourceLanguage", "Source locale used when no translated pack is selected."],
+            ["AutoLoadPreferred", "Loads the saved per-user locale during manager initialization."],
+            ["AutoTranslateOwner / AutoTranslateNewForms", "Applies the active pack to the primary and later forms."],
+            ["ReapplyOpenForms", "Immediately retranslates open forms after a language change."],
+            ["PreserveControlState", "Protects writable user data, focus, selections, and list selection while text changes."],
+            ["FormIdentityMappings", "Optional FormClass=ScannerRoot mappings for renamed or inherited forms."],
+            ["Language combo box", "Populates from validated packs and calls the linked manager without taking over OnChange."],
+        ],
+    )
+
+    document.add_heading("11.2 Runtime files and preferences", level=2)
     add_bullets(
         document,
         [
             "Deploy JSON packs beside the target executable under Localization\\Languages.",
-            "Use Build and deploy after Apply for the automatic path. Deploy-LanguagePacks.ps1 and manual copying remain available for custom output layouts.",
+            "Deploy-LanguagePacks.ps1 and manual copying support custom executable output layouts.",
             "The selected language is stored in %LOCALAPPDATA%\\<ApplicationId>\\language.ini.",
             "The executable folder can therefore remain read-only, as it normally is under Program Files.",
-            "VCL startup applies the first form through generated DPR wiring. FMX integration persists an OnCreate handler in every form resource and applies translation after FMX streaming; an existing handler is preserved.",
+            "FMX uses additive before-show/release messages. VCL uses additive application idle/modal notifications and direct owner application.",
             "Selecting or reselecting a language applies the selected pack to every open form immediately. English is a real generated pack, so returning from another language restores all scanned source strings without restarting.",
+        ],
+    )
+
+    document.add_heading("11.3 Automatic Source Integration (Advanced)", level=2)
+    add_paragraphs(
+        document,
+        [
+            "Use the advanced mode only when the component path is unsuitable and after committing or otherwise protecting the target project. It retains the previous generated-unit, menu-resource, preview, verified backup, atomic apply, build/deploy, restore, and Complete Reset workflow.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Change Integration method to Automatic Source Integration (Advanced).",
+            "Enter the designer language-menu component name and build the plan.",
+            "Generate the exact preview and inspect any file that needs closer review.",
+            "Authorize once, optionally select build/deploy, and choose Apply.",
+            "Use Restore for the session backup or Complete Reset for a recorded pre-integration baseline.",
         ],
     )
 
@@ -717,9 +772,9 @@ def build_user_guide() -> Path:
             "Run the English Studio and select DelphiAppTranslationStudio.dproj.",
             "Scan it and create the desired language catalog.",
             "Translate, review, validate, and export the pack.",
-            "Build the self-integration preview for mnuLanguage.",
-            "Apply the persisted FMX menu-resource update.",
-            "Close the running Studio, rebuild it, and start the newly built executable.",
+            "Copy the exported pack to the Studio project or deployed executable's Localization\\Languages folder.",
+            "Add the locale to the designer-authored Studio Language menu when a selectable menu item is required.",
+            "Close the running Studio, rebuild when the menu changed, and start the executable.",
             "Select the new language. Open forms change immediately and the preference is retained for the next launch.",
         ],
     )
@@ -742,9 +797,10 @@ def build_user_guide() -> Path:
             ["DeepL test fails only on one plan", "Select API Free or API Pro to match the account endpoint."],
             ["Google test fails", "Confirm Basic v2 Cloud Translation API is enabled and key API restriction permits it."],
             ["Export blocked", "Run Validation and correct every error."],
-            ["Language menu missing", "Confirm the designated menu name and rebuild the integration plan."],
+            ["Language selector is empty", "Confirm valid nonempty packs, matching applicationId, and the deployed Localization\\Languages folder; call RefreshLanguages after late deployment."],
+            ["Component missing from Tool Palette", "Install the matching Win32 design BPL and keep its runtime dependencies available."],
             ["Preference cannot be found", "Check %LOCALAPPDATA%\\<ApplicationId>\\language.ini, not the executable folder."],
-            ["Target remains English", "Confirm the JSON pack applicationId and locale, deployment folder, selected preference, and startup ApplyTranslation calls."],
+            ["Target remains English", "Confirm manager ApplicationId, JSON applicationId/locale, deployment folder, preference, and manager initialization errors."],
         ],
     )
 
@@ -770,6 +826,8 @@ def build_user_guide() -> Path:
             ["Localization\\Development", "Editable full development catalogs."],
             ["Localization\\Languages", "Compact offline runtime JSON packs."],
             ["export", "Generated previews and temporary product output."],
+            ["export\\component-integration", "Recommended non-mutating component setup kits."],
+            ["packages\\runtime / packages\\design", "Core/framework runtime packages and VCL/FMX IDE packages."],
             ["docs\\guides / docs\\pdf", "Editable guides and companion PDFs."],
             ["%LOCALAPPDATA%\\DelphiAppTranslationStudio", "Studio settings and language preference, but no remembered key."],
             ["Windows Credential Manager", "Remembered DeepL/Google Generic Credentials."],
@@ -782,7 +840,7 @@ def build_user_guide() -> Path:
         document,
         [
             "Provider setup screens and commercial terms can change after this guide is published. Before creating a production key, compare these steps with the official pages listed in Chapters 7 and 8. Prefer a dedicated, restricted key and review the provider dashboard after the first bulk run.",
-            "This guide documents the implemented Studio as of August 7, 2026.",
+            "This guide documents the implemented Studio as of August 8, 2026.",
         ],
     )
 
@@ -794,7 +852,7 @@ def build_user_guide() -> Path:
 def build_engineering_guide() -> Path:
     document = Document()
     setup_styles(document)
-    title = "Delphi App Translation Studio — Engineering Guide"
+    title = "Delphi App Translation Studio - Engineering Guide"
     add_cover(
         document,
         "Engineering Guide",
@@ -807,7 +865,7 @@ def build_engineering_guide() -> Path:
         document,
         [
             "Delphi App Translation Studio is a Windows-only, open-source localization workspace written in Delphi FireMonkey. It targets Delphi VCL and FMX applications compiled for Win32 and Win64. It is not a runtime translation service and does not require target machines to have Internet access.",
-            "The central invariant is separation: scan and catalog operations do not modify target source; provider access exists only in the Studio; integration is explicit, previewed, transactional, backed up, and reversible; target applications consume compact offline JSON only.",
+            "The central invariant is separation: scan and catalog operations do not modify target source; provider access exists only in the Studio; recommended Component Integration writes only to the Studio export tree; advanced automatic integration remains explicit, previewed, transactional, backed up, and reversible; target applications consume compact offline JSON only.",
         ],
     )
     add_bullets(
@@ -818,7 +876,7 @@ def build_engineering_guide() -> Path:
             "Stable keys, not source text alone, identify translated properties.",
             "Original designer text remains the runtime fallback.",
             "API keys never enter project artifacts.",
-            "Language menu items remain designer-persisted in DFM/FMX resources.",
+            "One designer-persisted manager supervises the application; ordinary forms require no component.",
         ],
     )
 
@@ -832,7 +890,10 @@ def build_engineering_guide() -> Path:
             ["source\\validation", "Catalog safety and completeness checks."],
             ["source\\provider", "Provider types/settings, Credential Manager, DeepL/Google HTTPS client."],
             ["source\\runtime", "Pack discovery/loading, preference, manager, VCL and FMX applicators."],
-            ["source\\integration", "Plan, resource/source rewriting, change sets, transaction, package generation."],
+            ["source\\components", "Framework-neutral manager core, VCL/FMX lifecycle adapters, and optional language selectors."],
+            ["source\\design", "VCL and FMX Tool Palette registration units."],
+            ["packages\\runtime / packages\\design", "Core and framework runtime BPLs plus Win32 IDE design packages."],
+            ["source\\integration", "Non-mutating component kits plus advanced planning, resource/source changes, transactions, and reset."],
             ["source\\studio", "Designer-authored FMX UI and Studio self-localization."],
             ["source\\schemas", "Development and runtime JSON Schemas."],
             ["tools\\tests", "Foundation, runtime, integration, form-streaming, launch, and self-localization smoke tests."],
@@ -863,7 +924,8 @@ def build_engineering_guide() -> Path:
             ["Provider", "Confirmed source strings plus in-memory credential", "Machine-translated entry values"],
             ["Validation", "Development catalog", "Errors, warnings, information"],
             ["Pack builder", "Valid catalog", "Compact runtime JSON"],
-            ["Integration", "Project profile, packs, designated menu", "Preview package and transactional change set"],
+            ["Component integration", "Project profile, scanner roots, packs", "Non-mutating component kit under Studio export"],
+            ["Advanced integration", "Project profile, packs, designated menu", "Preview package and transactional change set"],
             ["Runtime", "Local JSON and per-user preference", "Translated existing controls and locale settings"],
         ],
     )
@@ -945,7 +1007,7 @@ def build_engineering_guide() -> Path:
         [
             "DAT.Studio.MainForm.fmx contains the complete orange-and-blue interface. The form persists WindowState=wsMaximized, uses client-aligned workflow cards, anchors resizable work areas to every relevant edge, and keeps the status card at the bottom. The workflow selection rectangle moves among Project, Scan, Translate, Validation, Export, Integration, and Provider Settings. Language and provider choices, Translate Automatically, key-management actions, and all other controls are persisted designer objects. DAT.Studio.MainForm.pas contains event and state logic only; it does not construct controls.",
             "Each workflow TLabel explicitly persists HitTest=True. FireMonkey labels default to HitTest=False, which would otherwise pass mouse events through the visible label even when an OnClick event is assigned. The setting remains editable in the Object Inspector.",
-            "The form owns the project profile, scan result, catalog, validation result, integration change set, provider settings, and per-provider session-key strings. Destructors release owned objects. Catalog updates invalidate validation and export state.",
+            "The form owns the project profile, scan result, catalog, validation result, integration change set, provider settings, and per-provider session-key strings. Destructors release owned objects. Catalog updates invalidate validation and export state. The designer-authored Integration method combo defaults to Component Integration; mutation controls are hidden in that mode and restored only for the explicitly selected advanced mode.",
         ],
     )
     add_callout(
@@ -1061,7 +1123,23 @@ def build_engineering_guide() -> Path:
             "DAT.Runtime.VCL and DAT.Runtime.FMX traverse existing component trees and supported collection properties. They apply values by stable key to already designer-created controls. Missing keys retain source text. The adapters do not create controls or rearrange layouts.",
         ],
     )
-    document.add_heading("11.1 Deployment paths", level=2)
+    document.add_heading("11.1 Component manager core", level=2)
+    add_paragraphs(
+        document,
+        [
+            "TDATCustomLanguageManager owns TTranslationRuntime, immutable post-initialization configuration, stable form-identity mappings, generation tracking, deterministic removal, main-thread and reentrancy guards, exclusion policy, diagnostics, and lifecycle events. SelectLanguage advances the generation, applies the active pack to open forms, saves the preference, and raises additive notifications.",
+            "TDATFMXLanguageManager subscribes additively to TFormBeforeShownMessage and TFormReleasedMessage. It translates after streaming but before OnShow/first paint and never replaces a global handler. TDATVCLLanguageManager owns a private TApplicationEvents, discovers visible forms on throttled idle, and inspects modal forms before display. VCL has no public additive before-show notification for every dynamic modeless form; such a form can paint once in the source language unless the application calls ApplyToForm before Show.",
+            "PreserveControlState protects writable edit/memo data, focus, selection ranges, and list/combo ItemIndex. Collection replacement temporarily suppresses and then restores OnChange. Read-only instructional memo content remains translatable.",
+        ],
+    )
+    document.add_heading("11.2 Optional selectors", level=2)
+    add_paragraphs(
+        document,
+        [
+            "TDATVCLLanguageComboBox and TDATFMXLanguageComboBox are normal designer-owned controls. Their typed LanguageManager property streams in DFM/FMX resources. At runtime AutoPopulate obtains validated descriptors, ShowLanguageCode controls display formatting, and selection calls the manager while preserving the inherited OnChange notification. RefreshLanguages supports packs deployed after startup.",
+        ],
+    )
+    document.add_heading("11.3 Deployment paths", level=2)
     add_bullets(
         document,
         [
@@ -1072,40 +1150,39 @@ def build_engineering_guide() -> Path:
         ],
     )
 
-    document.add_heading("12. Integration Planning and Transactions", level=1)
+    document.add_heading("12. Component Packages and Integration Modes", level=1)
     add_paragraphs(
         document,
         [
-            "DAT.Integration.Plan builds a human-readable plan. DAT.Integration.Package creates the generated application unit, framework adapter, shared runtime units, normalized JSON packs, automatic English source pack, language-menu manifest, and deployment script. DAT.Integration.Engine builds every proposed file change in memory, including language-pack installation. TIntegrationFileChange.ExactReviewText provides an optional complete line-numbered original/proposed LCS diff; generated files are shown in full.",
-            "One explicit authorization enables Apply; opening every diff is not required. DAT.Integration.Transaction checks source state, creates a verified pre-change backup, writes files atomically, rolls back failures, and records a manifest for restore. DAT.Integration.BuildDeploy can then invoke the Delphi 37 build elevated and deploy the package packs to the standardized executable output without launching it.",
-            "DAT.Integration.MenuResource modifies text DFM/FMX menus idempotently and preserves designer editability. It locates the first DPR-created form when a menu must be added, reuses an existing TMenuBar/TMainMenu when available, or persists a new framework-appropriate container and menu. DAT.Integration.DelphiSource adds matching component fields and applies narrowly scoped DPR, PAS, and DPROJ wiring. For FMX, it preserves an existing root OnCreate handler or persists datTranslationFormCreate in the FMX and adds ApplyTranslation(Self) to its Pascal method. This respects the FMX form streaming lifecycle and avoids translating the first form from the DPR immediately after CreateForm.",
+            "The package graph contains DATLanguageManagerCoreRuntime, framework-specific VCL/FMX runtime packages, and separate VCL/FMX design packages. Design packages register only their applicable manager and selector on DAT Localization. Runtime packages build for Win32 and Win64; the installed RAD Studio IDE consumes Win32 design BPLs. Tests build but never silently install packages.",
+            "DAT.Integration.ComponentPackage implements the recommended non-mutating mode. It emits applicable runtime/component units, validated translated packs, an English source pack, component-integration.json, scanner form roots, README instructions, and a deployment script exclusively below export\\component-integration. SHA-256 fixture tests prove target DPROJ and DFM/FMX hashes remain unchanged.",
+            "The advanced fallback retains DAT.Integration.Plan, DAT.Integration.Package, DAT.Integration.Engine, MenuResource, DelphiSource, Transaction, BuildDeploy, and Reset. It generates the application unit and exact changes in memory, requires explicit authorization, verifies a pre-change backup, writes atomically, rolls back failures, and supports restore/complete reset.",
         ],
     )
-    document.add_heading("12.1 Generated startup contract", level=2)
+    document.add_heading("12.1 Component startup contract", level=2)
     add_bullets(
         document,
         [
-            "InitializeTranslation runs before form creation.",
-            "VCL applies the first created form through the DPR startup wiring.",
-            "FMX applies each form in its designer-persisted OnCreate handler after streaming is complete.",
-            "SelectLanguageMenuItem derives a locale from datLanguage_<locale> component names.",
-            "SelectLanguage applies the chosen pack to every currently open form immediately.",
+            "The primary form streams one manager through ordinary Delphi designer mechanics.",
+            "Loaded initializes the runtime, loads the preferred/source language, and applies the owner.",
+            "FMX before-show messages cover later normal, inherited, and popup forms.",
+            "VCL idle/modal discovery covers ordinary forms; strict modeless pre-display callers use ApplyToForm.",
+            "SelectLanguage applies the pack to currently open forms immediately and persists the locale.",
             "The generated en-US pack makes switching back to source text deterministic.",
-            "TranslateText provides resourcestring/code fallback access.",
-            "Runtime ownership is finalized safely.",
+            "Manager and lifecycle subscriptions are released deterministically.",
         ],
     )
     add_callout(
         document,
         "Original code preservation.",
-        "Integration adds narrowly scoped calls and units but does not replace original captions or rewrite every control. The original DFM/FMX values continue to be the source-language fallback.",
+        "Recommended Component Integration performs zero automatic writes to the target. The developer's normal act of placing the manager causes Delphi to persist one component field/resource and applicable uses unit. Original DFM/FMX text remains the source-language fallback.",
     )
 
     document.add_heading("13. Self-Localization", level=1)
     add_paragraphs(
         document,
         [
-            "DAT.Studio.Translation resolves the project/deployed pack directory, initializes a Studio runtime before form creation, applies the active pack in FormCreate, and maps persisted language-menu names to locale codes. Self-integration recognizes the existing runtime and plans only the menu-resource change, preventing duplicate startup wiring.",
+            "DAT.Studio.Translation resolves the project/deployed pack directory, initializes a Studio runtime before form creation, applies the active pack in FormCreate, and maps persisted language-menu names to locale codes. Package streaming fixtures run in isolated bin\\tests\\packages directories so their local JSON cannot shadow the Studio's project/deployed packs.",
         ],
     )
 
@@ -1127,7 +1204,9 @@ def build_engineering_guide() -> Path:
         document,
         ["Test", "Coverage"],
         [
-            ["FoundationSmokeTests", "Detection, scan-to-catalog, schema/provenance round-trip, provider client contracts, CSV interchange, review/approval, validation, runtime pack, preference, exact diff, integration, and self change set."],
+            ["FoundationSmokeTests", "Detection, scan-to-catalog, schema/provenance round-trip, provider contracts, review/approval, validation, runtime pack, preference, advanced integration, component-kit contents, and SHA-256 non-mutation proof."],
+            ["Language manager suites", "Core guards/generations, FMX before-show lifecycle, VCL discovery/modal boundary, stable identities, instant switching, state preservation, and deterministic cleanup on Win32/Win64."],
+            ["Package/selector suites", "Debug and Release runtime/design packages, DFM/FMX streaming, typed manager references, pack discovery, and selector language propagation on Win32/Win64."],
             ["VCLRuntimeSmokeTests", "VCL controls, menu items, locale, generated unit."],
             ["FMXRuntimeSmokeTests", "All representative FMX form properties, menu items, locale, generated unit."],
             ["StudioFormSmokeTests", "Direct FMX stream/create, maximized client-aligned pages, provider-only automatic-translation controls, exact-review controls, linguistic action wiring, and Provider Settings activation."],
@@ -1139,7 +1218,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "On August 7, 2026, the deterministic release gate passed with real compilable VCL and FMX samples under Win32 and Win64. Scanner, catalog, provider request/response contracts, review, validation, export, integration, deployed packs, and required Italian launch titles passed without embedding a live credential. The Studio built in Debug and Release for both architectures, streamed its FMX form directly, launched normally, and self-localized to Italian in all four configurations.",
+            "On August 8, 2026, the complete release harness passed uninterrupted. Debug and Release component packages, Win32/Win64 manager suites, scanner/catalog/provider contracts, component non-mutation, runtime and advanced integration all passed. The Studio built in Debug and Release for both architectures, streamed its FMX form directly, launched normally, and self-localized to Italian in all four configurations. Disposable real-application pilots also built and opened translated first forms on Win32/Win64 for Website Analytics (FMX) and Courier Herald Reader (VCL).",
         ],
     )
     document.add_heading("15.1 Optional live provider testing", level=2)
@@ -1157,7 +1236,7 @@ def build_engineering_guide() -> Path:
         [
             ["Key committed to Git", "No key field in settings JSON/catalogs; Credential Manager or memory only; release secret scan."],
             ["Key leaked through URL/log", "Authentication headers, redacted errors, no body/header logging."],
-            ["Wrong target changed", "Profile display, previewed file change set, explicit Apply."],
+            ["Wrong target changed", "Recommended component kit has no target-write path; advanced mode uses profile display, preview, and explicit Apply."],
             ["Unrecoverable source mutation", "Verified G-drive project backup by workflow policy plus transaction backup/manifest/restore."],
             ["Installed-folder write failure", "Per-user language preference; packs are read-only deployment assets."],
             ["Machine mistranslation shipped", "Machine-translated status, validation, required human review."],
@@ -1197,6 +1276,7 @@ def build_engineering_guide() -> Path:
             "No automatic control resizing/reflow is performed.",
             "Binary DFM conversion is outside the scanner.",
             "Automatic runtime application covers scanned designer properties. Application-specific strings still require the documented TranslateText wiring.",
+            "VCL dynamic modeless forms may paint once in source language before idle discovery; call ApplyToForm before Show when a no-flicker first display is mandatory.",
             "Provider account terms and language support are external and must be rechecked for each release.",
         ],
     )
@@ -1205,7 +1285,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "The editable guides are generated from actual source and engineering notes with python-docx. Each DOCX contains a Word TOC field, a dedicated TOC section, and a new-page content section. Microsoft Word COM updates the TOC and fields, repaginates, and saves the DOCX. Word ExportAsFixedFormat is the preferred companion-PDF path; when that host export is unavailable, the documented fallback is styled HTML/CSS printed through Playwright. Final PDFs are rendered to page images and inspected before release.",
+            "The editable guides are generated from actual source and engineering notes with python-docx. Each DOCX contains a real Word TOC field, a dedicated TOC section, and a new-page content section. Microsoft Word COM updates every field and TOC, repaginates, saves the DOCX, and creates the companion PDF with ExportAsFixedFormat. PDF pages are rendered to images and inspected before release. LibreOffice is not used for this project.",
         ],
     )
 
@@ -1213,7 +1293,7 @@ def build_engineering_guide() -> Path:
     add_bullets(
         document,
         [
-            "Repository source, forms, project metadata, schemas, and smoke tests as of August 7, 2026.",
+            "Repository source, forms, project metadata, schemas, and smoke tests as of August 8, 2026.",
             "Microsoft credential handling: https://learn.microsoft.com/en-us/windows/win32/secbp/handling-passwords",
             "Windows CREDENTIAL structure: https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw",
             "DeepL developer documentation: https://developers.deepl.com/docs/getting-started/auth",

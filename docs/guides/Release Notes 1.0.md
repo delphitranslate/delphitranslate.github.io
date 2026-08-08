@@ -1,6 +1,6 @@
 # Delphi App Translation Studio 1.0 Release Notes
 
-Last changed: August 7, 2026
+Last changed: August 8, 2026
 
 ## Release Summary
 
@@ -9,7 +9,7 @@ for Delphi VCL and FireMonkey applications. The Studio scans designer text and
 Pascal `resourcestring` declarations, maintains development JSON catalogs,
 translates unresolved text automatically through Google Cloud Translation or
 DeepL, validates Delphi formatting contracts, exports compact runtime packs,
-and integrates an offline runtime plus designer-persisted language menu.
+and generates a non-mutating component-integration kit for an offline runtime.
 
 Only the Studio uses provider Internet access and credentials. Target
 applications do not contain API keys and do not require Internet access.
@@ -30,8 +30,17 @@ applications do not contain API keys and do not require Internet access.
 - Delphi argument-aware placeholder and accelerator validation.
 - Separate structural, linguistic, automatic-runtime, and manual
   `resourcestring` wiring readiness.
-- Optional exact line-numbered original/proposed integration inspection.
-- One final authorization gate before transactional Apply.
+- Recommended Component Integration writes a complete setup kit only under the
+  Studio export tree and makes zero automatic changes to the selected target.
+- One `TDATVCLLanguageManager` or `TDATFMXLanguageManager` on the primary form
+  supervises the application; ordinary forms need no component.
+- Optional designer-owned VCL and FMX language combo boxes bind to the manager,
+  list validated packs, and switch open forms immediately.
+- Separate core, VCL, and FMX runtime packages and framework-specific Win32 IDE
+  design packages register the controls on **DAT Localization**.
+- Automatic Source Integration remains an explicitly labeled advanced fallback
+  with exact preview, one authorization gate, verified backup, atomic Apply,
+  Restore, and Complete Reset.
 - Automatic English source-pack creation, normalized/de-duplicated language
   menus, and immediate open-form switching, including return to English.
 - Optional elevated target build and JSON deployment after Apply; the Studio
@@ -78,7 +87,10 @@ All controls remain persisted in the FMX resource and editable in RAD Studio.
 The deterministic Win32 and Win64 suites cover project detection, VCL/FMX
 scanning, catalog persistence, provider request/response contracts, validation,
 runtime export, integration, deployed offline packs, form streaming, launch,
-and Studio self-localization. Live provider acceptance requires an
+and Studio self-localization. The component path additionally covers lifecycle
+guards, state preservation, package streaming, selector binding, target
+non-mutation, and real-application Win32/Win64 pilots for both VCL and FMX. Live
+provider acceptance requires an
 owner-supplied restricted key and is intentionally kept out of automated
 fixtures.
 

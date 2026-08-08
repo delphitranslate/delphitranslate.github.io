@@ -1488,3 +1488,20 @@ deployment database after compiling successfully on both architectures. It was
 replaced with the self-contained VCL pilot rather than weakening or bypassing
 Carillon's startup contract. See
 `TDATLanguageManager Phase 9 Real Application Pilot Report.md`.
+
+## TDATLanguageManager Phase 10 Release Decision
+
+Completed August 8, 2026.
+
+Component Integration is now the recommended production workflow. Automatic
+Source Integration remains an advanced fallback. The complete release harness
+passed in one uninterrupted run across Debug and Release, Win32 and Win64,
+runtime/design packages, selector streaming and behavior, component core, FMX
+and VCL lifecycle suites, foundation/runtime/integration suites, Studio form
+streaming, ordinary launch, and Italian self-localization.
+
+During the gate, package fixture executables were isolated below
+`bin\tests\packages\<Platform>\<Configuration>`. This prevents their local
+FMXDesignHost JSON fixture from shadowing the Studio's own localization pack.
+The final repair and validation evidence is recorded in
+`TDATLanguageManager Phase 10 Release Decision Report.md`.

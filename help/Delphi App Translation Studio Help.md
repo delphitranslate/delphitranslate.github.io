@@ -1,13 +1,13 @@
 # Delphi App Translation Studio Help
 
-Last changed: August 7, 2026
+Last changed: August 8, 2026
 
 ## Purpose
 
 Delphi App Translation Studio scans Windows Delphi VCL and FireMonkey projects,
 builds editable language catalogs, translates unresolved text automatically
 through Google Cloud Translation or DeepL, validates translation safety,
-exports offline JSON packs, and previews or applies target integration.
+exports offline JSON packs, and generates a non-mutating component setup kit.
 
 The developer computer needs Internet access only while using a translation
 provider. Finished applications use local JSON packs and remain completely
@@ -30,10 +30,12 @@ offline. No API key is added to the target application's source or deployment.
    terminology, tone, and available control space. Mark them Reviewed and then
    Approved when appropriate.
 8. Run **Validation**, correct every error, and export the offline pack.
-9. Under **Integration**, build the preview, optionally inspect any complete
-   line-numbered diff, authorize the backed-up changes once, and apply them.
-   Select **Build and deploy after Apply** when the Studio should build the
-   chosen Win32/Win64 Debug/Release target and deploy packs without launching.
+9. Under **Integration**, leave **Component Integration (Recommended)** selected
+   and generate the kit. Install the matching design package, place one manager
+   on the primary form, set its `ApplicationId`, add the kit's component source
+   path, deploy `Localization\Languages` beside the executable, and build.
+10. Optionally place the matching language combo box and assign its
+    `LanguageManager` property in the Object Inspector.
 
 ## Automatic Provider Translation
 
@@ -82,24 +84,23 @@ Designer-property entries are applied by the VCL or FMX runtime adapter. Pascal
 `resourcestring` entries require an explicit generated `TranslateText` call;
 mark manual wiring confirmed only after reviewing that code location.
 
-## Safety
+## Component Integration and Safety
 
-Scanning does not alter target source. Integration first produces an in-memory
-change set, optional exact per-file inspection, and preview package. One
-explicit authorization enables Apply; every file need not be opened. Applying
-creates a verified backup and manifest. Use **Restore** to recover the recorded
-pre-integration files.
+Scanning does not alter target source. Recommended Component Integration writes
+only to `export\component-integration`; target project, source, DFM, and FMX
+files are not opened for writing. The developer makes the small integration
+change in Delphi's Form Designer, where it remains visible and editable.
 
-Integration also creates a complete English runtime pack from the latest scan,
+The component kit creates a complete English runtime pack from the latest scan,
 normalizes and de-duplicates language names, and installs all JSON packs. A
 language selection immediately refreshes every open form; newly created forms
-receive the saved language through their designer-persisted startup handler.
+receive the saved language through the manager's additive lifecycle adapter.
 
-If the named Language menu already exists, Integration populates it. If it is
-missing, Integration adds a designer-persisted `TMenuBar`/`TMenuItem` for FMX
-or `TMainMenu`/`TMenuItem` for VCL to the primary form, together with matching
-form-class fields and event wiring. These controls remain editable in Delphi's
-Form Designer; the target application does not construct them at runtime.
+One manager on the primary form covers the application. A language selector is
+optional and is also placed and configured in the Form Designer. Automatic
+Source Integration remains available as an advanced fallback; it retains the
+exact preview, verified backup, atomic Apply, Restore, and Complete Reset safety
+workflow.
 
 ## Support
 

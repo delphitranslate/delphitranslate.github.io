@@ -2,7 +2,9 @@
 
 Last changed: August 8, 2026
 
-Status: Design proposal only - no component implementation authorized.
+Status: Implemented and release-validated. Component Integration is the
+recommended workflow; Automatic Source Integration is retained as an advanced
+fallback.
 
 The printable DOCX and PDF are the authoritative review copies. This Markdown
 record preserves the decision summary and implementation sequence in the source
@@ -32,23 +34,22 @@ release-gate questions.
 - Existing JSON packs, runtime core, scanner, providers, and validation retained.
 - One manager per application; no required component on ordinary forms.
 
-## Controlled phases
+## Completed controlled phases
 
 1. Preserve the current baseline and isolate the proof.
 2. Instrument FMX and VCL lifecycle timing.
 3. Build the shared manager core.
 4. Complete FMX manager coverage.
 5. Complete or explicitly bound VCL manager coverage.
-6. Harden control-state preservation.
-7. Build and test design-time packages.
-8. Add optional language-selector binding.
-9. Add non-mutating Component Integration mode to the Studio.
-10. Test disposable copies of real FMX and VCL applications.
-11. Make a separate release decision after Debug/Release Win32/Win64 validation.
+6. Build and test the runtime and design-time package graph.
+7. Add and test optional VCL and FMX language-selector controls.
+8. Add non-mutating Component Integration mode to the Studio.
+9. Test disposable copies of real FMX and VCL applications.
+10. Complete the release decision after Debug/Release Win32/Win64 validation.
 
 ## Recommendation
 
-Do not remove current integration code during the proof. If one-manager FMX and
-VCL behavior passes no-flicker, coexistence, scale, state, removal, and real-app
-tests, make component integration the recommended path and retain automatic
-integration as an advanced fallback for a transition release.
+The proof passed its lifecycle, coexistence, state-preservation, package,
+streaming, selector, non-mutation, real-application, and complete release tests.
+Component Integration is therefore the recommended path. Automatic Source
+Integration remains available as an explicitly labeled advanced fallback.

@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param()
+param(
+    [ValidateSet('Debug', 'Release')]
+    [string]$Configuration = 'Debug'
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -18,12 +21,18 @@ $Targets = @(
     @{ Compiler = 'dcc32'; Platform = 'Win32' },
     @{ Compiler = 'dcc64'; Platform = 'Win64' }
 )
+$DefineSwitch = if ($Configuration -eq 'Release') {
+    '-DRELEASE'
+}
+else {
+    '-DDEBUG'
+}
 
 foreach ($Target in $Targets) {
     $PackageOutput = Join-Path $ProjectRoot `
-        "bin\packages\$($Target.Platform)\Debug"
+        "bin\packages\$($Target.Platform)\$Configuration"
     $DcuOutput = Join-Path $ProjectRoot `
-        "dcu\packages\$($Target.Platform)\Debug"
+        "dcu\packages\$($Target.Platform)\$Configuration"
     New-Item -ItemType Directory -Force -Path $PackageOutput, $DcuOutput |
         Out-Null
 
@@ -31,7 +40,7 @@ foreach ($Target in $Targets) {
         $PackageFile = Join-Path $ProjectRoot `
             "packages\runtime\$PackageName.dpk"
         $Command = 'call "' + $RsVars + '" && ' + $Target.Compiler +
-            ' -B -Q -LE"' + $PackageOutput + '" -LN"' + $PackageOutput +
+            ' -B -Q ' + $DefineSwitch + ' -LE"' + $PackageOutput + '" -LN"' + $PackageOutput +
             '" -N0"' + $DcuOutput + '" -U"' + $PackageOutput +
             '" "' + (Split-Path $PackageFile -Leaf) + '"'
         Push-Location (Split-Path $PackageFile -Parent)
@@ -50,7 +59,8 @@ foreach ($Target in $Targets) {
         foreach ($PackageName in $DesignPackages) {
             $PackageFile = Join-Path $ProjectRoot `
                 "packages\design\$PackageName.dpk"
-            $Command = 'call "' + $RsVars + '" && dcc32 -B -Q -LE"' +
+            $Command = 'call "' + $RsVars + '" && dcc32 -B -Q ' +
+                $DefineSwitch + ' -LE"' +
                 $PackageOutput + '" -LN"' + $PackageOutput + '" -N0"' +
                 $DcuOutput + '" -U"' + $PackageOutput + '" "' +
                 (Split-Path $PackageFile -Leaf) + '"'
@@ -70,11 +80,13 @@ foreach ($Target in $Targets) {
     foreach ($TestName in @('VCLDesignStreamingTests',
             'FMXDesignStreamingTests')) {
         $ExecutableOutput = Join-Path $ProjectRoot `
-            "bin\$($Target.Platform)\Debug"
+            "bin\tests\packages\$($Target.Platform)\$Configuration"
+        New-Item -ItemType Directory -Force -Path $ExecutableOutput |
+            Out-Null
         Push-Location $PSScriptRoot
         try {
             $Command = 'call "' + $RsVars + '" && ' + $Target.Compiler +
-                ' -B -Q -E"' + $ExecutableOutput + '" -N0"' + $DcuOutput +
+                ' -B -Q ' + $DefineSwitch + ' -E"' + $ExecutableOutput + '" -N0"' + $DcuOutput +
                 '" "' + $TestName + '.dpr"'
             & cmd.exe /d /c $Command
             if ($LASTEXITCODE -ne 0) {
@@ -92,4 +104,4 @@ foreach ($Target in $Targets) {
     }
 }
 
-Write-Output 'Phase 6/7 packages, streaming, discovery, and selector tests passed.'
+Write-Output "Phase 6/7 $Configuration packages, streaming, discovery, and selector tests passed."
