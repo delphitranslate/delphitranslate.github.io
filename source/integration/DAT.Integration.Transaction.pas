@@ -41,9 +41,28 @@ implementation
 uses
   System.Classes,
   System.DateUtils,
+  System.Hash,
   System.IOUtils,
   System.JSON,
   System.StrUtils;
+
+function FileSHA256(const AFileName: string): string;
+begin
+  Result := LowerCase(THashSHA2.GetHashStringFromFile(AFileName));
+end;
+
+procedure VerifyFileSHA256(const AFileName, AExpectedHash,
+  AFailureContext: string);
+begin
+  if not TFile.Exists(AFileName) then
+    raise EIntegrationTransactionError.CreateFmt(
+      '%s: the required file does not exist: %s',
+      [AFailureContext, AFileName]);
+  if not SameText(FileSHA256(AFileName), AExpectedHash) then
+    raise EIntegrationTransactionError.CreateFmt(
+      '%s: SHA-256 verification failed for %s',
+      [AFailureContext, AFileName]);
+end;
 
 function RelativeTargetName(const AProjectDirectory,
   ATargetFileName: string): string;
@@ -150,6 +169,7 @@ var
   EntryObject: TJSONObject;
   FilesArray: TJSONArray;
   ManifestObject: TJSONObject;
+  OriginalHash: string;
   RelativeName: string;
 begin
   Validate(AChangeSet);
@@ -161,7 +181,7 @@ begin
   ManifestObject := TJSONObject.Create;
   FilesArray := TJSONArray.Create;
   try
-    ManifestObject.AddPair('schemaVersion', TJSONNumber.Create(1));
+    ManifestObject.AddPair('schemaVersion', TJSONNumber.Create(2));
     ManifestObject.AddPair('projectName', AChangeSet.ProjectName);
     ManifestObject.AddPair('projectDirectory',
       AChangeSet.ProjectDirectory);
@@ -182,16 +202,15 @@ begin
       FilesArray.AddElement(EntryObject);
       if Change.OriginalExists then
       begin
+        OriginalHash := FileSHA256(Change.TargetFileName);
+        EntryObject.AddPair('sha256', OriginalHash);
         BackupFileName := TPath.Combine(
           TPath.Combine(BackupDirectory, 'Files'), RelativeName);
         TDirectory.CreateDirectory(
           TPath.GetDirectoryName(BackupFileName));
         TFile.Copy(Change.TargetFileName, BackupFileName, True);
-        if TFile.GetSize(BackupFileName) <>
-          TFile.GetSize(Change.TargetFileName) then
-          raise EIntegrationTransactionError.CreateFmt(
-            'Backup verification failed for %s',
-            [Change.TargetFileName]);
+        VerifyFileSHA256(BackupFileName, OriginalHash,
+          'Backup verification failed');
       end;
     end;
     TFile.WriteAllText(TPath.Combine(
@@ -237,7 +256,11 @@ begin
       BackupFileName := TPath.Combine(
         TPath.Combine(ABackupDirectory, 'Files'), RelativeName);
       if TFile.Exists(BackupFileName) then
+      begin
         TFile.Copy(BackupFileName, Change.TargetFileName, True);
+        VerifyFileSHA256(Change.TargetFileName,
+          FileSHA256(BackupFileName), 'Automatic rollback failed');
+      end;
     end
     else if TFile.Exists(Change.TargetFileName) then
       TFile.Delete(Change.TargetFileName);
@@ -252,6 +275,8 @@ var
   JsonValue: TJSONValue;
   ManifestObject: TJSONObject;
   OriginalExists: Boolean;
+  ExpectedHash: string;
+  HashValue: TJSONValue;
   RelativeName: string;
   SourceFileName: string;
   TargetFileName: string;
@@ -271,6 +296,7 @@ begin
     if FilesArray = nil then
       raise EIntegrationTransactionError.Create(
         'The integration backup contains no file list.');
+    { Preflight the complete restore set before changing any project file. }
     for EntryValue in FilesArray do
     begin
       RelativeName := EntryValue.GetValue<string>('relativeName');
@@ -285,9 +311,41 @@ begin
       begin
         SourceFileName := TPath.Combine(
           TPath.Combine(ABackupDirectory, 'Files'), RelativeName);
+        HashValue := EntryValue.FindValue('sha256');
+        if HashValue <> nil then
+          ExpectedHash := HashValue.Value
+        else
+          ExpectedHash := '';
+        if ExpectedHash <> '' then
+          VerifyFileSHA256(SourceFileName, ExpectedHash,
+            'Restore stopped because the backup is not intact')
+        else if not TFile.Exists(SourceFileName) then
+          raise EIntegrationTransactionError.CreateFmt(
+            'Restore stopped because a backup file is missing: %s',
+            [SourceFileName]);
+      end;
+    end;
+    for EntryValue in FilesArray do
+    begin
+      RelativeName := EntryValue.GetValue<string>('relativeName');
+      OriginalExists := EntryValue.GetValue<Boolean>('originalExists');
+      TargetFileName := TPath.GetFullPath(
+        TPath.Combine(AProjectDirectory, RelativeName));
+      if OriginalExists then
+      begin
+        SourceFileName := TPath.Combine(
+          TPath.Combine(ABackupDirectory, 'Files'), RelativeName);
+        HashValue := EntryValue.FindValue('sha256');
+        if HashValue <> nil then
+          ExpectedHash := HashValue.Value
+        else
+          ExpectedHash := '';
         TDirectory.CreateDirectory(
           TPath.GetDirectoryName(TargetFileName));
         TFile.Copy(SourceFileName, TargetFileName, True);
+        if ExpectedHash <> '' then
+          VerifyFileSHA256(TargetFileName, ExpectedHash,
+            'Restore verification failed');
       end
       else if TFile.Exists(TargetFileName) then
         TFile.Delete(TargetFileName);

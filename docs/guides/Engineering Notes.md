@@ -586,7 +586,8 @@ Integration application is transactional:
 1. Validate that every target remains inside the selected project.
 2. Reject read-only target files and active `.git\index.lock` state.
 3. Create a manifest-driven pre-change backup.
-4. Verify each copied backup by file size.
+4. Record and verify the SHA-256 digest of every copied original before any
+   target file is written.
 5. Write each replacement through a temporary file.
 6. Roll back already-written files automatically if a later write fails.
 7. Retain the backup path for the Integration page's Restore action.
@@ -595,8 +596,13 @@ On this development system, automatic target backups default to
 `G:\ProjectName Backup\Translation Integration timestamp`. On systems without a
 `G:` drive, the portable fallback is
 `Target Project\Localization\Integration Backups`. The backup manifest records
-whether the target is a Git repository and whether each changed file existed
-before integration.
+whether the target is a Git repository, whether each changed file existed
+before integration, and the SHA-256 digest of every preserved original.
+Restore preflights every path and backup digest before overwriting any
+developer source, then verifies each restored target. A missing, damaged, or
+altered backup therefore stops Restore safely. Manifests from the earlier size-only schema
+remain restorable for backward compatibility, but all new backups use schema 2
+and exact content verification.
 
 The supported automatic source pattern is a conventional Delphi application
 with:
@@ -1166,3 +1172,22 @@ the menu-name field, Build Integration Plan button, plan list, Exact changes
 heading, exact-diff memo, and review controls. The list and memo retain bottom
 anchors and expand with the maximized window. `StudioFormSmokeTests` asserts
 the minimum vertical and horizontal separation under Win32 and Win64.
+
+## Implementation Uses and Backup Integrity Correction
+
+Correction date: August 7, 2026
+
+Some conventional form units place `{$R *.fmx}` or `{$R *.dfm}` immediately
+after `implementation` and put their implementation `uses` clause below that
+directive. The integration source editor previously stopped at the resource
+directive and inserted a second `uses` clause. It now scans past compiler
+directives, merges the generated translation unit into the existing clause,
+and stops only at a real implementation declaration. A deterministic
+WebsiteAnalytics-style fixture protects this form-unit layout.
+
+Transactional integration backup verification now uses SHA-256 rather than
+file length. Apply hashes each original, copies it to the backup, and refuses
+the first target write unless the copy matches exactly. The manifest records
+those hashes. Restore preflights the entire preserved set before touching
+source and verifies each restored file afterward. The integration suite deliberately
+alters a backup and confirms that Restore rejects it under Win32 and Win64.

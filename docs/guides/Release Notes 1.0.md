@@ -32,11 +32,14 @@ applications do not contain API keys and do not require Internet access.
   `resourcestring` wiring readiness.
 - Exact line-numbered original/proposed integration review for every file.
 - Mandatory view-all and final-confirmation gates before transactional Apply.
-- Verified backup, atomic writes, rollback, manifest, and Restore.
+- Automatic pre-change backup with manifest-recorded SHA-256 verification,
+  atomic writes, rollback, and verified Restore.
 - Designer-persisted VCL and FMX language menus, created on the primary form
   when the named menu does not already exist.
 - DPR integration supports compiler directives such as `{$R *.res}` between
   the `uses` clause and the project `begin` block.
+- Form-unit integration supports resource directives between `implementation`
+  and an existing implementation `uses` clause without creating a duplicate.
 - The maximized Integration page uses larger designer-persisted gutters around
   planning, exact-review, and authorization controls.
 - Offline JSON pack discovery and per-user language preference.

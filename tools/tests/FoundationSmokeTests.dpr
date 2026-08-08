@@ -4,6 +4,7 @@ program FoundationSmokeTests;
 
 uses
   System.Classes,
+  System.Hash,
   System.SysUtils,
   System.IOUtils,
   System.JSON,
@@ -1022,6 +1023,10 @@ procedure TestTargetIntegration(const AProjectRoot, ASampleDirectory,
   const ARemoveDesignerMenu: Boolean = False);
 var
   BackupDirectory: string;
+  BackupFileName: string;
+  BackupFileBytes: TBytes;
+  BackupHash: string;
+  Change: TIntegrationFileChange;
   ChangeSet: TIntegrationChangeSet;
   FixtureDirectory: string;
   FixtureDirectoryName: string;
@@ -1031,6 +1036,7 @@ var
   Profile: TProjectProfile;
   ProjectText: string;
   ResultInfo: TIntegrationApplyResult;
+  RestoreRejected: Boolean;
   SourceText: string;
 begin
   FixtureDirectoryName := AFixtureDirectoryName;
@@ -1069,6 +1075,43 @@ begin
     finally
       ResultInfo.Free;
     end;
+    SourceText := TFile.ReadAllText(TPath.Combine(
+      BackupDirectory, 'integration-backup.json'));
+    Require(ContainsText(SourceText, '"schemaVersion":2'),
+      'The integration backup does not use the SHA-256 manifest schema.');
+    Require(ContainsText(SourceText, '"sha256"'),
+      'The integration backup manifest contains no content hashes.');
+    BackupFileName := '';
+    for Change in ChangeSet.Changes do
+      if Change.OriginalExists then
+      begin
+        BackupFileName := TPath.Combine(
+          TPath.Combine(BackupDirectory, 'Files'),
+          Copy(Change.TargetFileName,
+            Length(IncludeTrailingPathDelimiter(FixtureDirectory)) + 1,
+            MaxInt));
+        Break;
+      end;
+    Require(BackupFileName <> '',
+      'The integration test found no original file to protect.');
+    BackupHash := THashSHA2.GetHashStringFromFile(BackupFileName);
+    BackupFileBytes := TFile.ReadAllBytes(BackupFileName);
+    TFile.AppendAllText(BackupFileName, 'tamper-test', TEncoding.UTF8);
+    RestoreRejected := False;
+    try
+      TIntegrationTransaction.Restore(
+        FixtureDirectory, BackupDirectory);
+    except
+      on E: EIntegrationTransactionError do
+        RestoreRejected := ContainsText(E.Message,
+          'SHA-256 verification failed');
+    end;
+    Require(RestoreRejected,
+      'Restore accepted a backup whose contents were changed.');
+    TFile.WriteAllBytes(BackupFileName, BackupFileBytes);
+    Require(SameText(BackupHash,
+      THashSHA2.GetHashStringFromFile(BackupFileName)),
+      'The integration test could not restore its backup fixture.');
   finally
     ChangeSet.Free;
   end;
@@ -1285,6 +1328,40 @@ begin
     'The generated DPR unit reference was inserted after the resource directive.');
 end;
 
+procedure TestImplementationUsesAfterResourceDirective;
+var
+  ImplementationUsesPosition: Integer;
+  SourceText: string;
+  UpdatedText: string;
+begin
+  SourceText :=
+    'unit WebsiteAnalytics.MainForm;' + sLineBreak + sLineBreak +
+    'interface' + sLineBreak + sLineBreak +
+    'uses' + sLineBreak +
+    '  System.Classes;' + sLineBreak + sLineBreak +
+    'type' + sLineBreak +
+    '  TfrmMainDashboard = class(TObject)' + sLineBreak +
+    '  end;' + sLineBreak + sLineBreak +
+    'implementation' + sLineBreak + sLineBreak +
+    '{$R *.fmx}' + sLineBreak + sLineBreak +
+    'uses' + sLineBreak +
+    '  WebsiteAnalytics.DiagnosticsForm;' + sLineBreak + sLineBreak +
+    'end.';
+  UpdatedText := TDelphiIntegrationSourceEditor.AddFormLanguageHandler(
+    SourceText, 'TfrmMainDashboard', 'WebsiteAnalytics.Translation');
+  ImplementationUsesPosition := PosEx('uses', UpdatedText,
+    Pos('implementation', UpdatedText) + Length('implementation'));
+  Require(ImplementationUsesPosition > Pos('{$R *.fmx}', UpdatedText),
+    'The existing implementation uses clause moved ahead of its resource directive.');
+  Require(ContainsText(UpdatedText,
+    'WebsiteAnalytics.DiagnosticsForm,' + sLineBreak +
+    '  WebsiteAnalytics.Translation;'),
+    'The translation unit was not merged into the existing implementation uses clause.');
+  Require(CountTextOccurrences(UpdatedText,
+    'uses' + sLineBreak) = 2,
+    'Integration created a duplicate implementation uses clause.');
+end;
+
 procedure TestInPlaceAITranslationWorkflow;
 var
   Catalog: TTranslationCatalog;
@@ -1414,6 +1491,7 @@ begin
     TestStudioSelfIntegrationChangeSet;
     TestExactIntegrationReview;
     TestProjectUnitInsertionBeforeResourceDirective;
+    TestImplementationUsesAfterResourceDirective;
     TestInPlaceAITranslationWorkflow;
     Writeln('Foundation, scanner, catalog, runtime, validation, and export tests passed.');
   except

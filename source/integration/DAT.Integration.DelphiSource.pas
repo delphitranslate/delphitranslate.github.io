@@ -45,6 +45,29 @@ begin
       Exit(LineIndex);
 end;
 
+function StartsImplementationDeclaration(const ALine: string): Boolean;
+var
+  LineText: string;
+begin
+  LineText := Trim(ALine);
+  Result := StartsText('procedure ', LineText) or
+    StartsText('function ', LineText) or
+    StartsText('constructor ', LineText) or
+    StartsText('destructor ', LineText) or
+    StartsText('class procedure ', LineText) or
+    StartsText('class function ', LineText) or
+    StartsText('class operator ', LineText) or
+    StartsText('operator ', LineText) or
+    SameText(LineText, 'const') or
+    SameText(LineText, 'type') or
+    SameText(LineText, 'var') or
+    SameText(LineText, 'threadvar') or
+    SameText(LineText, 'resourcestring') or
+    SameText(LineText, 'initialization') or
+    SameText(LineText, 'finalization') or
+    SameText(LineText, 'begin');
+end;
+
 procedure AddImplementationUnit(const ALines: TStrings;
   const AUnitName: string);
 var
@@ -67,9 +90,7 @@ begin
       UsesIndex := LineIndex;
       Break;
     end;
-    if StartsText('procedure ', Trim(ALines[LineIndex])) or
-      StartsText('function ', Trim(ALines[LineIndex])) or
-      StartsText('{$R ', Trim(ALines[LineIndex])) then
+    if StartsImplementationDeclaration(ALines[LineIndex]) then
       Break;
   end;
 
