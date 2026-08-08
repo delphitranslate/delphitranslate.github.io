@@ -1313,3 +1313,29 @@ resource with an `_1` suffix. Current runtime keys use the mutable instance
 Phase 2 must introduce a scanner-backed stable form identity before production
 manager adapters are attempted. Full evidence and reproduction steps are in
 `TDATLanguageManager Phase 1 Lifecycle Spike Report.md`.
+
+## TDATLanguageManager Phase 2 Shared Core
+
+Completion date: August 8, 2026
+
+The framework-neutral `TDATCustomLanguageManager` core is implemented in
+`source/components/DAT.Components.Core.pas`. It owns the existing runtime,
+preference loading, language selection, application generations, exclusions,
+diagnostics, error policy, and non-owning managed-form tracking. Main-thread and
+reentrancy guards protect all state-changing operations. Destruction
+notifications remove tracked components without granting the manager ownership.
+
+Phase 1's duplicate-instance defect is addressed by scanner-backed class to
+resource-root mappings such as `TfrmOrders=frmOrders`. Catalog lookup no longer
+depends on an instance name that Delphi may change to `frmOrders_1`. Blank
+Object Inspector string-list rows are ignored; malformed or conflicting
+nonblank mappings fail clearly.
+
+The unit imports no VCL or FMX namespaces. An isolated mock-adapter suite passed
+under Delphi 37 for Win32 and Win64, covering initialization, language changes,
+preferences, stable identities, generations, exclusions, errors, missing-pack
+policies, main-thread enforcement, reentrancy, immutable configuration, and
+deterministic tracking cleanup. The Phase 1 lifecycle matrix also reran without
+regression on both targets. See
+`TDATLanguageManager Phase 2 Shared Core Report.md` for the full evidence and
+the Phase 3 FMX adapter gate.
