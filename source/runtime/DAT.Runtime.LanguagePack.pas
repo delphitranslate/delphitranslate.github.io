@@ -5,6 +5,7 @@ interface
 uses
   System.Classes,
   System.Generics.Collections,
+  System.Math,
   System.SysUtils;
 
 type
@@ -289,24 +290,36 @@ function TRuntimeLanguagePack.ReadIndexedStrings(
 var
   Index: Integer;
   TextValue: string;
+  TranslatedValues: TStringList;
 begin
   if AValues = nil then
     raise EArgumentNilException.Create('A string collection is required.');
   if not TryGetText(AKeyPrefix + '.0', TextValue) then
     Exit(0);
-  AValues.BeginUpdate;
+  TranslatedValues := TStringList.Create;
   try
-    AValues.Clear;
-    AValues.Add(TextValue);
+    TranslatedValues.Add(TextValue);
     Index := 1;
     while TryGetText(AKeyPrefix + '.' + Index.ToString, TextValue) do
     begin
-      AValues.Add(TextValue);
+      TranslatedValues.Add(TextValue);
       Inc(Index);
     end;
-    Result := Index;
+
+    AValues.BeginUpdate;
+    try
+      for Index := 0 to Min(AValues.Count, TranslatedValues.Count) - 1 do
+        AValues[Index] := TranslatedValues[Index];
+      while AValues.Count > TranslatedValues.Count do
+        AValues.Delete(AValues.Count - 1);
+      while AValues.Count < TranslatedValues.Count do
+        AValues.Add(TranslatedValues[AValues.Count]);
+      Result := TranslatedValues.Count;
+    finally
+      AValues.EndUpdate;
+    end;
   finally
-    AValues.EndUpdate;
+    TranslatedValues.Free;
   end;
 end;
 

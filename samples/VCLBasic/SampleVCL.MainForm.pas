@@ -24,6 +24,7 @@ type
     edtCustomerName: TEdit;
     btnSave: TButton;
     memInstructions: TMemo;
+    cmbDateRange: TComboBox;
     procedure btnSaveClick(Sender: TObject);
     procedure mnuExitClick(Sender: TObject);
   end;

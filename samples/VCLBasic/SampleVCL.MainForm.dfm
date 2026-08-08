@@ -53,6 +53,22 @@ object frmVCLSample: TfrmVCLSample
     ReadOnly = True
     TabOrder = 2
   end
+  object cmbDateRange: TComboBox
+    Left = 32
+    Top = 320
+    Width = 220
+    Height = 23
+    Style = csDropDownList
+    ItemIndex = 2
+    TabOrder = 3
+    Text = 'Last 28 days'
+    Items.Strings = (
+      'Today'
+      'Last 7 days'
+      'Last 28 days'
+      'Last 90 days'
+      'This year')
+  end
   object MainMenu: TMainMenu
     Left = 568
     Top = 24

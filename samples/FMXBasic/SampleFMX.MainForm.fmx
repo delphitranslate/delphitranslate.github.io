@@ -91,5 +91,20 @@ object frmFMXSample: TfrmFMXSample
         'Fields marked as required must be completed.')
       ReadOnly = True
     end
+    object cmbDateRange: TComboBox
+      Items.Strings = (
+        'Today'
+        'Last 7 days'
+        'Last 28 days'
+        'Last 90 days'
+        'This year')
+      Position.X = 0.000000000000000000
+      Position.Y = 304.000000000000000000
+      Size.Width = 220.000000000000000000
+      Size.Height = 32.000000000000000000
+      Size.PlatformDefault = False
+      ItemIndex = 2
+      TabOrder = 3
+    end
   end
 end

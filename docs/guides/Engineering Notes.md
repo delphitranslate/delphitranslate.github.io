@@ -531,8 +531,12 @@ Implemented on August 6, 2026:
   Pascal event handlers remain the next integration tranche, with the backup and
   preview safeguards described above.
 - Regression programs instantiate representative VCL and FMX forms, apply a
-  language pack, and verify form titles, labels, menu text, and memo lines. The
-  generated VCL and FMX integration units also compile independently.
+  language pack, and verify form titles, labels, menu text, memo lines, and
+  preservation of combo-box selections during an immediate language change.
+  Indexed list text is replaced in place, while each adapter preserves
+  `ItemIndex` and suppresses `OnChange` during localization so application state
+  cannot be mistaken for a new user selection. The generated VCL and FMX
+  integration units also compile independently.
 - `tools\tests\RunRuntimeSmokeTests.ps1` repeats those checks with both the
   Win32 and Win64 Delphi compilers and removes its generated package fixtures
   after validation.

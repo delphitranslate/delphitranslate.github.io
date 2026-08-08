@@ -12,6 +12,7 @@ uses
   FMX.Memo,
   FMX.ScrollBox,
   FMX.Layouts,
+  FMX.ListBox,
   FMX.Menus;
 
 resourcestring
@@ -30,6 +31,7 @@ type
     edtCustomerName: TEdit;
     btnSave: TButton;
     memInstructions: TMemo;
+    cmbDateRange: TComboBox;
     procedure btnSaveClick(Sender: TObject);
     procedure mnuExitClick(Sender: TObject);
   end;

@@ -50,6 +50,11 @@ function ApplyStringCollection(const AForm, AComponent: TComponent;
   const APropertyName, AKeyPropertyName: string;
   const APack: TRuntimeLanguagePack): Integer;
 var
+  ChangeEventInfo: PPropInfo;
+  EmptyChangeEvent: TMethod;
+  ItemIndexInfo: PPropInfo;
+  SavedChangeEvent: TMethod;
+  SavedItemIndex: NativeInt;
   PropertyInfo: PPropInfo;
   StringObject: TObject;
 begin
@@ -59,9 +64,35 @@ begin
     Exit;
   StringObject := GetObjectProp(AComponent, PropertyInfo);
   if StringObject is TStrings then
-    Result := APack.ReadIndexedStrings(
-      ComponentKey(AForm, AComponent, AKeyPropertyName),
-      TStrings(StringObject));
+  begin
+    ItemIndexInfo := GetPropInfo(AComponent.ClassInfo, 'ItemIndex',
+      [tkInteger, tkInt64]);
+    if ItemIndexInfo <> nil then
+      SavedItemIndex := GetOrdProp(AComponent, ItemIndexInfo)
+    else
+      SavedItemIndex := -1;
+
+    ChangeEventInfo := GetPropInfo(AComponent.ClassInfo, 'OnChange', [tkMethod]);
+    if ChangeEventInfo <> nil then
+    begin
+      SavedChangeEvent := GetMethodProp(AComponent, ChangeEventInfo);
+      EmptyChangeEvent.Code := nil;
+      EmptyChangeEvent.Data := nil;
+      SetMethodProp(AComponent, ChangeEventInfo, EmptyChangeEvent);
+    end;
+    try
+      Result := APack.ReadIndexedStrings(
+        ComponentKey(AForm, AComponent, AKeyPropertyName),
+        TStrings(StringObject));
+      if (Result > 0) and (ItemIndexInfo <> nil) and
+        (SavedItemIndex >= -1) and
+        (SavedItemIndex < TStrings(StringObject).Count) then
+        SetOrdProp(AComponent, ItemIndexInfo, SavedItemIndex);
+    finally
+      if ChangeEventInfo <> nil then
+        SetMethodProp(AComponent, ChangeEventInfo, SavedChangeEvent);
+    end;
+  end;
 end;
 
 class function TVCLTranslationApplicator.ApplyToForm(

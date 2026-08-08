@@ -35,6 +35,11 @@ const
     '"frmFMXSample.mnuFile.Text":"Datei",' +
     '"frmFMXSample.mnuExit.Text":"Beenden",' +
     '"frmFMXSample.mnuLanguage.Text":"Sprache",' +
+    '"frmFMXSample.cmbDateRange.Items.Strings.0":"Heute",' +
+    '"frmFMXSample.cmbDateRange.Items.Strings.1":"Letzte 7 Tage",' +
+    '"frmFMXSample.cmbDateRange.Items.Strings.2":"Letzte 28 Tage",' +
+    '"frmFMXSample.cmbDateRange.Items.Strings.3":"Letzte 90 Tage",' +
+    '"frmFMXSample.cmbDateRange.Items.Strings.4":"Dieses Jahr",' +
     '"frmFMXSample.memInstructions.Lines.Strings.0":"Erste Zeile",' +
     '"frmFMXSample.memInstructions.Lines.Strings.1":"Zweite Zeile"}}';
 begin
@@ -52,13 +57,17 @@ begin
     try
       AppliedCount := TFMXTranslationApplicator.ApplyToForm(
         frmFMXSample, Pack);
-      Require(AppliedCount = 10, 'Unexpected FMX applied-property count.');
+      Require(AppliedCount = 15, 'Unexpected FMX applied-property count.');
       Require(frmFMXSample.Caption = 'FMX Beispiel',
         'The FMX form caption was not translated.');
       Require(frmFMXSample.lblHeading.Text = 'Kundendaten',
         'The FMX label was not translated.');
       Require(frmFMXSample.mnuLanguage.Text = 'Sprache',
         'The FMX menu was not translated.');
+      Require(frmFMXSample.cmbDateRange.ItemIndex = 2,
+        'The FMX combo-box selection changed during translation.');
+      Require(frmFMXSample.cmbDateRange.Selected.Text = 'Letzte 28 Tage',
+        'The selected FMX combo-box item was not translated in place.');
       Require((frmFMXSample.memInstructions.Lines.Count = 2) and
         (frmFMXSample.memInstructions.Lines[1] = 'Zweite Zeile'),
         'The FMX memo lines were not translated.');
