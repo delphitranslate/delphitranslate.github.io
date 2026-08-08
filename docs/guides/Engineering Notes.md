@@ -1466,3 +1466,25 @@ project/form files before and after kit generation. All hashes remain equal.
 Both Studio architectures build, stream the designer-authored form, and pass
 launch smoke testing. See
 `TDATLanguageManager Phase 8 Component Integration Report.md`.
+
+## TDATLanguageManager Phase 9 Real Application Pilots
+
+Completion date: August 8, 2026
+
+Disposable real-application copies proved the component-first workflow without
+generated translation units or project startup edits. The pristine Website
+Analytics FMX application built on Win32 and Win64 and displayed its first form
+as `Analítica del sitio web`. Courier Herald Reader built on both architectures
+and displayed its primary VCL form as `Lector de PDF del periódico`.
+
+Each pilot used one designer-streamed manager on the primary form, copied
+component/runtime units, validated English and Spanish JSON packs, and an
+executable-folder preference for deterministic testing. Ordinary forms were
+unchanged. The original applications were accessed read-only and the disposable
+copies were removed after testing.
+
+An attempted Carillon VCL runtime pilot exposed an unrelated missing SQLite
+deployment database after compiling successfully on both architectures. It was
+replaced with the self-contained VCL pilot rather than weakening or bypassing
+Carillon's startup contract. See
+`TDATLanguageManager Phase 9 Real Application Pilot Report.md`.
