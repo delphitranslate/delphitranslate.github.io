@@ -1339,3 +1339,29 @@ deterministic tracking cleanup. The Phase 1 lifecycle matrix also reran without
 regression on both targets. See
 `TDATLanguageManager Phase 2 Shared Core Report.md` for the full evidence and
 the Phase 3 FMX adapter gate.
+
+## TDATLanguageManager Phase 3 FMX Adapter
+
+Completion date: August 8, 2026
+
+The production `TDATFMXLanguageManager` adapter now joins the Phase 2 shared
+core to FireMonkey. It uses additive `TFormBeforeShownMessage` and
+`TFormReleasedMessage` subscriptions, stores their identifiers, and
+unsubscribes deterministically. It neither replaces a global event nor polls at
+idle. New FMX forms translate after streaming and creation but before `OnShow`
+and first paint. Visible and optionally hidden forms are inventoried through
+`Screen.Forms` and `Screen.PopupForms` for immediate language changes.
+
+`DAT.Runtime.FMX` now offers a backward-compatible overload accepting the
+scanner's stable form identity and the state-preservation policy. Duplicate
+instances such as `frmOrders_1` therefore use keys rooted at `frmOrders`.
+Translated string collections retain `ItemIndex` when preservation is enabled,
+and suppress `OnChange` while the items are replaced.
+
+The production suite passed on Win32 and Win64 for before-show timing, inherited
+and popup forms, duplicate-instance identity, immediate language switching,
+hidden-form catch-up, explicit application, combo-box selection preservation,
+and released-form cleanup. Core, runtime, integration, and lifecycle regression
+suites also pass. The pristine GA4 application remains untouched. See
+`TDATLanguageManager Phase 3 FMX Adapter Report.md` for complete evidence and
+the remaining component-product boundaries.
