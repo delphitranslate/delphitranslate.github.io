@@ -30,11 +30,14 @@ type
     FModelessShowWasSource: Boolean;
     FModalProbeActive: Boolean;
     FModalShowWasGerman: Boolean;
+    FControlChangeCount: Integer;
   public
     procedure CoexistingIdle(Sender: TObject; var Done: Boolean);
     procedure FormLifecycle(const AFramework, AFormName, AStage,
       ACaption, AProbeText: string);
+    procedure ControlChanged(Sender: TObject);
     property CoexistingIdleCount: Integer read FCoexistingIdleCount;
+    property ControlChangeCount: Integer read FControlChangeCount;
     property ModalProbeActive: Boolean read FModalProbeActive
       write FModalProbeActive;
     property ModalShowWasGerman: Boolean read FModalShowWasGerman;
@@ -74,7 +77,10 @@ begin
     ADateItem1 + '","frmVCLSample.cmbDateRange.Items.Strings.2":"' +
     ADateItem2 + '","frmVCLSample.cmbDateRange.Items.Strings.3":"' +
     ADateItem3 + '","frmVCLSample.cmbDateRange.Items.Strings.4":"' +
-    ADateItem4 + '"}}';
+    ADateItem4 + '","frmVCLSample.memInstructions.Lines.Strings.0":' +
+    '"Translated memo line 1",' +
+    '"frmVCLSample.memInstructions.Lines.Strings.1":' +
+    '"Translated memo line 2"}}';
   TFile.WriteAllText(AFileName, JsonText, TEncoding.UTF8);
 end;
 
@@ -113,6 +119,11 @@ procedure TVCLManagerObserver.CoexistingIdle(Sender: TObject;
 begin
   Inc(FCoexistingIdleCount);
   Done := False;
+end;
+
+procedure TVCLManagerObserver.ControlChanged(Sender: TObject);
+begin
+  Inc(FControlChangeCount);
 end;
 
 procedure TVCLManagerObserver.FormLifecycle(const AFramework, AFormName,
@@ -211,6 +222,18 @@ begin
       (StateForm.cmbDateRange.Items[2] = 'Letzte 28 Tage'),
       'VCL combo-box selection was not preserved during discovery.');
 
+    StateForm.edtCustomerName.Text := 'Alice Martin';
+    StateForm.edtCustomerName.SelStart := 1;
+    StateForm.edtCustomerName.SelLength := 4;
+    StateForm.memInstructions.ReadOnly := False;
+    StateForm.memInstructions.Lines.Text := 'Private user notes';
+    StateForm.memInstructions.SelStart := 2;
+    StateForm.memInstructions.SelLength := 5;
+    StateForm.edtCustomerName.SetFocus;
+    StateForm.edtCustomerName.OnChange := Observer.ControlChanged;
+    StateForm.memInstructions.OnChange := Observer.ControlChanged;
+    StateForm.cmbDateRange.OnChange := Observer.ControlChanged;
+
     ModalForm := TfrmVCLLifecycle.Create(nil);
     ModalForm.CloseModalAutomatically := True;
     Observer.ModalProbeActive := True;
@@ -230,6 +253,18 @@ begin
     Require((StateForm.cmbDateRange.ItemIndex = 2) and
       (StateForm.cmbDateRange.Items[2] = 'Last 28 days'),
       'VCL instant selection did not preserve combo-box state.');
+    Require((StateForm.edtCustomerName.Text = 'Alice Martin') and
+      (StateForm.edtCustomerName.SelStart = 1) and
+      (StateForm.edtCustomerName.SelLength = 4) and
+      StateForm.edtCustomerName.Focused,
+      'VCL editable text, selection, or focus was not preserved.');
+    Require((Trim(StateForm.memInstructions.Lines.Text) =
+      'Private user notes') and
+      (StateForm.memInstructions.SelStart = 2) and
+      (StateForm.memInstructions.SelLength = 5),
+      'VCL writable memo content or selection was not preserved.');
+    Require(Observer.ControlChangeCount = 0,
+      'VCL localization fired a protected control OnChange event.');
 
     DuplicateForm.Hide;
     Require(Manager.SelectLanguage('de-DE'),
@@ -258,6 +293,9 @@ begin
     Writeln('VCL_MANAGER_STABLE_IDENTITY=PASS');
     Writeln('VCL_MANAGER_INSTANT_SWITCH=PASS');
     Writeln('VCL_MANAGER_CONTROL_STATE=PASS');
+    Writeln('VCL_MANAGER_EDITABLE_DATA=PASS');
+    Writeln('VCL_MANAGER_FOCUS_AND_SELECTION=PASS');
+    Writeln('VCL_MANAGER_EVENT_SUPPRESSION=PASS');
     Writeln('VCL_MANAGER_COEXISTING_EVENTS=PASS');
     Writeln('VCL_MANAGER_EXPLICIT_PREDISPLAY=PASS');
   except

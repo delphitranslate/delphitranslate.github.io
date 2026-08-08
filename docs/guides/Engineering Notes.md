@@ -1390,3 +1390,22 @@ switching, hidden forms, selection preservation, independent application-event
 subscribers, explicit pre-display application, and deterministic cleanup. See
 `TDATLanguageManager Phase 4 VCL Adapter Report.md` for the full bounded
 contract and Phase 5 gate.
+
+## TDATLanguageManager Phase 5 Control-State Hardening
+
+Completion date: August 8, 2026
+
+Both applicators now implement the manager's `PreserveControlState` policy as a
+concrete cross-framework contract. Writable FMX edit text and writable FMX/VCL
+memo lines are treated as live user data and are not replaced; read-only memo
+instructions remain translatable. Edit and memo selection ranges, current
+focus, and list/combo `ItemIndex` are restored. `OnChange` remains detached and
+restored around translated string-collection replacement.
+
+The FMX and VCL production suites populate editable text and memo data, select
+text ranges, focus the edit, attach change handlers, and switch languages. On
+Win32 and Win64, both retain the data, selections, focus, and date-range index;
+the selected item changes language in place and no protected change handler
+fires. The full runtime and integration suite also passes on both targets. See
+`TDATLanguageManager Phase 5 Control State Report.md` for the exact contract,
+test evidence, opt-out behavior, and custom-control boundary.

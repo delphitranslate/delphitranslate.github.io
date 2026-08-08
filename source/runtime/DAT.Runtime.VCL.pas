@@ -21,7 +21,15 @@ implementation
 
 uses
   System.SysUtils,
-  System.TypInfo;
+  System.TypInfo,
+  Vcl.Controls,
+  Vcl.StdCtrls;
+
+function EditableLinesComponent(const AComponent: TComponent): Boolean;
+begin
+  Result := (AComponent is TCustomMemo) and
+    not TCustomMemo(AComponent).ReadOnly;
+end;
 
 function ComponentKey(const AFormIdentity: string;
   const AForm, AComponent: TComponent;
@@ -67,6 +75,9 @@ var
   StringObject: TObject;
 begin
   Result := 0;
+  if APreserveControlState and SameText(APropertyName, 'Lines') and
+    EditableLinesComponent(AComponent) then
+    Exit;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName, [tkClass]);
   if PropertyInfo = nil then
     Exit;
@@ -124,6 +135,10 @@ var
   ComponentIndex: Integer;
   FormIdentity: string;
   PropertyName: string;
+  SavedFocusedControl: TWinControl;
+  SavedFocusedState: Boolean;
+  SavedSelLength: Integer;
+  SavedSelStart: Integer;
 begin
   if AForm = nil then
     raise EArgumentNilException.Create('A VCL form is required.');
@@ -132,26 +147,54 @@ begin
   FormIdentity := Trim(AFormIdentity);
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
+  SavedFocusedControl := nil;
+  SavedFocusedState := False;
+  if APreserveControlState then
+  begin
+    SavedFocusedControl := AForm.ActiveControl;
+    SavedFocusedState := (SavedFocusedControl <> nil) and
+      SavedFocusedControl.Focused;
+  end;
 
   Result := 0;
-  for PropertyName in TextProperties do
-    if ApplyTextProperty(FormIdentity, AForm, AForm, PropertyName,
-      APack) then
-      Inc(Result);
-
-  for ComponentIndex := 0 to AForm.ComponentCount - 1 do
-  begin
-    Component := AForm.Components[ComponentIndex];
-    if Component.Name = '' then
-      Continue;
+  try
     for PropertyName in TextProperties do
-      if ApplyTextProperty(FormIdentity, AForm, Component, PropertyName,
+      if ApplyTextProperty(FormIdentity, AForm, AForm, PropertyName,
         APack) then
         Inc(Result);
-    for PropertyName in StringProperties do
-      Inc(Result, ApplyStringCollection(
-        FormIdentity, AForm, Component, PropertyName,
-        PropertyName + '.Strings', APack, APreserveControlState));
+    for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+    begin
+      Component := AForm.Components[ComponentIndex];
+      if Component.Name = '' then
+        Continue;
+      SavedSelStart := -1;
+      SavedSelLength := -1;
+      if APreserveControlState and (Component is TCustomEdit) then
+      begin
+        SavedSelStart := TCustomEdit(Component).SelStart;
+        SavedSelLength := TCustomEdit(Component).SelLength;
+      end;
+      try
+        for PropertyName in TextProperties do
+          if ApplyTextProperty(FormIdentity, AForm, Component, PropertyName,
+            APack) then
+            Inc(Result);
+        for PropertyName in StringProperties do
+          Inc(Result, ApplyStringCollection(
+            FormIdentity, AForm, Component, PropertyName,
+            PropertyName + '.Strings', APack, APreserveControlState));
+      finally
+        if SavedSelStart >= 0 then
+        begin
+          TCustomEdit(Component).SelStart := SavedSelStart;
+          TCustomEdit(Component).SelLength := SavedSelLength;
+        end;
+      end;
+    end;
+  finally
+    if APreserveControlState and SavedFocusedState and
+      (SavedFocusedControl <> nil) and SavedFocusedControl.CanFocus then
+      SavedFocusedControl.SetFocus;
   end;
 end;
 

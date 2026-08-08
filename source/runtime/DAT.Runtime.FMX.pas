@@ -21,7 +21,19 @@ implementation
 uses
   System.Classes,
   System.SysUtils,
-  System.TypInfo;
+  System.TypInfo,
+  FMX.Controls,
+  FMX.Edit,
+  FMX.Memo,
+  FMX.Types;
+
+function EditableTextComponent(const AComponent: TComponent): Boolean;
+begin
+  Result := ((AComponent is TCustomEdit) and
+    not TCustomEdit(AComponent).ReadOnly) or
+    ((AComponent is TCustomMemo) and
+    not TCustomMemo(AComponent).ReadOnly);
+end;
 
 function ComponentKey(const AFormIdentity: string;
   const AForm, AComponent: TComponent;
@@ -35,12 +47,16 @@ end;
 
 function ApplyTextProperty(const AFormIdentity: string;
   const AForm, AComponent: TComponent;
-  const APropertyName: string; const APack: TRuntimeLanguagePack): Boolean;
+  const APropertyName: string; const APack: TRuntimeLanguagePack;
+  const APreserveControlState: Boolean): Boolean;
 var
   PropertyInfo: PPropInfo;
   TranslatedText: string;
 begin
   Result := False;
+  if APreserveControlState and SameText(APropertyName, 'Text') and
+    EditableTextComponent(AComponent) then
+    Exit;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName,
     [tkString, tkLString, tkWString, tkUString]);
   if (PropertyInfo <> nil) and APack.TryGetText(
@@ -67,6 +83,9 @@ var
   StringObject: TObject;
 begin
   Result := 0;
+  if APreserveControlState and SameText(APropertyName, 'Lines') and
+    EditableTextComponent(AComponent) then
+    Exit;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName, [tkClass]);
   if PropertyInfo = nil then
     Exit;
@@ -124,6 +143,9 @@ var
   ComponentIndex: Integer;
   FormIdentity: string;
   PropertyName: string;
+  SavedFocusedControl: IControl;
+  SavedSelLength: Integer;
+  SavedSelStart: Integer;
 begin
   if AForm = nil then
     raise EArgumentNilException.Create('An FMX form is required.');
@@ -132,26 +154,58 @@ begin
   FormIdentity := Trim(AFormIdentity);
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
+  if APreserveControlState then
+    SavedFocusedControl := AForm.Focused;
 
   Result := 0;
-  for PropertyName in TextProperties do
-    if ApplyTextProperty(FormIdentity, AForm, AForm, PropertyName,
-      APack) then
-      Inc(Result);
-
-  for ComponentIndex := 0 to AForm.ComponentCount - 1 do
-  begin
-    Component := AForm.Components[ComponentIndex];
-    if Component.Name = '' then
-      Continue;
+  try
     for PropertyName in TextProperties do
-      if ApplyTextProperty(FormIdentity, AForm, Component, PropertyName,
-        APack) then
+      if ApplyTextProperty(FormIdentity, AForm, AForm, PropertyName,
+        APack, APreserveControlState) then
         Inc(Result);
-    for PropertyName in StringProperties do
-      Inc(Result, ApplyStringCollection(
-        FormIdentity, AForm, Component, PropertyName,
-        PropertyName + '.Strings', APack, APreserveControlState));
+    for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+    begin
+      Component := AForm.Components[ComponentIndex];
+      if Component.Name = '' then
+        Continue;
+      SavedSelStart := -1;
+      SavedSelLength := -1;
+      if APreserveControlState and (Component is TCustomEdit) then
+      begin
+        SavedSelStart := TCustomEdit(Component).SelStart;
+        SavedSelLength := TCustomEdit(Component).SelLength;
+      end
+      else if APreserveControlState and (Component is TCustomMemo) then
+      begin
+        SavedSelStart := TCustomMemo(Component).SelStart;
+        SavedSelLength := TCustomMemo(Component).SelLength;
+      end;
+      try
+        for PropertyName in TextProperties do
+          if ApplyTextProperty(FormIdentity, AForm, Component, PropertyName,
+            APack, APreserveControlState) then
+            Inc(Result);
+        for PropertyName in StringProperties do
+          Inc(Result, ApplyStringCollection(
+            FormIdentity, AForm, Component, PropertyName,
+            PropertyName + '.Strings', APack, APreserveControlState));
+      finally
+        if SavedSelStart >= 0 then
+          if Component is TCustomEdit then
+          begin
+            TCustomEdit(Component).SelStart := SavedSelStart;
+            TCustomEdit(Component).SelLength := SavedSelLength;
+          end
+          else if Component is TCustomMemo then
+          begin
+            TCustomMemo(Component).SelStart := SavedSelStart;
+            TCustomMemo(Component).SelLength := SavedSelLength;
+          end;
+      end;
+    end;
+  finally
+    if APreserveControlState and (SavedFocusedControl <> nil) then
+      AForm.Focused := SavedFocusedControl;
   end;
 end;
 

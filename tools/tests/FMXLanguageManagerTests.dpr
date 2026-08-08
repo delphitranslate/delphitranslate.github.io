@@ -32,6 +32,7 @@ type
     FRunError: string;
     FShowWasGerman: Boolean;
     FPaintWasGerman: Boolean;
+    FControlChangeCount: Integer;
     procedure PumpMessages;
     procedure RequireGerman(const AForm: TfrmFMXLifecycle;
       const AContext: string);
@@ -43,7 +44,9 @@ type
     procedure Execute(Sender: TObject);
     procedure FormLifecycle(const AFramework, AFormName, AStage,
       ACaption, AProbeText: string);
+    procedure ControlChanged(Sender: TObject);
     property RunError: string read FRunError;
+    property ControlChangeCount: Integer read FControlChangeCount;
   end;
 
 procedure Require(const ACondition: Boolean; const AMessage: string);
@@ -79,7 +82,12 @@ begin
     ADateItem1 + '","frmFMXSample.cmbDateRange.Items.Strings.2":"' +
     ADateItem2 + '","frmFMXSample.cmbDateRange.Items.Strings.3":"' +
     ADateItem3 + '","frmFMXSample.cmbDateRange.Items.Strings.4":"' +
-    ADateItem4 + '"}}';
+    ADateItem4 + '","frmFMXSample.edtCustomerName.Text":' +
+    '"Translated editable text",' +
+    '"frmFMXSample.memInstructions.Lines.Strings.0":' +
+    '"Translated memo line 1",' +
+    '"frmFMXSample.memInstructions.Lines.Strings.1":' +
+    '"Translated memo line 2"}}';
   TFile.WriteAllText(AFileName, JsonText, TEncoding.UTF8);
 end;
 
@@ -90,6 +98,11 @@ begin
   FManager := AManager;
   FMainForm := AMainForm;
   FRunError := '';
+end;
+
+procedure TFMXManagerTest.ControlChanged(Sender: TObject);
+begin
+  Inc(FControlChangeCount);
 end;
 
 procedure TFMXManagerTest.Execute(Sender: TObject);
@@ -144,6 +157,18 @@ begin
       (StateForm.cmbDateRange.Selected.Text = 'Letzte 28 Tage'),
       'The selected FMX combo-box item was not preserved and translated.');
 
+    StateForm.edtCustomerName.Text := 'Alice Martin';
+    StateForm.edtCustomerName.SelStart := 1;
+    StateForm.edtCustomerName.SelLength := 4;
+    StateForm.memInstructions.ReadOnly := False;
+    StateForm.memInstructions.Lines.Text := 'Private user notes';
+    StateForm.memInstructions.SelStart := 2;
+    StateForm.memInstructions.SelLength := 5;
+    StateForm.edtCustomerName.SetFocus;
+    StateForm.edtCustomerName.OnChange := ControlChanged;
+    StateForm.memInstructions.OnChange := ControlChanged;
+    StateForm.cmbDateRange.OnChange := ControlChanged;
+
     Require(FManager.SelectLanguage('en-US'),
       'Instant English selection failed.');
     RequireEnglish(FMainForm, 'Visible main form after instant selection');
@@ -154,6 +179,18 @@ begin
     Require((StateForm.cmbDateRange.ItemIndex = 2) and
       (StateForm.cmbDateRange.Selected.Text = 'Last 28 days'),
       'Instant language selection did not preserve combo-box state.');
+    Require((StateForm.edtCustomerName.Text = 'Alice Martin') and
+      (StateForm.edtCustomerName.SelStart = 1) and
+      (StateForm.edtCustomerName.SelLength = 4) and
+      StateForm.edtCustomerName.IsFocused,
+      'FMX editable text, selection, or focus was not preserved.');
+    Require((Trim(StateForm.memInstructions.Lines.Text) =
+      'Private user notes') and
+      (StateForm.memInstructions.SelStart = 2) and
+      (StateForm.memInstructions.SelLength = 5),
+      'FMX writable memo content or selection was not preserved.');
+    Require(FControlChangeCount = 0,
+      'FMX localization fired a protected control OnChange event.');
 
     DuplicateForm.Hide;
     Require(FManager.SelectLanguage('de-DE'),
@@ -185,6 +222,9 @@ begin
     Writeln('FMX_MANAGER_INSTANT_SWITCH=PASS');
     Writeln('FMX_MANAGER_HIDDEN_FORM_POLICY=PASS');
     Writeln('FMX_MANAGER_CONTROL_STATE=PASS');
+    Writeln('FMX_MANAGER_EDITABLE_DATA=PASS');
+    Writeln('FMX_MANAGER_FOCUS_AND_SELECTION=PASS');
+    Writeln('FMX_MANAGER_EVENT_SUPPRESSION=PASS');
     Writeln('FMX_MANAGER_EXPLICIT_APPLY=PASS');
   except
     on E: Exception do
