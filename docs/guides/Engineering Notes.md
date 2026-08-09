@@ -1542,7 +1542,9 @@ DAT. RAD Studio treats that key as the effective design-package list, which can
 hide the machine-wide Embarcadero packages and make standard controls such as
 FMX `TTabControl` unavailable to the Form Designer. Before registering DAT, the
 installer now validates and copies the complete machine-wide package baseline
-to the per-user key. It then verifies the applicable standard package
+whose registered BPL files actually exist to the per-user key. Stale optional
+machine registrations are excluded and removed from the per-user list rather
+than causing an IDE startup failure. It then verifies the applicable standard package
 (`dclfmxstd370.bpl` or `dclstd370.bpl`) and the DAT design package are all
 visible. The release gate runs the installer in `-WhatIf` mode so a missing
 baseline or standard BPL fails validation without altering the registry.

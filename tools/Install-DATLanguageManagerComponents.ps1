@@ -18,6 +18,8 @@ $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $BdsVersion = '37.0'
+$BdsRoot = "C:\Program Files (x86)\Embarcadero\Studio\$BdsVersion"
+$BdsBin = Join-Path $BdsRoot 'bin'
 $BundledPackageDirectory = Join-Path $PSScriptRoot 'DelphiPackages'
 $UsingBundledPackages = [string]::IsNullOrWhiteSpace($PackageSource) -and
     (Test-Path -LiteralPath $BundledPackageDirectory)
@@ -98,6 +100,24 @@ if ($MachinePackageProperties.Count -lt 1) {
     throw "RAD Studio $BdsVersion has no machine-wide design-package registrations. Installation was cancelled."
 }
 
+$InstalledMachinePackageProperties = @()
+$MissingMachinePackageProperties = @()
+foreach ($MachinePackageProperty in $MachinePackageProperties) {
+    $MachinePackageFile = ([string]$MachinePackageProperty.Name).
+        Replace('$(BDSBIN)', $BdsBin).
+        Replace('$(BDS)', $BdsRoot)
+    if (Test-Path -LiteralPath $MachinePackageFile) {
+        $InstalledMachinePackageProperties += $MachinePackageProperty
+    }
+    else {
+        $MissingMachinePackageProperties += $MachinePackageProperty
+        Write-Warning "Ignoring registered package whose BPL is not installed: $MachinePackageFile"
+    }
+}
+if ($InstalledMachinePackageProperties.Count -lt 1) {
+    throw "RAD Studio $BdsVersion has no machine-wide design packages whose BPL files exist. Installation was cancelled."
+}
+
 $RequiredStandardPackages = @()
 if ($Frameworks -contains 'FMX') {
     $RequiredStandardPackages += '$(BDSBIN)\dclfmxstd370.bpl'
@@ -106,11 +126,11 @@ if ($Frameworks -contains 'VCL') {
     $RequiredStandardPackages += '$(BDSBIN)\dclstd370.bpl'
 }
 foreach ($RequiredStandardPackage in $RequiredStandardPackages) {
-    if (-not ($MachinePackageProperties.Name -contains $RequiredStandardPackage)) {
+    if (-not ($InstalledMachinePackageProperties.Name -contains $RequiredStandardPackage)) {
         throw "Required Embarcadero design-package registration is missing: $RequiredStandardPackage"
     }
     $RequiredStandardFile = $RequiredStandardPackage.Replace('$(BDSBIN)',
-        "C:\Program Files (x86)\Embarcadero\Studio\$BdsVersion\bin")
+        $BdsBin)
     if (-not (Test-Path -LiteralPath $RequiredStandardFile)) {
         throw "Required Embarcadero design package is missing: $RequiredStandardFile"
     }
@@ -132,11 +152,15 @@ foreach ($PackageName in $PackageNames | Select-Object -Unique) {
 if ($PSCmdlet.ShouldProcess($KnownPackages,
         'Preserve the complete Embarcadero design-package registry baseline')) {
     New-Item -ItemType Directory -Force -Path $KnownPackages | Out-Null
-    foreach ($MachinePackageProperty in $MachinePackageProperties) {
+    foreach ($MachinePackageProperty in $InstalledMachinePackageProperties) {
         New-ItemProperty -LiteralPath $KnownPackages `
             -Name $MachinePackageProperty.Name `
             -Value ([string]$MachinePackageProperty.Value) `
             -PropertyType String -Force | Out-Null
+    }
+    foreach ($MissingMachinePackageProperty in $MissingMachinePackageProperties) {
+        Remove-ItemProperty -LiteralPath $KnownPackages `
+            -Name $MissingMachinePackageProperty.Name -ErrorAction SilentlyContinue
     }
 }
 
@@ -160,13 +184,18 @@ if (-not $WhatIfPreference) {
             throw "Safety verification failed: $RequiredStandardPackage is not visible in the per-user package list."
         }
     }
+    foreach ($MissingMachinePackageProperty in $MissingMachinePackageProperties) {
+        if ($EffectivePackageProperties.Name -contains $MissingMachinePackageProperty.Name) {
+            throw "Safety verification failed: a package whose BPL is missing remains registered: $($MissingMachinePackageProperty.Name)"
+        }
+    }
     foreach ($SelectedFramework in $Frameworks) {
         $DesignFile = Join-Path $Destination "DATLanguageManager${SelectedFramework}Design.bpl"
         if (-not ($EffectivePackageProperties.Name -contains $DesignFile)) {
             throw "Safety verification failed: DAT design package is not registered: $DesignFile"
         }
     }
-    if ($EffectivePackageProperties.Count -lt $MachinePackageProperties.Count) {
+    if ($EffectivePackageProperties.Count -lt $InstalledMachinePackageProperties.Count) {
         throw 'Safety verification failed: the per-user package list is incomplete.'
     }
 }

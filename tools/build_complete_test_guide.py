@@ -648,6 +648,7 @@ def build_document() -> Path:
             r"The three FMX-related BPL files are present under C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl.",
             "The design BPL has no custom DAT runtime-BPL import, so it loads without a missing-module error.",
             "The complete standard package list remains available; standard controls such as TTabControl stream normally.",
+            "Every package left in the effective per-user list has an installed BPL; stale optional registrations do not produce an IDE-startup error.",
             "No package is installed for VCL unless a VCL target is being tested.",
         ],
     )
