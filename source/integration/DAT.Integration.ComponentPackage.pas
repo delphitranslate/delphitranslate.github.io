@@ -118,18 +118,32 @@ begin
 end;
 
 function SetupInstructions(const AProfile: TProjectProfile;
-  const AManagerClass, ASelectorClass, APackageName: string): string;
+  const AManagerClass, ASelectorClass, APackageName: string;
+  const AInstallerIncluded: Boolean): string;
+var
+  InstallStep: string;
 begin
+  if AInstallerIncluded then
+    InstallStep :=
+      '1. Close RAD Studio. Double-click Install-Components.cmd and wait ' +
+      'for the success message. Restart RAD ' +
+      'Studio; the DAT Localization Tool Palette page is registered ' +
+      'automatically.'
+  else
+    InstallStep :=
+      '1. From the Studio source folder, run tools\' +
+      'Install-DATLanguageManagerComponents.ps1. Do not use Component > ' +
+      'Install Component and do not open the .dpk in that wizard.';
   Result :=
     'DELPHI APP TRANSLATION - COMPONENT INTEGRATION KIT' + sLineBreak +
     '==================================================' + sLineBreak + sLineBreak +
     'Target: ' + AProfile.ProjectName + sLineBreak +
     'Framework: ' + TargetFrameworkToString(AProfile.Framework) +
       sLineBreak + sLineBreak +
-    'This kit does not modify the target project. Complete these steps in ' +
-      'the Delphi IDE:' + sLineBreak + sLineBreak +
-    '1. Install the matching design package: ' + APackageName + '.' +
-      sLineBreak +
+    'This kit does not modify the target project. The design package is ' +
+      APackageName + '; the .dpk is source code and is never selected in ' +
+      'Delphi''s Install Component wizard.' + sLineBreak + sLineBreak +
+    InstallStep + sLineBreak +
     '2. Open the target application and its primary form in the Form Designer.' +
       sLineBreak +
     '3. Place one ' + AManagerClass + ' from the DAT Localization palette page.' +
@@ -168,9 +182,14 @@ var
   LanguagesDirectory: string;
   ManagerClass: string;
   PackageLanguagesDirectory: string;
+  PackageDirectory: string;
+  PackageName: string;
+  PackageOutputDirectory: string;
   ScanItem: TScanItem;
   ScanResult: TProjectScanResult;
   SelectorClass: string;
+  StudioProjectRoot: string;
+  InstallerIncluded: Boolean;
 begin
   if AProfile.ProjectFileName = '' then
     raise EArgumentException.Create('Open a Delphi project first.');
@@ -184,6 +203,51 @@ begin
     'Localization\Languages');
   TDirectory.CreateDirectory(ComponentDirectory);
   TDirectory.CreateDirectory(PackageLanguagesDirectory);
+
+  StudioProjectRoot := TPath.GetFullPath(TPath.Combine(
+    ARuntimeSourceDirectory, '..\..'));
+  PackageOutputDirectory := TPath.Combine(StudioProjectRoot,
+    'bin\packages\Win32\Release');
+  PackageDirectory := TPath.Combine(Result, 'DelphiPackages');
+  InstallerIncluded := TFile.Exists(TPath.Combine(StudioProjectRoot,
+    'tools\Install-DATLanguageManagerComponents.ps1')) and
+    TFile.Exists(TPath.Combine(StudioProjectRoot,
+    'tools\Install-DATLanguageManagerComponents.cmd'));
+  if InstallerIncluded then
+  begin
+    TDirectory.CreateDirectory(PackageDirectory);
+    if AProfile.Framework = tfVCL then
+      PackageName := 'VCL'
+    else
+      PackageName := 'FMX';
+    InstallerIncluded :=
+      TFile.Exists(TPath.Combine(PackageOutputDirectory,
+        'DATLanguageManagerCoreRuntime.bpl')) and
+      TFile.Exists(TPath.Combine(PackageOutputDirectory,
+        'DATLanguageManager' + PackageName + 'Runtime.bpl')) and
+      TFile.Exists(TPath.Combine(PackageOutputDirectory,
+        'DATLanguageManager' + PackageName + 'Design.bpl'));
+    if InstallerIncluded then
+    begin
+      TFile.Copy(TPath.Combine(StudioProjectRoot,
+        'tools\Install-DATLanguageManagerComponents.ps1'),
+        TPath.Combine(Result, 'Install-Components.ps1'), True);
+      TFile.Copy(TPath.Combine(StudioProjectRoot,
+        'tools\Install-DATLanguageManagerComponents.cmd'),
+        TPath.Combine(Result, 'Install-Components.cmd'), True);
+      TFile.Copy(TPath.Combine(PackageOutputDirectory,
+        'DATLanguageManagerCoreRuntime.bpl'), TPath.Combine(PackageDirectory,
+        'DATLanguageManagerCoreRuntime.bpl'), True);
+      TFile.Copy(TPath.Combine(PackageOutputDirectory,
+        'DATLanguageManager' + PackageName + 'Runtime.bpl'),
+        TPath.Combine(PackageDirectory,
+        'DATLanguageManager' + PackageName + 'Runtime.bpl'), True);
+      TFile.Copy(TPath.Combine(PackageOutputDirectory,
+        'DATLanguageManager' + PackageName + 'Design.bpl'),
+        TPath.Combine(PackageDirectory,
+        'DATLanguageManager' + PackageName + 'Design.bpl'), True);
+    end;
+  end;
 
   CopyUnit(ARuntimeSourceDirectory, ComponentDirectory,
     'DAT.Runtime.LanguagePack');
@@ -228,7 +292,8 @@ begin
   SelectorClass := FrameworkSelectorClass(AProfile.Framework);
   TFile.WriteAllText(TPath.Combine(Result, 'README.txt'),
     SetupInstructions(AProfile, ManagerClass, SelectorClass,
-      FrameworkPackageName(AProfile.Framework)), TEncoding.UTF8);
+      FrameworkPackageName(AProfile.Framework), InstallerIncluded),
+      TEncoding.UTF8);
 
   JsonRoot := TJSONObject.Create;
   JsonLanguages := TJSONArray.Create;

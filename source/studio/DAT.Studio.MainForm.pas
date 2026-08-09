@@ -96,6 +96,8 @@ type
     lstCatalogEntries: TListBox;
     btnMarkTranslationReviewed: TButton;
     btnApproveTranslation: TButton;
+    btnReviewAllTranslations: TButton;
+    btnApproveAllReviewed: TButton;
     lblSourceTextEditor: TLabel;
     lblRuntimeApplicationValue: TLabel;
     memSourceText: TMemo;
@@ -138,6 +140,7 @@ type
     btnApplyIntegration: TButton;
     btnRestoreIntegration: TButton;
     btnCompleteReset: TButton;
+    btnInstallComponents: TButton;
     chkBuildAfterIntegration: TCheckBox;
     cboBuildPlatform: TComboBox;
     cboBuildConfiguration: TComboBox;
@@ -198,6 +201,11 @@ type
     procedure btnAcceptSuggestionClick(Sender: TObject);
     procedure btnMarkTranslationReviewedClick(Sender: TObject);
     procedure btnApproveTranslationClick(Sender: TObject);
+    procedure btnReviewAllTranslationsClick(Sender: TObject);
+    procedure btnApproveAllReviewedClick(Sender: TObject);
+    procedure lblCatalogPathValueClick(Sender: TObject);
+    procedure lstValidationIssuesDblClick(Sender: TObject);
+    procedure btnInstallComponentsClick(Sender: TObject);
     procedure cboTargetLanguageChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure datLanguageMenuItemClick(Sender: TObject);
@@ -261,6 +269,8 @@ uses
   System.StrUtils,
   System.SysUtils,
   System.UITypes,
+  Winapi.ShellAPI,
+  Winapi.Windows,
   FMX.DialogService.Sync,
   DAT.Core.CatalogJson,
   DAT.Core.ProjectDetection,
@@ -313,6 +323,7 @@ begin
   btnApplyIntegration.Visible := AdvancedMode;
   btnRestoreIntegration.Visible := AdvancedMode;
   btnCompleteReset.Visible := AdvancedMode;
+  btnInstallComponents.Visible := not AdvancedMode;
   if AdvancedMode then
   begin
     btnGenerateIntegrationPackage.Text := 'Generate Preview';
@@ -464,18 +475,16 @@ var
   DisplayText: string;
   LanguageCode: string;
   LocaleSettings: TFormatSettings;
-  NativeSeparator: Integer;
   OpeningBracket: Integer;
 begin
   LanguageCode := SelectedLanguageCode(cboTargetLanguage);
   if LanguageCode = '' then
     Exit;
   DisplayText := cboTargetLanguage.Items[cboTargetLanguage.ItemIndex];
-  NativeSeparator := DisplayText.IndexOf(' / ');
   OpeningBracket := DisplayText.LastIndexOf('[');
-  if (NativeSeparator >= 0) and (OpeningBracket > NativeSeparator) then
-    edtNativeLanguageName.Text := Trim(Copy(DisplayText,
-      NativeSeparator + 4, OpeningBracket - NativeSeparator - 4));
+  if OpeningBracket > 0 then
+    edtNativeLanguageName.Text := CanonicalNativeLanguageName(LanguageCode,
+      Trim(Copy(DisplayText, 1, OpeningBracket)));
   if StartsText('ar-', LanguageCode) or StartsText('fa-', LanguageCode) or
      StartsText('he-', LanguageCode) or StartsText('ur-', LanguageCode) then
     cboTextDirection.ItemIndex := 1
@@ -903,10 +912,13 @@ begin
   end;
 
   lblValidationSummary.Text := Format(
-    '%d errors  |  %d warnings  |  %d information messages',
+    '%d errors  |  %d warnings  |  %d information messages.  %s',
     [FValidationResult.CountBySeverity(vsError),
      FValidationResult.CountBySeverity(vsWarning),
-     FValidationResult.CountBySeverity(vsInformation)]);
+     FValidationResult.CountBySeverity(vsInformation),
+     IfThen(FValidationResult.HasErrors,
+       'Fix errors before export; double-click an item to open it.',
+       'Export may continue; double-click a warning to review it.')]);
   btnExportRuntimePack.Enabled := not FValidationResult.HasErrors;
   if FValidationResult.HasErrors then
     lblExportSummary.Text := 'Export is blocked by validation errors.'
@@ -914,6 +926,57 @@ begin
     lblExportSummary.Text := Format(
       '%d translated entries are ready for offline export.',
       [FTranslationCatalog.Entries.Count]);
+end;
+
+procedure TfrmTranslationStudio.lblCatalogPathValueClick(Sender: TObject);
+var
+  Arguments: string;
+  CatalogDirectory: string;
+begin
+  if FCatalogFileName = '' then
+  begin
+    lblStatus.Text := 'Save or open a catalog before opening its folder.';
+    Exit;
+  end;
+  CatalogDirectory := TPath.GetDirectoryName(FCatalogFileName);
+  if TFile.Exists(FCatalogFileName) then
+    Arguments := '/select,"' + FCatalogFileName + '"'
+  else
+    Arguments := '"' + CatalogDirectory + '"';
+  if ShellExecute(0, 'open', 'explorer.exe', PChar(Arguments), nil,
+    SW_SHOWNORMAL) <= 32 then
+    lblStatus.Text := 'Unable to open the catalog folder.'
+  else
+    lblStatus.Text := 'Catalog selected in File Explorer.';
+end;
+
+procedure TfrmTranslationStudio.lstValidationIssuesDblClick(Sender: TObject);
+var
+  EntryIndex: Integer;
+  Issue: TValidationIssue;
+begin
+  if (FValidationResult = nil) or (FTranslationCatalog = nil) or
+     (lstValidationIssues.ItemIndex < 0) or
+     (lstValidationIssues.ItemIndex >= FValidationResult.Issues.Count) then
+    Exit;
+  Issue := FValidationResult.Issues[lstValidationIssues.ItemIndex];
+  if Issue.EntryKey = '' then
+  begin
+    lblStatus.Text :=
+      'This message concerns the catalog settings at the top of Translate.';
+    SetWorkflowStep(3);
+    Exit;
+  end;
+  for EntryIndex := 0 to FTranslationCatalog.Entries.Count - 1 do
+    if SameText(FTranslationCatalog.Entries[EntryIndex].Key,
+      Issue.EntryKey) then
+    begin
+      SetWorkflowStep(3);
+      lstCatalogEntries.ItemIndex := EntryIndex;
+      lblStatus.Text := 'Opened ' + Issue.EntryKey + ': ' + Issue.MessageText;
+      Exit;
+    end;
+  lblStatus.Text := 'The referenced catalog entry is no longer present.';
 end;
 
 procedure TfrmTranslationStudio.InvalidateValidation;
@@ -980,35 +1043,47 @@ begin
       begin
         NavigationSelection.Position.Y := 72;
         lblNavigationProject.TextSettings.FontColor := ActiveColor;
+        lblStatus.Text :=
+          'Project: open a Delphi project or review the current project details.';
       end;
     2:
       begin
         NavigationSelection.Position.Y := 128;
         lblNavigationScan.TextSettings.FontColor := ActiveColor;
+        lblStatus.Text :=
+          'Scan: inventory translatable controls and resources without changing the project.';
       end;
     3:
       begin
         NavigationSelection.Position.Y := 184;
         lblNavigationLanguages.TextSettings.FontColor := ActiveColor;
         LanguagePageCard.BringToFront;
+        lblStatus.Text :=
+          'Translate: choose a language, translate automatically, and manage the JSON catalog.';
       end;
     4:
       begin
         NavigationSelection.Position.Y := 240;
         lblNavigationValidation.TextSettings.FontColor := ActiveColor;
         ValidationPageCard.BringToFront;
+        lblStatus.Text :=
+          'Validation: run checks; errors block export, while warnings request review.';
       end;
     5:
       begin
         NavigationSelection.Position.Y := 296;
         lblNavigationExport.TextSettings.FontColor := ActiveColor;
         ExportPageCard.BringToFront;
+        lblStatus.Text :=
+          'Export: create the compact JSON runtime language pack after validation passes.';
       end;
     6:
       begin
         NavigationSelection.Position.Y := 352;
         lblNavigationIntegration.TextSettings.FontColor := ActiveColor;
         IntegrationPageCard.BringToFront;
+        lblStatus.Text :=
+          'Integration: generate a component kit without modifying target source files.';
       end;
     7:
       begin
@@ -1016,6 +1091,8 @@ begin
         lblNavigationSettings.TextSettings.FontColor := ActiveColor;
         SettingsPageCard.BringToFront;
         UpdateCredentialStatus;
+        lblStatus.Text :=
+          'Provider Settings: securely configure and test Google Cloud or DeepL.';
       end;
   end;
   StatusCard.BringToFront;
@@ -1370,6 +1447,38 @@ begin
   end;
   raise Exception.Create(
     'The Studio project root could not be located.');
+end;
+
+procedure TfrmTranslationStudio.btnInstallComponentsClick(Sender: TObject);
+var
+  Arguments: string;
+  FrameworkName: string;
+  InstallerFileName: string;
+  StudioProjectRoot: string;
+begin
+  try
+    StudioProjectRoot := FindStudioProjectRoot;
+    InstallerFileName := TPath.Combine(StudioProjectRoot,
+      'tools\Install-DATLanguageManagerComponents.ps1');
+    if not TFile.Exists(InstallerFileName) then
+      raise EFileNotFoundException.CreateFmt(
+        'Component installer not found: %s', [InstallerFileName]);
+    if FProjectProfile.Framework = tfVCL then
+      FrameworkName := 'VCL'
+    else
+      FrameworkName := 'FMX';
+    Arguments := '-NoProfile -ExecutionPolicy Bypass -File "' +
+      InstallerFileName + '" -Framework ' + FrameworkName +
+      ' -Configuration Release -Action Repair';
+    if ShellExecute(0, 'runas', 'powershell.exe', PChar(Arguments), nil,
+      SW_SHOWNORMAL) <= 32 then
+      raise Exception.Create('Windows did not start the component installer.');
+    lblStatus.Text :=
+      'Component installer opened. Close RAD Studio if it asks, then run it again.';
+  except
+    on E: Exception do
+      lblStatus.Text := 'Unable to start component installer: ' + E.Message;
+  end;
 end;
 
 procedure TfrmTranslationStudio.btnGenerateIntegrationPackageClick(
@@ -1960,6 +2069,80 @@ begin
   if FCatalogFileName <> '' then
     SaveCatalog;
   lblStatus.Text := 'Translation approved.';
+end;
+
+procedure TfrmTranslationStudio.btnReviewAllTranslationsClick(Sender: TObject);
+var
+  EligibleCount: Integer;
+  Entry: TTranslationEntry;
+begin
+  if FTranslationCatalog = nil then
+  begin
+    lblStatus.Text := 'Open or create a catalog first.';
+    Exit;
+  end;
+  EligibleCount := 0;
+  for Entry in FTranslationCatalog.Entries do
+    if (Trim(Entry.TranslatedText) <> '') and
+       not (Entry.Status in [tsReviewed, tsApproved, tsExcluded,
+         tsObsolete]) then
+      Inc(EligibleCount);
+  if EligibleCount = 0 then
+  begin
+    lblStatus.Text := 'No translated drafts are waiting for review.';
+    Exit;
+  end;
+  if TDialogServiceSync.MessageDialog(Format(
+    'Mark all %d translated drafts as Reviewed? This records one catalog-wide review decision; it does not change any translated text.',
+    [EligibleCount]), TMsgDlgType.mtConfirmation,
+    [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo], TMsgDlgBtn.mbNo, 0) <> mrYes then
+    Exit;
+  for Entry in FTranslationCatalog.Entries do
+    if (Trim(Entry.TranslatedText) <> '') and
+       not (Entry.Status in [tsReviewed, tsApproved, tsExcluded,
+         tsObsolete]) then
+      Entry.Status := tsReviewed;
+  InvalidateValidation;
+  DisplayCatalogEntries;
+  if FCatalogFileName <> '' then
+    SaveCatalog;
+  lblStatus.Text := Format('%d translated drafts marked Reviewed.',
+    [EligibleCount]);
+end;
+
+procedure TfrmTranslationStudio.btnApproveAllReviewedClick(Sender: TObject);
+var
+  ApprovedCount: Integer;
+  Entry: TTranslationEntry;
+begin
+  if FTranslationCatalog = nil then
+  begin
+    lblStatus.Text := 'Open or create a catalog first.';
+    Exit;
+  end;
+  ApprovedCount := 0;
+  for Entry in FTranslationCatalog.Entries do
+    if Entry.Status = tsReviewed then
+      Inc(ApprovedCount);
+  if ApprovedCount = 0 then
+  begin
+    lblStatus.Text := 'No Reviewed translations are waiting for approval.';
+    Exit;
+  end;
+  if TDialogServiceSync.MessageDialog(Format(
+    'Approve all %d Reviewed translations for runtime export?',
+    [ApprovedCount]), TMsgDlgType.mtConfirmation,
+    [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo], TMsgDlgBtn.mbNo, 0) <> mrYes then
+    Exit;
+  for Entry in FTranslationCatalog.Entries do
+    if Entry.Status = tsReviewed then
+      Entry.Status := tsApproved;
+  InvalidateValidation;
+  DisplayCatalogEntries;
+  if FCatalogFileName <> '' then
+    SaveCatalog;
+  lblStatus.Text := Format('%d Reviewed translations approved.',
+    [ApprovedCount]);
 end;
 
 procedure TfrmTranslationStudio.btnTranslateMissingClick(Sender: TObject);

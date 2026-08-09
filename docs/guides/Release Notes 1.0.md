@@ -23,7 +23,7 @@ applications do not contain API keys and do not require Internet access.
 - Provider connection test, bounded batching, retries for transient failures,
   provider provenance, and automatic catalog saving.
 - Machine translated, Imported, Edited, Reviewed, and Approved linguistic
-  states with explicit review progression.
+  states with selected-entry and confirmed catalog-wide review progression.
 - Safe UTF-8 CSV interchange as an optional collaboration path.
 - Context-ranked exact-source suggestions that require explicit acceptance and
   never inherit approval.
@@ -38,6 +38,8 @@ applications do not contain API keys and do not require Internet access.
   list validated packs, and switch open forms immediately.
 - Separate core, VCL, and FMX runtime packages and framework-specific Win32 IDE
   design packages register the controls on **DAT Localization**.
+- Self-contained design BPLs eliminate custom runtime-package loader failures;
+  one supported installer builds, verifies, copies, and registers components.
 - Automatic Source Integration remains an explicitly labeled advanced fallback
   with exact preview, one authorization gate, verified backup, atomic Apply,
   Restore, and Complete Reset.
@@ -61,6 +63,8 @@ applications do not contain API keys and do not require Internet access.
   upgraded idempotently.
 - The maximized Integration page uses larger designer-persisted gutters around
   planning, exact-review, and authorization controls.
+- Stable scrolling row heights, page-specific status guidance, an active JSON
+  catalog path, wrapped summaries, and issue-to-entry validation navigation.
 - Offline JSON pack discovery and per-user language preference.
 - Complete Reset preview and one-confirmation execution, with automatic
   SHA-256 safety backup, original-source restoration, generated-file cleanup,

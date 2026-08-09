@@ -22,12 +22,17 @@ Last changed: August 8, 2026
 - When provider instructions change, confirm Google and DeepL endpoint and
   authentication details against current official provider documentation.
 - Generate VCL and FMX Component Integration kits and verify their JSON packs,
-  English source pack, component/runtime units, manifest, README, and deployment
-  script.
+  English source pack, component/runtime units, manifest, README, component
+  installer, verified BPL set, and deployment script.
 - Hash every selected target project and form before and after kit generation;
   require byte-for-byte equality and zero target writes.
 - Build and stream the matching VCL/FMX Win32 design packages and the Win32 and
   Win64 runtime packages in Debug and Release.
+- Confirm each design BPL imports no custom DAT runtime BPL, and run the
+  component installer in WhatIf mode before an actual setup/repair test.
+- Confirm Studio result lists have stable row heights, workflow status guidance
+  changes per page, catalog path navigation works, validation issues navigate to
+  entries, and large-catalog review/approval actions preserve excluded work.
 - Verify the optional typed language selector populates validated packs and
   changes the linked manager while preserving inherited `OnChange` behavior.
 - For the advanced fallback, generate VCL and FMX previews and verify the final

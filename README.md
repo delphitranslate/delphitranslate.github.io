@@ -63,7 +63,8 @@ provides:
   runtime-wiring warnings.
 - Context-ranked exact-source translation suggestions that require explicit
   acceptance and never inherit approval status.
-- Explicit Mark Reviewed and Approve actions with enforced status progression.
+- Selected-entry and confirmed catalog-wide Review/Approve actions with enforced
+  status progression.
 - Compact offline runtime packs under `Localization\Languages`.
 - Active workflow navigation for Project, Scan, Translate, Validation, Export,
   Integration, and Provider Settings.
@@ -91,8 +92,8 @@ provides:
 
 1. Open a VCL or FireMonkey `.dproj` or `.dpr`.
 2. Scan the project.
-3. Open **Translate**, enter the target code and native language name, and create
-   the development catalog.
+3. Open **Translate**, select a target language, review its native name and
+   locale formats, and create the development JSON catalog.
 4. Configure Google or DeepL under **Provider Settings**, test the connection,
    and return to **Translate**.
 5. Choose **Translate Automatically**. Eligible strings are translated in
@@ -102,13 +103,15 @@ provides:
 7. For cataloged Pascal `resourcestring` entries, add the documented
    `TranslateText` call at each intended call site and mark manual wiring
    confirmed. The Studio does not rewrite Pascal call sites.
-8. Run **Validation**.
+8. Run **Validation**. Double-click an issue to open its catalog entry; errors
+   block export, while warnings request review.
 9. When there are no validation errors, use **Export** to create the offline
    runtime JSON pack.
-10. Use **Integration** to generate the package, optionally inspect any exact
-    diff, authorize once, and apply or restore the target-project runtime,
-    JSON packs, and designer-authored language menu changes. Optionally build
-    and deploy the selected Windows target without launching it.
+10. Use **Integration** in the recommended Component Integration mode. Choose
+    **Install / Repair Components** for the one-step RAD Studio setup, generate
+    the self-contained component kit, then place one manager and an optional
+    selector on the primary form in Delphi's Form Designer. The Studio does not
+    modify target source in this mode.
 
 Scanning remains read-only. The `Localization` folder is created only when the
 developer explicitly saves a catalog or exports a runtime pack.

@@ -1505,3 +1505,34 @@ During the gate, package fixture executables were isolated below
 FMXDesignHost JSON fixture from shadowing the Studio's own localization pack.
 The final repair and validation evidence is recorded in
 `TDATLanguageManager Phase 10 Release Decision Report.md`.
+
+## Testing Corrections and Seamless Component Setup
+
+Completion date: August 8, 2026
+
+The post-release manual test pass identified usability and installation defects
+that automated functional tests had not exposed. The Studio now changes the
+bottom status guidance with every workflow page, uses explicit list-row heights
+to prevent scroll repaint overlap, presents encoding-safe language names,
+exposes the full JSON catalog path as a File Explorer link, spaces the locale
+and action rows, wraps the integration summary, and offers confirmed catalog-
+wide Review All and Approve All operations. Validation explains severity and
+opens an entry on Translate when its issue is double-clicked.
+
+The earlier README instruction to install a `.dpk` was incorrect and led users
+into Delphi's Install Component wizard. A `.dpk` is package source; Delphi
+installs a compiled Win32 design `.bpl` through Install Packages. More
+importantly, the former design BPL imported DAT core and framework runtime BPLs,
+so the IDE could report "specified module could not be found" even when the
+design BPL itself existed. Each design package now contains the DAT runtime and
+component units directly and imports only Embarcadero runtime/framework BPLs.
+
+`tools\Install-DATLanguageManagerComponents.cmd` launches the supported
+PowerShell Install, Repair, and Remove workflow with ExecutionPolicy Bypass.
+With RAD Studio closed the script can build and verify the
+package matrix, copy the applicable Win32 core/runtime/design BPLs to
+`C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl`, and register the design
+BPL under the current user's BDS 37.0 Known Packages key. Component kits include
+the installer and the applicable verified Release BPLs, allowing a recipient to
+run one script before restarting Delphi. This automation changes no target
+application source.

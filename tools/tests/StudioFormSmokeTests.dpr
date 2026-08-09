@@ -61,6 +61,17 @@ begin
          not Assigned(frmTranslationStudio.btnApproveTranslation.OnClick) then
         raise Exception.Create(
           'The linguistic review actions are not designer-wired.');
+      if not Assigned(frmTranslationStudio.btnReviewAllTranslations.OnClick) or
+         not Assigned(frmTranslationStudio.btnApproveAllReviewed.OnClick) then
+        raise Exception.Create(
+          'The catalog-wide review actions are not designer-wired.');
+      if not Assigned(frmTranslationStudio.lblCatalogPathValue.OnClick) or
+         not frmTranslationStudio.lblCatalogPathValue.HitTest then
+        raise Exception.Create(
+          'The catalog path is not an active folder link.');
+      if not Assigned(frmTranslationStudio.lstValidationIssues.OnDblClick) then
+        raise Exception.Create(
+          'Validation issues cannot navigate to catalog entries.');
       if not Assigned(frmTranslationStudio.btnTranslateMissing.OnClick) or
          (frmTranslationStudio.btnTranslateMissing.Text <>
           'Translate Automatically') then
@@ -89,6 +100,16 @@ begin
           'Generate Component Kit' then
         raise Exception.Create(
           'The recommended component-kit action is not displayed.');
+      if not Assigned(frmTranslationStudio.btnInstallComponents.OnClick) or
+         not frmTranslationStudio.btnInstallComponents.Visible then
+        raise Exception.Create(
+          'The component installer action is not available.');
+      if (frmTranslationStudio.lstScanResults.ItemHeight < 20) or
+         (frmTranslationStudio.lstCatalogEntries.ItemHeight < 20) or
+         (frmTranslationStudio.lstValidationIssues.ItemHeight < 20) or
+         (frmTranslationStudio.lstIntegrationPlan.ItemHeight < 20) then
+        raise Exception.Create(
+          'A scrolling result list does not have a stable row height.');
       if frmTranslationStudio.btnApplyIntegration.Visible or
          frmTranslationStudio.chkIntegrationReviewConfirmed.Visible or
          frmTranslationStudio.chkBuildAfterIntegration.Visible then

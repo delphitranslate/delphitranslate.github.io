@@ -440,17 +440,17 @@ def build_user_guide() -> Path:
     add_steps(
         document,
         [
-            "Build DATLanguageManagerCoreRuntime.dpk for the required application architectures.",
-            "Build DATLanguageManagerVCLRuntime.dpk and/or DATLanguageManagerFMXRuntime.dpk for Win32 and Win64.",
-            "Build the matching Win32 design package: DATLanguageManagerVCLDesign.dpk or DATLanguageManagerFMXDesign.dpk. The RAD Studio IDE loads Win32 design packages even when the target application also builds for Win64.",
-            "In Delphi, open Component > Install Packages, add the matching design BPL from bin\\packages\\Win32\\<Configuration>, and confirm the DAT Localization Tool Palette page appears.",
-            "Keep the related runtime BPLs together if the target uses runtime packages. A normally linked application may instead compile the generated kit's ComponentSource units into the executable.",
+            "Close RAD Studio. In the Translation Studio, open Integration, leave Component Integration selected, and choose Install / Repair Components. The same operation is available by double-clicking tools\\Install-DATLanguageManagerComponents.cmd, which uses ExecutionPolicy Bypass for the signed-off project script.",
+            "Approve the Windows elevation prompt. The installer builds and tests the packages, copies the matching Win32 BPLs to the public RAD Studio Bpl folder, and registers the self-contained design BPL for the current user.",
+            "Restart RAD Studio and open a form for the applicable framework. Confirm DAT Localization appears in the Tool Palette with the language manager and language combo box.",
+            "If automation cannot be used, build the matching Win32 design package and use Component > Install Packages > Add to select the compiled .bpl. Never choose Component > Install Component and never select a .dpk in that wizard; a .dpk is package source, not the installable artifact.",
+            "Runtime BPLs are also copied for projects that use runtime packages. A normally linked application compiles the generated kit's ComponentSource units into the executable.",
         ],
     )
     add_callout(
         document,
-        "No silent IDE installation.",
-        "The Studio builds and tests the packages but does not register them in RAD Studio automatically. Package installation is an explicit developer action.",
+        "Explicit, automated installation.",
+        "The installer is developer-invoked, requires RAD Studio to be closed, and reports the destination and result. It never alters a target application.",
     )
 
     document.add_heading("3. The End-to-End Workflow", level=1)
@@ -505,6 +505,7 @@ def build_user_guide() -> Path:
             "Review the automatically selected left-to-right or right-to-left direction.",
             "Review or edit the date, time, decimal, thousands, and currency fields. Blank fields are initially populated from Delphi TFormatSettings for the target locale.",
             "Choose Save.",
+            "Click the blue catalog path to select the saved JSON file in File Explorer.",
         ],
     )
     add_paragraphs(
@@ -667,6 +668,7 @@ def build_user_guide() -> Path:
             "Wait for all batches. Transient HTTP 429 and provider server failures receive bounded retries.",
             "Review every machine-translated entry for meaning, placeholders, accelerators, product terminology, tone, and available control space.",
             "The Studio saves the catalog automatically. Run Validation after reviewing the results.",
+            "For focused work, Review and Approve the selected entry. For a large catalog, Review All and Approve All provide separate, confirmed catalog-wide decisions and save once after each operation.",
         ],
     )
     add_callout(
@@ -686,7 +688,7 @@ def build_user_guide() -> Path:
         document,
         [
             "Choose Validation and Run Validation.",
-            "Open each listed issue and correct the catalog entry or metadata.",
+            "Read the summary: errors block export, warnings request review, and information messages require no action. Double-click an entry-specific issue to open that catalog entry on Translate.",
             "Repeat until no errors remain.",
             "Choose Export and Export Runtime Pack.",
             "Record the output path under Localization\\Languages.",
@@ -707,7 +709,7 @@ def build_user_guide() -> Path:
             "Select Integration and leave Integration method set to Component Integration (Recommended).",
             "Choose Build Integration Plan. Confirm the detected framework and translated-pack count.",
             "Choose Generate Component Kit. Select README.txt and the generated manifest/files in the read-only inspection panes.",
-            "Install the matching VCL or FMX design package if it is not already installed.",
+            "If DAT Localization is not already in the Tool Palette, choose Install / Repair Components, close RAD Studio if prompted, complete the installer, and restart RAD Studio.",
             "Open the target application's primary form in the Delphi Form Designer and place one TDATVCLLanguageManager or TDATFMXLanguageManager from DAT Localization.",
             "Set ApplicationId exactly to the detected Delphi project name. Leave LanguagesFolder as Localization\\Languages and set SourceLanguage to the catalog source locale, normally en-US.",
             "Optionally place TDATVCLLanguageComboBox or TDATFMXLanguageComboBox and set its LanguageManager property to the manager. Size and align it in the designer like every other visual control.",
@@ -1099,6 +1101,7 @@ def build_engineering_guide() -> Path:
         [
             "Mark Reviewed requires nonblank translated text.",
             "Approve requires the entry to have reached Reviewed first.",
+            "Review All changes every nonblank active draft that is not already Reviewed, Approved, Excluded, or Obsolete after one count-bearing confirmation. Approve All changes only Reviewed entries after a second confirmation. Each bulk operation invalidates prior validation and saves the canonical JSON catalog once.",
             "Translation origin is independent of linguistic status.",
             "Inconsistent repeated terms and structural defects form the focused exception queue; a valid machine-translated draft is not itself an error.",
             "Structural validity, linguistic status, automatic runtime coverage, and manual wiring readiness are separate measures.",
@@ -1110,7 +1113,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Validation.Catalog validates metadata, missing target text, duplicates, changed source, Delphi indexed and sequential Format arguments, accelerators, inconsistent repeated-source terminology, and status conditions. Export is blocked by errors. Manual resourcestring wiring is reported separately from structural errors. DAT.Core.RuntimePack serializes only runtime-required metadata and strings and records a source-catalog checksum.",
+            "DAT.Validation.Catalog validates metadata, missing target text, duplicates, changed source, Delphi indexed and sequential Format arguments, accelerators, inconsistent repeated-source terminology, and status conditions. Export is blocked by errors. Common runtime placeholders such as -- are informational when intentionally unchanged. The UI explains severity and maps a double-clicked entry issue back to the Translate list. Manual resourcestring wiring is reported separately from structural errors. DAT.Core.RuntimePack serializes only runtime-required metadata and strings and records a source-catalog checksum.",
             "Locale data is retained in the runtime pack so DAT.Runtime.Manager can expose a pack-specific TFormatSettings without globally mutating the developer's source code.",
         ],
     )
@@ -1154,7 +1157,8 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "The package graph contains DATLanguageManagerCoreRuntime, framework-specific VCL/FMX runtime packages, and separate VCL/FMX design packages. Design packages register only their applicable manager and selector on DAT Localization. Runtime packages build for Win32 and Win64; the installed RAD Studio IDE consumes Win32 design BPLs. Tests build but never silently install packages.",
+            "The package graph contains DATLanguageManagerCoreRuntime, framework-specific VCL/FMX runtime packages, and separate VCL/FMX design packages. Each design package contains its DAT runtime/component units directly and therefore imports no custom DAT runtime BPL; this eliminates the IDE loader failure caused by missing dependent modules. Design packages register only their applicable manager and selector on DAT Localization. Runtime packages build for Win32 and Win64; RAD Studio consumes Win32 design BPLs.",
+            "tools\\Install-DATLanguageManagerComponents.cmd launches the supported PowerShell setup/repair script with ExecutionPolicy Bypass. The script refuses to run while bds.exe is active, builds and verifies packages unless bundled BPLs are supplied, copies the framework's core/runtime/design BPLs to the public Studio Bpl folder, and writes the design BPL registration to HKCU\\Software\\Embarcadero\\BDS\\37.0\\Known Packages. Remove unregisters the design BPL but retains files for recovery. Generated component kits include both launcher/script files and matching verified BPLs when Release artifacts are available.",
             "DAT.Integration.ComponentPackage implements the recommended non-mutating mode. It emits applicable runtime/component units, validated translated packs, an English source pack, component-integration.json, scanner form roots, README instructions, and a deployment script exclusively below export\\component-integration. SHA-256 fixture tests prove target DPROJ and DFM/FMX hashes remain unchanged.",
             "The advanced fallback retains DAT.Integration.Plan, DAT.Integration.Package, DAT.Integration.Engine, MenuResource, DelphiSource, Transaction, BuildDeploy, and Reset. It generates the application unit and exact changes in memory, requires explicit authorization, verifies a pre-change backup, writes atomically, rolls back failures, and supports restore/complete reset.",
         ],

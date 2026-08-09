@@ -302,7 +302,7 @@ def build_document() -> Path:
     add_paragraphs(
         document,
         [
-            "Runtime packages build for Win32 and Win64. The Delphi IDE loads the Win32 design package. The release gate builds packages but does not install them into the IDE. Installation is an explicit test/developer action.",
+            "Runtime packages build for Win32 and Win64. The Delphi IDE loads the self-contained Win32 design package. Installation remains an explicit developer action, but the supported installer automates build, verification, copying, and per-user registration.",
         ],
     )
 
@@ -423,11 +423,13 @@ def build_document() -> Path:
             r"Run C:\New Delphi Projects\Delphi App Translation\bin\Win32\Debug\DelphiAppTranslationStudio.exe.",
             "Confirm there is no startup error dialog and the title is Delphi App Translation Studio.",
             "Select Project, Scan, Translate, Validation, Export, Integration, and Provider Settings in order.",
+            "Read the bottom status card after every selection.",
             "Resize the maximized window and inspect the top, bottom, left, and right edges of each page.",
         ],
         [
             "The window starts maximized.",
             "The blue workflow selection follows the active page.",
+            "The bottom status card changes to page-specific guidance and never retains a message from the previous page.",
             "Every control remains visible, aligned, and usable; nothing bleeds below or beyond the client area.",
             "Component Integration (Recommended) is the default Integration method.",
             "Provider Settings contains only DeepL and Google Cloud Translation, with no CLI-agent controls.",
@@ -464,11 +466,13 @@ def build_document() -> Path:
             "Choose Scan Project and wait for Scan complete in the status panel.",
             "Record total entries, form properties, resourcestrings, files scanned, and elapsed milliseconds.",
             "Inspect representative labels, buttons, headings, memo text, list content, and any resourcestring entries.",
+            "Scroll rapidly from the top to the bottom and back through the scan-result list.",
             r'Run git -C "C:\New Delphi Projects\Echurchsite Analytical - Component Test" status --short again.',
         ],
         [
             "The scan completes without an exception.",
             "The result list contains stable form/component/property keys and readable source text.",
+            "Rows remain separated while scrolling; text never paints over adjacent rows.",
             "Elapsed time is reported in milliseconds. Performance is recorded, not hard-coded to a particular machine.",
             "No Localization folder is created merely by scanning.",
             "Git status remains empty.",
@@ -508,7 +512,7 @@ def build_document() -> Path:
             "Select Spanish (Spain) [es-ES], Italian (Italy) [it-IT], or another intended language from the list.",
             "Review native language name, left-to-right/right-to-left direction, short/long date, short/long time, decimal, thousands, and currency values.",
             "Choose Save.",
-            "Open the displayed catalog path in a text editor and confirm it is JSON, not CSV.",
+            "Click the blue displayed catalog path. Confirm File Explorer opens with the JSON catalog selected, then open it in a text editor and confirm it is JSON, not CSV.",
         ],
         [
             r"Catalog path: C:\New Delphi Projects\Echurchsite Analytical - Component Test\Localization\Development\WebsiteAnalytics.<locale>.translation-project.json.",
@@ -547,11 +551,13 @@ def build_document() -> Path:
             "Review visible UI strings, product names, short buttons, multiline instructions, placeholders, and accelerators.",
             "Correct a deliberately awkward machine result in Translated text and choose Apply Translation.",
             "Mark that entry Reviewed, then Approve it.",
+            "For the remaining translated drafts, choose Review All, verify the count in the confirmation, and accept. Then choose Approve All, verify its Reviewed count, and accept.",
             "If the catalog has a Pascal resourcestring, confirm its runtime classification and leave Manual TranslateText wiring confirmed clear unless the target code has actually been wired.",
         ],
         [
             "An edited entry records human origin and Edited status.",
             "Reviewed and Approved are separate deliberate steps.",
+            "Each bulk action operates on its stated eligible set, saves once, and leaves Excluded, Obsolete, and already Approved entries unchanged.",
             "Manual resourcestring wiring readiness remains separate from designer-property coverage.",
             "The catalog is saved after edits when a catalog filename exists.",
         ],
@@ -564,7 +570,8 @@ def build_document() -> Path:
         "Verify structural defects block export and a valid catalog produces a compact offline pack.",
         [
             "Select Validation and choose Validate Catalog.",
-            "Resolve all errors involving missing text, duplicate keys, changed source, placeholders, sequential/indexed Format arguments, or accelerator keys.",
+            "Read the plain-language summary. Double-click an entry-specific warning and confirm Translate opens with that entry selected.",
+            "Resolve all errors involving missing text, duplicate keys, changed source, placeholders, sequential/indexed Format arguments, or accelerator keys. Review warnings; informational runtime placeholders require no action.",
             "Treat manual resourcestring wiring as a separate readiness warning and resolve it before claiming complete runtime coverage.",
             "Select Export and choose Export Runtime Pack.",
             "Open the displayed output file and confirm it is JSON.",
@@ -594,7 +601,7 @@ def build_document() -> Path:
         ],
         [
             r"Kit root: C:\New Delphi Projects\Delphi App Translation\export\component-integration\WebsiteAnalytics.",
-            "The kit contains README.txt, component-integration.json, Deploy-LanguagePacks.ps1, ComponentSource, and Localization\\Languages.",
+            "The kit contains README.txt, component-integration.json, Install-Components.cmd, Install-Components.ps1, DelphiPackages, Deploy-LanguagePacks.ps1, ComponentSource, and Localization\\Languages.",
             "The language folder contains the validated target pack plus an automatically generated en-US.json source pack.",
             "Target Git status is unchanged by Build Integration Plan and Generate Component Kit.",
             "Apply, Restore, Complete Reset, automatic target build, and source-authorization controls are hidden in recommended mode.",
@@ -607,6 +614,9 @@ def build_document() -> Path:
         ["Path below WebsiteAnalytics kit", "Purpose"],
         [
             [r"README.txt", "Ordered Object Inspector, Search Path, deployment, and build instructions."],
+            [r"Install-Components.ps1", "One-step build/copy/register installer; auto-detects the framework bundled in the kit."],
+            [r"Install-Components.cmd", "Double-click launcher that invokes the installer with ExecutionPolicy Bypass and keeps the result visible."],
+            [r"DelphiPackages\*.bpl", "Verified Win32 core, framework runtime, and self-contained design packages."],
             [r"component-integration.json", "Application identity, FMX framework, manager/selector classes, language metadata, and scanner form roots."],
             [r"Deploy-LanguagePacks.ps1", "Copies only JSON packs to a selected executable directory."],
             [r"Localization\Languages\en-US.json", "Generated source-language pack for deterministic return to English."],
@@ -623,18 +633,19 @@ def build_document() -> Path:
     add_test_case(
         document,
         "TC-10",
-        "Install the FMX design package",
-        "Make the manager and selector available on the DAT Localization Tool Palette page without silently changing the target.",
+        "Install or repair the FMX components",
+        "Use the supported one-step setup to make the manager and selector available on DAT Localization without changing the target.",
         [
-            "Close any running Studio or package-test executable.",
-            r"Confirm the release-gate output exists at C:\New Delphi Projects\Delphi App Translation\bin\packages\Win32\Release.",
-            "In RAD Studio choose Component > Install Packages > Add.",
-            r"Select C:\New Delphi Projects\Delphi App Translation\bin\packages\Win32\Release\DATLanguageManagerFMXDesign.bpl.",
-            "Confirm the package loads and DAT Localization appears in the Tool Palette for an FMX form.",
+            "Close every RAD Studio window. Leave Delphi App Translation Studio open.",
+            "On Integration, choose Install / Repair Components and approve the Windows prompt. The equivalent direct command is powershell.exe -ExecutionPolicy Bypass -File .\\tools\\Install-DATLanguageManagerComponents.ps1 -Framework FMX -Configuration Release -Action Repair.",
+            "Wait for the build, verification, copy, and registration success messages. Restart RAD Studio and open an FMX form.",
+            "Confirm DAT Localization appears in the Tool Palette.",
+            "For the documented manual fallback only, use Component > Install Packages > Add and select the compiled DATLanguageManagerFMXDesign.bpl. Never use Component > Install Component and never select DATLanguageManagerFMXDesign.dpk.",
         ],
         [
             "TDATFMXLanguageManager and TDATFMXLanguageComboBox are available.",
-            "The matching core and FMX runtime BPL dependencies resolve from the same output folder.",
+            r"The three FMX-related BPL files are present under C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl.",
+            "The design BPL has no custom DAT runtime-BPL import, so it loads without a missing-module error.",
             "No package is installed for VCL unless a VCL target is being tested.",
         ],
     )

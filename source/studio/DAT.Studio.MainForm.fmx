@@ -456,6 +456,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 154.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 1
+            ItemHeight = 24.000000000000000000
             DisableFocusEffect = True
             DefaultItemStyles.ItemStyle = ''
             DefaultItemStyles.GroupHeaderStyle = ''
@@ -535,49 +536,49 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 32.000000000000000000
             Size.PlatformDefault = False
             Items.Strings = (
-              'Arabic (Saudi Arabia) / العربية [ar-SA]'
-              'Bulgarian / Български [bg-BG]'
-              'Chinese (Simplified) / 简体中文 [zh-CN]'
-              'Chinese (Traditional) / 繁體中文 [zh-TW]'
-              'Croatian / Hrvatski [hr-HR]'
-              'Czech / Čeština [cs-CZ]'
-              'Danish / Dansk [da-DK]'
-              'Dutch / Nederlands [nl-NL]'
-              'English (United Kingdom) / English [en-GB]'
-              'English (United States) / English [en-US]'
-              'Estonian / Eesti [et-EE]'
-              'Finnish / Suomi [fi-FI]'
-              'French (Canada) / Français [fr-CA]'
-              'French (France) / Français [fr-FR]'
-              'German / Deutsch [de-DE]'
-              'Greek / Ελληνικά [el-GR]'
-              'Hebrew / עברית [he-IL]'
-              'Hindi / हिन्दी [hi-IN]'
-              'Hungarian / Magyar [hu-HU]'
-              'Indonesian / Bahasa Indonesia [id-ID]'
-              'Italian / Italiano [it-IT]'
-              'Japanese / 日本語 [ja-JP]'
-              'Korean / 한국어 [ko-KR]'
-              'Latvian / Latviešu [lv-LV]'
-              'Lithuanian / Lietuvių [lt-LT]'
-              'Norwegian Bokmål / Norsk bokmål [nb-NO]'
-              'Persian / فارسی [fa-IR]'
-              'Polish / Polski [pl-PL]'
-              'Portuguese (Brazil) / Português [pt-BR]'
-              'Portuguese (Portugal) / Português [pt-PT]'
-              'Romanian / Română [ro-RO]'
-              'Russian / Русский [ru-RU]'
-              'Serbian (Latin) / Srpski [sr-Latn-RS]'
-              'Slovak / Slovenčina [sk-SK]'
-              'Slovenian / Slovenščina [sl-SI]'
-              'Spanish (Mexico) / Español [es-MX]'
-              'Spanish (Spain) / Español [es-ES]'
-              'Swedish / Svenska [sv-SE]'
-              'Thai / ไทย [th-TH]'
-              'Turkish / Türkçe [tr-TR]'
-              'Ukrainian / Українська [uk-UA]'
-              'Urdu / اردو [ur-PK]'
-              'Vietnamese / Tiếng Việt [vi-VN]')
+              'Arabic (Saudi Arabia) [ar-SA]'
+              'Bulgarian [bg-BG]'
+              'Chinese (Simplified) [zh-CN]'
+              'Chinese (Traditional) [zh-TW]'
+              'Croatian [hr-HR]'
+              'Czech [cs-CZ]'
+              'Danish [da-DK]'
+              'Dutch [nl-NL]'
+              'English (United Kingdom) [en-GB]'
+              'English (United States) [en-US]'
+              'Estonian [et-EE]'
+              'Finnish [fi-FI]'
+              'French (Canada) [fr-CA]'
+              'French (France) [fr-FR]'
+              'German [de-DE]'
+              'Greek [el-GR]'
+              'Hebrew [he-IL]'
+              'Hindi [hi-IN]'
+              'Hungarian [hu-HU]'
+              'Indonesian [id-ID]'
+              'Italian [it-IT]'
+              'Japanese [ja-JP]'
+              'Korean [ko-KR]'
+              'Latvian [lv-LV]'
+              'Lithuanian [lt-LT]'
+              'Norwegian Bokmal [nb-NO]'
+              'Persian [fa-IR]'
+              'Polish [pl-PL]'
+              'Portuguese (Brazil) [pt-BR]'
+              'Portuguese (Portugal) [pt-PT]'
+              'Romanian [ro-RO]'
+              'Russian [ru-RU]'
+              'Serbian (Latin) [sr-Latn-RS]'
+              'Slovak [sk-SK]'
+              'Slovenian [sl-SI]'
+              'Spanish (Mexico) [es-MX]'
+              'Spanish (Spain) [es-ES]'
+              'Swedish [sv-SE]'
+              'Thai [th-TH]'
+              'Turkish [tr-TR]'
+              'Ukrainian [uk-UA]'
+              'Urdu [ur-PK]'
+              'Vietnamese [vi-VN]')
           end
           object lblTargetLanguageCode: TLabel
             Position.X = 208.000000000000000000
@@ -596,49 +597,49 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.PlatformDefault = False
             OnChange = cboTargetLanguageChange
             Items.Strings = (
-              'Arabic (Saudi Arabia) / العربية [ar-SA]'
-              'Bulgarian / Български [bg-BG]'
-              'Chinese (Simplified) / 简体中文 [zh-CN]'
-              'Chinese (Traditional) / 繁體中文 [zh-TW]'
-              'Croatian / Hrvatski [hr-HR]'
-              'Czech / Čeština [cs-CZ]'
-              'Danish / Dansk [da-DK]'
-              'Dutch / Nederlands [nl-NL]'
-              'English (United Kingdom) / English [en-GB]'
-              'English (United States) / English [en-US]'
-              'Estonian / Eesti [et-EE]'
-              'Finnish / Suomi [fi-FI]'
-              'French (Canada) / Français [fr-CA]'
-              'French (France) / Français [fr-FR]'
-              'German / Deutsch [de-DE]'
-              'Greek / Ελληνικά [el-GR]'
-              'Hebrew / עברית [he-IL]'
-              'Hindi / हिन्दी [hi-IN]'
-              'Hungarian / Magyar [hu-HU]'
-              'Indonesian / Bahasa Indonesia [id-ID]'
-              'Italian / Italiano [it-IT]'
-              'Japanese / 日本語 [ja-JP]'
-              'Korean / 한국어 [ko-KR]'
-              'Latvian / Latviešu [lv-LV]'
-              'Lithuanian / Lietuvių [lt-LT]'
-              'Norwegian Bokmål / Norsk bokmål [nb-NO]'
-              'Persian / فارسی [fa-IR]'
-              'Polish / Polski [pl-PL]'
-              'Portuguese (Brazil) / Português [pt-BR]'
-              'Portuguese (Portugal) / Português [pt-PT]'
-              'Romanian / Română [ro-RO]'
-              'Russian / Русский [ru-RU]'
-              'Serbian (Latin) / Srpski [sr-Latn-RS]'
-              'Slovak / Slovenčina [sk-SK]'
-              'Slovenian / Slovenščina [sl-SI]'
-              'Spanish (Mexico) / Español [es-MX]'
-              'Spanish (Spain) / Español [es-ES]'
-              'Swedish / Svenska [sv-SE]'
-              'Thai / ไทย [th-TH]'
-              'Turkish / Türkçe [tr-TR]'
-              'Ukrainian / Українська [uk-UA]'
-              'Urdu / اردو [ur-PK]'
-              'Vietnamese / Tiếng Việt [vi-VN]')
+              'Arabic (Saudi Arabia) [ar-SA]'
+              'Bulgarian [bg-BG]'
+              'Chinese (Simplified) [zh-CN]'
+              'Chinese (Traditional) [zh-TW]'
+              'Croatian [hr-HR]'
+              'Czech [cs-CZ]'
+              'Danish [da-DK]'
+              'Dutch [nl-NL]'
+              'English (United Kingdom) [en-GB]'
+              'English (United States) [en-US]'
+              'Estonian [et-EE]'
+              'Finnish [fi-FI]'
+              'French (Canada) [fr-CA]'
+              'French (France) [fr-FR]'
+              'German [de-DE]'
+              'Greek [el-GR]'
+              'Hebrew [he-IL]'
+              'Hindi [hi-IN]'
+              'Hungarian [hu-HU]'
+              'Indonesian [id-ID]'
+              'Italian [it-IT]'
+              'Japanese [ja-JP]'
+              'Korean [ko-KR]'
+              'Latvian [lv-LV]'
+              'Lithuanian [lt-LT]'
+              'Norwegian Bokmal [nb-NO]'
+              'Persian [fa-IR]'
+              'Polish [pl-PL]'
+              'Portuguese (Brazil) [pt-BR]'
+              'Portuguese (Portugal) [pt-PT]'
+              'Romanian [ro-RO]'
+              'Russian [ru-RU]'
+              'Serbian (Latin) [sr-Latn-RS]'
+              'Slovak [sk-SK]'
+              'Slovenian [sl-SI]'
+              'Spanish (Mexico) [es-MX]'
+              'Spanish (Spain) [es-ES]'
+              'Swedish [sv-SE]'
+              'Thai [th-TH]'
+              'Turkish [tr-TR]'
+              'Ukrainian [uk-UA]'
+              'Urdu [ur-PK]'
+              'Vietnamese [vi-VN]')
           end
           object lblNativeLanguageName: TLabel
             Position.X = 420.000000000000000000
@@ -704,7 +705,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             TabOrder = 6
             Position.X = 26.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 118.000000000000000000
             Size.Width = 132.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -714,7 +715,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             TabOrder = 7
             Position.X = 168.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 118.000000000000000000
             Size.Width = 170.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -724,7 +725,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             TabOrder = 8
             Position.X = 348.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 118.000000000000000000
             Size.Width = 120.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -734,7 +735,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             TabOrder = 9
             Position.X = 478.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 118.000000000000000000
             Size.Width = 120.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -744,7 +745,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             TabOrder = 10
             Position.X = 608.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 118.000000000000000000
             Size.Width = 86.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -754,7 +755,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             TabOrder = 11
             Position.X = 704.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 118.000000000000000000
             Size.Width = 86.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -764,7 +765,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Touch.InteractiveGestures = [LongTap, DoubleTap]
             TabOrder = 12
             Position.X = 800.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 118.000000000000000000
             Size.Width = 86.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -772,19 +773,24 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object lblCatalogPathValue: TLabel
             Anchors = [akLeft, akTop, akRight]
+            Cursor = crHandPoint
+            HitTest = True
+            Hint = 'Click to select this JSON catalog in File Explorer'
+            ShowHint = True
             StyledSettings = []
             Position.X = 26.000000000000000000
-            Position.Y = 162.000000000000000000
+            Position.Y = 160.000000000000000000
             Size.Width = 350.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 11.000000000000000000
-            TextSettings.FontColor = xFF5D7693
+            TextSettings.FontColor = xFF1974DF
             Text = 'Catalog has not been saved.'
+            OnClick = lblCatalogPathValueClick
           end
           object btnExportCatalogCsv: TButton
             Position.X = 738.000000000000000000
-            Position.Y = 156.000000000000000000
+            Position.Y = 154.000000000000000000
             Size.Width = 70.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -794,7 +800,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object btnImportCatalogCsv: TButton
             Position.X = 816.000000000000000000
-            Position.Y = 156.000000000000000000
+            Position.Y = 154.000000000000000000
             Size.Width = 70.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -823,6 +829,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 216.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 15
+            ItemHeight = 24.000000000000000000
             DisableFocusEffect = True
             DefaultItemStyles.ItemStyle = ''
             DefaultItemStyles.GroupHeaderStyle = ''
@@ -854,6 +861,28 @@ object frmTranslationStudio: TfrmTranslationStudio
             TabOrder = 24
             Text = 'Approve'
             OnClick = btnApproveTranslationClick
+          end
+          object btnReviewAllTranslations: TButton
+            Anchors = [akLeft, akBottom]
+            Position.X = 446.000000000000000000
+            Position.Y = 438.000000000000000000
+            Size.Width = 120.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 25
+            Text = 'Review All...'
+            OnClick = btnReviewAllTranslationsClick
+          end
+          object btnApproveAllReviewed: TButton
+            Anchors = [akLeft, akBottom]
+            Position.X = 574.000000000000000000
+            Position.Y = 438.000000000000000000
+            Size.Width = 124.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 26
+            Text = 'Approve All...'
+            OnClick = btnApproveAllReviewedClick
           end
           object lblSourceTextEditor: TLabel
             Anchors = [akLeft, akTop]
@@ -966,7 +995,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object btnTranslateMissing: TButton
             Position.X = 384.000000000000000000
-            Position.Y = 156.000000000000000000
+            Position.Y = 154.000000000000000000
             Size.Width = 250.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -1028,27 +1057,30 @@ object frmTranslationStudio: TfrmTranslationStudio
             Position.X = 30.000000000000000000
             Position.Y = 120.000000000000000000
             Size.Width = 850.000000000000000000
-            Size.Height = 30.000000000000000000
+            Size.Height = 52.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 16.000000000000000000
             TextSettings.Font.StyleExt = {00070000000000000004000000}
             TextSettings.FontColor = xFF163A63
             Text = 'Validation has not been run.'
+            WordWrap = True
           end
           object lstValidationIssues: TListBox
             Anchors = [akLeft, akTop, akRight, akBottom]
             Position.X = 30.000000000000000000
-            Position.Y = 162.000000000000000000
+            Position.Y = 180.000000000000000000
             Size.Width = 850.000000000000000000
-            Size.Height = 308.000000000000000000
+            Size.Height = 290.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 1
+            ItemHeight = 24.000000000000000000
             DisableFocusEffect = True
             DefaultItemStyles.ItemStyle = ''
             DefaultItemStyles.GroupHeaderStyle = ''
             DefaultItemStyles.GroupFooterStyle = ''
+            OnDblClick = lstValidationIssuesDblClick
             Viewport.Width = 846.000000000000000000
-            Viewport.Height = 304.000000000000000000
+            Viewport.Height = 286.000000000000000000
           end
         end
         object ExportPageCard: TRectangle
@@ -1267,13 +1299,24 @@ object frmTranslationStudio: TfrmTranslationStudio
             Anchors = [akLeft, akTop, akRight]
             StyledSettings = []
             Position.X = 688.000000000000000000
-            Position.Y = 140.000000000000000000
+            Position.Y = 116.000000000000000000
             Size.Width = 192.000000000000000000
-            Size.Height = 28.000000000000000000
+            Size.Height = 48.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.StyleExt = {00070000000000000004000000}
             TextSettings.FontColor = xFF163A63
             Text = 'Open a Delphi project to build a plan.'
+            WordWrap = True
+          end
+          object btnInstallComponents: TButton
+            Position.X = 688.000000000000000000
+            Position.Y = 170.000000000000000000
+            Size.Width = 192.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 13
+            Text = 'Install / Repair Components...'
+            OnClick = btnInstallComponentsClick
           end
           object lstIntegrationPlan: TListBox
             Anchors = [akLeft, akTop, akBottom]
@@ -1283,6 +1326,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 166.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 2
+            ItemHeight = 24.000000000000000000
             OnChange = lstIntegrationPlanChange
             DisableFocusEffect = True
             DefaultItemStyles.ItemStyle = ''

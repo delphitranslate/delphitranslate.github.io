@@ -770,6 +770,22 @@ begin
   Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
     'README.txt')), 'The VCL component instructions were not generated.');
   Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'Install-Components.ps1')),
+    'The one-step component installer was not packaged.');
+  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'Install-Components.cmd')),
+    'The execution-policy-safe component launcher was not packaged.');
+  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'DelphiPackages\DATLanguageManagerVCLDesign.bpl')),
+    'The installable VCL design BPL was not packaged.');
+  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
+    ComponentOutputDirectory, 'README.txt')), 'Close RAD Studio'),
+    'The VCL component instructions do not explain the one-step installer.');
+  Require(not ContainsText(TFile.ReadAllText(TPath.Combine(
+    ComponentOutputDirectory, 'README.txt')),
+    'Install the matching design package'),
+    'The component instructions still direct users to install a DPK.');
+  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
     'ComponentSource\DAT.Components.VCL.pas')),
     'The VCL manager source was not packaged.');
   Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
@@ -815,6 +831,9 @@ begin
   Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
     'ComponentSource\DAT.Components.FMX.LanguageSelector.pas')),
     'The FMX selector source was not packaged.');
+  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'DelphiPackages\DATLanguageManagerFMXDesign.bpl')),
+    'The installable FMX design BPL was not packaged.');
   Require(SameText(ProjectHashBefore, THashSHA2.GetHashStringFromFile(
     Profile.ProjectFileName)),
     'Component integration changed the FMX project file.');

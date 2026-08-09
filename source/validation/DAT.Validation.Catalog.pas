@@ -56,6 +56,7 @@ implementation
 
 uses
   System.Classes,
+  System.StrUtils,
   System.SysUtils;
 
 constructor TCatalogValidationResult.Create;
@@ -314,10 +315,18 @@ begin
         if AcceleratorCount(Entry.SourceText) <>
           AcceleratorCount(Entry.TranslatedText) then
           AddIssue(Result, vsWarning, 'entry.accelerators', Entry.Key,
-            'Source and translation accelerator counts differ.');
+            'Keyboard shortcut marker (&) count differs. Add or remove & in the translation to match the source.');
         if SameText(Entry.SourceText, Entry.TranslatedText) then
-          AddIssue(Result, vsWarning, 'entry.sameText', Entry.Key,
-            'Translation is identical to the source text.');
+        begin
+          if MatchText(Trim(Entry.SourceText),
+            ['-', '--', '---', 'N/A']) then
+            AddIssue(Result, vsInformation, 'entry.runtimePlaceholder',
+              Entry.Key,
+              'Runtime placeholder is intentionally unchanged; no action is required.')
+          else
+            AddIssue(Result, vsWarning, 'entry.sameText', Entry.Key,
+              'Translation matches the source. Review whether this term should remain unchanged; export is not blocked.');
+        end;
         if KnownTranslations.TryGetValue(Entry.SourceText,
           KnownTranslation) then
         begin

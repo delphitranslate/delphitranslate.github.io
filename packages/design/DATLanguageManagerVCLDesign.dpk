@@ -6,11 +6,17 @@ package DATLanguageManagerVCLDesign;
 
 requires
   rtl,
-  designide,
-  DATLanguageManagerCoreRuntime,
-  DATLanguageManagerVCLRuntime;
+  vcl,
+  designide;
 
 contains
+  DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
+  DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
+  DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
+  DAT.Runtime.VCL in '..\..\source\runtime\DAT.Runtime.VCL.pas',
+  DAT.Components.Core in '..\..\source\components\DAT.Components.Core.pas',
+  DAT.Components.VCL in '..\..\source\components\DAT.Components.VCL.pas',
+  DAT.Components.VCL.LanguageSelector in '..\..\source\components\DAT.Components.VCL.LanguageSelector.pas',
   DAT.Design.VCL.Register in '..\..\source\design\DAT.Design.VCL.Register.pas';
 
 end.
