@@ -638,14 +638,16 @@ def build_document() -> Path:
         [
             "Close every RAD Studio window. Leave Delphi App Translation Studio open.",
             "On Integration, choose Install / Repair Components and approve the Windows prompt. The equivalent direct command is powershell.exe -ExecutionPolicy Bypass -File .\\tools\\Install-DATLanguageManagerComponents.ps1 -Framework FMX -Configuration Release -Action Repair.",
-            "Wait for the build, verification, copy, and registration success messages. Restart RAD Studio and open an FMX form.",
-            "Confirm DAT Localization appears in the Tool Palette.",
+            "Wait for the build, verification, copy, and registration success messages. Restart RAD Studio.",
+            "Before opening a project form, choose Component > Install Packages. Confirm the normal Embarcadero package list remains present, Embarcadero FMX Components is listed and checked, and the DAT Language Manager FireMonkey design-time package is listed and checked.",
+            "Open an FMX form and confirm DAT Localization appears in the Tool Palette.",
             "For the documented manual fallback only, use Component > Install Packages > Add and select the compiled DATLanguageManagerFMXDesign.bpl. Never use Component > Install Component and never select DATLanguageManagerFMXDesign.dpk.",
         ],
         [
             "TDATFMXLanguageManager and TDATFMXLanguageComboBox are available.",
             r"The three FMX-related BPL files are present under C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl.",
             "The design BPL has no custom DAT runtime-BPL import, so it loads without a missing-module error.",
+            "The complete standard package list remains available; standard controls such as TTabControl stream normally.",
             "No package is installed for VCL unless a VCL target is being tested.",
         ],
     )
@@ -724,7 +726,6 @@ def build_document() -> Path:
         ],
     )
 
-    document.add_page_break()
     document.add_heading("8. Runtime Acceptance", level=1)
     add_test_case(
         document,

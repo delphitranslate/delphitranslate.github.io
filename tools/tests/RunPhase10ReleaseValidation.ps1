@@ -34,6 +34,17 @@ foreach ($Configuration in @('Debug', 'Release')) {
         -Arguments @($Configuration)
 }
 
+$ComponentInstaller = Join-Path $ProjectRoot `
+    'tools\Install-DATLanguageManagerComponents.ps1'
+$ReleasePackageOutput = Join-Path $ProjectRoot `
+    'bin\packages\Win32\Release'
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ComponentInstaller `
+    -Framework Both -Configuration Release -Action Repair -SkipBuild `
+    -PackageSource $ReleasePackageOutput -WhatIf
+if ($LASTEXITCODE -ne 0) {
+    throw 'Component installer safety preview failed.'
+}
+
 foreach ($TestScript in @(
         'RunLanguageManagerCoreTests.ps1',
         'RunFMXLanguageManagerTests.ps1',

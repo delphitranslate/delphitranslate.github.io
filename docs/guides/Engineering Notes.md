@@ -1536,3 +1536,13 @@ BPL under the current user's BDS 37.0 Known Packages key. Component kits include
 the installer and the applicable verified Release BPLs, allowing a recipient to
 run one script before restarting Delphi. This automation changes no target
 application source.
+
+The installer must never create a per-user Known Packages key containing only
+DAT. RAD Studio treats that key as the effective design-package list, which can
+hide the machine-wide Embarcadero packages and make standard controls such as
+FMX `TTabControl` unavailable to the Form Designer. Before registering DAT, the
+installer now validates and copies the complete machine-wide package baseline
+to the per-user key. It then verifies the applicable standard package
+(`dclfmxstd370.bpl` or `dclstd370.bpl`) and the DAT design package are all
+visible. The release gate runs the installer in `-WhatIf` mode so a missing
+baseline or standard BPL fails validation without altering the registry.

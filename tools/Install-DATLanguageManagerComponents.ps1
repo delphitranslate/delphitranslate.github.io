@@ -33,6 +33,7 @@ else {
 $PublicDocumentsRoot = [Environment]::GetFolderPath('CommonDocuments')
 $Destination = Join-Path $PublicDocumentsRoot "Embarcadero\Studio\$BdsVersion\Bpl"
 $KnownPackages = "HKCU:\Software\Embarcadero\BDS\$BdsVersion\Known Packages"
+$MachineKnownPackages = "HKLM:\SOFTWARE\WOW6432Node\Embarcadero\BDS\$BdsVersion\Known Packages"
 
 if ($UsingBundledPackages -and
     (-not $PSBoundParameters.ContainsKey('Framework'))) {
@@ -80,8 +81,42 @@ if ($Action -eq 'Remove') {
     exit 0
 }
 
+# RAD Studio treats a per-user Known Packages key as the complete effective
+# design-package list. Creating that key with only a third-party package hides
+# the Embarcadero packages registered machine-wide. Seed the per-user key from
+# the installed product before adding DAT, and refuse to proceed unless the
+# standard package registrations are present and their files exist.
+if (-not (Test-Path -LiteralPath $MachineKnownPackages)) {
+    throw "RAD Studio $BdsVersion machine-wide package registration was not found: $MachineKnownPackages"
+}
+
+$MachinePackageProperties = @(
+    (Get-ItemProperty -LiteralPath $MachineKnownPackages).PSObject.Properties |
+        Where-Object { $_.Name -notmatch '^PS(Path|ParentPath|ChildName|Drive|Provider)$' }
+)
+if ($MachinePackageProperties.Count -lt 1) {
+    throw "RAD Studio $BdsVersion has no machine-wide design-package registrations. Installation was cancelled."
+}
+
+$RequiredStandardPackages = @()
+if ($Frameworks -contains 'FMX') {
+    $RequiredStandardPackages += '$(BDSBIN)\dclfmxstd370.bpl'
+}
+if ($Frameworks -contains 'VCL') {
+    $RequiredStandardPackages += '$(BDSBIN)\dclstd370.bpl'
+}
+foreach ($RequiredStandardPackage in $RequiredStandardPackages) {
+    if (-not ($MachinePackageProperties.Name -contains $RequiredStandardPackage)) {
+        throw "Required Embarcadero design-package registration is missing: $RequiredStandardPackage"
+    }
+    $RequiredStandardFile = $RequiredStandardPackage.Replace('$(BDSBIN)',
+        "C:\Program Files (x86)\Embarcadero\Studio\$BdsVersion\bin")
+    if (-not (Test-Path -LiteralPath $RequiredStandardFile)) {
+        throw "Required Embarcadero design package is missing: $RequiredStandardFile"
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $Destination | Out-Null
-New-Item -ItemType Directory -Force -Path $KnownPackages | Out-Null
 
 foreach ($PackageName in $PackageNames | Select-Object -Unique) {
     $SourceBpl = Join-Path $PackageOutput "$PackageName.bpl"
@@ -94,12 +129,45 @@ foreach ($PackageName in $PackageNames | Select-Object -Unique) {
     }
 }
 
+if ($PSCmdlet.ShouldProcess($KnownPackages,
+        'Preserve the complete Embarcadero design-package registry baseline')) {
+    New-Item -ItemType Directory -Force -Path $KnownPackages | Out-Null
+    foreach ($MachinePackageProperty in $MachinePackageProperties) {
+        New-ItemProperty -LiteralPath $KnownPackages `
+            -Name $MachinePackageProperty.Name `
+            -Value ([string]$MachinePackageProperty.Value) `
+            -PropertyType String -Force | Out-Null
+    }
+}
+
 foreach ($SelectedFramework in $Frameworks) {
     $DesignFile = Join-Path $Destination "DATLanguageManager${SelectedFramework}Design.bpl"
     $Description = "DAT Localization $SelectedFramework Components"
     if ($PSCmdlet.ShouldProcess($DesignFile, 'Register Delphi design package')) {
         New-ItemProperty -LiteralPath $KnownPackages -Name $DesignFile `
             -Value $Description -PropertyType String -Force | Out-Null
+    }
+}
+
+
+if (-not $WhatIfPreference) {
+    $EffectivePackageProperties = @(
+        (Get-ItemProperty -LiteralPath $KnownPackages).PSObject.Properties |
+            Where-Object { $_.Name -notmatch '^PS(Path|ParentPath|ChildName|Drive|Provider)$' }
+    )
+    foreach ($RequiredStandardPackage in $RequiredStandardPackages) {
+        if (-not ($EffectivePackageProperties.Name -contains $RequiredStandardPackage)) {
+            throw "Safety verification failed: $RequiredStandardPackage is not visible in the per-user package list."
+        }
+    }
+    foreach ($SelectedFramework in $Frameworks) {
+        $DesignFile = Join-Path $Destination "DATLanguageManager${SelectedFramework}Design.bpl"
+        if (-not ($EffectivePackageProperties.Name -contains $DesignFile)) {
+            throw "Safety verification failed: DAT design package is not registered: $DesignFile"
+        }
+    }
+    if ($EffectivePackageProperties.Count -lt $MachinePackageProperties.Count) {
+        throw 'Safety verification failed: the per-user package list is incomplete.'
     }
 }
 
