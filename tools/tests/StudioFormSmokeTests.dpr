@@ -100,10 +100,14 @@ begin
           'Generate Component Kit' then
         raise Exception.Create(
           'The recommended component-kit action is not displayed.');
-      if not Assigned(frmTranslationStudio.btnInstallComponents.OnClick) or
-         not frmTranslationStudio.btnInstallComponents.Visible then
+      if not Assigned(
+           frmTranslationStudio.btnOpenDesignPackageLocation.OnClick) or
+         not frmTranslationStudio.btnOpenDesignPackageLocation.Visible or
+         not Assigned(
+           frmTranslationStudio.btnOpenComponentKitFolder.OnClick) or
+         not frmTranslationStudio.btnOpenComponentKitFolder.Visible then
         raise Exception.Create(
-          'The component installer action is not available.');
+          'The manual package-location actions are not available.');
       if (frmTranslationStudio.lstScanResults.ItemHeight < 20) or
          (frmTranslationStudio.lstCatalogEntries.ItemHeight < 20) or
          (frmTranslationStudio.lstValidationIssues.ItemHeight < 20) or

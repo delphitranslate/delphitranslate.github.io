@@ -20,7 +20,7 @@ ICON = (
     / "images and icons"
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
-LAST_CHANGED = "August 8, 2026"
+LAST_CHANGED = "August 9, 2026"
 BLUE = "234C80"
 BRIGHT_BLUE = "1974DF"
 ORANGE = "F28A1B"
@@ -440,17 +440,20 @@ def build_user_guide() -> Path:
     add_steps(
         document,
         [
-            "Close RAD Studio. In the Translation Studio, open Integration, leave Component Integration selected, and choose Install / Repair Components. The same operation is available by double-clicking tools\\Install-DATLanguageManagerComponents.cmd, which uses ExecutionPolicy Bypass for the signed-off project script.",
-            "Approve the Windows elevation prompt. The installer builds and tests the packages, copies the matching Win32 BPLs to the public RAD Studio Bpl folder, preserves Delphi's complete installed Embarcadero design-package registry baseline, excludes stale optional registrations whose BPL files are absent, and registers the self-contained DAT design BPL for the current user.",
-            "Restart RAD Studio. Open Component > Install Packages and confirm the normal Embarcadero packages are still listed, including Embarcadero FMX Components for FMX work, and that the DAT package is checked. Then open a form and confirm DAT Localization appears in the Tool Palette with the language manager and language combo box.",
-            "If automation cannot be used, build the matching Win32 design package and use Component > Install Packages > Add to select the compiled .bpl. Never choose Component > Install Component and never select a .dpk in that wizard; a .dpk is package source, not the installable artifact.",
-            "Runtime BPLs are also copied for projects that use runtime packages. A normally linked application compiles the generated kit's ComponentSource units into the executable.",
+            "In the Translation Studio, open the target project, complete Scan, Translate, Validation, and Export, then open Integration and leave Component Integration selected.",
+            "Choose Build Integration Plan. The Studio enables Show Design BPL for the detected VCL or FMX framework.",
+            "Choose Show Design BPL. File Explorer selects DATLanguageManagerVCLDesign.bpl or DATLanguageManagerFMXDesign.bpl in the Studio's stable bin\\packages\\Win32\\Release folder.",
+            "Start RAD Studio without opening the target form. Choose Component > Install Packages, choose Add, select the exact design .bpl shown by the Studio, and choose Open.",
+            "Confirm DAT Language Manager VCL design-time package or DAT Language Manager FireMonkey design-time package is listed and checked, then choose OK. Open a form and confirm DAT Localization appears in the Tool Palette.",
+            "Never choose Component > Install Component and never select a .dpk. A .dpk is package source; Delphi installs the compiled Win32 design .bpl through Install Packages.",
+            "Return to the Studio and choose Generate Component Kit. The clean kit contains ComponentSource, JSON packs, deployment support, a manifest, and README instructions; it deliberately contains no BPLs or installer scripts.",
+            "Normally linked applications compile the generated kit's ComponentSource units into the executable. The target does not need DAT runtime BPLs beside it.",
         ],
     )
     add_callout(
         document,
-        "Explicit, automated installation.",
-        "The installer is developer-invoked, requires RAD Studio to be closed, and reports the destination and result. It never alters a target application.",
+        "Delphi-controlled installation.",
+        "The Studio does not copy BPLs into Delphi folders, write the BDS registry, or install packages automatically. RAD Studio registers the stable package from the Studio build tree through its normal Install Packages dialog. Generated per-project kits remain replaceable and are never package-registration locations.",
     )
 
     document.add_heading("3. The End-to-End Workflow", level=1)
@@ -709,7 +712,7 @@ def build_user_guide() -> Path:
             "Select Integration and leave Integration method set to Component Integration (Recommended).",
             "Choose Build Integration Plan. Confirm the detected framework and translated-pack count.",
             "Choose Generate Component Kit. Select README.txt and the generated manifest/files in the read-only inspection panes.",
-            "If DAT Localization is not already in the Tool Palette, choose Install / Repair Components, close RAD Studio if prompted, complete the installer, and restart RAD Studio.",
+            "If DAT Localization is not already in the Tool Palette, choose Show Design BPL. It selects the stable package under the Studio's bin\\packages\\Win32\\Release folder. In RAD Studio choose Component > Install Packages > Add, select that exact design BPL, confirm the package is listed and checked, and choose OK.",
             "Open the target application's primary form in the Delphi Form Designer and place one TDATVCLLanguageManager or TDATFMXLanguageManager from DAT Localization.",
             "Set ApplicationId exactly to the detected Delphi project name. Leave LanguagesFolder as Localization\\Languages and set SourceLanguage to the catalog source locale, normally en-US.",
             "Optionally place TDATVCLLanguageComboBox or TDATFMXLanguageComboBox and set its LanguageManager property to the manager. Size and align it in the designer like every other visual control.",
@@ -800,7 +803,7 @@ def build_user_guide() -> Path:
             ["Google test fails", "Confirm Basic v2 Cloud Translation API is enabled and key API restriction permits it."],
             ["Export blocked", "Run Validation and correct every error."],
             ["Language selector is empty", "Confirm valid nonempty packs, matching applicationId, and the deployed Localization\\Languages folder; call RefreshLanguages after late deployment."],
-            ["Component missing from Tool Palette", "Install the matching Win32 design BPL and keep its runtime dependencies available."],
+            ["Component missing from Tool Palette", "Use Show Design BPL, then Delphi Component > Install Packages > Add. Select the exact self-contained Win32 design BPL."],
             ["Preference cannot be found", "Check %LOCALAPPDATA%\\<ApplicationId>\\language.ini, not the executable folder."],
             ["Target remains English", "Confirm manager ApplicationId, JSON applicationId/locale, deployment folder, preference, and manager initialization errors."],
         ],
@@ -842,7 +845,7 @@ def build_user_guide() -> Path:
         document,
         [
             "Provider setup screens and commercial terms can change after this guide is published. Before creating a production key, compare these steps with the official pages listed in Chapters 7 and 8. Prefer a dedicated, restricted key and review the provider dashboard after the first bulk run.",
-            "This guide documents the implemented Studio as of August 8, 2026.",
+            "This guide documents the implemented Studio as of August 9, 2026.",
         ],
     )
 
@@ -1158,7 +1161,7 @@ def build_engineering_guide() -> Path:
         document,
         [
             "The package graph contains DATLanguageManagerCoreRuntime, framework-specific VCL/FMX runtime packages, and separate VCL/FMX design packages. Each design package contains its DAT runtime/component units directly and therefore imports no custom DAT runtime BPL; this eliminates the IDE loader failure caused by missing dependent modules. Design packages register only their applicable manager and selector on DAT Localization. Runtime packages build for Win32 and Win64; RAD Studio consumes Win32 design BPLs.",
-            "tools\\Install-DATLanguageManagerComponents.cmd launches the supported PowerShell setup/repair script with ExecutionPolicy Bypass. The script refuses to run while bds.exe is active, builds and verifies packages unless bundled BPLs are supplied, copies the framework's core/runtime/design BPLs to the public Studio Bpl folder, and writes the design BPL registration to HKCU\\Software\\Embarcadero\\BDS\\37.0\\Known Packages. Before writing that per-user key, it validates the machine-wide Embarcadero package baseline, retains only entries whose BPL files actually exist, and removes stale machine-derived entries from the per-user list; afterward it verifies the applicable standard dclstd370.bpl or dclfmxstd370.bpl registration, all effective package files, and the DAT registration. This prevents a third-party-only user key from hiding Delphi's standard controls and prevents absent optional BPLs from producing IDE-startup errors. Remove unregisters only the DAT design BPL and retains files for recovery. Generated component kits include both launcher/script files and matching verified BPLs when Release artifacts are available.",
+            "The Studio's Show Design BPL action selects the matching, verified, self-contained package under bin\\packages\\Win32\\Release. The developer installs that stable file with RAD Studio's Component > Install Packages > Add command. The Studio does not copy BPLs to public Delphi folders, write Known Packages registry values, close/restart RAD Studio, or expose automatic package installation. Delphi therefore remains the sole owner of design-package registration. Generated per-project kits contain no BPLs and are regenerated from a clean output directory, so they can be replaced without invalidating Delphi's registered package path.",
             "DAT.Integration.ComponentPackage implements the recommended non-mutating mode. It emits applicable runtime/component units, validated translated packs, an English source pack, component-integration.json, scanner form roots, README instructions, and a deployment script exclusively below export\\component-integration. SHA-256 fixture tests prove target DPROJ and DFM/FMX hashes remain unchanged.",
             "The advanced fallback retains DAT.Integration.Plan, DAT.Integration.Package, DAT.Integration.Engine, MenuResource, DelphiSource, Transaction, BuildDeploy, and Reset. It generates the application unit and exact changes in memory, requires explicit authorization, verifies a pre-change backup, writes atomically, rolls back failures, and supports restore/complete reset.",
         ],
@@ -1222,7 +1225,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "On August 8, 2026, the complete release harness passed uninterrupted. Debug and Release component packages, Win32/Win64 manager suites, scanner/catalog/provider contracts, component non-mutation, runtime and advanced integration all passed. The Studio built in Debug and Release for both architectures, streamed its FMX form directly, launched normally, and self-localized to Italian in all four configurations. Disposable real-application pilots also built and opened translated first forms on Win32/Win64 for Website Analytics (FMX) and Courier Herald Reader (VCL).",
+            "On August 9, 2026, the complete release harness passed uninterrupted. Debug and Release component packages, Win32/Win64 manager suites, scanner/catalog/provider contracts, component non-mutation, runtime and advanced integration all passed. The Studio built in Debug and Release for both architectures, streamed its FMX form directly, launched normally, and self-localized to Italian in all four configurations. Disposable real-application pilots also built and opened translated first forms on Win32/Win64 for Website Analytics (FMX) and Courier Herald Reader (VCL).",
         ],
     )
     document.add_heading("15.1 Optional live provider testing", level=2)
@@ -1297,7 +1300,7 @@ def build_engineering_guide() -> Path:
     add_bullets(
         document,
         [
-            "Repository source, forms, project metadata, schemas, and smoke tests as of August 8, 2026.",
+            "Repository source, forms, project metadata, schemas, and smoke tests as of August 9, 2026.",
             "Microsoft credential handling: https://learn.microsoft.com/en-us/windows/win32/secbp/handling-passwords",
             "Windows CREDENTIAL structure: https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw",
             "DeepL developer documentation: https://developers.deepl.com/docs/getting-started/auth",

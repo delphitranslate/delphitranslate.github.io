@@ -1286,7 +1286,7 @@ integration, and never launches the target.
 
 ## TDATLanguageManager Phase 1 Lifecycle Spike
 
-Completion date: August 8, 2026
+Completion date: August 9, 2026
 
 The component-first investigation now has compiled Win32 and Win64 lifecycle
 evidence. `TDATFMXLanguageManagerSpike` used FireMonkey's additive
@@ -1527,24 +1527,26 @@ so the IDE could report "specified module could not be found" even when the
 design BPL itself existed. Each design package now contains the DAT runtime and
 component units directly and imports only Embarcadero runtime/framework BPLs.
 
-`tools\Install-DATLanguageManagerComponents.cmd` launches the supported
-PowerShell Install, Repair, and Remove workflow with ExecutionPolicy Bypass.
-With RAD Studio closed the script can build and verify the
-package matrix, copy the applicable Win32 core/runtime/design BPLs to
-`C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl`, and register the design
-BPL under the current user's BDS 37.0 Known Packages key. Component kits include
-the installer and the applicable verified Release BPLs, allowing a recipient to
-run one script before restarting Delphi. This automation changes no target
-application source.
+Automatic BPL installation is retired from the product workflow. It is not
+shown in the Studio UI, is not copied into generated component kits, and is not
+documented as an end-user option. The Studio does not copy BPLs into Delphi
+folders and does not write BDS Known Packages registry values. RAD Studio owns
+registration through `Component > Install Packages > Add`.
 
-The installer must never create a per-user Known Packages key containing only
-DAT. RAD Studio treats that key as the effective design-package list, which can
-hide the machine-wide Embarcadero packages and make standard controls such as
-FMX `TTabControl` unavailable to the Form Designer. Before registering DAT, the
-installer now validates and copies the complete machine-wide package baseline
-whose registered BPL files actually exist to the per-user key. Stale optional
-machine registrations are excluded and removed from the per-user list rather
-than causing an IDE startup failure. It then verifies the applicable standard package
-(`dclfmxstd370.bpl` or `dclstd370.bpl`) and the DAT design package are all
-visible. The release gate runs the installer in `-WhatIf` mode so a missing
-baseline or standard BPL fails validation without altering the registry.
+Each newly generated component kit replaces its previous output directory so
+obsolete files cannot survive from an older kit. Per-project kits contain no
+BPLs. Delphi instead registers the applicable, verified, self-contained Win32
+design BPL from the stable Studio build tree under
+`bin\packages\Win32\Release`. This separation prevents Delphi from depending on
+a volatile export path and lets the Studio regenerate kits without encountering
+a loaded-package file lock. Runtime BPLs are unnecessary because normally
+linked target projects compile the kit's `ComponentSource` units into the
+executable. The Studio's `Show Design BPL` action selects the exact stable file
+in Explorer; `Open Kit Folder` opens the separate non-mutating kit. Instructions
+explicitly prohibit Delphi's Install Component wizard and `.dpk` package-source
+selection.
+
+The older internal installer tooling remains in `tools` only for engineering
+history and controlled diagnostics. It is unsupported, hidden, and excluded
+from all generated kits. It must not be invoked by the Studio or by acceptance
+instructions.

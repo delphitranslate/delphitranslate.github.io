@@ -759,6 +759,13 @@ begin
     'SampleVCLApp.Translation.pas')), 'ApplyTranslationToOpenForms'),
     'The generated unit does not refresh every open form after selection.');
 
+  ComponentOutputDirectory := TPath.Combine(TPath.Combine(ProjectRoot,
+    'export\ComponentIntegrationSmoke'), 'SampleVCLApp');
+  TDirectory.CreateDirectory(ComponentOutputDirectory);
+  TFile.WriteAllText(TPath.Combine(ComponentOutputDirectory,
+    'Install-Components.ps1'), 'obsolete automatic installer');
+  TFile.WriteAllText(TPath.Combine(ComponentOutputDirectory,
+    'Install-Components.cmd'), 'obsolete automatic launcher');
   ComponentOutputDirectory :=
     TComponentIntegrationPackageGenerator.Generate(Profile,
       TPath.Combine(ProjectRoot, 'export\ComponentIntegrationSmoke'),
@@ -769,22 +776,27 @@ begin
     'The VCL component manifest was not generated.');
   Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
     'README.txt')), 'The VCL component instructions were not generated.');
-  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+  Require(not TFile.Exists(TPath.Combine(ComponentOutputDirectory,
     'Install-Components.ps1')),
-    'The one-step component installer was not packaged.');
-  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'The automatic component installer was packaged.');
+  Require(not TFile.Exists(TPath.Combine(ComponentOutputDirectory,
     'Install-Components.cmd')),
-    'The execution-policy-safe component launcher was not packaged.');
-  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'DelphiPackages\DATLanguageManagerVCLDesign.bpl')),
-    'The installable VCL design BPL was not packaged.');
+    'The automatic component launcher was packaged.');
+  Require(not TDirectory.Exists(TPath.Combine(ComponentOutputDirectory,
+    'DelphiPackages')),
+    'The generated kit contains a volatile Delphi package folder.');
   Require(ContainsText(TFile.ReadAllText(TPath.Combine(
-    ComponentOutputDirectory, 'README.txt')), 'Close RAD Studio'),
-    'The VCL component instructions do not explain the one-step installer.');
-  Require(not ContainsText(TFile.ReadAllText(TPath.Combine(
     ComponentOutputDirectory, 'README.txt')),
-    'Install the matching design package'),
-    'The component instructions still direct users to install a DPK.');
+    'Component > Install Packages'),
+    'The VCL instructions do not use Delphi''s Install Packages dialog.');
+  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
+    ComponentOutputDirectory, 'README.txt')),
+    'DATLanguageManagerVCLDesign.bpl'),
+    'The VCL instructions do not identify the compiled design BPL.');
+  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
+    ComponentOutputDirectory, 'component-integration.json')),
+    'Delphi Component > Install Packages > Add'),
+    'The VCL manifest does not record the approved installation method.');
   Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
     'ComponentSource\DAT.Components.VCL.pas')),
     'The VCL manager source was not packaged.');
@@ -831,9 +843,16 @@ begin
   Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
     'ComponentSource\DAT.Components.FMX.LanguageSelector.pas')),
     'The FMX selector source was not packaged.');
-  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'DelphiPackages\DATLanguageManagerFMXDesign.bpl')),
-    'The installable FMX design BPL was not packaged.');
+  Require(not TDirectory.Exists(TPath.Combine(ComponentOutputDirectory,
+    'DelphiPackages')),
+    'The FMX kit contains a volatile Delphi package folder.');
+  Require(not TFile.Exists(TPath.Combine(ComponentOutputDirectory,
+    'Install-Components.ps1')),
+    'The FMX kit contains the automatic installer.');
+  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
+    ComponentOutputDirectory, 'README.txt')),
+    'DATLanguageManagerFMXDesign.bpl'),
+    'The FMX instructions do not identify the compiled design BPL.');
   Require(SameText(ProjectHashBefore, THashSHA2.GetHashStringFromFile(
     Profile.ProjectFileName)),
     'Component integration changed the FMX project file.');

@@ -140,7 +140,8 @@ type
     btnApplyIntegration: TButton;
     btnRestoreIntegration: TButton;
     btnCompleteReset: TButton;
-    btnInstallComponents: TButton;
+    btnOpenDesignPackageLocation: TButton;
+    btnOpenComponentKitFolder: TButton;
     chkBuildAfterIntegration: TCheckBox;
     cboBuildPlatform: TComboBox;
     cboBuildConfiguration: TComboBox;
@@ -205,7 +206,8 @@ type
     procedure btnApproveAllReviewedClick(Sender: TObject);
     procedure lblCatalogPathValueClick(Sender: TObject);
     procedure lstValidationIssuesDblClick(Sender: TObject);
-    procedure btnInstallComponentsClick(Sender: TObject);
+    procedure btnOpenDesignPackageLocationClick(Sender: TObject);
+    procedure btnOpenComponentKitFolderClick(Sender: TObject);
     procedure cboTargetLanguageChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure datLanguageMenuItemClick(Sender: TObject);
@@ -323,7 +325,10 @@ begin
   btnApplyIntegration.Visible := AdvancedMode;
   btnRestoreIntegration.Visible := AdvancedMode;
   btnCompleteReset.Visible := AdvancedMode;
-  btnInstallComponents.Visible := not AdvancedMode;
+  btnOpenDesignPackageLocation.Visible := not AdvancedMode;
+  btnOpenComponentKitFolder.Visible := not AdvancedMode;
+  btnOpenDesignPackageLocation.Enabled := False;
+  btnOpenComponentKitFolder.Enabled := False;
   if AdvancedMode then
   begin
     btnGenerateIntegrationPackage.Text := 'Generate Preview';
@@ -1371,18 +1376,22 @@ begin
         '1. Generate a self-contained component integration kit.');
       if FProjectProfile.Framework = tfVCL then
         lstIntegrationPlan.Items.Add(
-          '2. Install/place TDATVCLLanguageManager on the primary form.')
+          '2. In Delphi, add DATLanguageManagerVCLDesign.bpl through ' +
+          'Component > Install Packages.')
       else
         lstIntegrationPlan.Items.Add(
-          '2. Install/place TDATFMXLanguageManager on the primary form.');
+          '2. In Delphi, add DATLanguageManagerFMXDesign.bpl through ' +
+          'Component > Install Packages.');
       lstIntegrationPlan.Items.Add(
-        '3. Configure ApplicationId and LanguagesFolder in Object Inspector.');
+        '3. Place one DAT language manager on the primary form.');
       lstIntegrationPlan.Items.Add(
-        '4. Optionally place the matching DAT language combo box.');
+        '4. Configure ApplicationId and LanguagesFolder in Object Inspector.');
       lstIntegrationPlan.Items.Add(
-        '5. Deploy the JSON packs beside Win32 and Win64 executables.');
+        '5. Optionally place the matching DAT language combo box.');
       lstIntegrationPlan.Items.Add(
-        '6. Build and test. No Studio-written target changes are required.');
+        '6. Deploy the JSON packs beside Win32 and Win64 executables.');
+      lstIntegrationPlan.Items.Add(
+        '7. Build and test. No Studio-written target changes are required.');
       Languages := TLanguagePackDiscovery.Discover(
         TTranslationWorkspace.LanguagesDirectory(FProjectProfile),
         FProjectProfile.ProjectName);
@@ -1400,6 +1409,7 @@ begin
         'The kit is written only under the Studio export folder. The target ' +
         'project is not opened for writing.';
       btnGenerateIntegrationPackage.Enabled := True;
+      btnOpenDesignPackageLocation.Enabled := True;
       lblStatus.Text :=
         'Component plan ready. No target project or source files were changed.';
       Exit;
@@ -1449,35 +1459,53 @@ begin
     'The Studio project root could not be located.');
 end;
 
-procedure TfrmTranslationStudio.btnInstallComponentsClick(Sender: TObject);
+procedure TfrmTranslationStudio.btnOpenDesignPackageLocationClick(
+  Sender: TObject);
 var
-  Arguments: string;
-  FrameworkName: string;
-  InstallerFileName: string;
+  DesignPackageFileName: string;
+  ExplorerArguments: string;
   StudioProjectRoot: string;
 begin
   try
-    StudioProjectRoot := FindStudioProjectRoot;
-    InstallerFileName := TPath.Combine(StudioProjectRoot,
-      'tools\Install-DATLanguageManagerComponents.ps1');
-    if not TFile.Exists(InstallerFileName) then
-      raise EFileNotFoundException.CreateFmt(
-        'Component installer not found: %s', [InstallerFileName]);
+    if FProjectProfile.ProjectFileName = '' then
+      raise Exception.Create('Open a Delphi project first.');
     if FProjectProfile.Framework = tfVCL then
-      FrameworkName := 'VCL'
+      DesignPackageFileName := 'DATLanguageManagerVCLDesign.bpl'
     else
-      FrameworkName := 'FMX';
-    Arguments := '-NoProfile -ExecutionPolicy Bypass -File "' +
-      InstallerFileName + '" -Framework ' + FrameworkName +
-      ' -Configuration Release -Action Repair';
-    if ShellExecute(0, 'runas', 'powershell.exe', PChar(Arguments), nil,
+      DesignPackageFileName := 'DATLanguageManagerFMXDesign.bpl';
+    StudioProjectRoot := FindStudioProjectRoot;
+    DesignPackageFileName := TPath.Combine(StudioProjectRoot,
+      TPath.Combine('bin\packages\Win32\Release', DesignPackageFileName));
+    if not TFile.Exists(DesignPackageFileName) then
+      raise EFileNotFoundException.CreateFmt(
+        'Verified Win32 Release design package not found: %s. Run the ' +
+        'release validation build first.', [DesignPackageFileName]);
+    ExplorerArguments := '/select,"' + DesignPackageFileName + '"';
+    if ShellExecute(0, 'open', 'explorer.exe', PChar(ExplorerArguments), nil,
       SW_SHOWNORMAL) <= 32 then
-      raise Exception.Create('Windows did not start the component installer.');
+      raise Exception.Create('Windows could not open the package location.');
     lblStatus.Text :=
-      'Component installer opened. Close RAD Studio if it asks, then run it again.';
+      'Design BPL selected. In Delphi use Component > Install Packages > Add.';
   except
     on E: Exception do
-      lblStatus.Text := 'Unable to start component installer: ' + E.Message;
+      lblStatus.Text := 'Unable to show the design package: ' + E.Message;
+  end;
+end;
+
+procedure TfrmTranslationStudio.btnOpenComponentKitFolderClick(
+  Sender: TObject);
+begin
+  try
+    if (FIntegrationPackageDirectory = '') or
+       not TDirectory.Exists(FIntegrationPackageDirectory) then
+      raise Exception.Create('Generate the component kit first.');
+    if ShellExecute(0, 'open', PChar(FIntegrationPackageDirectory), nil, nil,
+      SW_SHOWNORMAL) <= 32 then
+      raise Exception.Create('Windows could not open the component kit folder.');
+    lblStatus.Text := 'Component kit folder opened. Target source is unchanged.';
+  except
+    on E: Exception do
+      lblStatus.Text := 'Unable to open the component kit folder: ' + E.Message;
   end;
 end;
 
@@ -1503,6 +1531,7 @@ begin
         TPath.Combine(StudioProjectRoot, 'source\runtime'),
         TPath.Combine(StudioProjectRoot, 'source\components'));
       FIntegrationPackageDirectory := OutputDirectory;
+      btnOpenComponentKitFolder.Enabled := True;
       FreeAndNil(FIntegrationChangeSet);
       lstIntegrationPlan.Items.Clear;
       for FileName in TDirectory.GetFiles(OutputDirectory, '*',

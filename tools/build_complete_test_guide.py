@@ -39,7 +39,7 @@ ICON = (
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
 DOCX_PATH = GUIDES_DIR / "Delphi App Translation Studio Complete Test Guide.docx"
-LAST_CHANGED = "August 8, 2026"
+LAST_CHANGED = "August 9, 2026"
 
 
 def set_run_font(
@@ -302,7 +302,7 @@ def build_document() -> Path:
     add_paragraphs(
         document,
         [
-            "Runtime packages build for Win32 and Win64. The Delphi IDE loads the self-contained Win32 design package. Installation remains an explicit developer action, but the supported installer automates build, verification, copying, and per-user registration.",
+            "Runtime packages build for Win32 and Win64. The Delphi IDE loads the self-contained Win32 design package. Installation is an explicit developer action performed only through RAD Studio's Component > Install Packages > Add command. The Studio does not copy, register, or automatically install BPLs.",
         ],
     )
 
@@ -310,7 +310,7 @@ def build_document() -> Path:
     add_bullets(
         document,
         [
-            "Windows account able to run RAD Studio and an elevated PowerShell window.",
+            "Windows account able to run RAD Studio and an elevated PowerShell window for builds.",
             "RAD Studio 13 Florence / toolchain 37.0 installed at the paths in Section 2.",
             "Git installed at C:\\Program Files\\Git and available for status/diff verification.",
             "A working Google Cloud Translation Basic v2 API key or DeepL API key for the live automatic-translation case.",
@@ -340,6 +340,23 @@ def build_document() -> Path:
         document,
         "Existing older test folder.",
         r"C:\New Delphi Projects\Echurchsite Analytical - Test already contains earlier automatic-source-integration changes and Localization files. Do not use it as the clean component-first acceptance target.",
+    )
+
+    document.add_heading("3.2 Establish a clean Delphi package baseline", level=2)
+    add_steps(
+        document,
+        [
+            "Start RAD Studio without opening the disposable target project or any target form.",
+            "Choose Component > Install Packages.",
+            "If DAT Language Manager FireMonkey design-time package is listed, select it, choose Remove, confirm the removal, and choose OK. If it is not listed, choose Cancel and continue.",
+            "Close and restart RAD Studio. Confirm that no package-load error appears. Do not manually delete BPLs and do not edit the BDS registry.",
+            "Leave the target project closed until TC-10 installs the freshly generated design package.",
+        ],
+    )
+    add_callout(
+        document,
+        "Use Delphi's package manager only.",
+        "Never use Component > Install Component for this product, never select a .dpk, and never copy package files into Delphi system folders. The accepted workflow uses the compiled Win32 design .bpl through Component > Install Packages > Add.",
     )
 
     document.add_heading("4. Build the Studio Manually", level=1)
@@ -601,7 +618,8 @@ def build_document() -> Path:
         ],
         [
             r"Kit root: C:\New Delphi Projects\Delphi App Translation\export\component-integration\WebsiteAnalytics.",
-            "The kit contains README.txt, component-integration.json, Install-Components.cmd, Install-Components.ps1, DelphiPackages, Deploy-LanguagePacks.ps1, ComponentSource, and Localization\\Languages.",
+            "The kit contains README.txt, component-integration.json, Deploy-LanguagePacks.ps1, ComponentSource, and Localization\\Languages.",
+            "The replaceable per-project kit contains no DelphiPackages folder, no BPL, and no automatic installer. Delphi's registered package comes from the Studio's stable bin\\packages\\Win32\\Release folder.",
             "The language folder contains the validated target pack plus an automatically generated en-US.json source pack.",
             "Target Git status is unchanged by Build Integration Plan and Generate Component Kit.",
             "Apply, Restore, Complete Reset, automatic target build, and source-authorization controls are hidden in recommended mode.",
@@ -614,9 +632,6 @@ def build_document() -> Path:
         ["Path below WebsiteAnalytics kit", "Purpose"],
         [
             [r"README.txt", "Ordered Object Inspector, Search Path, deployment, and build instructions."],
-            [r"Install-Components.ps1", "One-step build/copy/register installer; auto-detects the framework bundled in the kit."],
-            [r"Install-Components.cmd", "Double-click launcher that invokes the installer with ExecutionPolicy Bypass and keeps the result visible."],
-            [r"DelphiPackages\*.bpl", "Verified Win32 core, framework runtime, and self-contained design packages."],
             [r"component-integration.json", "Application identity, FMX framework, manager/selector classes, language metadata, and scanner form roots."],
             [r"Deploy-LanguagePacks.ps1", "Copies only JSON packs to a selected executable directory."],
             [r"Localization\Languages\en-US.json", "Generated source-language pack for deterministic return to English."],
@@ -633,24 +648,29 @@ def build_document() -> Path:
     add_test_case(
         document,
         "TC-10",
-        "Install or repair the FMX components",
-        "Use the supported one-step setup to make the manager and selector available on DAT Localization without changing the target.",
+        "Install the FMX design package through Delphi",
+        "Use RAD Studio's standard package manager to make the manager and selector available without changing the target.",
         [
-            "Close every RAD Studio window. Leave Delphi App Translation Studio open.",
-            "On Integration, choose Install / Repair Components and approve the Windows prompt. The equivalent direct command is powershell.exe -ExecutionPolicy Bypass -File .\\tools\\Install-DATLanguageManagerComponents.ps1 -Framework FMX -Configuration Release -Action Repair.",
-            "Wait for the build, verification, copy, and registration success messages. Restart RAD Studio.",
-            "Before opening a project form, choose Component > Install Packages. Confirm the normal Embarcadero package list remains present, Embarcadero FMX Components is listed and checked, and the DAT Language Manager FireMonkey design-time package is listed and checked.",
+            r"In the Translation Studio Integration page, choose Show Design BPL. Confirm File Explorer selects C:\New Delphi Projects\Delphi App Translation\bin\packages\Win32\Release\DATLanguageManagerFMXDesign.bpl.",
+            "Start or activate RAD Studio without opening the disposable target project or a target form.",
+            "Choose Component > Install Packages, then choose Add.",
+            "Browse to the exact BPL selected by Show Design BPL, select DATLanguageManagerFMXDesign.bpl, and choose Open. Never use Component > Install Component and never select DATLanguageManagerFMXDesign.dpk.",
+            "Confirm DAT Language Manager FireMonkey design-time package is listed and checked. Confirm the normal Embarcadero package list remains present and Embarcadero FMX Components is listed and checked. Choose OK.",
             "Open an FMX form and confirm DAT Localization appears in the Tool Palette.",
-            "For the documented manual fallback only, use Component > Install Packages > Add and select the compiled DATLanguageManagerFMXDesign.bpl. Never use Component > Install Component and never select DATLanguageManagerFMXDesign.dpk.",
         ],
         [
             "TDATFMXLanguageManager and TDATFMXLanguageComboBox are available.",
-            r"The three FMX-related BPL files are present under C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl.",
+            "The stable Studio bin\\packages path remains the registered package location; the Studio has not copied any BPL into a Delphi system or public Bpl folder.",
             "The design BPL has no custom DAT runtime-BPL import, so it loads without a missing-module error.",
             "The complete standard package list remains available; standard controls such as TTabControl stream normally.",
-            "Every package left in the effective per-user list has an installed BPL; stale optional registrations do not produce an IDE-startup error.",
+            "Closing and reopening RAD Studio produces no package-load error.",
             "No package is installed for VCL unless a VCL target is being tested.",
         ],
+    )
+    add_callout(
+        document,
+        "Do not register a generated-kit path.",
+        "Per-project component kits are replaceable output. Installing a BPL from a kit would make Delphi depend on a volatile path and could prevent clean kit regeneration. Always use Show Design BPL and the stable Studio bin\\packages\\Win32\\Release file.",
     )
 
     add_test_case(
@@ -1092,7 +1112,7 @@ def build_document() -> Path:
     add_paragraphs(
         document,
         [
-            "As of August 8, 2026, the project had current Studio executables in all four supported build folders, package outputs for Win32/Win64 Debug/Release, passing component/lifecycle/streaming/runtime/Studio launch/self-localization suites, and a clean pristine GA4 reference repository on branch codex/component-manager-pilot. The older C:\\New Delphi Projects\\Echurchsite Analytical - Test folder contained prior automatic-source-integration changes and was intentionally excluded from the clean component acceptance path.",
+            "As of August 9, 2026, the project had current Studio executables in all four supported build folders, package outputs for Win32/Win64 Debug/Release, passing component/lifecycle/streaming/runtime/Studio launch/self-localization suites, and a clean pristine GA4 reference repository on branch codex/component-manager-pilot. The older C:\\New Delphi Projects\\Echurchsite Analytical - Test folder contained prior automatic-source-integration changes and was intentionally excluded from the clean component acceptance path.",
             "This baseline is evidence, not a substitute for rerunning the tests. Record new executable timestamps, release-gate output, provider results, and target Git diffs for each acceptance session.",
         ],
     )

@@ -1308,15 +1308,31 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Open a Delphi project to build a plan.'
             WordWrap = True
           end
-          object btnInstallComponents: TButton
-            Position.X = 688.000000000000000000
-            Position.Y = 170.000000000000000000
-            Size.Width = 192.000000000000000000
-            Size.Height = 38.000000000000000000
+          object btnOpenDesignPackageLocation: TButton
+            Anchors = [akRight, akBottom]
+            Hint = 'Selects the compiled design BPL in File Explorer'
+            Position.X = 644.000000000000000000
+            Position.Y = 432.000000000000000000
+            ShowHint = True
+            Size.Width = 112.000000000000000000
+            Size.Height = 44.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 13
-            Text = 'Install / Repair Components...'
-            OnClick = btnInstallComponentsClick
+            Text = 'Show Design BPL'
+            OnClick = btnOpenDesignPackageLocationClick
+          end
+          object btnOpenComponentKitFolder: TButton
+            Anchors = [akRight, akBottom]
+            Hint = 'Opens the generated non-mutating component kit'
+            Position.X = 768.000000000000000000
+            Position.Y = 432.000000000000000000
+            ShowHint = True
+            Size.Width = 112.000000000000000000
+            Size.Height = 44.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 14
+            Text = 'Open Kit Folder'
+            OnClick = btnOpenComponentKitFolderClick
           end
           object lstIntegrationPlan: TListBox
             Anchors = [akLeft, akTop, akBottom]

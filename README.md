@@ -108,10 +108,12 @@ provides:
 9. When there are no validation errors, use **Export** to create the offline
    runtime JSON pack.
 10. Use **Integration** in the recommended Component Integration mode. Choose
-    **Install / Repair Components** for the one-step RAD Studio setup, generate
-    the self-contained component kit, then place one manager and an optional
-    selector on the primary form in Delphi's Form Designer. The Studio does not
-    modify target source in this mode.
+    **Build Integration Plan**, use **Show Design BPL** to select the stable
+    Win32 Release package under `bin\packages`, and install it with Delphi's
+    own **Component > Install Packages > Add** command. Generate the component
+    kit, then place one manager and an optional selector on the primary form in
+    Delphi's Form Designer. The Studio neither registers packages nor modifies
+    target source in this mode.
 
 Scanning remains read-only. The `Localization` folder is created only when the
 developer explicitly saves a catalog or exports a runtime pack.
