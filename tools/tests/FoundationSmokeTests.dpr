@@ -337,6 +337,10 @@ var
 begin
   ProjectRoot := TPath.GetFullPath(GetCurrentDir);
 
+  Require(TScanRuleSet.IsTranslatableProperty(tfFireMonkey,
+    'TStringColumn', 'Header', False),
+    'FMX string-grid column headers must be translatable.');
+
   Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
     'samples\VCLBasic\SampleVCLApp.dproj'));
   ScanResult := TProjectScanner.Scan(Profile);

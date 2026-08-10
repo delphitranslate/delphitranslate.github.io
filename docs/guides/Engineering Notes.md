@@ -1636,3 +1636,28 @@ files do not contain the component integration.
 The deployment instructions now use an explicit PowerShell executable with
 `-NoProfile -ExecutionPolicy Bypass -File`, preventing the documented local
 execution-policy failure.
+
+### Website Analytics untranslated-text deep dive
+
+Completion date: August 10, 2026
+
+The third pilot pass confirmed that the runtime pack was loading successfully;
+the remaining English was not a provider or JSON failure. The target form's
+startup, data-refresh, chart-paint, and authentication routines assigned English
+literals after the component had applied the static form translations. Those
+assignments included selector items, status text, tile headings, date-range
+headings, owner-drawn empty-state messages, and grid headings.
+
+The supported ownership rule is now explicit in the pilot: designer-owned text
+is applied automatically, while application-owned text is declared as Delphi
+`resourcestring` content and requested through `Translate` or
+`FormatTemplate` at the point where the application writes it. A visible-form
+guard protects the target's `OnLanguageChanged` refresh from running during FMX
+form streaming. This keeps first paint deterministic and still refreshes
+application-owned presentation when a user changes language later.
+
+FMX `TStringColumn` and related grid-column `Header` properties are now included
+in both form scanning and runtime application. This closes the separate grid
+coverage gap; it does not change or translate row data. Foundation regression
+tests assert the new scanner rule, and the Win32/Win64 runtime suites cover the
+unchanged component-state protections.

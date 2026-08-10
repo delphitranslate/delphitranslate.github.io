@@ -136,7 +136,8 @@ class function TFMXTranslationApplicator.ApplyToForm(
   const AFormIdentity: string;
   const APreserveControlState: Boolean): Integer;
 const
-  TextProperties: array[0..3] of string = ('Caption', 'Text', 'Hint', 'TextPrompt');
+  TextProperties: array[0..4] of string = (
+    'Caption', 'Text', 'Hint', 'TextPrompt', 'Header');
   StringProperties: array[0..1] of string = ('Items', 'Lines');
 var
   Component: TComponent;

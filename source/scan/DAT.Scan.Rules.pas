@@ -104,6 +104,10 @@ begin
       end;
     tfFireMonkey:
       begin
+        if SameText(APropertyName, 'Header') then
+          Exit(ClassMatches(AComponentClassName,
+            ['TStringColumn', 'TCheckColumn', 'TDateColumn', 'TTimeColumn',
+             'TProgressColumn', 'TImageColumn', 'TPopupColumn']));
         if SameText(APropertyName, 'Text') then
           Exit(ClassMatches(AComponentClassName,
             ['TLabel', 'TButton', 'TSpeedButton', 'TMenuItem', 'TTabItem',
