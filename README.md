@@ -1,5 +1,7 @@
 # Delphi App Translation Studio
 
+![CAUTION - Pre-release development project; not ready for production use](images%20and%20icons/README-Caution-Banner.svg)
+
 > [!CAUTION]
 > **Pre-release development project - not ready for production use.**
 >
