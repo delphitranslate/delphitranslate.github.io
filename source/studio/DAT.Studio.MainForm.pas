@@ -305,7 +305,7 @@ begin
   try
     SetupWizard.ShowModal;
     lblStatus.Text :=
-      'Guided Setup closed. Advanced Studio pages remain available.';
+      'Setup Wizard closed. Advanced Studio pages remain available.';
   finally
     SetupWizard.Free;
   end;

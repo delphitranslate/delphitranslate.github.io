@@ -20,7 +20,7 @@ ICON = (
     / "images and icons"
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
-LAST_CHANGED = "August 9, 2026"
+LAST_CHANGED = "August 10, 2026"
 BLUE = "234C80"
 BRIGHT_BLUE = "1974DF"
 ORANGE = "F28A1B"
@@ -391,11 +391,13 @@ def build_user_guide() -> Path:
     )
     add_toc_section(document, title)
 
-    document.add_heading("1. Welcome", level=1)
+    document.add_heading("1. About This Guide", level=1)
     add_paragraphs(
         document,
         [
-            "Delphi App Translation Studio is an offline-first Windows developer tool for adding localization to existing Delphi VCL and FireMonkey applications. It scans designer-authored forms and Delphi resourcestring declarations, stores the results in an editable development catalog, automatically translates unresolved text through Google Cloud Translation or DeepL, validates translation safety, and exports a compact JSON pack for the target application.",
+            "This guide is the complete product reference for Delphi App Translation Studio. It is written for a Delphi developer who may be new to localization, language packs, design-time components, or translation-provider APIs. It explains what each part does, why it is needed, what files are created, and what result to expect before it gives operating steps.",
+            "For the shortest first-time path, use the separate Delphi App Translation Studio Setup Wizard Guide. The Wizard Guide leads one project from preparation through translation, component setup, deployment, and final verification. This User Guide remains the authoritative reference for the Studio's full seven-page workflow, catalog editing, providers, validation, export, integration, troubleshooting, security, and file locations.",
+            "Delphi App Translation Studio is an offline-first Windows developer tool for adding localization to existing Delphi VCL and FireMonkey applications. It scans designer-authored forms and Delphi resourcestring declarations, stores the results in an editable development catalog, automatically translates unresolved text through Google Cloud Translation or DeepL, validates translation safety, and exports compact JSON language packs for the target application.",
             "The Studio itself is built with FireMonkey, but it works with both VCL and FMX target projects. The supported build targets are Windows Win32 and Win64. macOS, iOS, Android, Linux, C++Builder, and runtime cloud translation are outside the product scope.",
         ],
     )
@@ -405,7 +407,26 @@ def build_user_guide() -> Path:
         "Only the developer's Studio computer needs Internet access while creating translations. The finished target application reads local JSON language packs and never needs Internet access, a provider account, or an API key.",
     )
 
-    document.add_heading("1.1 What the Studio changes", level=2)
+    document.add_heading("1.1 The Parts of the Localization System", level=2)
+    add_table(
+        document,
+        ["Part", "What it is", "Why it exists"],
+        [
+            ["Translation Studio", "The developer tool used while preparing a project.", "Scans text, calls Google or DeepL, validates results, and builds deployable files."],
+            ["Development catalog", "A detailed JSON working file under Localization\\Development.", "Preserves source text, translations, review state, origin, runtime classification, and locale settings between scans."],
+            ["Runtime language pack", "A compact JSON file under Localization\\Languages, such as es-ES.json.", "Supplies translated text to the finished application without Internet access or an API key."],
+            ["TDAT language manager component", "One nonvisual VCL or FMX component placed on the application's primary form.", "Loads packs, remembers the selected language, translates open forms, and supervises forms opened later."],
+            ["Language selector", "An optional visual combo-box component linked to the manager.", "Shows the installed languages and lets the user switch language immediately."],
+            ["Component integration kit", "A generated, project-specific folder under the Studio export tree.", "Provides component source, packs, deployment script, manifest, and exact integration instructions without rewriting the target project."],
+        ],
+    )
+    add_callout(
+        document,
+        "What 'manager' means in this guide.",
+        "Manager is shorthand for TDATVCLLanguageManager or TDATFMXLanguageManager. It is a Delphi component installed on the DAT Localization Tool Palette page and placed once on the target application's primary form. It is not a separate program, Windows service, or online account.",
+    )
+
+    document.add_heading("1.2 What the Studio Changes - and Does Not Change", level=2)
     add_bullets(
         document,
         [
@@ -413,34 +434,71 @@ def build_user_guide() -> Path:
             "Saving creates project-local Localization\\Development catalog files.",
             "Export creates project-local Localization\\Languages runtime packs.",
             "Component Integration generates a setup kit under the Studio export folder and does not write to the selected target project.",
-            "The developer places one manager on the primary form in Delphi; those normal IDE-authored form and uses-clause changes remain visible in source control.",
+            "The developer places one TDAT language manager component on the primary form in Delphi. Delphi then makes its normal, visible form-resource and unit-reference changes, exactly as it does for any other design-time component.",
             "Automatic Source Integration remains an explicit advanced fallback with preview, verified backup, apply, and restore.",
         ],
     )
+    add_callout(
+        document,
+        "Protect the original project.",
+        "Use a disposable test copy for the first evaluation. A Git repository is helpful but is not required. If Git is unavailable, copy the complete project to a separately named backup folder, confirm that the copy opens and builds, and run the Studio only against the test copy.",
+    )
 
-    document.add_heading("2. Installation and Startup", level=1)
+    document.add_heading("2. Before You Begin", level=1)
     add_paragraphs(
         document,
         [
-            "The open-source project can be opened and compiled by anyone with Delphi 13 / RAD Studio 13 Florence. No installer is required for development builds. Open DelphiAppTranslationStudio.dproj, choose Win32 or Win64, and build.",
+            "The published source is currently built and release-tested with RAD Studio 13 Florence. The code is intended for modern Delphi VCL and FMX Windows projects; an older RAD Studio release may require source or package adjustments and should be treated as unverified until it passes the included build and smoke tests.",
+            "No Git installation is required to use the Studio. Git is one convenient safety check for developers who already use it; a verified folder copy or other normal backup system is equally acceptable.",
             "Build products are placed under bin\\<Platform>\\<Configuration>. Compiler units are placed under dcu. The project deliberately does not target mobile or macOS platforms.",
         ],
     )
-    document.add_heading("2.1 First launch", level=2)
-    add_steps(
+    add_table(
         document,
+        ["Prepare", "Reason"],
         [
-            "Run DelphiAppTranslationStudio.exe.",
-            "Confirm that the title reads Delphi App Translation Studio.",
-            "The Studio opens maximized. Use the left workflow panel; every page expands into the available workspace and the blue selection bar follows Project, Scan, Translate, Validation, Export, Integration, and Provider Settings.",
+            ["A clean test copy of the target project", "Keeps the original application available if the evaluation is abandoned."],
+            ["A successful Win32 or Win64 build", "Confirms the target project is healthy before localization work begins."],
+            ["Text-based DFM or FMX resources", "The scanner reads designer text resources; binary legacy DFM files must first be converted through Delphi."],
+            ["A Google Cloud Translation or DeepL API key", "Automatic translation runs on the developer's computer. The deployed application remains offline."],
+            ["RAD Studio access for one manual component step", "Delphi itself installs the design package and places the manager component on the primary form."],
         ],
     )
 
-    document.add_heading("2.2 Install the localization components", level=2)
+    document.add_heading("2.1 Choose the Setup Path", level=2)
+    add_table(
+        document,
+        ["Path", "Choose it when", "Where to begin"],
+        [
+            ["Setup Wizard - recommended", "This is the first project, or the developer wants the Studio to lead and verify the sequence.", "Select Start Setup Wizard and follow the separate Setup Wizard Guide."],
+            ["Manual Studio workflow", "The developer understands catalogs and wants direct access to individual Project, Scan, Translate, Validation, Export, Integration, and Provider Settings pages.", "Continue with Chapter 3 of this User Guide."],
+            ["Automatic Source Integration - advanced", "The component approach is unsuitable and the developer explicitly accepts reviewed source edits.", "Read Chapter 11.3 and use only a protected project copy."],
+        ],
+    )
+
+    document.add_heading("2.2 Build or Start the Studio", level=2)
     add_steps(
         document,
         [
-            "In the Translation Studio, open the target project, complete Scan, Translate, Validation, and Export, then open Integration and leave Component Integration selected.",
+            "To use an existing build, run DelphiAppTranslationStudio.exe from bin\\Win32\\Release or bin\\Win64\\Release. Debug builds are intended for diagnosis.",
+            "To compile from source, open DelphiAppTranslationStudio.dproj in RAD Studio, select Win32 or Win64 and Debug or Release, then choose Project > Build DelphiAppTranslationStudio.",
+            "Confirm that the build writes the executable under bin\\<Platform>\\<Configuration> and compiler units under dcu\\<Platform>\\<Configuration>.",
+            "Start the executable and confirm that Delphi App Translation Studio opens maximized. The Project page offers Start Setup Wizard for first-time use and Open Project for the manual workflow.",
+        ],
+    )
+
+    document.add_heading("2.3 Install the Localization Components", level=2)
+    add_paragraphs(
+        document,
+        [
+            "The Studio and the target application have different jobs. The Studio prepares the translation files. The target application needs a TDAT language manager component so it can load and apply those files at runtime. Component installation is normally performed once per RAD Studio installation, not once per translated project.",
+            "The design package must be installed through RAD Studio's Component > Install Packages dialog. Do not use Component > Install Component, and do not try to install a .dpk source file. The correct file is the compiled Win32 Release design-time .bpl selected by the Studio.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "If this is the first localization project, complete the Setup Wizard through its Delphi Component step. In the manual workflow, open the project and complete Scan, Translate, Validation, and Export, then open Integration and leave Component Integration selected.",
             "Choose Build Integration Plan. The Studio enables Show Design BPL for the detected VCL or FMX framework.",
             "Choose Show Design BPL. File Explorer selects DATLanguageManagerVCLDesign.bpl or DATLanguageManagerFMXDesign.bpl in the Studio's stable bin\\packages\\Win32\\Release folder.",
             "Start RAD Studio without opening the target form. Choose Component > Install Packages, choose Add, select the exact design .bpl shown by the Studio, and choose Open.",
@@ -845,11 +903,382 @@ def build_user_guide() -> Path:
         document,
         [
             "Provider setup screens and commercial terms can change after this guide is published. Before creating a production key, compare these steps with the official pages listed in Chapters 7 and 8. Prefer a dedicated, restricted key and review the provider dashboard after the first bulk run.",
-            "This guide documents the implemented Studio as of August 9, 2026.",
+            "This guide documents the implemented Studio as of August 10, 2026.",
         ],
     )
 
     path = GUIDES_DIR / "Delphi App Translation Studio User Guide.docx"
+    finish_document(document, path)
+    return path
+
+
+def build_setup_wizard_guide() -> Path:
+    document = Document()
+    setup_styles(document)
+    title = "Delphi App Translation Studio - Setup Wizard Guide"
+    add_cover(
+        document,
+        "Setup Wizard Guide",
+        "A First-Time User's Path from Delphi Project to Offline Translation",
+    )
+    add_toc_section(document, title)
+
+    document.add_heading("1. Purpose and Expected Result", level=1)
+    add_paragraphs(
+        document,
+        [
+            "The Setup Wizard is the recommended way to localize a Delphi application for the first time. It presents one decision at a time, verifies prerequisites before allowing the next step, and records the files and commands needed to finish the integration.",
+            "At completion, the developer has a saved development catalog, a compact JSON runtime language pack, a component integration kit, a safety backup when requested, and exact deployment commands. The selected Delphi project is scanned but its Pascal, DFM, FMX, DPR, and DPROJ files are not automatically rewritten.",
+            "The Wizard cannot perform Delphi's design-time work on the developer's behalf. RAD Studio must install the design package through its normal Install Packages dialog, and the developer must place and configure one language-manager component on the target application's primary form. These visible IDE changes are deliberate safeguards.",
+        ],
+    )
+    add_callout(
+        document,
+        "End-user applications remain offline.",
+        "Google Cloud Translation or DeepL is contacted only by the Translation Studio on the developer's computer. The finished application reads local JSON files and requires no Internet connection, provider account, or API key.",
+    )
+
+    document.add_heading("2. Prepare Before Starting", level=1)
+    add_table(
+        document,
+        ["Requirement", "What to prepare", "Why it matters"],
+        [
+            ["Target project", "A .dproj file is preferred; .dpr is accepted.", "The Wizard identifies VCL or FMX, supported Windows platforms, and form resources."],
+            ["Safe working copy", "Use a clearly named test copy and confirm it builds before localization.", "The original application remains available even if the evaluation is abandoned."],
+            ["Backup method", "Git is optional. A verified folder copy, archive, or normal backup system is sufficient.", "The Wizard does not assume every Delphi developer uses Git."],
+            ["Translation provider", "A working Google Cloud Translation Basic v2 or DeepL API key.", "Automatic translation cannot run without provider authentication."],
+            ["RAD Studio", "The current release is verified with RAD Studio 13 Florence.", "RAD Studio performs the approved design-package and component-placement steps."],
+            ["Healthy target build", "Build at least one intended Windows configuration successfully.", "A localization test should not begin with unrelated compiler or form-streaming failures."],
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Close the target application if it is running.",
+            "Create the pristine or otherwise protected copy, then create a separate test copy for the Wizard.",
+            "Open the test copy in RAD Studio, build it, run it briefly, then close RAD Studio or close the project before starting the Wizard.",
+            "Have the provider API key available. Do not paste it into source code, JSON files, email, screenshots, or issue reports.",
+        ],
+    )
+
+    document.add_heading("3. Start and Navigate the Setup Wizard", level=1)
+    add_steps(
+        document,
+        [
+            "Run DelphiAppTranslationStudio.exe from the selected Win32 or Win64 Debug or Release folder.",
+            "On the Project page, select Start Setup Wizard. The separate Open Project button begins the advanced manual workflow and is not required for this guide.",
+            "Read the Welcome page, especially the orange safety notice, then select Next.",
+        ],
+    )
+    add_table(
+        document,
+        ["Navigation control", "Behavior"],
+        [
+            ["Next", "Validates the current step and moves forward only when required information is present."],
+            ["Back", "Returns to the previous step before final processing."],
+            ["Left step rail", "Selects a step already reached. Future steps remain unavailable, preventing required work from being skipped."],
+            ["Cancel", "Closes the Wizard before final processing. The target project remains unchanged; a deliberately saved provider credential may remain in Windows Credential Manager."],
+            ["Begin Final Processing", "Starts the controlled translation/export sequence. Back, Cancel, the left rail, and window closing are disabled until the sequence completes or stops safely."],
+            ["Finish", "Becomes available only after final processing succeeds."],
+        ],
+    )
+    add_callout(
+        document,
+        "Cancel boundary.",
+        "Cancel is safe through the Review and Authorize page, before Begin Final Processing is selected. During final processing the Wizard cannot be closed. If an operation fails, the Wizard stops, restores navigation as appropriate, and reports the stopping point without automatically editing target source files.",
+    )
+
+    document.add_heading("4. Complete the Eight Wizard Steps", level=1)
+
+    document.add_heading("4.1 Step 1 - Welcome", level=2)
+    add_paragraphs(
+        document,
+        [
+            "The Welcome page summarizes the complete job and the safety boundary. No project has been selected and no target file is being written at this point.",
+        ],
+    )
+    add_steps(document, ["Read the safety notice.", "Select Next."])
+    add_callout(document, "Expected result.", "The Delphi Project step opens and Step 1 remains selectable in the left rail.")
+
+    document.add_heading("4.2 Step 2 - Delphi Project", level=2)
+    add_paragraphs(
+        document,
+        [
+            "This step identifies the application that owns the text. Browse does not compile, execute, or modify the project. A .dproj file usually supplies the best framework and platform metadata; use .dpr only when no .dproj is available.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Select Browse.",
+            "Navigate to the test copy and select its .dproj file.",
+            "Confirm the displayed project name, VCL or FireMonkey framework, Windows targets, and form-resource count.",
+            "If the project is wrong, select Browse again before continuing.",
+            "Select Next.",
+        ],
+    )
+    add_callout(document, "Expected result.", "The footer reports that the project was identified and no target file was changed.")
+
+    document.add_heading("4.3 Step 3 - Languages", level=2)
+    add_paragraphs(
+        document,
+        [
+            "Source language means the language currently written in the forms and source strings. Target language means the language the application user will select. The Wizard uses the locale code to name the JSON pack and to obtain date, time, number, currency, and text-direction defaults.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Leave Source language as English (United States) [en-US] when the application was authored in U.S. English.",
+            "Choose the target language from the list.",
+            "Confirm the native language name. This is the human-readable name displayed to the application's users.",
+            "Read the locale summary, then select Next.",
+        ],
+    )
+    add_callout(document, "Expected result.", "A locale such as es-ES is selected. Choosing a different target language invalidates downstream scan/catalog state so the wrong language cannot be exported accidentally.")
+
+    document.add_heading("4.4 Step 4 - Translation Service", level=2)
+    add_paragraphs(
+        document,
+        [
+            "The Wizard supports Google Cloud Translation Basic v2 and DeepL. A remembered key is stored as a Windows Generic Credential for the current Windows user. A session-only key is held in memory until the Studio closes. Keys are never written into catalogs, runtime packs, component kits, or target source files.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Select Google Cloud Translation or DeepL. For DeepL, also select API Free or API Pro to match the account.",
+            "If a key is already stored for this provider, the status reports that it is available. Otherwise paste a new key into the masked API key field.",
+            "Leave Remember securely on this computer selected for Windows Credential Manager storage, or clear it for this Studio session only.",
+            "Select Save / Replace Key when a new key was entered.",
+            "Select Test Connection and wait for Connection test passed. Do not continue after an authentication, billing, quota, restriction, or network failure.",
+            "Select Next.",
+        ],
+    )
+    add_callout(document, "Expected result.", "The provider connection succeeds using one small test translation. No target application text has been sent yet.")
+
+    document.add_heading("4.5 Step 5 - Scan Project", level=2)
+    add_paragraphs(
+        document,
+        [
+            "Scanning reads text DFM/FMX resources and Delphi resourcestring declarations. It creates stable keys such as form.component.property and unit.symbol. If a development catalog already exists for the selected project and language, matching translations are preserved; only new, changed, or unresolved entries require provider work.",
+            "The scan count is not the same as the translation count. Dynamic values, identifiers, excluded entries, obsolete entries, and already complete translations may be scanned but deliberately withheld from automatic translation.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Select Scan Project.",
+            "Review the summary for total, new, changed, unchanged, and obsolete entries.",
+            "Scroll through representative rows and confirm that keys and source text belong to the selected project.",
+            "If the count is zero, stop and verify that the forms are text resources and that the correct project was selected.",
+            "Select Next.",
+        ],
+    )
+    add_callout(document, "Expected result.", "The footer reports that the development catalog is ready. The scan itself remains read-only with respect to the target project.")
+
+    document.add_heading("4.6 Step 6 - Delphi Component", level=2)
+    add_paragraphs(
+        document,
+        [
+            "This page explains the one manual RAD Studio operation that cannot safely be performed by the Wizard. The design-time BPL makes TDATVCLLanguageManager or TDATFMXLanguageManager available on the DAT Localization Tool Palette page. Installing it is normally a one-time operation for the current RAD Studio installation.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Read all eight instructions shown on the page.",
+            "Optionally select Show Design BPL now to confirm that the exact verified VCL or FMX Win32 Release design package exists. File Explorer selects the file; the Wizard does not install it.",
+            "Select I understand this manual RAD Studio step.",
+            "Select Next.",
+        ],
+    )
+    add_callout(document, "Expected result.", "The Wizard records that the manual step is understood; no BPL registry entry and no target-form component has been created yet.")
+
+    document.add_heading("4.7 Step 7 - Review and Authorize", level=2)
+    add_paragraphs(
+        document,
+        [
+            "This is the final cancellation point. The summary identifies the exact project, framework, target language, provider, scan count, unresolved translation count, component integration method, and backup choice. Read the project path character by character, especially when pristine and test folders have similar names.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Confirm the project path and application name.",
+            "Confirm the target language and provider.",
+            "Compare Scanned entries with Unresolved entries to translate. A lower unresolved count is normal when entries are protected, excluded, obsolete, or already translated.",
+            "Leave Create a timestamped ZIP safety backup selected unless a deliberate and verified alternate backup is being used.",
+            "Select I reviewed these choices and authorize final processing.",
+            "Select Begin Final Processing only when every item is correct.",
+        ],
+    )
+    add_callout(document, "Expected result.", "The Wizard moves to Process and Finish, disables cancellation and navigation, and begins the logged operation sequence.")
+
+    document.add_heading("4.8 Step 8 - Process and Finish", level=2)
+    add_paragraphs(
+        document,
+        [
+            "Final processing runs in a fixed order: optional ZIP backup, automatic translation of eligible unresolved entries, development-catalog save, structural validation, runtime-pack export, component-kit generation, deployment-command creation, and completion-report creation.",
+            "Machine translations are recorded with Google or DeepL provenance. Existing Reviewed, Approved, Excluded, and Obsolete entries are not overwritten. Blocking validation errors stop the sequence; warnings are recorded but do not necessarily prevent export.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Watch the timestamped progress log. Do not terminate the Studio or Windows while processing is active.",
+            "When processing completes, select the blue component-kit path or Open Kit Folder.",
+            "Keep the Wizard open while completing the RAD Studio steps in Chapter 5; the generated commands and paths remain visible.",
+            "After the target configurations are built, select Run Pack Deployment. The Wizard deploys only to build-output folders that already exist.",
+            "Use Copy All Commands when manual PowerShell execution is preferred or when the target has a custom output layout.",
+            "Select Finish after reviewing the completion results.",
+        ],
+    )
+    add_callout(document, "Expected result.", "The progress log ends successfully, the component-kit folder exists, Wizard-Completion-Report.txt records the paths, and deployment commands include -NoProfile -ExecutionPolicy Bypass.")
+
+    document.add_heading("5. Complete the Manual RAD Studio Step", level=1)
+    add_paragraphs(
+        document,
+        [
+            "The Wizard creates files but deliberately does not alter RAD Studio's package registry or place components on forms. Complete these steps after final processing. If DAT Localization is already visible in the Tool Palette, do not reinstall the package; proceed to component placement.",
+        ],
+    )
+    document.add_heading("5.1 Install the Design Package", level=2)
+    add_steps(
+        document,
+        [
+            "Start RAD Studio without opening the target form. If the target project opens automatically, close the project before changing installed packages.",
+            "In the Wizard select Show Design BPL, or browse to the exact path recorded in the completion report.",
+            "In RAD Studio choose Component > Install Packages.",
+            "Select Add, choose DATLanguageManagerFMXDesign.bpl for an FMX target or DATLanguageManagerVCLDesign.bpl for a VCL target, and select Open.",
+            "Confirm that the DAT Language Manager design-time package appears in the package list and is checked, then select OK.",
+            "Open any matching VCL or FMX form and confirm that the DAT Localization Tool Palette page contains the language manager and language combo-box components.",
+        ],
+    )
+    add_callout(
+        document,
+        "Use the correct Delphi command.",
+        "Do not use Component > Install Component, do not select a .dpk, and do not install a BPL from a generated per-project kit. Install the stable Win32 Release design BPL selected by the Wizard.",
+    )
+
+    document.add_heading("5.2 Place and Configure the Components", level=2)
+    add_steps(
+        document,
+        [
+            "Open the target test project and its primary form in the Form Designer.",
+            "Place one TDATFMXLanguageManager for an FMX project or one TDATVCLLanguageManager for a VCL project. One manager supervises the application; it is not placed on all forms.",
+            "Set ApplicationId exactly to the project name shown by the Wizard and stored in the runtime pack.",
+            "Leave LanguagesFolder as Localization\\Languages unless the application has an intentional custom deployment layout.",
+            "Set SourceLanguage to en-US when English (United States) is the source.",
+            "Optionally place the matching TDAT language combo box, set its LanguageManager property to the manager, and position it where the user can select a language.",
+            "Add the generated kit's ComponentSource folder to the target project's Search Path when the units are not already available through an approved common source location.",
+            "Save the form and project. Delphi will make normal, visible form-resource, Pascal-field, uses-clause, and DPROJ search-path changes.",
+        ],
+    )
+
+    document.add_heading("6. Build and Deploy the Language Packs", level=1)
+    add_paragraphs(
+        document,
+        [
+            "The JSON packs must be beside each executable under Localization\\Languages. The Wizard generates commands for the conventional bin\\Win32\\Debug, bin\\Win32\\Release, bin\\Win64\\Debug, and bin\\Win64\\Release folders. It skips any folder that does not yet exist.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Build each target platform/configuration that will be tested or released.",
+            "Return to the Wizard and select Run Pack Deployment.",
+            "Confirm the footer reports the number of existing build folders that received packs.",
+            "For each executable, verify that Localization\\Languages contains the English source pack and the translated target pack.",
+            "If the application uses a custom output folder, select Copy All Commands, change only the ApplicationDirectory value, and run the command in PowerShell.",
+        ],
+    )
+    add_callout(
+        document,
+        "PowerShell execution policy.",
+        "Generated commands launch C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe with -NoProfile -ExecutionPolicy Bypass. This bypass applies only to that launched process and prevents the deployment script from failing under the common local script-policy restriction.",
+    )
+
+    document.add_heading("7. Verify the Translated Application", level=1)
+    add_steps(
+        document,
+        [
+            "Run the target executable from one deployed build folder.",
+            "Confirm that the language selector lists English and the translated language.",
+            "Choose the translated language. Open forms should update immediately without restarting the application.",
+            "Open secondary forms and pages. Confirm captions, labels, prompts, column headings, and other scanned static text use the selected language.",
+            "Confirm that live data, identifiers, dates, numeric values, selections, focused controls, and application connection state remain intact.",
+            "Close and restart the application. Confirm that the selected language is remembered.",
+            "Switch back to English and confirm that the English source pack restores the source text.",
+            "Repeat the test for every built Win32 and Win64 configuration intended for release.",
+        ],
+    )
+    add_callout(
+        document,
+        "Translation length is application-specific.",
+        "A correct translation can be longer than its English source. If text clips, adjust the target form's wrapping, AutoSize, margins, or control dimensions in Delphi. The language pack should not guess or rewrite the application's visual design.",
+    )
+
+    document.add_heading("8. Files Created by the Wizard", level=1)
+    add_table(
+        document,
+        ["Location or file", "Purpose"],
+        [
+            ["<Target>\\Localization\\Development\\<Project>.<locale>.translation-project.json", "Detailed working catalog retained for later rescans, updates, and review."],
+            ["<Target>\\Localization\\Languages\\<locale>.json", "Compact runtime pack for deployment beside the application."],
+            ["Documents\\Delphi App Translation Backups\\<Project>\\<timestamp>.zip", "Optional pre-processing safety backup."],
+            ["<Studio>\\export\\component-integration\\<Project>", "Generated component integration kit."],
+            ["ComponentSource", "Framework-neutral and VCL/FMX component/runtime units needed by the target."],
+            ["Deploy-LanguagePacks.ps1", "Copies the kit's Localization folder to a specified executable directory."],
+            ["component-integration.json", "Machine-readable integration manifest."],
+            ["README.txt", "Project-specific manual integration instructions."],
+            ["Wizard-Completion-Report.txt", "Final record of project, language, catalog, pack, backup, kit, manual step, and commands."],
+        ],
+    )
+
+    document.add_heading("9. Repeat, Resume, or Add Another Language", level=1)
+    add_bullets(
+        document,
+        [
+            "Completed steps may be revisited from the left rail while the Wizard remains open and final processing is not running.",
+            "Selecting a different project clears downstream scan/catalog state. Run the scan again.",
+            "Selecting a different target language creates or opens that language's own development catalog and also requires a new scan in the Wizard session.",
+            "A later scan preserves matching translations, marks changed source text for attention, adds new entries, and retains removed entries as obsolete.",
+            "Automatic translation sends only eligible unresolved entries. Existing reviewed and approved work is preserved.",
+            "Run the Wizard again when adding another language. Deploy all generated packs to each executable folder and refresh or restart the target application as required by its integration.",
+        ],
+    )
+
+    document.add_heading("10. Troubleshooting", level=1)
+    add_table(
+        document,
+        ["Problem", "What it means", "Action"],
+        [
+            ["Browse reports an access violation", "The Wizard form resource is incomplete or an old executable is being run.", "Use a current repaired build; verify that the build date and executable path are the intended ones."],
+            ["Framework cannot be identified", "The selected file lacks recognizable VCL/FMX project metadata.", "Select the .dproj instead of .dpr and confirm the project opens normally in RAD Studio."],
+            ["Connection test fails", "Provider authentication, billing, restriction, quota, plan, or network setup is incomplete.", "Correct the provider account before scanning or final processing."],
+            ["Scan returns zero", "The wrong project was selected or the forms are not readable text resources.", "Verify the project path and convert binary DFM resources through Delphi."],
+            ["Unresolved count is lower than scan count", "Some entries are dynamic, excluded, obsolete, protected, or already translated.", "This is normally correct; review classifications in the full Studio when needed."],
+            ["Show Design BPL says it has not been built", "The stable component packages are missing from the Studio build tree.", "Build the package set, then rerun Show Design BPL."],
+            ["DAT Localization is absent", "The design BPL is not installed or not enabled in this RAD Studio installation.", "Use Component > Install Packages > Add with the exact Win32 Release design BPL."],
+            ["Run Pack Deployment finds no folders", "The target has not been built into the conventional output folders.", "Build the target configurations, then run deployment again or use a command with the custom output directory."],
+            ["Selector is empty", "Packs are missing, invalid, or have a different applicationId.", "Check Localization\\Languages beside the running executable and verify ApplicationId."],
+            ["Some text remains English", "The text may be dynamic, excluded, added after the scan, or not wired as a resourcestring.", "Rescan and translate new entries; use the full Studio to inspect runtime classifications and manual wiring warnings."],
+        ],
+    )
+
+    document.add_heading("11. Where to Learn More", level=1)
+    add_bullets(
+        document,
+        [
+            "User Guide: full manual workflow, provider setup, catalog review, validation, export, integration, troubleshooting, security, and folder reference.",
+            "Engineering Guide: architecture, JSON schema, scanners, provider clients, runtime managers, packages, lifecycle, security, and validation strategy.",
+            "Generated kit README.txt: exact instructions for the selected target project and framework.",
+            "Wizard-Completion-Report.txt: exact paths and commands produced by the completed Wizard run.",
+        ],
+    )
+
+    path = GUIDES_DIR / "Delphi App Translation Studio Setup Wizard Guide.docx"
     finish_document(document, path)
     return path
 
@@ -1019,6 +1448,21 @@ def build_engineering_guide() -> Path:
         document,
         "FMX validation requirement.",
         "A successful compile is insufficient. Persisted FMX property-type errors surface only while streaming. StudioFormSmokeTests directly constructs the form, and launch tests verify the real title in every configuration.",
+    )
+
+    document.add_heading("6.1 Setup Wizard Architecture", level=2)
+    add_paragraphs(
+        document,
+        [
+            "DAT.Studio.SetupWizard is a separate, designer-authored FMX modal form opened by Start Setup Wizard. It is borderless, fixed-size, centered, and deliberately omits menu and system controls. Its eight hidden TabControl pages, left navigation rail, footer controls, labels, dialogs, check boxes, memos, and layout geometry are all persisted in DAT.Studio.SetupWizard.fmx and remain editable in the Form Designer.",
+            "The Wizard owns isolated project-profile, scan-result, catalog, provider-key, backup, and component-kit state. Steps already reached may be revisited; future steps remain disabled. Changing the project or target language invalidates downstream scan/catalog state. Before final processing, the target project is read only except for an explicitly saved provider credential outside the project. During final processing, navigation and closing are disabled.",
+            "Final processing optionally creates a timestamped ZIP, translates eligible unresolved entries, saves the development catalog, validates, exports the runtime JSON pack, generates the component kit, writes Wizard-Completion-Report.txt, and generates four deployment commands. Each command launches the system Windows PowerShell executable with -NoProfile -ExecutionPolicy Bypass. The Wizard never edits target Pascal, form, DPR, or DPROJ files and never writes RAD Studio's package registry.",
+        ],
+    )
+    add_callout(
+        document,
+        "Wizard regression requirement.",
+        "StudioFormSmokeTests must instantiate the Wizard and verify every primary designer component, including dlgOpenProject. The project-selection access violation of August 10, 2026 was caused by a declared TOpenDialog omitted from the FMX resource; the explicit presence assertion prevents that class of streaming omission from returning.",
     )
 
     document.add_heading("7. Provider Settings and Secret Storage", level=1)
@@ -1292,7 +1736,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "The editable guides are generated from actual source and engineering notes with python-docx. Each DOCX contains a real Word TOC field, a dedicated TOC section, and a new-page content section. Microsoft Word COM updates every field and TOC, repaginates, saves the DOCX, and creates the companion PDF with ExportAsFixedFormat. PDF pages are rendered to images and inspected before release. LibreOffice is not used for this project.",
+            "The editable guides are generated from actual source and engineering notes with python-docx. Each DOCX contains a real Word TOC field, a dedicated TOC section, and a new-page content section. Microsoft Word COM updates and saves the real TOC. Word ExportAsFixedFormat is attempted first for companion PDFs; when the local Word exporter is unresponsive, the approved HTML/CSS and browser-print fallback produces the PDFs. Every PDF page is rendered to images and inspected before release. LibreOffice is not used for this project.",
         ],
     )
 
@@ -1300,7 +1744,7 @@ def build_engineering_guide() -> Path:
     add_bullets(
         document,
         [
-            "Repository source, forms, project metadata, schemas, and smoke tests as of August 9, 2026.",
+            "Repository source, forms, project metadata, schemas, and smoke tests as of August 10, 2026.",
             "Microsoft credential handling: https://learn.microsoft.com/en-us/windows/win32/secbp/handling-passwords",
             "Windows CREDENTIAL structure: https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw",
             "DeepL developer documentation: https://developers.deepl.com/docs/getting-started/auth",
@@ -1315,5 +1759,9 @@ def build_engineering_guide() -> Path:
 
 
 if __name__ == "__main__":
-    for generated_path in (build_user_guide(), build_engineering_guide()):
+    for generated_path in (
+        build_user_guide(),
+        build_setup_wizard_guide(),
+        build_engineering_guide(),
+    ):
         print(generated_path)

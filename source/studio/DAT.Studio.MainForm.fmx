@@ -259,7 +259,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 48.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 0
-            Text = 'Start Guided Setup'
+            Text = 'Start Setup Wizard'
             OnClick = btnGuidedSetupClick
           end
           object btnOpenProject: TButton

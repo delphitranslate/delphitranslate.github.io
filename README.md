@@ -80,9 +80,9 @@ Before evaluation:
 
 ## Current capabilities under test
 
-The recommended starting point is now **Start Guided Setup** on the Project
-page. The designer-authored FMX wizard leads the developer through project and
-language selection, provider configuration, scanning, automatic translation,
+The recommended starting point is now **Start Setup Wizard** on the Project
+page. The designer-authored FMX Setup Wizard leads the developer through
+project and language selection, provider configuration, scanning, automatic translation,
 validation, JSON runtime-pack export, component-kit generation, the approved
 manual RAD Studio package step, and Win32/Win64 deployment. Completed wizard
 steps may be revisited; future steps cannot be skipped. Cancel remains safe
@@ -158,6 +158,14 @@ tools/tests/           Automated validation and smoke tests
 ```
 
 ## Documentation and issue reporting
+
+First-time users should begin with the
+[`Setup Wizard Guide`](docs/guides/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.docx).
+The
+[`User Guide`](docs/guides/Delphi%20App%20Translation%20Studio%20User%20Guide.docx)
+is the full product reference, and the
+[`Engineering Guide`](docs/guides/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.docx)
+documents architecture and maintenance. Companion PDFs are under `docs/pdf`.
 
 Engineering history is maintained in
 [`docs/guides/Engineering Notes.md`](docs/guides/Engineering%20Notes.md).

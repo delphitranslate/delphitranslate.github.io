@@ -862,7 +862,7 @@ begin
     lblKitPath.Text := FKitDirectory;
     Report := TStringList.Create;
     try
-      Report.Add('DELPHI APP TRANSLATION - GUIDED SETUP COMPLETION REPORT');
+      Report.Add('DELPHI APP TRANSLATION - SETUP WIZARD COMPLETION REPORT');
       Report.Add('Created: ' + DateTimeToStr(Now));
       Report.Add('Project: ' + FProjectProfile.ProjectFileName);
       Report.Add('Language: ' + FCatalog.Locale.NativeLanguageName + ' (' +
@@ -886,14 +886,14 @@ begin
     FCompleted := True;
     lblFinishText.Text :=
       'Automatic processing is complete. Perform the clearly listed Delphi package/component step, then run the deployment commands after building your target configurations.';
-    lblFooterStatus.Text := 'Guided setup completed successfully.';
+    lblFooterStatus.Text := 'Setup Wizard completed successfully.';
   except
     on E: Exception do
     begin
       AddProgress('STOPPED: ' + E.Message);
       lblFinishText.Text :=
         'Processing stopped safely. Review the message below. The target source was not automatically edited.';
-      lblFooterStatus.Text := 'Guided setup did not complete: ' + E.Message;
+      lblFooterStatus.Text := 'Setup Wizard did not complete: ' + E.Message;
       FCompleted := False;
     end;
   end;

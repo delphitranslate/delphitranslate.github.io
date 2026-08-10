@@ -1662,11 +1662,11 @@ coverage gap; it does not change or translate row data. Foundation regression
 tests assert the new scanner rule, and the Win32/Win64 runtime suites cover the
 unchanged component-state protections.
 
-# Guided Setup Wizard (2026-08-10)
+# Setup Wizard (2026-08-10)
 
-The recommended first-run path is now the designer-authored FMX Guided Setup
-Wizard (`DAT.Studio.SetupWizard.pas/.fmx`). It is opened by **Start Guided
-Setup** on the Studio's Project page. The existing seven-page Studio workflow
+The recommended first-run path is now the designer-authored FMX Setup
+Wizard (`DAT.Studio.SetupWizard.pas/.fmx`). It is opened by **Start Setup
+Wizard** on the Studio's Project page. The existing seven-page Studio workflow
 remains available as the advanced/manual fallback.
 
 The wizard has eight controlled steps: Welcome, Delphi Project, Languages,

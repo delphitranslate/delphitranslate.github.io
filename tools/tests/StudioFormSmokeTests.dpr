@@ -19,11 +19,13 @@ begin
   Wizard := TfrmSetupWizard.Create(nil);
   try
     if Wizard.BorderStyle <> TFmxFormBorderStyle.None then
-      raise Exception.Create('The Guided Setup wizard is not borderless.');
+      raise Exception.Create('The Setup Wizard is not borderless.');
     if Wizard.Position <> TFormPosition.ScreenCenter then
-      raise Exception.Create('The Guided Setup wizard is not centered.');
+      raise Exception.Create('The Setup Wizard is not centered.');
     if Wizard.WizardTabs.TabCount <> 8 then
-      raise Exception.Create('The Guided Setup wizard does not have eight steps.');
+      raise Exception.Create('The Setup Wizard does not have eight steps.');
+    if not Assigned(Wizard.dlgOpenProject) then
+      raise Exception.Create('The Setup Wizard project dialog is missing.');
     if Wizard.cboTargetLanguage.Items.Count < 35 then
       raise Exception.Create('The wizard target-language list is incomplete.');
     if not Wizard.edtApiKey.Password then
@@ -85,8 +87,8 @@ begin
          not Assigned(frmTranslationStudio.btnImportCatalogCsv.OnClick) then
         raise Exception.Create('The CSV interchange controls are not wired.');
       if not Assigned(frmTranslationStudio.btnGuidedSetup.OnClick) or
-         (frmTranslationStudio.btnGuidedSetup.Text <> 'Start Guided Setup') then
-        raise Exception.Create('The recommended Guided Setup action is unavailable.');
+         (frmTranslationStudio.btnGuidedSetup.Text <> 'Start Setup Wizard') then
+        raise Exception.Create('The recommended Setup Wizard action is unavailable.');
       if not Assigned(
         frmTranslationStudio.chkRuntimeWiringConfirmed.OnChange) then
         raise Exception.Create(

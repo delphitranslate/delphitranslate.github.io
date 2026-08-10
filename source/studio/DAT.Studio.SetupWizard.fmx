@@ -2,7 +2,7 @@ object frmSetupWizard: TfrmSetupWizard
   Left = 0
   Top = 0
   BorderStyle = None
-  Caption = 'Delphi App Translation - Guided Setup'
+  Caption = 'Delphi App Translation - Setup Wizard'
   ClientHeight = 720
   ClientWidth = 1120
   Fill.Color = xFFF3F7FC
@@ -43,7 +43,7 @@ object frmSetupWizard: TfrmSetupWizard
         TextSettings.Font.Size = 25.000000000000000000
         TextSettings.Font.StyleExt = {00070000000000000004000000}
         TextSettings.FontColor = claWhite
-        Text = 'Guided Translation Setup'
+        Text = 'Translation Setup Wizard'
       end
       object lblSubtitle: TLabel
         StyledSettings = []
@@ -238,7 +238,7 @@ object frmSetupWizard: TfrmSetupWizard
               TextSettings.Font.Size = 24.000000000000000000
               TextSettings.Font.StyleExt = {00070000000000000004000000}
               TextSettings.FontColor = xFF163A63
-              Text = 'Welcome to Guided Setup'
+              Text = 'Welcome to the Setup Wizard'
             end
             object lblWelcomeText: TLabel
               StyledSettings = []
@@ -925,5 +925,12 @@ object frmSetupWizard: TfrmSetupWizard
       Visible = False
       OnClick = btnFinishClick
     end
+  end
+  object dlgOpenProject: TOpenDialog
+    DefaultExt = 'dproj'
+    Filter =
+      'Delphi projects (*.dproj;*.dpr)|*.dproj;*.dpr|Delphi project fil' +
+      'es (*.dproj)|*.dproj|Delphi source projects (*.dpr)|*.dpr'
+    Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
   end
 end
