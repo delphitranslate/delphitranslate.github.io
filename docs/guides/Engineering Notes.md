@@ -1579,3 +1579,28 @@ Studio launch validation passed for Win32 and Win64. The Website Analytics pilot
 was not modified. Full implementation evidence and developer validation steps
 are recorded in `Translation Studio Group 1 Runtime Lifecycle and State
 Ownership Report.md`.
+
+### Group 1 acceptance correction: scan preview and translation counts
+
+Completion date: August 9, 2026
+
+The scan-result list now flattens embedded CR/LF characters only in its visual
+preview. The catalog retains the exact source text. This prevents multiline
+values from painting over the next fixed-height FMX list row while preserving
+the data used for translation and runtime keys.
+
+The Translate page gives the clickable JSON catalog path a dedicated full-width
+row and places automatic-translation and CSV actions on a separate row. Form
+smoke tests enforce clearance between the catalog path, action row, and catalog
+entry list.
+
+The automatic-translation confirmation now reports active catalog entries,
+unresolved translation candidates, protected/non-translatable entries, and
+already-resolved entries separately. In the clean Website Analytics acceptance
+catalog, the 173 scanned entries comprise 151 static text entries, 4 dynamic
+values, 7 data values, and 11 explicitly excluded entries. The resulting
+statuses are 155 `needsTranslation` and 18 `excluded`; the lower API candidate
+count is deliberate runtime-state protection, not a scan loss.
+
+The complete Debug/Release, Win32/Win64 release validation passed after these
+corrections, including form streaming, Studio launch, and self-localization.

@@ -114,6 +114,16 @@ begin
          (frmTranslationStudio.lstIntegrationPlan.ItemHeight < 20) then
         raise Exception.Create(
           'A scrolling result list does not have a stable row height.');
+      if frmTranslationStudio.btnTranslateMissing.Position.Y <
+           frmTranslationStudio.lblCatalogPathValue.Position.Y +
+           frmTranslationStudio.lblCatalogPathValue.Height + 6 then
+        raise Exception.Create(
+          'The catalog path overlaps the translation action row.');
+      if frmTranslationStudio.lstCatalogEntries.Position.Y <
+           frmTranslationStudio.btnTranslateMissing.Position.Y +
+           frmTranslationStudio.btnTranslateMissing.Height + 6 then
+        raise Exception.Create(
+          'The translation action row overlaps the catalog entries.');
       if frmTranslationStudio.btnApplyIntegration.Visible or
          frmTranslationStudio.chkIntegrationReviewConfirmed.Visible or
          frmTranslationStudio.chkBuildAfterIntegration.Visible then

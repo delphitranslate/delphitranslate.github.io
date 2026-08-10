@@ -779,8 +779,8 @@ object frmTranslationStudio: TfrmTranslationStudio
             ShowHint = True
             StyledSettings = []
             Position.X = 26.000000000000000000
-            Position.Y = 160.000000000000000000
-            Size.Width = 350.000000000000000000
+            Position.Y = 154.000000000000000000
+            Size.Width = 860.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 11.000000000000000000
@@ -790,7 +790,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object btnExportCatalogCsv: TButton
             Position.X = 738.000000000000000000
-            Position.Y = 154.000000000000000000
+            Position.Y = 180.000000000000000000
             Size.Width = 70.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -800,7 +800,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object btnImportCatalogCsv: TButton
             Position.X = 816.000000000000000000
-            Position.Y = 154.000000000000000000
+            Position.Y = 180.000000000000000000
             Size.Width = 70.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -824,9 +824,9 @@ object frmTranslationStudio: TfrmTranslationStudio
           object lstCatalogEntries: TListBox
             Anchors = [akLeft, akTop, akBottom]
             Position.X = 26.000000000000000000
-            Position.Y = 190.000000000000000000
+            Position.Y = 216.000000000000000000
             Size.Width = 394.000000000000000000
-            Size.Height = 216.000000000000000000
+            Size.Height = 190.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 15
             ItemHeight = 24.000000000000000000
@@ -887,7 +887,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           object lblSourceTextEditor: TLabel
             Anchors = [akLeft, akTop]
             Position.X = 446.000000000000000000
-            Position.Y = 190.000000000000000000
+            Position.Y = 216.000000000000000000
             Size.Width = 150.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -897,7 +897,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Anchors = [akTop, akRight]
             StyledSettings = []
             Position.X = 606.000000000000000000
-            Position.Y = 190.000000000000000000
+            Position.Y = 216.000000000000000000
             Size.Width = 280.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -912,9 +912,9 @@ object frmTranslationStudio: TfrmTranslationStudio
             DataDetectorTypes = []
             ReadOnly = True
             Position.X = 446.000000000000000000
-            Position.Y = 212.000000000000000000
+            Position.Y = 238.000000000000000000
             Size.Width = 440.000000000000000000
-            Size.Height = 70.000000000000000000
+            Size.Height = 64.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 16
             Viewport.Width = 436.000000000000000000
@@ -924,7 +924,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Anchors = [akLeft, akTop, akRight]
             Enabled = False
             Position.X = 446.000000000000000000
-            Position.Y = 286.000000000000000000
+            Position.Y = 306.000000000000000000
             Size.Width = 260.000000000000000000
             Size.Height = 24.000000000000000000
             Size.PlatformDefault = False
@@ -934,7 +934,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object lblTranslationSuggestion: TLabel
             Position.X = 446.000000000000000000
-            Position.Y = 312.000000000000000000
+            Position.Y = 334.000000000000000000
             Size.Width = 98.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -943,7 +943,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           object cboTranslationSuggestions: TComboBox
             Anchors = [akLeft, akTop, akRight]
             Position.X = 550.000000000000000000
-            Position.Y = 306.000000000000000000
+            Position.Y = 328.000000000000000000
             Size.Width = 210.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -953,7 +953,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Anchors = [akTop, akRight]
             Enabled = False
             Position.X = 770.000000000000000000
-            Position.Y = 306.000000000000000000
+            Position.Y = 328.000000000000000000
             Size.Width = 116.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
@@ -963,7 +963,7 @@ object frmTranslationStudio: TfrmTranslationStudio
           end
           object lblTranslatedTextEditor: TLabel
             Position.X = 446.000000000000000000
-            Position.Y = 342.000000000000000000
+            Position.Y = 364.000000000000000000
             Size.Width = 180.000000000000000000
             Size.Height = 20.000000000000000000
             Size.PlatformDefault = False
@@ -974,9 +974,9 @@ object frmTranslationStudio: TfrmTranslationStudio
             Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
             DataDetectorTypes = []
             Position.X = 446.000000000000000000
-            Position.Y = 364.000000000000000000
+            Position.Y = 386.000000000000000000
             Size.Width = 440.000000000000000000
-            Size.Height = 62.000000000000000000
+            Size.Height = 40.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 20
             Viewport.Width = 436.000000000000000000
@@ -994,9 +994,9 @@ object frmTranslationStudio: TfrmTranslationStudio
             OnClick = btnApplyTranslationClick
           end
           object btnTranslateMissing: TButton
-            Position.X = 384.000000000000000000
-            Position.Y = 154.000000000000000000
-            Size.Width = 250.000000000000000000
+            Position.X = 532.000000000000000000
+            Position.Y = 180.000000000000000000
+            Size.Width = 190.000000000000000000
             Size.Height = 30.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 22

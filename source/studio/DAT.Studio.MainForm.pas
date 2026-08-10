@@ -709,6 +709,7 @@ end;
 procedure TfrmTranslationStudio.DisplayScanResult(
   const AResult: TProjectScanResult);
 var
+  DisplayText: string;
   ScanItem: TScanItem;
 begin
   lblScanSummaryValue.Text := Format('%d translatable entries in %d ms',
@@ -722,8 +723,12 @@ begin
   try
     lstScanResults.Items.Clear;
     for ScanItem in AResult.Items do
+    begin
+      DisplayText := ScanItem.SourceText.Replace(#13#10, ' / ')
+        .Replace(#13, ' / ').Replace(#10, ' / ');
       lstScanResults.Items.Add(Format('%s  =  %s',
-        [ScanItem.Key, ScanItem.SourceText]));
+        [ScanItem.Key, DisplayText]));
+    end;
   finally
     lstScanResults.EndUpdate;
   end;
@@ -2178,13 +2183,16 @@ end;
 
 procedure TfrmTranslationStudio.btnTranslateMissingClick(Sender: TObject);
 var
+  ActiveCount: Integer;
   ApiKey: string;
   Client: TTranslationProviderClient;
   Entry: TTranslationEntry;
   EntryIndexes: TArray<Integer>;
   Index: Integer;
   MissingCount: Integer;
+  ProtectedCount: Integer;
   Provider: TTranslationProvider;
+  ResolvedCount: Integer;
   SourceTexts: TArray<string>;
   TranslatedTexts: TArray<string>;
 begin
@@ -2206,23 +2214,36 @@ begin
         [TranslationProviderDisplayName(Provider)]);
       Exit;
     end;
+    ActiveCount := 0;
     MissingCount := 0;
+    ProtectedCount := 0;
+    ResolvedCount := 0;
     for Entry in FTranslationCatalog.Entries do
-      if not (Entry.Status in [tsExcluded, tsObsolete,
-        tsReviewed, tsApproved]) and
-         RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
-         ((Trim(Entry.TranslatedText) = '') or
-          (Entry.Status in [tsNeedsTranslation, tsSourceChanged,
-            tsError])) then
-        Inc(MissingCount);
+    begin
+      if Entry.Status = tsObsolete then
+        Continue;
+      Inc(ActiveCount);
+      if (Entry.Status = tsExcluded) or
+         not RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) then
+        Inc(ProtectedCount)
+      else if not (Entry.Status in [tsReviewed, tsApproved]) and
+              ((Trim(Entry.TranslatedText) = '') or
+               (Entry.Status in [tsNeedsTranslation, tsSourceChanged,
+                 tsError])) then
+        Inc(MissingCount)
+      else
+        Inc(ResolvedCount);
+    end;
     if MissingCount = 0 then
     begin
       lblStatus.Text := 'No missing translations were found.';
       Exit;
     end;
     if TDialogServiceSync.MessageDialog(Format(
-      'Send %d unresolved source strings to %s? Reviewed and approved entries will remain unchanged. Results are saved automatically and marked Machine translated for review.',
-      [MissingCount, TranslationProviderDisplayName(Provider)]),
+      'The catalog contains %d active entries: %d require translation, %d are protected or non-translatable, and %d are already resolved.' + sLineBreak + sLineBreak +
+      'Send the %d unresolved source strings to %s? Reviewed and approved entries will remain unchanged. Results are saved automatically and marked Machine translated for review.',
+      [ActiveCount, MissingCount, ProtectedCount, ResolvedCount, MissingCount,
+       TranslationProviderDisplayName(Provider)]),
       TMsgDlgType.mtConfirmation,
       [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo],
       TMsgDlgBtn.mbNo, 0) <> mrYes then
