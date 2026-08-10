@@ -180,6 +180,7 @@ begin
     Entry.TranslationConfidence := 'high';
     Entry.TranslationReviewNote := 'Second pass complete';
     Entry.RuntimeApplication := rakManualTranslateText;
+    Entry.RuntimeTextRole := rtrRuntimeTemplate;
     Entry.RuntimeWiringConfirmed := True;
     SourceCatalog.Entries.Add(Entry);
 
@@ -204,6 +205,8 @@ begin
       Require(LoadedCatalog.Entries[0].RuntimeApplication =
         rakManualTranslateText,
         'Runtime application mode was not preserved.');
+      Require(LoadedCatalog.Entries[0].RuntimeTextRole = rtrRuntimeTemplate,
+        'Runtime text role was not preserved.');
       Require(LoadedCatalog.Entries[0].RuntimeWiringConfirmed,
         'Runtime wiring confirmation was not preserved.');
       Require(LoadedCatalog.Entries[0].SourceFileName = 'MainForm.dfm',
@@ -220,11 +223,13 @@ begin
       '"sourceText":"Message","sourceKind":"Resource string",' +
       '"status":"needsTranslation"}]}');
     try
-      Require(LoadedCatalog.SchemaVersion = 3,
-        'A schema version 1 catalog was not migrated to version 3.');
+      Require(LoadedCatalog.SchemaVersion = 4,
+        'A schema version 1 catalog was not migrated to version 4.');
       Require(LoadedCatalog.Entries[0].RuntimeApplication =
         rakManualTranslateText,
         'Legacy resourcestring runtime mode was not derived.');
+      Require(LoadedCatalog.Entries[0].RuntimeTextRole = rtrRuntimeTemplate,
+        'Legacy resourcestring runtime role was not derived.');
       Require(not LoadedCatalog.Entries[0].RuntimeWiringConfirmed,
         'Legacy resourcestring wiring should require confirmation.');
     finally
@@ -450,6 +455,25 @@ begin
   end;
 end;
 
+procedure TestRuntimeOwnershipClassification;
+begin
+  Require(TScanRuleSet.ClassifyRuntimeTextRole('lblTitle', 'TLabel',
+    'Text', 'Dashboard') = rtrStaticText,
+    'A static label was not classified as static text.');
+  Require(TScanRuleSet.ClassifyRuntimeTextRole('lblConnectionStatus',
+    'TLabel', 'Text', 'Not connected') = rtrDynamicValue,
+    'A live status label was not protected as a dynamic value.');
+  Require(TScanRuleSet.ClassifyRuntimeTextRole('lblUsersValue', 'TLabel',
+    'Text', '--') = rtrExcluded,
+    'A runtime placeholder was not excluded.');
+  Require(TScanRuleSet.ClassifyRuntimeTextRole('lblUsersValue', 'TLabel',
+    'Text', '42') = rtrDataValue,
+    'A designer data value was not protected.');
+  Require(TScanRuleSet.ClassifyRuntimeTextRole('lblWebsite', 'TLabel',
+    'Text', 'https://example.com') = rtrIdentifier,
+    'A URL was not protected as an identifier.');
+end;
+
 function CreateCompleteCatalog: TTranslationCatalog;
 var
   Entry: TTranslationEntry;
@@ -485,6 +509,27 @@ begin
   Entry.SourceChecksum := 'source-checksum-2';
   Entry.Status := tsApproved;
   Result.Entries.Add(Entry);
+
+  Entry := TTranslationEntry.Create;
+  Entry.Key := 'MainForm.StatusMessage';
+  Entry.SourceText := 'Updated at %s';
+  Entry.TranslatedText := 'Aktualisiert um %s';
+  Entry.SourceChecksum := 'source-checksum-3';
+  Entry.Status := tsApproved;
+  Entry.RuntimeApplication := rakManualTranslateText;
+  Entry.RuntimeTextRole := rtrRuntimeTemplate;
+  Entry.RuntimeWiringConfirmed := True;
+  Result.Entries.Add(Entry);
+
+  Entry := TTranslationEntry.Create;
+  Entry.Key := 'MainForm.UsersValue.Text';
+  Entry.SourceText := '--';
+  Entry.SourceChecksum := 'source-checksum-4';
+  Entry.Status := tsExcluded;
+  Entry.RuntimeApplication := rakNotApplied;
+  Entry.RuntimeTextRole := rtrDataValue;
+  Entry.RuntimeWiringConfirmed := True;
+  Result.Entries.Add(Entry);
 end;
 
 procedure TestCatalogFilePersistence;
@@ -506,7 +551,7 @@ begin
     try
       Require(LoadedCatalog.Locale.LanguageCode = 'de-DE',
         'The target language was not loaded from disk.');
-      Require(LoadedCatalog.Entries.Count = 2,
+      Require(LoadedCatalog.Entries.Count = 4,
         'The persisted catalog entry count is incorrect.');
     finally
       LoadedCatalog.Free;
@@ -619,6 +664,7 @@ var
   JsonValue: TJSONValue;
   Root: TJSONObject;
   StringsObject: TJSONObject;
+  TemplatesObject: TJSONObject;
 begin
   Catalog := CreateCompleteCatalog;
   try
@@ -637,6 +683,17 @@ begin
       JsonPair := StringsObject.Get('MainForm.Exit.Text');
       Require((JsonPair <> nil) and (JsonPair.JsonValue.Value = '&Beenden'),
         'The runtime translation was not exported.');
+      Require(StringsObject.Get('MainForm.StatusMessage') = nil,
+        'A runtime template leaked into automatic form strings.');
+      Require(StringsObject.Get('MainForm.UsersValue.Text') = nil,
+        'A protected data value leaked into automatic form strings.');
+      TemplatesObject := Root.GetValue('templates') as TJSONObject;
+      Require(TemplatesObject <> nil,
+        'The runtime templates object is missing.');
+      JsonPair := TemplatesObject.Get('MainForm.StatusMessage');
+      Require((JsonPair <> nil) and
+        (JsonPair.JsonValue.Value = 'Aktualisiert um %s'),
+        'The runtime message template was not exported.');
     finally
       JsonValue.Free;
     end;
@@ -674,6 +731,9 @@ begin
       'The runtime loader did not return translated text.');
     Require(Pack.GetText('Missing.Key', 'Fallback') = 'Fallback',
       'The runtime loader did not preserve fallback text.');
+    Require(Pack.FormatTemplate('MainForm.StatusMessage', 'Updated at %s',
+      ['10:30']) = 'Aktualisiert um 10:30',
+      'The runtime loader did not format a keyed template.');
   finally
     Pack.Free;
   end;
@@ -1762,6 +1822,7 @@ begin
     TestProjectScanning;
     TestStudioProjectScanning;
     TestIncrementalCatalogMerge;
+    TestRuntimeOwnershipClassification;
     TestCatalogFilePersistence;
     TestCatalogCsvRoundTrip;
     TestWorkspacePaths;

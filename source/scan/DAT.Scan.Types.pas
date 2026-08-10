@@ -31,6 +31,7 @@ type
     FCollectionIndex: Integer;
     FFramework: TTargetFramework;
     FKind: TScannedTextKind;
+    FRuntimeTextRole: TRuntimeTextRole;
   public
     property Key: string read FKey write FKey;
     property SourceText: string read FSourceText write FSourceText;
@@ -43,6 +44,8 @@ type
     property CollectionIndex: Integer read FCollectionIndex write FCollectionIndex;
     property Framework: TTargetFramework read FFramework write FFramework;
     property Kind: TScannedTextKind read FKind write FKind;
+    property RuntimeTextRole: TRuntimeTextRole read FRuntimeTextRole
+      write FRuntimeTextRole;
   end;
 
   TScanDiagnostic = class

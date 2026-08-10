@@ -93,6 +93,12 @@
       "additionalProperties": {
         "type": "string"
       }
+    },
+    "templates": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
     }
   }
 }

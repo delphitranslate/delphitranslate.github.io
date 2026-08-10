@@ -37,7 +37,8 @@ var
 begin
   SourceText := '';
   for Entry in ACatalog.Entries do
-    if not (Entry.Status in [tsExcluded, tsObsolete]) then
+    if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+      not (Entry.Status in [tsExcluded, tsObsolete]) then
       SourceText := SourceText + Entry.Key + '=' + Entry.SourceChecksum + #10;
   Result := LowerCase(THashSHA2.GetHashString(SourceText));
 end;
@@ -50,6 +51,7 @@ var
   LocaleObject: TJSONObject;
   Root: TJSONObject;
   StringsObject: TJSONObject;
+  TemplatesObject: TJSONObject;
   ValidationResult: TCatalogValidationResult;
 begin
   ValidationResult := TCatalogValidator.Validate(ACatalog);
@@ -97,10 +99,18 @@ begin
     Root.AddPair('locale', LocaleObject);
 
     StringsObject := TJSONObject.Create;
+    TemplatesObject := TJSONObject.Create;
     for Entry in ACatalog.Entries do
-      if not (Entry.Status in [tsExcluded, tsObsolete]) then
-        StringsObject.AddPair(Entry.Key, Entry.TranslatedText);
+      if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+        not (Entry.Status in [tsExcluded, tsObsolete]) then
+        case Entry.RuntimeTextRole of
+          rtrStaticText:
+            StringsObject.AddPair(Entry.Key, Entry.TranslatedText);
+          rtrDynamicValue, rtrRuntimeTemplate:
+            TemplatesObject.AddPair(Entry.Key, Entry.TranslatedText);
+        end;
     Root.AddPair('strings', StringsObject);
+    Root.AddPair('templates', TemplatesObject);
 
     Result := Root.ToJSON;
   finally

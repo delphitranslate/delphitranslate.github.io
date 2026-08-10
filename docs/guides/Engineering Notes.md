@@ -1550,3 +1550,32 @@ The older internal installer tooling remains in `tools` only for engineering
 history and controlled diagnostics. It is unsupported, hidden, and excluded
 from all generated kits. It must not be invoked by the Studio or by acceptance
 instructions.
+
+## Remediation Group 1: Runtime Lifecycle and State Ownership
+
+Completion date: August 9, 2026
+
+The development catalog contract is now schema version 4. Every entry records a
+runtime text role: static text, dynamic value, runtime template, data value,
+identifier, or excluded content. The scanner assigns conservative roles during
+form and resourcestring extraction. Catalog merge maps those roles to automatic,
+manual, or not-applied runtime behavior.
+
+Runtime packs retain schema version 1 compatibility. The existing `strings`
+object now contains only static interface text that the FMX/VCL form applicators
+may write automatically. The optional `templates` object contains dynamic and
+runtime-message translations for explicit `Translate` or `FormatTemplate` use.
+Data, identifiers, and excluded content are omitted from runtime application.
+
+The FMX lifecycle handler performs a forced static-text pass at
+`TFormBeforeShownMessage`. This corrects late startup assignments before first
+display without advancing the language generation. Dynamic and data state are
+safe because their keys are not present in the automatic dictionary. Existing
+editable-value, selection, focus, combo selection, and event-suppression
+protections remain in force.
+
+Foundation, shared-core, FMX, VCL, package, design-streaming, Studio build, and
+Studio launch validation passed for Win32 and Win64. The Website Analytics pilot
+was not modified. Full implementation evidence and developer validation steps
+are recorded in `Translation Studio Group 1 Runtime Lifecycle and State
+Ownership Report.md`.

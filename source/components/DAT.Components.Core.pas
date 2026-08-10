@@ -92,6 +92,8 @@ type
     function GetActivePack: TRuntimeLanguagePack;
     function IsExcluded(const AManagedObject: TObject;
       const AIdentity, AInstanceName: string): Boolean;
+    function ApplyToManagedObjectInternal(const AManagedObject: TObject;
+      const AForce: Boolean): Integer;
   protected
     procedure Loaded; override;
     procedure Notification(AComponent: TComponent;
@@ -114,6 +116,7 @@ type
     function Initialize: Boolean;
     function SelectLanguage(const ALanguageCode: string): Boolean;
     function ApplyToManagedObject(const AManagedObject: TObject): Integer;
+    function ReapplyToManagedObject(const AManagedObject: TObject): Integer;
     procedure ApplyToOpenForms;
     procedure RemoveManagedObject(const AManagedObject: TObject);
     procedure InvalidateTranslations(const AApplyImmediately: Boolean = True);
@@ -126,6 +129,8 @@ type
       AResourceRootName: string);
     function AvailableLanguages: TObjectList<TLanguagePackDescriptor>;
     function Translate(const AKey, AFallbackText: string): string;
+    function FormatTemplate(const AKey, AFallbackText: string;
+      const AArgs: array of const): string;
     function CurrentFormatSettings: TFormatSettings;
     property ActiveLanguage: string read FActiveLanguage;
     property ActivePack: TRuntimeLanguagePack read GetActivePack;
@@ -238,6 +243,12 @@ end;
 
 function TDATCustomLanguageManager.ApplyToManagedObject(
   const AManagedObject: TObject): Integer;
+begin
+  Result := ApplyToManagedObjectInternal(AManagedObject, False);
+end;
+
+function TDATCustomLanguageManager.ApplyToManagedObjectInternal(
+  const AManagedObject: TObject; const AForce: Boolean): Integer;
 var
   ElapsedMilliseconds: Double;
   FormIdentity: string;
@@ -253,7 +264,7 @@ begin
       Exit;
   if not SupportsManagedObject(AManagedObject) then
     Exit;
-  if WasAppliedInCurrentGeneration(AManagedObject) then
+  if not AForce and WasAppliedInCurrentGeneration(AManagedObject) then
     Exit;
   if FApplying then
     raise EDATLanguageManagerReentrancyError.Create(
@@ -288,6 +299,12 @@ begin
   finally
     FApplying := False;
   end;
+end;
+
+function TDATCustomLanguageManager.ReapplyToManagedObject(
+  const AManagedObject: TObject): Integer;
+begin
+  Result := ApplyToManagedObjectInternal(AManagedObject, True);
 end;
 
 procedure TDATCustomLanguageManager.ApplyToOpenForms;
@@ -726,6 +743,16 @@ begin
     if not Initialize then
       Exit(AFallbackText);
   Result := FRuntime.Translate(AKey, AFallbackText);
+end;
+
+function TDATCustomLanguageManager.FormatTemplate(const AKey,
+  AFallbackText: string; const AArgs: array of const): string;
+begin
+  CheckMainThread;
+  if not FInitialized then
+    if not Initialize then
+      Exit(Format(AFallbackText, AArgs));
+  Result := FRuntime.FormatTemplate(AKey, AFallbackText, AArgs);
 end;
 
 function TDATCustomLanguageManager.WasAppliedInCurrentGeneration(

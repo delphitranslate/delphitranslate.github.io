@@ -228,6 +228,8 @@ begin
     AIssues.Add(AOriginal.Key + ': developerNote was modified.');
   if AOriginal.RuntimeApplication <> AExternal.RuntimeApplication then
     AIssues.Add(AOriginal.Key + ': runtimeApplication was modified.');
+  if AOriginal.RuntimeTextRole <> AExternal.RuntimeTextRole then
+    AIssues.Add(AOriginal.Key + ': runtimeTextRole was modified.');
   if AOriginal.RuntimeWiringConfirmed <>
      AExternal.RuntimeWiringConfirmed then
     AIssues.Add(AOriginal.Key + ': runtimeWiringConfirmed was modified.');
@@ -304,8 +306,9 @@ begin
       Continue;
     end;
     CompareProtectedEntry(OriginalEntry, ExternalEntry, Result.Issues);
-    EntryEligible := OriginalEntry.Status in [
-      tsNeedsTranslation, tsAIDraft, tsSourceChanged, tsError];
+    EntryEligible := RuntimeTextRoleRequiresTranslation(
+      OriginalEntry.RuntimeTextRole) and (OriginalEntry.Status in [
+      tsNeedsTranslation, tsAIDraft, tsSourceChanged, tsError]);
     AllowedDataChanged :=
       (OriginalEntry.TranslatedText <> ExternalEntry.TranslatedText) or
       (OriginalEntry.Status <> ExternalEntry.Status) or
@@ -351,7 +354,8 @@ begin
   begin
     OriginalEntry := AOriginal.Entries[Index];
     ExternalEntry := AExternal.Entries[Index];
-    if (OriginalEntry.Status in [
+    if RuntimeTextRoleRequiresTranslation(OriginalEntry.RuntimeTextRole) and
+       (OriginalEntry.Status in [
          tsNeedsTranslation, tsAIDraft, tsSourceChanged, tsError]) and
        ((OriginalEntry.TranslatedText <> ExternalEntry.TranslatedText) or
         (OriginalEntry.Status <> ExternalEntry.Status) or

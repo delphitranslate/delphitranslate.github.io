@@ -297,7 +297,8 @@ begin
       else
         KnownKeys.Add(Entry.Key);
 
-      if Entry.Status in [tsExcluded, tsObsolete] then
+      if (Entry.Status in [tsExcluded, tsObsolete]) or
+        not RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) then
         Continue;
 
       if Entry.SourceText = '' then
@@ -357,7 +358,7 @@ begin
       if (Entry.RuntimeApplication = rakManualTranslateText) and
          not Entry.RuntimeWiringConfirmed then
         AddIssue(Result, vsWarning, 'entry.runtimeWiring', Entry.Key,
-          'Pascal resourcestring requires a confirmed TranslateText call.');
+          'Runtime text requires a confirmed Translate or FormatTemplate call.');
     end;
   finally
     KnownTranslations.Free;

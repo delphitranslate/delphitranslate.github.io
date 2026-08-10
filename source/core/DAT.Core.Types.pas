@@ -39,7 +39,17 @@ type
 
   TRuntimeApplicationKind = (
     rakAutomatic,
-    rakManualTranslateText
+    rakManualTranslateText,
+    rakNotApplied
+  );
+
+  TRuntimeTextRole = (
+    rtrStaticText,
+    rtrDynamicValue,
+    rtrRuntimeTemplate,
+    rtrDataValue,
+    rtrIdentifier,
+    rtrExcluded
   );
 
   TProjectProfile = record
@@ -96,6 +106,7 @@ type
     FTranslationReviewNote: string;
     FStatus: TTranslationStatus;
     FRuntimeApplication: TRuntimeApplicationKind;
+    FRuntimeTextRole: TRuntimeTextRole;
     FRuntimeWiringConfirmed: Boolean;
   public
     property Key: string read FKey write FKey;
@@ -119,6 +130,8 @@ type
     property Status: TTranslationStatus read FStatus write FStatus;
     property RuntimeApplication: TRuntimeApplicationKind
       read FRuntimeApplication write FRuntimeApplication;
+    property RuntimeTextRole: TRuntimeTextRole read FRuntimeTextRole
+      write FRuntimeTextRole;
     property RuntimeWiringConfirmed: Boolean read FRuntimeWiringConfirmed
       write FRuntimeWiringConfirmed;
   end;
@@ -159,6 +172,13 @@ function StringToRuntimeApplicationKind(
   const AValue: string): TRuntimeApplicationKind;
 function RuntimeApplicationDisplayName(
   const AKind: TRuntimeApplicationKind): string;
+function RuntimeTextRoleToString(const ARole: TRuntimeTextRole): string;
+function StringToRuntimeTextRole(const AValue: string): TRuntimeTextRole;
+function RuntimeTextRoleDisplayName(const ARole: TRuntimeTextRole): string;
+function RuntimeTextRoleRequiresTranslation(
+  const ARole: TRuntimeTextRole): Boolean;
+function RuntimeTextRoleIsAutomaticallyApplied(
+  const ARole: TRuntimeTextRole): Boolean;
 function ProjectPlatformsDisplayName(const AProfile: TProjectProfile): string;
 
 implementation
@@ -169,7 +189,7 @@ uses
 constructor TTranslationCatalog.Create;
 begin
   inherited Create;
-  FSchemaVersion := 3;
+  FSchemaVersion := 4;
   FFramework := tfUnknown;
   FLocale := TLocaleProfile.Create;
   FLocale.TextDirection := 'ltr';
@@ -357,6 +377,8 @@ begin
   case AKind of
     rakManualTranslateText:
       Result := 'manualTranslateText';
+    rakNotApplied:
+      Result := 'notApplied';
   else
     Result := 'automatic';
   end;
@@ -367,6 +389,8 @@ function StringToRuntimeApplicationKind(
 begin
   if SameText(AValue, 'manualTranslateText') then
     Result := rakManualTranslateText
+  else if SameText(AValue, 'notApplied') then
+    Result := rakNotApplied
   else
     Result := rakAutomatic;
 end;
@@ -377,9 +401,75 @@ begin
   case AKind of
     rakManualTranslateText:
       Result := 'Manual: TranslateText call required';
+    rakNotApplied:
+      Result := 'Protected: not applied to controls';
   else
     Result := 'Automatic: form runtime adapter';
   end;
+end;
+
+function RuntimeTextRoleToString(const ARole: TRuntimeTextRole): string;
+begin
+  case ARole of
+    rtrDynamicValue:
+      Result := 'dynamicValue';
+    rtrRuntimeTemplate:
+      Result := 'runtimeTemplate';
+    rtrDataValue:
+      Result := 'dataValue';
+    rtrIdentifier:
+      Result := 'identifier';
+    rtrExcluded:
+      Result := 'excluded';
+  else
+    Result := 'staticText';
+  end;
+end;
+
+function StringToRuntimeTextRole(const AValue: string): TRuntimeTextRole;
+begin
+  if SameText(AValue, 'dynamicValue') then
+    Result := rtrDynamicValue
+  else if SameText(AValue, 'runtimeTemplate') then
+    Result := rtrRuntimeTemplate
+  else if SameText(AValue, 'dataValue') then
+    Result := rtrDataValue
+  else if SameText(AValue, 'identifier') then
+    Result := rtrIdentifier
+  else if SameText(AValue, 'excluded') then
+    Result := rtrExcluded
+  else
+    Result := rtrStaticText;
+end;
+
+function RuntimeTextRoleDisplayName(const ARole: TRuntimeTextRole): string;
+begin
+  case ARole of
+    rtrDynamicValue:
+      Result := 'Dynamic runtime value';
+    rtrRuntimeTemplate:
+      Result := 'Runtime message template';
+    rtrDataValue:
+      Result := 'Application or user data';
+    rtrIdentifier:
+      Result := 'Identifier or technical value';
+    rtrExcluded:
+      Result := 'Excluded content';
+  else
+    Result := 'Static interface text';
+  end;
+end;
+
+function RuntimeTextRoleRequiresTranslation(
+  const ARole: TRuntimeTextRole): Boolean;
+begin
+  Result := ARole in [rtrStaticText, rtrDynamicValue, rtrRuntimeTemplate];
+end;
+
+function RuntimeTextRoleIsAutomaticallyApplied(
+  const ARole: TRuntimeTextRole): Boolean;
+begin
+  Result := ARole = rtrStaticText;
 end;
 
 function ProjectPlatformsDisplayName(const AProfile: TProjectProfile): string;

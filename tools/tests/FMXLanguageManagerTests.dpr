@@ -129,12 +129,17 @@ begin
       'The auto-created form first paint did not observe German text.');
 
     DuplicateForm := TfrmFMXLifecycle.Create(nil);
+    Require(FManager.ApplyToForm(DuplicateForm) > 0,
+      'Pre-show FMX application reported no translated properties.');
+    DuplicateForm.Caption := 'Late startup caption';
+    DuplicateForm.lblProbe.Text := 'Late startup text';
     DuplicateForm.Show;
     PumpMessages;
     Require(Pos('_', DuplicateForm.Name) > 0,
       'Delphi did not assign a duplicate-instance name for the probe.');
     RequireGerman(DuplicateForm,
       'Duplicate instance with scanner-backed stable identity');
+    Writeln('FMX_MANAGER_FORCED_BEFORE_SHOW_REAPPLY=PASS');
 
     InheritedForm := TfrmFMXInheritedLifecycle.Create(nil);
     InheritedForm.Show;

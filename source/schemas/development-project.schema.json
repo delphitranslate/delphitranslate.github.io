@@ -164,7 +164,18 @@
           "runtimeApplication": {
             "enum": [
               "automatic",
-              "manualTranslateText"
+              "manualTranslateText",
+              "notApplied"
+            ]
+          },
+          "runtimeTextRole": {
+            "enum": [
+              "staticText",
+              "dynamicValue",
+              "runtimeTemplate",
+              "dataValue",
+              "identifier",
+              "excluded"
             ]
           },
           "runtimeWiringConfirmed": {

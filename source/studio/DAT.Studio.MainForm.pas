@@ -780,7 +780,8 @@ begin
   TranslatedCount := 0;
   if FTranslationCatalog <> nil then
     for Entry in FTranslationCatalog.Entries do
-      if not (Entry.Status in [tsExcluded, tsObsolete]) then
+      if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+        not (Entry.Status in [tsExcluded, tsObsolete]) then
       begin
         Inc(ActiveCount);
         if Trim(Entry.TranslatedText) <> '' then
@@ -1933,6 +1934,7 @@ begin
     memTranslatedText.Text := Entry.TranslatedText;
     lblRuntimeApplicationValue.Text := 'Runtime: ' +
       RuntimeApplicationKindToString(Entry.RuntimeApplication) +
+      ' | Role: ' + RuntimeTextRoleDisplayName(Entry.RuntimeTextRole) +
       ' | Origin: ' +
       TranslationOriginDisplayName(Entry.TranslationOrigin);
     chkRuntimeWiringConfirmed.Enabled :=
@@ -2208,6 +2210,7 @@ begin
     for Entry in FTranslationCatalog.Entries do
       if not (Entry.Status in [tsExcluded, tsObsolete,
         tsReviewed, tsApproved]) and
+         RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
          ((Trim(Entry.TranslatedText) = '') or
           (Entry.Status in [tsNeedsTranslation, tsSourceChanged,
             tsError])) then
@@ -2233,6 +2236,7 @@ begin
       Entry := FTranslationCatalog.Entries[Index];
       if not (Entry.Status in [tsExcluded, tsObsolete,
         tsReviewed, tsApproved]) and
+         RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
          ((Trim(Entry.TranslatedText) = '') or
           (Entry.Status in [tsNeedsTranslation, tsSourceChanged,
             tsError])) then

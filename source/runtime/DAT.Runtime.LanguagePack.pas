@@ -43,6 +43,7 @@ type
     FTextDirection: string;
     FLocale: TRuntimeLocale;
     FStrings: TDictionary<string, string>;
+    FTemplates: TDictionary<string, string>;
   public
     constructor Create;
     destructor Destroy; override;
@@ -50,6 +51,11 @@ type
     class function LoadFromFile(const AFileName: string): TRuntimeLanguagePack; static;
     function TryGetText(const AKey: string; out AText: string): Boolean;
     function GetText(const AKey, AFallbackText: string): string;
+    function TryGetTemplate(const AKey: string; out AText: string): Boolean;
+    function GetTemplate(const AKey, AFallbackText: string): string;
+    function GetAnyText(const AKey, AFallbackText: string): string;
+    function FormatTemplate(const AKey, AFallbackText: string;
+      const AArgs: array of const): string;
     function ReadIndexedStrings(const AKeyPrefix: string;
       const AValues: TStrings): Integer;
     property SchemaVersion: Integer read FSchemaVersion;
@@ -63,6 +69,7 @@ type
     property TextDirection: string read FTextDirection;
     property Locale: TRuntimeLocale read FLocale;
     property Strings: TDictionary<string, string> read FStrings;
+    property Templates: TDictionary<string, string> read FTemplates;
   end;
 
   TLanguagePackDescriptor = class
@@ -231,10 +238,12 @@ begin
   inherited Create;
   FLocale := TRuntimeLocale.Create;
   FStrings := TDictionary<string, string>.Create;
+  FTemplates := TDictionary<string, string>.Create;
 end;
 
 destructor TRuntimeLanguagePack.Destroy;
 begin
+  FTemplates.Free;
   FStrings.Free;
   FLocale.Free;
   inherited Destroy;
@@ -249,6 +258,7 @@ var
   LanguageObject: TJSONObject;
   LocaleObject: TJSONObject;
   StringsObject: TJSONObject;
+  TemplatesObject: TJSONObject;
 begin
   JsonValue := TJSONObject.ParseJSONValue(AJsonText);
   if not (JsonValue is TJSONObject) then
@@ -301,6 +311,11 @@ begin
       for JsonPair in StringsObject do
         Result.FStrings.AddOrSetValue(JsonPair.JsonString.Value,
           JsonPair.JsonValue.Value);
+      TemplatesObject := JsonRoot.GetValue('templates') as TJSONObject;
+      if TemplatesObject <> nil then
+        for JsonPair in TemplatesObject do
+          Result.FTemplates.AddOrSetValue(JsonPair.JsonString.Value,
+            JsonPair.JsonValue.Value);
     except
       Result.Free;
       raise;
@@ -330,6 +345,32 @@ function TRuntimeLanguagePack.GetText(
 begin
   if not TryGetText(AKey, Result) then
     Result := AFallbackText;
+end;
+
+function TRuntimeLanguagePack.TryGetTemplate(
+  const AKey: string; out AText: string): Boolean;
+begin
+  Result := FTemplates.TryGetValue(AKey, AText) and (AText <> '');
+end;
+
+function TRuntimeLanguagePack.GetTemplate(
+  const AKey, AFallbackText: string): string;
+begin
+  if not TryGetTemplate(AKey, Result) then
+    Result := AFallbackText;
+end;
+
+function TRuntimeLanguagePack.GetAnyText(
+  const AKey, AFallbackText: string): string;
+begin
+  if not TryGetText(AKey, Result) and not TryGetTemplate(AKey, Result) then
+    Result := AFallbackText;
+end;
+
+function TRuntimeLanguagePack.FormatTemplate(const AKey,
+  AFallbackText: string; const AArgs: array of const): string;
+begin
+  Result := Format(GetTemplate(AKey, AFallbackText), AArgs);
 end;
 
 function TRuntimeLanguagePack.ReadIndexedStrings(

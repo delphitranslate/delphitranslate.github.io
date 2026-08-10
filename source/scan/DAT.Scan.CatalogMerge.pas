@@ -47,11 +47,20 @@ begin
   AEntry.SourceFileName := AScanItem.SourceFileName;
   AEntry.SourceLine := AScanItem.SourceLine;
   AEntry.SourceKind := ScannedTextKindDisplayName(AScanItem.Kind);
-  if AScanItem.Kind = stkResourceString then
-    AEntry.RuntimeApplication := rakManualTranslateText
+  AEntry.RuntimeTextRole := AScanItem.RuntimeTextRole;
+  case AEntry.RuntimeTextRole of
+    rtrStaticText:
+      begin
+        AEntry.RuntimeApplication := rakAutomatic;
+        AEntry.RuntimeWiringConfirmed := True;
+      end;
+    rtrDynamicValue, rtrRuntimeTemplate:
+      begin
+        AEntry.RuntimeApplication := rakManualTranslateText;
+        AEntry.RuntimeWiringConfirmed := False;
+      end;
   else
-  begin
-    AEntry.RuntimeApplication := rakAutomatic;
+    AEntry.RuntimeApplication := rakNotApplied;
     AEntry.RuntimeWiringConfirmed := True;
   end;
 end;
@@ -60,6 +69,7 @@ class function TScanCatalogMerger.Merge(const AScanResult: TProjectScanResult;
   const ACatalog: TTranslationCatalog): TCatalogMergeSummary;
 var
   Entry: TTranslationEntry;
+  PreviousRuntimeTextRole: TRuntimeTextRole;
   ScanItem: TScanItem;
   SeenKeys: TDictionary<string, Boolean>;
 begin
@@ -83,12 +93,20 @@ begin
         Entry.SourceChecksum := SourceChecksum(ScanItem.SourceText);
         Entry.Status := tsNeedsTranslation;
         CopyScanMetadata(ScanItem, Entry);
+        if not RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) then
+          Entry.Status := tsExcluded;
         ACatalog.Entries.Add(Entry);
         Inc(Result.NewEntries);
         Continue;
       end;
 
+      PreviousRuntimeTextRole := Entry.RuntimeTextRole;
       CopyScanMetadata(ScanItem, Entry);
+      if not RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) then
+        Entry.Status := tsExcluded
+      else if (Entry.Status = tsExcluded) and
+        not RuntimeTextRoleRequiresTranslation(PreviousRuntimeTextRole) then
+        Entry.Status := tsNeedsTranslation;
       if Entry.SourceText = ScanItem.SourceText then
         Inc(Result.UnchangedEntries)
       else

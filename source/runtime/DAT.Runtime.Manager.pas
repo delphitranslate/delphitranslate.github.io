@@ -25,6 +25,8 @@ type
     function LoadLanguage(const ALanguageCode: string): Boolean;
     function LoadPreferredLanguage: Boolean;
     function Translate(const AKey, AFallbackText: string): string;
+    function FormatTemplate(const AKey, AFallbackText: string;
+      const AArgs: array of const): string;
     property ActivePack: TRuntimeLanguagePack read FActivePack;
     property FormatSettings: TFormatSettings read FFormatSettings;
   end;
@@ -120,7 +122,16 @@ begin
   if FActivePack = nil then
     Result := AFallbackText
   else
-    Result := FActivePack.GetText(AKey, AFallbackText);
+    Result := FActivePack.GetAnyText(AKey, AFallbackText);
+end;
+
+function TTranslationRuntime.FormatTemplate(const AKey,
+  AFallbackText: string; const AArgs: array of const): string;
+begin
+  if FActivePack = nil then
+    Result := Format(AFallbackText, AArgs)
+  else
+    Result := FActivePack.FormatTemplate(AKey, AFallbackText, AArgs);
 end;
 
 procedure TTranslationRuntime.UpdateFormatSettings;

@@ -194,6 +194,8 @@ begin
         Entry.TranslationReviewNote);
       EntryObject.AddPair('runtimeApplication',
         RuntimeApplicationKindToString(Entry.RuntimeApplication));
+      EntryObject.AddPair('runtimeTextRole',
+        RuntimeTextRoleToString(Entry.RuntimeTextRole));
       EntryObject.AddPair('runtimeWiringConfirmed',
         TJSONBool.Create(Entry.RuntimeWiringConfirmed));
       EntriesArray.AddElement(EntryObject);
@@ -305,14 +307,21 @@ begin
               Entry.RuntimeApplication := rakManualTranslateText
             else
               Entry.RuntimeApplication := rakAutomatic;
+            if EntryObject.GetValue('runtimeTextRole') <> nil then
+              Entry.RuntimeTextRole := StringToRuntimeTextRole(
+                JsonValueText(EntryObject, 'runtimeTextRole', 'staticText'))
+            else if SameText(Entry.SourceKind, 'Resource string') then
+              Entry.RuntimeTextRole := rtrRuntimeTemplate
+            else
+              Entry.RuntimeTextRole := rtrStaticText;
             Entry.RuntimeWiringConfirmed := SameText(
               JsonValueText(EntryObject, 'runtimeWiringConfirmed',
                 BoolToStr(Entry.RuntimeApplication = rakAutomatic, True)),
               'true');
             Result.Entries.Add(Entry);
           end;
-      if Result.SchemaVersion < 3 then
-        Result.SchemaVersion := 3;
+      if Result.SchemaVersion < 4 then
+        Result.SchemaVersion := 4;
     except
       Result.Free;
       raise;
@@ -439,9 +448,9 @@ end;
 class procedure TCatalogCsv.ExportToFile(
   const ACatalog: TTranslationCatalog; const AFileName: string);
 const
-  Header: array[0..6] of string = (
+  Header: array[0..7] of string = (
     'Key', 'SourceText', 'Translation', 'Status', 'Context',
-    'SourceChecksum', 'RuntimeApplication');
+    'SourceChecksum', 'RuntimeApplication', 'RuntimeTextRole');
 var
   ColumnIndex: Integer;
   DirectoryName: string;
@@ -477,7 +486,8 @@ begin
       AddRow([Entry.Key, Entry.SourceText, Entry.TranslatedText,
         TranslationStatusToString(Entry.Status), Entry.DeveloperNote,
         Entry.SourceChecksum,
-        RuntimeApplicationKindToString(Entry.RuntimeApplication)]);
+        RuntimeApplicationKindToString(Entry.RuntimeApplication),
+        RuntimeTextRoleToString(Entry.RuntimeTextRole)]);
     DirectoryName := TPath.GetDirectoryName(AFileName);
     if DirectoryName <> '' then
       TDirectory.CreateDirectory(DirectoryName);
@@ -491,9 +501,9 @@ class function TCatalogCsv.AnalyzeImport(
   const ACatalog: TTranslationCatalog;
   const AFileName: string): TCatalogCsvImportPlan;
 const
-  ExpectedHeader: array[0..6] of string = (
+  ExpectedHeader: array[0..7] of string = (
     'Key', 'SourceText', 'Translation', 'Status', 'Context',
-    'SourceChecksum', 'RuntimeApplication');
+    'SourceChecksum', 'RuntimeApplication', 'RuntimeTextRole');
 var
   Change: TCatalogCsvImportChange;
   ColumnIndex: Integer;
@@ -562,11 +572,15 @@ begin
         TranslatedText := Row[2];
         SourceChecksum := Row[5];
         if (SourceText <> Entry.SourceText) or
-           not SameText(SourceChecksum, Entry.SourceChecksum) then
+           not SameText(SourceChecksum, Entry.SourceChecksum) or
+           not SameText(Row[6], RuntimeApplicationKindToString(
+             Entry.RuntimeApplication)) or
+           not SameText(Row[7], RuntimeTextRoleToString(
+             Entry.RuntimeTextRole)) then
         begin
           Inc(Result.FStaleCount);
           Result.Issues.Add(Format(
-            'Row %d: source text or checksum is stale for %s',
+            'Row %d: protected source or runtime metadata is stale for %s',
             [RowIndex + 1, Row[0]]));
           Continue;
         end;

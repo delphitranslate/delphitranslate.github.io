@@ -102,7 +102,7 @@ begin
   if AutoTranslateNewForms and (AMessage is TFormBeforeShownMessage) then
   begin
     Form := TFormBeforeShownMessage(AMessage).Value;
-    ApplyToManagedObject(Form);
+    ReapplyToManagedObject(Form);
   end;
 end;
 

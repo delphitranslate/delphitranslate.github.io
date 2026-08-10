@@ -113,6 +113,9 @@ begin
   ScanItem.CollectionIndex := ACollectionIndex;
   ScanItem.Framework := AFramework;
   ScanItem.Kind := stkFormProperty;
+  ScanItem.RuntimeTextRole := TScanRuleSet.ClassifyRuntimeTextRole(
+    AContext.ComponentName, AContext.ComponentClassName, APropertyName,
+    ASourceText);
   AResult.Items.Add(ScanItem);
 end;
 

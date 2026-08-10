@@ -14,12 +14,52 @@ type
     class function IsTranslatableProperty(const AFramework: TTargetFramework;
       const AComponentClassName, APropertyName: string;
       const AIsRootObject: Boolean): Boolean; static;
+    class function ClassifyRuntimeTextRole(const AComponentName,
+      AComponentClassName, APropertyName, ASourceText: string):
+      TRuntimeTextRole; static;
   end;
 
 implementation
 
 uses
+  System.StrUtils,
   System.SysUtils;
+
+class function TScanRuleSet.ClassifyRuntimeTextRole(
+  const AComponentName, AComponentClassName, APropertyName,
+  ASourceText: string): TRuntimeTextRole;
+var
+  ComponentName: string;
+  SourceText: string;
+begin
+  ComponentName := LowerCase(Trim(AComponentName));
+  SourceText := Trim(ASourceText);
+
+  if (SourceText = '-') or (SourceText = '--') or (SourceText = '---') or
+    SameText(SourceText, 'N/A') then
+    Exit(rtrExcluded);
+
+  if StartsText('http://', SourceText) or StartsText('https://', SourceText) or
+    StartsText('mailto:', SourceText) or ContainsText(SourceText, '@') then
+    Exit(rtrIdentifier);
+
+  if EndsText('value', ComponentName) or EndsText('count', ComponentName) or
+    EndsText('total', ComponentName) or ContainsText(ComponentName, 'datavalue') or
+    ContainsText(ComponentName, 'metricvalue') then
+    Exit(rtrDataValue);
+
+  if ContainsText(ComponentName, 'statusbar') or
+    ContainsText(ComponentName, 'connectionstatus') or
+    ContainsText(ComponentName, 'refreshstatus') or
+    ContainsText(ComponentName, 'activity') or
+    ContainsText(ComponentName, 'message') or
+    ContainsText(ComponentName, 'result') or
+    ContainsText(ComponentName, 'progress') or
+    ContainsText(ComponentName, 'lastupdated') then
+    Exit(rtrDynamicValue);
+
+  Result := rtrStaticText;
+end;
 
 class function TScanRuleSet.ClassMatches(const AComponentClassName: string;
   const AClassNames: array of string): Boolean;

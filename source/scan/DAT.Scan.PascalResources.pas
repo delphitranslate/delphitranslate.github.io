@@ -110,6 +110,7 @@ begin
   ScanItem.CollectionIndex := -1;
   ScanItem.Framework := tfUnknown;
   ScanItem.Kind := stkResourceString;
+  ScanItem.RuntimeTextRole := rtrRuntimeTemplate;
   AResult.Items.Add(ScanItem);
 end;
 
