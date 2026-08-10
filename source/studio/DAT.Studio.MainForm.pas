@@ -205,6 +205,7 @@ type
     procedure btnReviewAllTranslationsClick(Sender: TObject);
     procedure btnApproveAllReviewedClick(Sender: TObject);
     procedure lblCatalogPathValueClick(Sender: TObject);
+    procedure lblExportPathValueClick(Sender: TObject);
     procedure lstValidationIssuesDblClick(Sender: TObject);
     procedure btnOpenDesignPackageLocationClick(Sender: TObject);
     procedure btnOpenComponentKitFolderClick(Sender: TObject);
@@ -901,7 +902,9 @@ end;
 
 procedure TfrmTranslationStudio.DisplayValidationResult;
 var
+  Entry: TTranslationEntry;
   Issue: TValidationIssue;
+  RuntimeEntryCount: Integer;
 begin
   lstValidationIssues.BeginUpdate;
   try
@@ -934,9 +937,16 @@ begin
   if FValidationResult.HasErrors then
     lblExportSummary.Text := 'Export is blocked by validation errors.'
   else
+  begin
+    RuntimeEntryCount := 0;
+    for Entry in FTranslationCatalog.Entries do
+      if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+         not (Entry.Status in [tsExcluded, tsObsolete]) then
+        Inc(RuntimeEntryCount);
     lblExportSummary.Text := Format(
       '%d translated entries are ready for offline export.',
-      [FTranslationCatalog.Entries.Count]);
+      [RuntimeEntryCount]);
+  end;
 end;
 
 procedure TfrmTranslationStudio.lblCatalogPathValueClick(Sender: TObject);
@@ -959,6 +969,25 @@ begin
     lblStatus.Text := 'Unable to open the catalog folder.'
   else
     lblStatus.Text := 'Catalog selected in File Explorer.';
+end;
+
+procedure TfrmTranslationStudio.lblExportPathValueClick(Sender: TObject);
+var
+  Arguments: string;
+  RuntimeFileName: string;
+begin
+  RuntimeFileName := Trim(lblExportPathValue.Text);
+  if not TFile.Exists(RuntimeFileName) then
+  begin
+    lblStatus.Text := 'Export a runtime pack before opening its location.';
+    Exit;
+  end;
+  Arguments := '/select,"' + RuntimeFileName + '"';
+  if ShellExecute(0, 'open', 'explorer.exe', PChar(Arguments), nil,
+    SW_SHOWNORMAL) <= 32 then
+    lblStatus.Text := 'Unable to open the runtime-pack folder.'
+  else
+    lblStatus.Text := 'Runtime language pack selected in File Explorer.';
 end;
 
 procedure TfrmTranslationStudio.lstValidationIssuesDblClick(Sender: TObject);
@@ -2324,6 +2353,8 @@ end;
 
 procedure TfrmTranslationStudio.btnExportRuntimePackClick(Sender: TObject);
 var
+  Entry: TTranslationEntry;
+  RuntimeEntryCount: Integer;
   RuntimeFileName: string;
 begin
   try
@@ -2340,9 +2371,14 @@ begin
       FProjectProfile, FTranslationCatalog.Locale.LanguageCode);
     TRuntimePackBuilder.ExportToFile(FTranslationCatalog, RuntimeFileName);
     lblExportPathValue.Text := RuntimeFileName;
+    RuntimeEntryCount := 0;
+    for Entry in FTranslationCatalog.Entries do
+      if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+         not (Entry.Status in [tsExcluded, tsObsolete]) then
+        Inc(RuntimeEntryCount);
     lblExportSummary.Text := Format(
-      '%d entries exported successfully.',
-      [FTranslationCatalog.Entries.Count]);
+      '%d runtime entries exported successfully.',
+      [RuntimeEntryCount]);
     lblStatus.Text := 'Offline runtime language pack created.';
   except
     on E: Exception do

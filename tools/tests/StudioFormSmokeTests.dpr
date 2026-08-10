@@ -186,6 +186,11 @@ begin
         frmTranslationStudio.lblNavigationSettings.OnClick) then
         raise Exception.Create(
           'One or more workflow labels have no click event.');
+      if not frmTranslationStudio.lblExportPathValue.HitTest or
+         not Assigned(frmTranslationStudio.lblExportPathValue.OnClick) or
+         (frmTranslationStudio.lblExportPathValue.TextSettings.Font.Size < 14) then
+        raise Exception.Create(
+          'The exported runtime-pack path is not a readable active link.');
       frmTranslationStudio.lblNavigationLanguages.OnClick(
         frmTranslationStudio.lblNavigationLanguages);
       if not frmTranslationStudio.LanguagePageCard.Visible then

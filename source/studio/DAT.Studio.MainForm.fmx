@@ -1144,14 +1144,20 @@ object frmTranslationStudio: TfrmTranslationStudio
               Text = 'Validate a catalog before export.'
             end
             object lblExportPathValue: TLabel
+              Cursor = crHandPoint
+              HitTest = True
+              Hint = 'Click to select this runtime JSON pack in File Explorer'
+              ShowHint = True
               StyledSettings = []
               Position.X = 24.000000000000000000
               Position.Y = 78.000000000000000000
               Size.Width = 800.000000000000000000
               Size.Height = 70.000000000000000000
               Size.PlatformDefault = False
-              TextSettings.FontColor = xFF365674
+              TextSettings.Font.Size = 15.000000000000000000
+              TextSettings.FontColor = xFF1974DF
               Text = 'Output path will appear here.'
+              OnClick = lblExportPathValueClick
             end
           end
           object btnExportRuntimePack: TButton

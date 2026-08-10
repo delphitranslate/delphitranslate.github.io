@@ -1604,3 +1604,18 @@ count is deliberate runtime-state protection, not a scan loss.
 
 The complete Debug/Release, Win32/Win64 release validation passed after these
 corrections, including form streaming, Studio launch, and self-localization.
+
+### Export-result accuracy and navigation
+
+Completion date: August 9, 2026
+
+The Export page reports the number of entries actually written to the runtime
+pack rather than the total number of development-catalog entries. Protected,
+excluded, and obsolete entries are not included in that success count. For the
+Website Analytics acceptance catalog, the correct result is 155 runtime entries
+(151 static strings and 4 runtime templates), not the 173-entry development
+catalog total.
+
+The generated runtime-pack path is displayed as a larger blue active link.
+Selecting it opens File Explorer with the exact JSON file selected. Studio form
+smoke tests require the link to remain readable, clickable, and designer-wired.
