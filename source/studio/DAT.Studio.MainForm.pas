@@ -49,6 +49,7 @@ type
     ProjectCard: TRectangle;
     lblProjectCardTitle: TLabel;
     lblProjectCardDescription: TLabel;
+    btnGuidedSetup: TButton;
     btnOpenProject: TButton;
     ProjectDetailsCard: TRectangle;
     lblProjectNameCaption: TLabel;
@@ -169,6 +170,7 @@ type
     dlgImportCatalogCsv: TOpenDialog;
     dlgExportCatalogCsv: TSaveDialog;
     procedure btnOpenProjectClick(Sender: TObject);
+    procedure btnGuidedSetupClick(Sender: TObject);
     procedure btnScanProjectClick(Sender: TObject);
     procedure lblNavigationProjectClick(Sender: TObject);
     procedure lblNavigationScanClick(Sender: TObject);
@@ -288,11 +290,26 @@ uses
   DAT.Provider.Client,
   DAT.Provider.CredentialStore,
   DAT.Runtime.LanguagePack,
+  DAT.Studio.SetupWizard,
   DAT.Studio.Translation,
   DAT.Scan.CatalogMerge,
   DAT.Scan.Project;
 
 {$R *.fmx}
+
+procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
+var
+  SetupWizard: TfrmSetupWizard;
+begin
+  SetupWizard := TfrmSetupWizard.Create(Self);
+  try
+    SetupWizard.ShowModal;
+    lblStatus.Text :=
+      'Guided Setup closed. Advanced Studio pages remain available.';
+  finally
+    SetupWizard.Free;
+  end;
+end;
 
 procedure TfrmTranslationStudio.FormCreate(Sender: TObject);
 begin

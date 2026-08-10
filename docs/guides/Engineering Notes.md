@@ -1661,3 +1661,41 @@ in both form scanning and runtime application. This closes the separate grid
 coverage gap; it does not change or translate row data. Foundation regression
 tests assert the new scanner rule, and the Win32/Win64 runtime suites cover the
 unchanged component-state protections.
+
+# Guided Setup Wizard (2026-08-10)
+
+The recommended first-run path is now the designer-authored FMX Guided Setup
+Wizard (`DAT.Studio.SetupWizard.pas/.fmx`). It is opened by **Start Guided
+Setup** on the Studio's Project page. The existing seven-page Studio workflow
+remains available as the advanced/manual fallback.
+
+The wizard has eight controlled steps: Welcome, Delphi Project, Languages,
+Translation Service, Scan Project, Delphi Component, Review and Authorize, and
+Process and Finish. Completed steps are selectable in the left rail; future
+steps cannot be skipped. Back and Cancel remain available until the developer
+authorizes final processing. During final processing the rail, Back, Cancel,
+and window closing are disabled. If processing stops on an error, the wizard
+returns control without automatically editing Delphi source, form, DPR, or
+DPROJ files.
+
+Final processing performs these operations in order:
+
+1. Create an optional timestamped ZIP under the user's Documents folder.
+2. Send only unresolved, eligible entries to Google Cloud Translation or
+   DeepL; reviewed and approved work is preserved.
+3. Save the development JSON catalog.
+4. Validate the catalog and stop on blocking errors.
+5. Export the offline runtime JSON pack.
+6. Generate the component integration kit under the Studio `export` folder.
+7. Write a completion report and exact Win32/Win64 Debug/Release PowerShell
+   deployment commands using `-NoProfile -ExecutionPolicy Bypass`.
+
+The wizard does not automate RAD Studio design-package registration. It opens
+the exact verified Win32 Release design BPL and instructs the developer to use
+**Component > Install Packages > Add**. It also does not place controls on a
+target form; those edits remain visible, designer-authored Delphi changes.
+
+The Finish page can run pack deployment for build output folders that already
+exist. Missing output folders are skipped so developers may build first and
+rerun deployment. Every command remains visible and copyable as a manual
+fallback.

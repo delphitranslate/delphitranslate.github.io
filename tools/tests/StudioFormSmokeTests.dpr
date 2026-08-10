@@ -8,11 +8,49 @@ uses
   FMX.Types,
   FMX.Forms,
   DAT.Studio.MainForm in '..\..\source\studio\DAT.Studio.MainForm.pas'
-    {frmTranslationStudio};
+    {frmTranslationStudio},
+  DAT.Studio.SetupWizard in '..\..\source\studio\DAT.Studio.SetupWizard.pas'
+    {frmSetupWizard};
+
+procedure TestSetupWizard;
+var
+  Wizard: TfrmSetupWizard;
+begin
+  Wizard := TfrmSetupWizard.Create(nil);
+  try
+    if Wizard.BorderStyle <> TFmxFormBorderStyle.None then
+      raise Exception.Create('The Guided Setup wizard is not borderless.');
+    if Wizard.Position <> TFormPosition.ScreenCenter then
+      raise Exception.Create('The Guided Setup wizard is not centered.');
+    if Wizard.WizardTabs.TabCount <> 8 then
+      raise Exception.Create('The Guided Setup wizard does not have eight steps.');
+    if Wizard.cboTargetLanguage.Items.Count < 35 then
+      raise Exception.Create('The wizard target-language list is incomplete.');
+    if not Wizard.edtApiKey.Password then
+      raise Exception.Create('The wizard API-key field is not masked.');
+    if not Assigned(Wizard.btnBrowseProject.OnClick) or
+       not Assigned(Wizard.btnRunScan.OnClick) or
+       not Assigned(Wizard.btnTestConnection.OnClick) or
+       not Assigned(Wizard.btnRunDeployment.OnClick) then
+      raise Exception.Create('A primary wizard action is not designer-wired.');
+    if Wizard.memScanResults.WordWrap then
+      raise Exception.Create('Wizard scan rows must not wrap over one another.');
+    if Wizard.memCommands.WordWrap then
+      raise Exception.Create('PowerShell deployment commands must not wrap.');
+    if Wizard.btnBack.Position.Y + Wizard.btnBack.Height > Wizard.ClientHeight then
+      raise Exception.Create('Wizard navigation extends below the form.');
+    if Wizard.ContentCard.Position.X + Wizard.ContentCard.Width >
+       Wizard.BodyLayout.Width + 1 then
+      raise Exception.Create('Wizard content extends beyond its body layout.');
+  finally
+    Wizard.Free;
+  end;
+end;
 
 begin
   try
     Application.Initialize;
+    TestSetupWizard;
     frmTranslationStudio := TfrmTranslationStudio.Create(nil);
     try
       if frmTranslationStudio.Caption <>
@@ -46,6 +84,9 @@ begin
       if not Assigned(frmTranslationStudio.btnExportCatalogCsv.OnClick) or
          not Assigned(frmTranslationStudio.btnImportCatalogCsv.OnClick) then
         raise Exception.Create('The CSV interchange controls are not wired.');
+      if not Assigned(frmTranslationStudio.btnGuidedSetup.OnClick) or
+         (frmTranslationStudio.btnGuidedSetup.Text <> 'Start Guided Setup') then
+        raise Exception.Create('The recommended Guided Setup action is unavailable.');
       if not Assigned(
         frmTranslationStudio.chkRuntimeWiringConfirmed.OnChange) then
         raise Exception.Create(

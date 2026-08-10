@@ -80,6 +80,15 @@ Before evaluation:
 
 ## Current capabilities under test
 
+The recommended starting point is now **Start Guided Setup** on the Project
+page. The designer-authored FMX wizard leads the developer through project and
+language selection, provider configuration, scanning, automatic translation,
+validation, JSON runtime-pack export, component-kit generation, the approved
+manual RAD Studio package step, and Win32/Win64 deployment. Completed wizard
+steps may be revisited; future steps cannot be skipped. Cancel remains safe
+until final processing begins, and the wizard never automatically rewrites
+Delphi Pascal, form, DPR, or DPROJ files.
+
 - VCL `.dfm` and FireMonkey `.fmx` form scanning.
 - Delphi `resourcestring` extraction.
 - Stable catalog keys and incremental JSON catalog merging.
