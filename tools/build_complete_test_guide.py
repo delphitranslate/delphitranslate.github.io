@@ -39,7 +39,7 @@ ICON = (
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
 DOCX_PATH = GUIDES_DIR / "Delphi App Translation Studio Complete Test Guide.docx"
-LAST_CHANGED = "August 9, 2026"
+LAST_CHANGED = "August 10, 2026"
 
 
 def set_run_font(
@@ -687,10 +687,13 @@ def build_document() -> Path:
             "Leave AutoLoadPreferred, AutoTranslateOwner, AutoTranslateNewForms, ReapplyOpenForms, and PreserveControlState True for the acceptance test.",
             "Place one TDATFMXLanguageComboBox in an appropriate visible header/menu area.",
             "Set its LanguageManager property to the manager. Leave AutoPopulate and ShowLanguageCode True.",
-            "Save the project and inspect Git diff before building.",
+            "Choose File > Save All. Do not rely on Build to preserve unsaved Form Designer changes.",
+            "Close and reopen WebsiteAnalytics.MainForm.fmx in the Form Designer. Confirm the manager, selector, label, and all Object Inspector properties are still present.",
+            r'Run git -C "C:\New Delphi Projects\Echurchsite Analytical - Component Test" status --short and inspect the exact diff before building.',
         ],
         [
             "Only normal developer-authored integration changes appear: project search-path metadata if saved there, the primary form resource/component field, applicable uses entries, and the visible selector layout.",
+            "WebsiteAnalytics.MainForm.fmx, WebsiteAnalytics.MainForm.pas, and WebsiteAnalytics.dproj are saved on disk. The form resource contains TDATFMXLanguageManager and TDATFMXLanguageComboBox.",
             "No ordinary secondary form receives a manager component.",
             "No Studio-generated DPR startup call or translation unit is added in Component Integration mode.",
             "Every change is readable in Git and reversible before commit.",
@@ -701,6 +704,11 @@ def build_document() -> Path:
         "Ninety-form projects.",
         "One manager on the primary form covers ordinary FMX forms through the additive before-show lifecycle adapter. The developer does not place a component on every form. Use FormIdentityMappings only for inherited or unusually renamed forms whose runtime identity differs from the scanner's form root.",
     )
+    add_callout(
+        document,
+        "Mandatory save checkpoint.",
+        "Do not continue to TC-12 until File > Save All has completed and reopening the form proves that the manager and selector persisted. A successful compile of an older saved form is not evidence that unsaved designer components were included.",
+    )
 
     add_test_case(
         document,
@@ -708,6 +716,7 @@ def build_document() -> Path:
         "Build GA4 Win32 and Win64",
         "Verify the component-first disposable target builds normally for both supported architectures.",
         [
+            "Choose File > Save All once more before changing platforms or building.",
             "In RAD Studio select Win32 / Debug and build WebsiteAnalytics.",
             "Select Win64 / Debug and build WebsiteAnalytics.",
             r"Confirm C:\New Delphi Projects\Echurchsite Analytical - Component Test\bin\Win32\Debug\WebsiteAnalytics.exe exists.",
@@ -727,9 +736,9 @@ def build_document() -> Path:
         "Deploy language packs",
         "Place identical local JSON assets beside each executable without copying development catalogs or credentials.",
         [
-            "Open PowerShell.",
-            r"Run the kit deployment script for C:\New Delphi Projects\Echurchsite Analytical - Component Test\bin\Win32\Debug.",
-            r"Run the same script for C:\New Delphi Projects\Echurchsite Analytical - Component Test\bin\Win64\Debug.",
+            "Open PowerShell. Use the explicit ExecutionPolicy Bypass commands printed immediately below this test case.",
+            r"Run the bypass command for C:\New Delphi Projects\Echurchsite Analytical - Component Test\bin\Win32\Debug.",
+            r"Run the bypass command for C:\New Delphi Projects\Echurchsite Analytical - Component Test\bin\Win64\Debug.",
             "Inspect both Localization\\Languages folders.",
         ],
         [
@@ -742,8 +751,8 @@ def build_document() -> Path:
     add_code(
         document,
         [
-            r'& "C:\New Delphi Projects\Delphi App Translation\export\component-integration\WebsiteAnalytics\Deploy-LanguagePacks.ps1" -ApplicationDirectory "C:\New Delphi Projects\Echurchsite Analytical - Component Test\bin\Win32\Debug"',
-            r'& "C:\New Delphi Projects\Delphi App Translation\export\component-integration\WebsiteAnalytics\Deploy-LanguagePacks.ps1" -ApplicationDirectory "C:\New Delphi Projects\Echurchsite Analytical - Component Test\bin\Win64\Debug"',
+            r'& "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "C:\New Delphi Projects\Delphi App Translation\export\component-integration\WebsiteAnalytics\Deploy-LanguagePacks.ps1" -ApplicationDirectory "C:\New Delphi Projects\Echurchsite Analytical - Component Test\bin\Win32\Debug"',
+            r'& "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "C:\New Delphi Projects\Delphi App Translation\export\component-integration\WebsiteAnalytics\Deploy-LanguagePacks.ps1" -ApplicationDirectory "C:\New Delphi Projects\Echurchsite Analytical - Component Test\bin\Win64\Debug"',
         ],
     )
 

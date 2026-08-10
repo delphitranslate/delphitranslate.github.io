@@ -1619,3 +1619,20 @@ catalog total.
 The generated runtime-pack path is displayed as a larger blue active link.
 Selecting it opens File Explorer with the exact JSON file selected. Studio form
 smoke tests require the link to remain readable, clickable, and designer-wired.
+
+### Manual component-integration save checkpoint
+
+Completion date: August 10, 2026
+
+Acceptance testing confirmed that building and deploying packs is insufficient
+if newly placed designer components were not first persisted. The supported
+manual workflow now requires `File > Save All`, closing and reopening the
+primary form, confirming that the manager and selector remain visible with
+their Object Inspector properties, and inspecting the on-disk Git diff before
+the first target build. Expected changed files include the primary `.fmx`, its
+`.pas` unit, and the `.dproj` search-path metadata. Testing must stop if those
+files do not contain the component integration.
+
+The deployment instructions now use an explicit PowerShell executable with
+`-NoProfile -ExecutionPolicy Bypass -File`, preventing the documented local
+execution-policy failure.

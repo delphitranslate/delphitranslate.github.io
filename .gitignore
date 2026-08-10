@@ -6,6 +6,8 @@
 *.dcp
 *.map
 *.rsm
+*.pyc
+__pycache__/
 
 # RAD Studio local and generated state
 *.identcache
