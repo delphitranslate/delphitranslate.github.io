@@ -206,6 +206,8 @@ uses
 
 const
   StepCount = 8;
+  DeploymentProcessTimeout = 120000;
+  ProcessTerminationWait = 5000;
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
@@ -1177,6 +1179,7 @@ var
   ExitCode: Cardinal;
   Parameters: string;
   ShellInfo: TShellExecuteInfo;
+  WaitResult: Cardinal;
 begin
   Result := False;
   FillChar(ShellInfo, SizeOf(ShellInfo), 0);
@@ -1196,9 +1199,28 @@ begin
   if not ShellExecuteEx(@ShellInfo) then
     Exit;
   try
-    WaitForSingleObject(ShellInfo.hProcess, INFINITE);
-    if GetExitCodeProcess(ShellInfo.hProcess, ExitCode) then
-      Result := ExitCode = 0;
+    WaitResult := WaitForSingleObject(ShellInfo.hProcess,
+      DeploymentProcessTimeout);
+    case WaitResult of
+      WAIT_OBJECT_0:
+        begin
+          if not GetExitCodeProcess(ShellInfo.hProcess, ExitCode) then
+            RaiseLastOSError;
+          Result := ExitCode = 0;
+        end;
+      WAIT_TIMEOUT:
+        begin
+          TerminateProcess(ShellInfo.hProcess, ERROR_TIMEOUT);
+          WaitForSingleObject(ShellInfo.hProcess, ProcessTerminationWait);
+          raise Exception.Create(
+            'Language-pack deployment timed out. Its PowerShell process was stopped.');
+        end;
+      WAIT_FAILED:
+        RaiseLastOSError;
+    else
+      raise Exception.CreateFmt(
+        'Unexpected PowerShell wait result: %d.', [WaitResult]);
+    end;
   finally
     CloseHandle(ShellInfo.hProcess);
   end;

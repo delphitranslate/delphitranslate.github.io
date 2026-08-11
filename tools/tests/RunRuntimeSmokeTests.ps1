@@ -144,6 +144,7 @@ function Test-IntegratedApplicationWindow {
             Stop-Process -Id $Process.Id -Force
             $null = $Process.WaitForExit(5000)
         }
+        $Process.Dispose()
     }
 }
 

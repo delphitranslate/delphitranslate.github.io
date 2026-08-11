@@ -72,7 +72,9 @@ foreach ($studioExecutable in $studioExecutables) {
     finally {
         if (-not $studioProcess.HasExited) {
             Stop-Process -Id $studioProcess.Id -Force
+            $null = $studioProcess.WaitForExit(5000)
         }
+        $studioProcess.Dispose()
     }
 }
 

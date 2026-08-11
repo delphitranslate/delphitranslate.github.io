@@ -25,9 +25,9 @@ if ($LASTEXITCODE -ne 0) {
     throw 'Guide generation failed.'
 }
 
-& (Join-Path $PSScriptRoot 'finalize_guides.ps1') -PythonPath $PythonPath
+& (Join-Path $PSScriptRoot 'finalize_guides.ps1')
 if ($LASTEXITCODE -ne 0) {
-    throw 'Microsoft Word finalization failed.'
+    throw 'LibreOffice finalization failed.'
 }
 
 Write-Output 'User, Setup Wizard, and Engineering guides regenerated.'

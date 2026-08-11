@@ -74,7 +74,9 @@ try {
         finally {
             if (-not $Process.HasExited) {
                 Stop-Process -Id $Process.Id -Force
+                $null = $Process.WaitForExit(5000)
             }
+            $Process.Dispose()
         }
     }
 

@@ -1,4 +1,7 @@
-param([string]$PythonPath = '')
+param(
+    [string]$LibreOfficePath =
+        'C:\Program Files\LibreOffice\program\soffice.com'
+)
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -9,64 +12,50 @@ $guides = @(
     'Delphi App Translation Studio Setup Wizard Guide',
     'Delphi App Translation Studio Engineering Guide'
 )
+$conversionTimeoutMilliseconds = 120000
+$terminationWaitMilliseconds = 5000
 
-if ([string]::IsNullOrWhiteSpace($PythonPath)) {
-    $PythonPath = Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+if (-not (Test-Path -LiteralPath $LibreOfficePath)) {
+    throw "LibreOffice command-line executable not found: $LibreOfficePath"
 }
+
 New-Item -ItemType Directory -Path $pdfDirectory -Force | Out-Null
-$wordSucceeded = $true
-$wordPidsBefore = @(Get-Process WINWORD -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
 
 foreach ($guide in $guides) {
     $docxPath = Join-Path $guideDirectory ($guide + '.docx')
     $pdfPath = Join-Path $pdfDirectory ($guide + '.pdf')
-    if (-not (Test-Path -LiteralPath $docxPath)) { throw "Guide not found: $docxPath" }
-    $job = Start-Job -ArgumentList $docxPath, $pdfPath -ScriptBlock {
-        param($InputDocx, $OutputPdf)
-        $word = $null
-        $document = $null
-        try {
-            $word = New-Object -ComObject Word.Application
-            $word.Visible = $false
-            $word.DisplayAlerts = 0
-            $document = $word.Documents.Open($InputDocx, $false, $false)
-            for ($index = 1; $index -le $document.TablesOfContents.Count; $index++) {
-                $document.TablesOfContents.Item($index).Update()
-            }
-            $document.Repaginate()
-            $document.Save()
-            $document.ExportAsFixedFormat($OutputPdf, 17)
+    if (-not (Test-Path -LiteralPath $docxPath)) {
+        throw "Guide not found: $docxPath"
+    }
+
+    $process = Start-Process -FilePath $LibreOfficePath -ArgumentList @(
+        '--headless',
+        '--convert-to', 'pdf',
+        '--outdir', ('"{0}"' -f $pdfDirectory),
+        ('"{0}"' -f $docxPath)
+    ) -PassThru -WindowStyle Hidden
+    try {
+        if (-not $process.WaitForExit($conversionTimeoutMilliseconds)) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            $null = $process.WaitForExit($terminationWaitMilliseconds)
+            throw "LibreOffice timed out while exporting $guide. Its process was stopped."
         }
-        finally {
-            if ($null -ne $document) { $document.Close($false) }
-            if ($null -ne $word) { $word.Quit() }
+        if ($process.ExitCode -ne 0) {
+            throw "LibreOffice failed while exporting $guide with exit code $($process.ExitCode)."
         }
     }
-    if (-not (Wait-Job $job -Timeout 45)) {
-        Stop-Job $job
-        $wordSucceeded = $false
-        Write-Warning "Microsoft Word timed out while finalizing $guide; the approved HTML/CSS PDF fallback will be used."
+    finally {
+        if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            $null = $process.WaitForExit($terminationWaitMilliseconds)
+        }
+        $process.Dispose()
     }
-    elseif ($job.State -ne 'Completed') {
-        $wordSucceeded = $false
-        Write-Warning "Microsoft Word failed while finalizing $guide; the approved HTML/CSS PDF fallback will be used."
+
+    if (-not (Test-Path -LiteralPath $pdfPath)) {
+        throw "LibreOffice did not create the expected PDF: $pdfPath"
     }
-    Receive-Job $job -ErrorAction SilentlyContinue | Out-Null
-    Remove-Job $job -Force
-    if (-not $wordSucceeded) { break }
-    Write-Output "Microsoft Word finalized $guide.docx and exported its PDF."
+    Write-Output "LibreOffice exported $guide.pdf."
 }
 
-if (-not $wordSucceeded) {
-    Get-Process WINWORD -ErrorAction SilentlyContinue |
-        Where-Object { $_.Id -notin $wordPidsBefore } |
-        Stop-Process -Force
-    if (-not (Test-Path -LiteralPath $PythonPath)) {
-        throw "Bundled Python runtime not found for PDF fallback: $PythonPath"
-    }
-    & $PythonPath (Join-Path $PSScriptRoot 'render_guides_pdf.py')
-    if ($LASTEXITCODE -ne 0) { throw 'HTML/CSS PDF fallback failed.' }
-    Write-Output 'Playwright HTML/CSS fallback generated all companion PDFs.'
-}
-
-Write-Output 'Guide finalization completed.'
+Write-Output 'Guide finalization completed without background PowerShell jobs.'

@@ -20,6 +20,8 @@ uses
 const
   DelphiEnvironmentFile =
     'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat';
+  BuildProcessTimeout = 1800000;
+  ProcessTerminationWait = 5000;
 
 procedure RunElevatedBuild(const AProjectFileName, APlatform,
   AConfiguration: string);
@@ -27,6 +29,7 @@ var
   CommandParameters: string;
   ExitCode: Cardinal;
   ExecuteInfo: TShellExecuteInfo;
+  WaitResult: Cardinal;
 begin
   CommandParameters := Format(
     '/d /s /c ""%s" && msbuild "%s" /t:Build /p:Platform=%s /p:Config=%s"',
@@ -42,7 +45,21 @@ begin
   if not ShellExecuteEx(@ExecuteInfo) then
     RaiseLastOSError;
   try
-    WaitForSingleObject(ExecuteInfo.hProcess, INFINITE);
+    WaitResult := WaitForSingleObject(ExecuteInfo.hProcess,
+      BuildProcessTimeout);
+    if WaitResult = WAIT_TIMEOUT then
+    begin
+      TerminateProcess(ExecuteInfo.hProcess, ERROR_TIMEOUT);
+      WaitForSingleObject(ExecuteInfo.hProcess, ProcessTerminationWait);
+      raise Exception.CreateFmt(
+        'The %s %s build timed out and its command process was stopped.',
+        [APlatform, AConfiguration]);
+    end;
+    if WaitResult = WAIT_FAILED then
+      RaiseLastOSError;
+    if WaitResult <> WAIT_OBJECT_0 then
+      raise Exception.CreateFmt('Unexpected build wait result: %d.',
+        [WaitResult]);
     if not GetExitCodeProcess(ExecuteInfo.hProcess, ExitCode) then
       RaiseLastOSError;
     if ExitCode <> 0 then

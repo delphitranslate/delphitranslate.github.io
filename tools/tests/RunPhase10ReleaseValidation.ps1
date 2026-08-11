@@ -17,6 +17,14 @@ $SourceSearchPath = @(
     '..\..\source\validation'
 ) -join ';'
 
+$BackgroundJobCommand = 'Start' + '-Job'
+$BackgroundPowerShellJobs = Get-ChildItem -LiteralPath $ProjectRoot `
+    -Recurse -Filter '*.ps1' -File | Select-String `
+        -SimpleMatch $BackgroundJobCommand
+if ($BackgroundPowerShellJobs) {
+    throw 'PowerShell background jobs are not permitted in project scripts.'
+}
+
 function Invoke-CheckedScript {
     param([Parameter(Mandatory = $true)][string]$FileName,
         [string[]]$Arguments = @())
