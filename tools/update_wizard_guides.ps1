@@ -27,7 +27,7 @@ if ($LASTEXITCODE -ne 0) {
 
 & (Join-Path $PSScriptRoot 'finalize_guides.ps1') -PythonPath $PythonPath
 if ($LASTEXITCODE -ne 0) {
-    throw 'Word finalization failed.'
+    throw 'Microsoft Word finalization failed.'
 }
 
 Write-Output 'User, Setup Wizard, and Engineering guides regenerated.'

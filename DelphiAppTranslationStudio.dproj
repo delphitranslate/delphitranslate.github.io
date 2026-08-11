@@ -274,8 +274,10 @@
         <DCCReference Include="source\core\DAT.Core.CatalogJson.pas"/>
         <DCCReference Include="source\core\DAT.Core.TranslationWorkspace.pas"/>
         <DCCReference Include="source\core\DAT.Core.RuntimePack.pas"/>
+        <DCCReference Include="source\core\DAT.Core.Terminology.pas"/>
         <DCCReference Include="source\scan\DAT.Scan.Types.pas"/>
         <DCCReference Include="source\scan\DAT.Scan.Rules.pas"/>
+        <DCCReference Include="source\scan\DAT.Scan.Context.pas"/>
         <DCCReference Include="source\scan\DAT.Scan.TextCodec.pas"/>
         <DCCReference Include="source\scan\DAT.Scan.FormText.pas"/>
         <DCCReference Include="source\scan\DAT.Scan.PascalResources.pas"/>

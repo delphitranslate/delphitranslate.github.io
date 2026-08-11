@@ -20,7 +20,8 @@ uses
   System.StrUtils,
   System.SysUtils,
   DAT.Core.Types,
-  DAT.Scan.TextCodec;
+  DAT.Scan.TextCodec,
+  DAT.Scan.Context;
 
 function IsSectionBoundary(const ALine: string): Boolean;
 var
@@ -111,6 +112,7 @@ begin
   ScanItem.Framework := tfUnknown;
   ScanItem.Kind := stkResourceString;
   ScanItem.RuntimeTextRole := rtrRuntimeTemplate;
+  TScanContextAnalyzer.Analyze(ScanItem);
   AResult.Items.Add(ScanItem);
 end;
 

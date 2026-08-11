@@ -58,6 +58,9 @@ type
     edtProjectFile: TEdit;
     btnBrowseProject: TButton;
     lblProjectSummary: TLabel;
+    lblApplicationId: TLabel;
+    edtApplicationId: TEdit;
+    btnCopyApplicationId: TButton;
     dlgOpenProject: TOpenDialog;
     lblLanguagesTitle: TLabel;
     lblLanguagesText: TLabel;
@@ -94,6 +97,7 @@ type
     lblReviewText: TLabel;
     memReview: TMemo;
     chkCreateBackup: TCheckBox;
+    chkTargetProjectClosed: TCheckBox;
     chkAuthorizeFinal: TCheckBox;
     lblFinalWarning: TLabel;
     lblFinishTitle: TLabel;
@@ -104,6 +108,7 @@ type
     btnCopyCommands: TButton;
     btnRunDeployment: TButton;
     btnOpenKitFolder: TButton;
+    btnDeployApplicationFolder: TButton;
     FooterLine: TRectangle;
     btnBack: TButton;
     btnNext: TButton;
@@ -118,6 +123,7 @@ type
     procedure btnNextClick(Sender: TObject);
     procedure btnFinishClick(Sender: TObject);
     procedure btnBrowseProjectClick(Sender: TObject);
+    procedure btnCopyApplicationIdClick(Sender: TObject);
     procedure cboTargetLanguageChange(Sender: TObject);
     procedure cboProviderChange(Sender: TObject);
     procedure btnSaveKeyClick(Sender: TObject);
@@ -130,6 +136,7 @@ type
     procedure btnCopyCommandsClick(Sender: TObject);
     procedure btnRunDeploymentClick(Sender: TObject);
     procedure btnOpenKitFolderClick(Sender: TObject);
+    procedure btnDeployApplicationFolderClick(Sender: TObject);
   private
     FCurrentStep: Integer;
     FHighestStep: Integer;
@@ -141,6 +148,7 @@ type
     FCatalogFileName: string;
     FKitDirectory: string;
     FBackupFileName: string;
+    FProjectConfigurationBackupDirectory: string;
     FSessionApiKey: string;
     procedure SetStep(const AStep: Integer);
     procedure UpdateNavigation;
@@ -157,6 +165,9 @@ type
     function FindStudioRoot: string;
     function DesignBPLFileName: string;
     procedure BuildDeploymentCommands;
+    procedure UpdateComponentInstructions;
+    function ExistingBuildOutputDirectories: TArray<string>;
+    function DeployLanguagePacksToExistingOutputs: Integer;
     function RunDeploymentScript(const AApplicationDirectory: string): Boolean;
   public
   end;
@@ -166,6 +177,7 @@ implementation
 uses
   System.IOUtils,
   System.Math,
+  System.RegularExpressions,
   System.Rtti,
   System.StrUtils,
   System.SysUtils,
@@ -178,8 +190,10 @@ uses
   DAT.Core.CatalogJson,
   DAT.Core.ProjectDetection,
   DAT.Core.RuntimePack,
+  DAT.Core.Terminology,
   DAT.Core.TranslationWorkspace,
   DAT.Integration.ComponentPackage,
+  DAT.Integration.Transaction,
   DAT.Provider.Client,
   DAT.Provider.CredentialStore,
   DAT.Provider.Settings,
@@ -203,9 +217,49 @@ begin
   cboDeepLPlan.ItemIndex := 0;
   chkRememberKey.IsChecked := True;
   chkCreateBackup.IsChecked := True;
+  chkCreateBackup.Enabled := False;
+  chkTargetProjectClosed.IsChecked := False;
   edtApiKey.Password := True;
   ApplyLocaleDefaults;
   SetStep(1);
+end;
+
+procedure TfrmSetupWizard.UpdateComponentInstructions;
+var
+  ApplicationId: string;
+  ManagerClass: string;
+  SelectorClass: string;
+begin
+  ApplicationId := FProjectProfile.ProjectName;
+  if FProjectProfile.Framework = tfVCL then
+  begin
+    ManagerClass := 'TDATVCLLanguageManager';
+    SelectorClass := 'TDATVCLLanguageComboBox';
+  end
+  else
+  begin
+    ManagerClass := 'TDATFMXLanguageManager';
+    SelectorClass := 'TDATFMXLanguageComboBox';
+  end;
+  memComponentInstructions.Lines.Text :=
+    'After final processing:' + sLineBreak +
+    '1. The target project must remain closed during final processing. Then start RAD Studio without opening the target form.' + sLineBreak +
+    '2. Choose Component > Install Packages, then click Add.' + sLineBreak +
+    '3. Select the exact design BPL shown by this Wizard.' + sLineBreak +
+    '4. Confirm the DAT package is checked, then click OK.' + sLineBreak +
+    '5. Open the target project and its primary form.' + sLineBreak +
+    '6. Place one ' + ManagerClass + ' on the primary form.' + sLineBreak +
+    '7. Set ApplicationId to "' + ApplicationId + '". Leave ' +
+      'LanguagesFolder as "Localization\Languages".' + sLineBreak +
+    '8. Place one ' + SelectorClass + '. In Object Inspector, set its ' +
+      'LanguageManager property to the manager; do not leave it blank. A ' +
+      'visible selector is required unless you provide an ' +
+      'equivalent connected Language menu.' + sLineBreak +
+    '9. Save the form and build Win32 and Win64 as required.' + sLineBreak +
+    '10. For a portable or USB copy, click Deploy to App Folder and select ' +
+      'the folder containing ' + ApplicationId + '.exe.' + sLineBreak +
+    'The Wizard configures the ComponentSource Search Path for all build ' +
+      'configurations and adds automatic post-build language-pack deployment.';
 end;
 
 procedure TfrmSetupWizard.FormDestroy(Sender: TObject);
@@ -286,7 +340,8 @@ begin
   if FCurrentStep = 7 then
   begin
     btnNext.Text := 'Begin Final Processing';
-    btnNext.Enabled := chkAuthorizeFinal.IsChecked;
+    btnNext.Enabled := chkTargetProjectClosed.IsChecked and
+      chkAuthorizeFinal.IsChecked;
   end
   else
   begin
@@ -388,11 +443,17 @@ begin
       if not chkUnderstandManualStep.IsChecked then
       begin
         lblFooterStatus.Text :=
-          'Confirm that you understand the one manual Delphi step.';
+          'Confirm that you understand the remaining manual RAD Studio phase.';
         Exit;
       end;
     7:
-      if not chkAuthorizeFinal.IsChecked then
+      if not chkTargetProjectClosed.IsChecked then
+      begin
+        lblFooterStatus.Text :=
+          'Close the target project in RAD Studio and confirm it before continuing.';
+        Exit;
+      end
+      else if not chkAuthorizeFinal.IsChecked then
       begin
         lblFooterStatus.Text := 'Authorize final processing to continue.';
         Exit;
@@ -411,6 +472,9 @@ begin
     if FProjectProfile.Framework = tfUnknown then
       raise Exception.Create('The project framework could not be identified.');
     edtProjectFile.Text := FProjectProfile.ProjectFileName;
+    edtApplicationId.Text := FProjectProfile.ProjectName;
+    chkTargetProjectClosed.IsChecked := False;
+    chkAuthorizeFinal.IsChecked := False;
     lblProjectSummary.Text := Format('%s  |  %s  |  %s  |  %d form resources',
       [FProjectProfile.ProjectName,
        TargetFrameworkToString(FProjectProfile.Framework),
@@ -421,14 +485,29 @@ begin
     FCatalogFileName := '';
     FHighestStep := Min(FHighestStep, 4);
     lblFooterStatus.Text := 'Project identified. No target file was changed.';
+    UpdateComponentInstructions;
     UpdateRail;
   except
     on E: Exception do
     begin
       FProjectProfile := Default(TProjectProfile);
       edtProjectFile.Text := '';
+      edtApplicationId.Text := '';
       lblProjectSummary.Text := E.Message;
     end;
+  end;
+end;
+
+procedure TfrmSetupWizard.btnCopyApplicationIdClick(Sender: TObject);
+var
+  Clipboard: IFMXClipboardService;
+begin
+  if (Trim(edtApplicationId.Text) <> '') and
+     TPlatformServices.Current.SupportsPlatformService(
+       IFMXClipboardService, Clipboard) then
+  begin
+    Clipboard.SetClipboard(TValue.From<string>(edtApplicationId.Text));
+    lblFooterStatus.Text := 'Application ID copied: ' + edtApplicationId.Text;
   end;
 end;
 
@@ -694,16 +773,22 @@ begin
   memReview.Lines.Text :=
     'Project: ' + FProjectProfile.ProjectName + sLineBreak +
     'Project file: ' + FProjectProfile.ProjectFileName + sLineBreak +
+    'Application ID: ' + FProjectProfile.ProjectName + sLineBreak +
     'Framework: ' + TargetFrameworkToString(FProjectProfile.Framework) + sLineBreak +
     'Target language: ' + edtNativeName.Text + ' (' +
       SelectedLanguageCode(cboTargetLanguage) + ')' + sLineBreak +
     'Provider: ' + TranslationProviderDisplayName(SelectedProvider) + sLineBreak +
     Format('Scanned entries: %d', [FScanResult.Items.Count]) + sLineBreak +
     Format('Unresolved entries to translate: %d', [MissingCount]) + sLineBreak +
-    'Integration: component kit; target source is not automatically edited.' +
+    'Integration: component kit plus one controlled DPROJ configuration block.' +
       sLineBreak +
-    'Backup: ' + IfThen(chkCreateBackup.IsChecked,
-      'create a ZIP before processing', 'not requested');
+    'Search Path: ComponentSource for all configurations and platforms.' +
+      sLineBreak +
+    'Deployment: automatic after every future build; deploy now to existing outputs.' +
+      sLineBreak +
+    'RAD Studio: target project must be closed before final processing.' +
+      sLineBreak +
+    'Backup: required ZIP plus verified DPROJ transaction backup.';
 end;
 
 procedure TfrmSetupWizard.AddProgress(const AText: string);
@@ -734,6 +819,97 @@ begin
           TPath.Combine('bin\' + Platform, Configuration))]));
 end;
 
+function TfrmSetupWizard.ExistingBuildOutputDirectories: TArray<string>;
+const
+  Configurations: array[0..1] of string = ('Debug', 'Release');
+  Platforms: array[0..1] of string = ('Win32', 'Win64');
+var
+  Configuration: string;
+  Match: TMatch;
+  Matches: TMatchCollection;
+  OutputDirectory: string;
+  OutputPattern: string;
+  Platform: string;
+  ProjectDirectory: string;
+  ProjectText: string;
+  UniqueDirectories: TStringList;
+
+  procedure AddPattern(const APattern: string);
+  var
+    Candidate: string;
+    LocalConfiguration: string;
+    LocalPlatform: string;
+  begin
+    for LocalPlatform in Platforms do
+      for LocalConfiguration in Configurations do
+      begin
+        Candidate := Trim(APattern);
+        Candidate := StringReplace(Candidate, '$(Platform)', LocalPlatform,
+          [rfReplaceAll, rfIgnoreCase]);
+        Candidate := StringReplace(Candidate, '$(Config)', LocalConfiguration,
+          [rfReplaceAll, rfIgnoreCase]);
+        Candidate := StringReplace(Candidate, '$(PROJECTDIR)', ProjectDirectory,
+          [rfReplaceAll, rfIgnoreCase]);
+        Candidate := StringReplace(Candidate, '$(MSBuildProjectDirectory)',
+          ProjectDirectory, [rfReplaceAll, rfIgnoreCase]);
+        if Pos('$(', Candidate) > 0 then
+          Continue;
+        if not TPath.IsPathRooted(Candidate) then
+          Candidate := TPath.Combine(ProjectDirectory, Candidate);
+        Candidate := TPath.GetFullPath(Candidate);
+        if TDirectory.Exists(Candidate) then
+          UniqueDirectories.Add(Candidate);
+      end;
+  end;
+
+begin
+  ProjectDirectory := TPath.GetDirectoryName(FProjectProfile.ProjectFileName);
+  UniqueDirectories := TStringList.Create;
+  try
+    UniqueDirectories.CaseSensitive := False;
+    UniqueDirectories.Duplicates := dupIgnore;
+    UniqueDirectories.Sorted := True;
+    ProjectText := TFile.ReadAllText(FProjectProfile.ProjectFileName,
+      TEncoding.UTF8);
+    Matches := TRegEx.Matches(ProjectText,
+      '<DCC_ExeOutput>(.*?)</DCC_ExeOutput>',
+      [roIgnoreCase, roSingleLine]);
+    for Match in Matches do
+    begin
+      OutputPattern := Match.Groups[1].Value;
+      OutputPattern := StringReplace(OutputPattern, '&amp;', '&',
+        [rfReplaceAll, rfIgnoreCase]);
+      AddPattern(OutputPattern);
+    end;
+    if Matches.Count = 0 then
+      for Platform in Platforms do
+        for Configuration in Configurations do
+        begin
+          OutputDirectory := TPath.Combine(ProjectDirectory,
+            TPath.Combine('bin\' + Platform, Configuration));
+          if TDirectory.Exists(OutputDirectory) then
+            UniqueDirectories.Add(TPath.GetFullPath(OutputDirectory));
+        end;
+    Result := UniqueDirectories.ToStringArray;
+  finally
+    UniqueDirectories.Free;
+  end;
+end;
+
+function TfrmSetupWizard.DeployLanguagePacksToExistingOutputs: Integer;
+var
+  ApplicationDirectory: string;
+begin
+  Result := 0;
+  for ApplicationDirectory in ExistingBuildOutputDirectories do
+  begin
+    if not RunDeploymentScript(ApplicationDirectory) then
+      raise Exception.Create('Deployment failed for ' + ApplicationDirectory);
+    Inc(Result);
+    AddProgress('Language packs deployed to ' + ApplicationDirectory);
+  end;
+end;
+
 procedure TfrmSetupWizard.ExecuteFinalProcessing;
 var
   ApiKey: string;
@@ -746,9 +922,14 @@ var
   Plan: TDeepLPlan;
   Provider: TTranslationProvider;
   Report: TStringList;
+  DeployedCount: Integer;
+  ProjectBackupDirectory: string;
   RuntimePackFileName: string;
   SourceTexts: TArray<string>;
   TranslatedTexts: TArray<string>;
+  Contexts: TArray<string>;
+  ProviderCount: Integer;
+  ResolvedText: string;
   Validation: TCatalogValidationResult;
 begin
   FFinalProcessing := True;
@@ -757,20 +938,18 @@ begin
   btnNext.Enabled := False;
   UpdateRail;
   memProgress.Lines.Clear;
+  FProjectConfigurationBackupDirectory := '';
   try
-    if chkCreateBackup.IsChecked then
-    begin
-      AddProgress('Creating the pre-processing safety backup...');
-      BackupDirectory := TPath.Combine(TPath.GetDocumentsPath,
-        TPath.Combine('Delphi App Translation Backups',
-          FProjectProfile.ProjectName));
-      TDirectory.CreateDirectory(BackupDirectory);
-      FBackupFileName := TPath.Combine(BackupDirectory,
-        FormatDateTime('yyyy-mm-dd_hhnnss', Now) + '.zip');
-      TZipFile.ZipDirectoryContents(FBackupFileName,
-        TPath.GetDirectoryName(FProjectProfile.ProjectFileName));
-      AddProgress('Backup created: ' + FBackupFileName);
-    end;
+    AddProgress('Creating the required pre-processing safety backup...');
+    BackupDirectory := TPath.Combine(TPath.GetDocumentsPath,
+      TPath.Combine('Delphi App Translation Backups',
+        FProjectProfile.ProjectName));
+    TDirectory.CreateDirectory(BackupDirectory);
+    FBackupFileName := TPath.Combine(BackupDirectory,
+      FormatDateTime('yyyy-mm-dd_hhnnss', Now) + '.zip');
+    TZipFile.ZipDirectoryContents(FBackupFileName,
+      TPath.GetDirectoryName(FProjectProfile.ProjectFileName));
+    AddProgress('Backup created: ' + FBackupFileName);
 
     Provider := SelectedProvider;
     ApiKey := EffectiveApiKey;
@@ -788,7 +967,8 @@ begin
         Inc(MissingCount);
     SetLength(EntryIndexes, MissingCount);
     SetLength(SourceTexts, MissingCount);
-    MissingCount := 0;
+    SetLength(Contexts, MissingCount);
+    ProviderCount := 0;
     for Index := 0 to FCatalog.Entries.Count - 1 do
     begin
       Entry := FCatalog.Entries[Index];
@@ -798,18 +978,44 @@ begin
          ((Trim(Entry.TranslatedText) = '') or
           (Entry.Status in [tsNeedsTranslation, tsSourceChanged, tsError])) then
       begin
-        EntryIndexes[MissingCount] := Index;
-        SourceTexts[MissingCount] := Entry.SourceText;
-        Inc(MissingCount);
+        if TTerminologyResolver.TryTranslationMemory(FCatalog, Entry,
+          ResolvedText) then
+        begin
+          Entry.TranslatedText := ResolvedText;
+          Entry.Status := tsMachineTranslated;
+          Entry.TranslationOrigin := torSuggestion;
+          Entry.TranslationConfidence := 'translation-memory';
+          Entry.TranslationReviewNote :=
+            'Reused from a reviewed or approved entry with matching context.';
+        end
+        else if TTerminologyResolver.TryResolve(Entry,
+          FCatalog.Locale.LanguageCode, ResolvedText) then
+        begin
+          Entry.TranslatedText := ResolvedText;
+          Entry.Status := tsMachineTranslated;
+          Entry.TranslationOrigin := torTerminology;
+          Entry.TranslationConfidence := 'terminology';
+          Entry.TranslationReviewNote := '';
+        end
+        else
+        begin
+          EntryIndexes[ProviderCount] := Index;
+          SourceTexts[ProviderCount] := Entry.SourceText;
+          Contexts[ProviderCount] := Entry.ContextDescription;
+          Inc(ProviderCount);
+        end;
       end;
     end;
-    if MissingCount > 0 then
+    SetLength(EntryIndexes, ProviderCount);
+    SetLength(SourceTexts, ProviderCount);
+    SetLength(Contexts, ProviderCount);
+    if ProviderCount > 0 then
     begin
       AddProgress(Format('Translating %d unresolved entries with %s...',
-        [MissingCount, TranslationProviderDisplayName(Provider)]));
+        [ProviderCount, TranslationProviderDisplayName(Provider)]));
       Client := TTranslationProviderClient.Create(Provider, Plan, ApiKey, 30, 40);
       try
-        TranslatedTexts := Client.Translate(SourceTexts,
+        TranslatedTexts := Client.TranslateWithContexts(SourceTexts, Contexts,
           FCatalog.SourceLanguage, FCatalog.Locale.LanguageCode,
           nil,
           procedure(const ACompleted, ATotal: Integer)
@@ -830,11 +1036,22 @@ begin
           Entry.TranslationOrigin := torGoogle
         else
           Entry.TranslationOrigin := torDeepL;
+        if Provider = tpGoogle then
+        begin
+          Entry.TranslationConfidence := 'provider-basic';
+          if SameText(Entry.ContextConfidence, 'unknown') or
+            ((Length(Trim(Entry.SourceText)) <= 12) and
+             (Entry.SemanticConcept = '')) then
+            Entry.TranslationReviewNote :=
+              'Short or ambiguous text translated by Google Basic without provider-side context; review recommended.';
+        end
+        else
+          Entry.TranslationConfidence := 'contextual-provider';
       end;
       AddProgress(Format('%d translations recorded.', [Length(TranslatedTexts)]));
     end
     else
-      AddProgress('No unresolved translations were found; existing work was preserved.');
+      AddProgress('All unresolved entries were satisfied by approved terminology or translation memory; existing work was preserved.');
 
     TCatalogJson.SaveToFile(FCatalog, FCatalogFileName);
     AddProgress('Development catalog saved.');
@@ -859,6 +1076,18 @@ begin
       TPath.Combine(FindStudioRoot, 'source\components'));
     AddProgress('Component integration kit generated.');
     BuildDeploymentCommands;
+    DeployedCount := DeployLanguagePacksToExistingOutputs;
+    if DeployedCount = 0 then
+      AddProgress('No existing build-output folders were found. The next build will deploy the packs automatically.')
+    else
+      AddProgress(Format('Automatic deployment completed for %d existing build output(s).',
+        [DeployedCount]));
+    ProjectBackupDirectory := ChangeFileExt(FBackupFileName, '') +
+      '-project-configuration';
+    FProjectConfigurationBackupDirectory :=
+      TComponentIntegrationPackageGenerator.ConfigureProject(
+        FProjectProfile, FKitDirectory, ProjectBackupDirectory);
+    AddProgress('Project Search Path and automatic post-build deployment configured.');
     lblKitPath.Text := FKitDirectory;
     Report := TStringList.Create;
     try
@@ -871,6 +1100,12 @@ begin
       Report.Add('Runtime pack: ' + RuntimePackFileName);
       Report.Add('Component kit: ' + FKitDirectory);
       Report.Add('Backup: ' + FBackupFileName);
+      Report.Add('DPROJ transaction backup: ' +
+        FProjectConfigurationBackupDirectory);
+      Report.Add('Application ID: ' + FProjectProfile.ProjectName);
+      Report.Add('ComponentSource Search Path: ' +
+        TPath.Combine(FKitDirectory, 'ComponentSource'));
+      Report.Add('Existing build outputs deployed: ' + DeployedCount.ToString);
       Report.Add('');
       Report.Add('NEXT MANUAL DELPHI STEP');
       Report.AddStrings(memComponentInstructions.Lines);
@@ -882,17 +1117,31 @@ begin
     finally
       Report.Free;
     end;
-    AddProgress('Completion report written. Target source files remain unchanged.');
+    AddProgress('Completion report written. Pascal and form source files remain unchanged.');
     FCompleted := True;
     lblFinishText.Text :=
-      'Automatic processing is complete. Perform the clearly listed Delphi package/component step, then run the deployment commands after building your target configurations.';
+      'Automatic processing is complete. Perform the clearly listed Delphi package/component step, then build the target. Language packs deploy automatically after each build.';
     lblFooterStatus.Text := 'Setup Wizard completed successfully.';
   except
     on E: Exception do
     begin
       AddProgress('STOPPED: ' + E.Message);
+      if FProjectConfigurationBackupDirectory <> '' then
+      begin
+        try
+          TIntegrationTransaction.Restore(
+            TPath.GetDirectoryName(FProjectProfile.ProjectFileName),
+            FProjectConfigurationBackupDirectory);
+          AddProgress('The Delphi project configuration was restored automatically.');
+          FProjectConfigurationBackupDirectory := '';
+        except
+          on RestoreError: Exception do
+            AddProgress('URGENT: automatic project restore failed: ' +
+              RestoreError.Message);
+        end;
+      end;
       lblFinishText.Text :=
-        'Processing stopped safely. Review the message below. The target source was not automatically edited.';
+        'Processing stopped safely. Review the message below. Pascal and form source files were not automatically edited.';
       lblFooterStatus.Text := 'Setup Wizard did not complete: ' + E.Message;
       FCompleted := False;
     end;
@@ -937,9 +1186,10 @@ begin
   ShellInfo.lpFile :=
     'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe';
   Parameters := Format(
-    '-NoProfile -ExecutionPolicy Bypass -File "%s" -ApplicationDirectory "%s"',
+    '-NoProfile -ExecutionPolicy Bypass -File "%s" -ApplicationDirectory "%s" -ProjectDirectory "%s"',
     [TPath.Combine(FKitDirectory, 'Deploy-LanguagePacks.ps1'),
-     AApplicationDirectory]);
+     AApplicationDirectory,
+     TPath.GetDirectoryName(FProjectProfile.ProjectFileName)]);
   ShellInfo.lpParameters := PChar(Parameters);
   ShellInfo.nShow := SW_HIDE;
   if not ShellExecuteEx(@ShellInfo) then
@@ -954,33 +1204,12 @@ begin
 end;
 
 procedure TfrmSetupWizard.btnRunDeploymentClick(Sender: TObject);
-const
-  Configurations: array[0..1] of string = ('Debug', 'Release');
-  Platforms: array[0..1] of string = ('Win32', 'Win64');
 var
-  ApplicationDirectory: string;
-  Configuration: string;
   DeployedCount: Integer;
-  Platform: string;
-  ProjectDirectory: string;
 begin
   btnRunDeployment.Enabled := False;
   try
-    DeployedCount := 0;
-    ProjectDirectory := TPath.GetDirectoryName(FProjectProfile.ProjectFileName);
-    for Platform in Platforms do
-      for Configuration in Configurations do
-      begin
-        ApplicationDirectory := TPath.Combine(ProjectDirectory,
-          TPath.Combine('bin\' + Platform, Configuration));
-        if not TDirectory.Exists(ApplicationDirectory) then
-          Continue;
-        if not RunDeploymentScript(ApplicationDirectory) then
-          raise Exception.Create('Deployment failed for ' +
-            ApplicationDirectory);
-        Inc(DeployedCount);
-        AddProgress('Language packs deployed to ' + ApplicationDirectory);
-      end;
+    DeployedCount := DeployLanguagePacksToExistingOutputs;
     if DeployedCount = 0 then
       lblFooterStatus.Text :=
         'No built target folders were found. Build the target, then run deployment again.'
@@ -993,6 +1222,43 @@ begin
       lblFooterStatus.Text := E.Message;
   end;
   btnRunDeployment.Enabled := True;
+end;
+
+procedure TfrmSetupWizard.btnDeployApplicationFolderClick(Sender: TObject);
+var
+  ApplicationDirectory: string;
+  ExecutableFileName: string;
+begin
+  if FKitDirectory = '' then
+  begin
+    lblFooterStatus.Text := 'Complete final processing before deployment.';
+    Exit;
+  end;
+  ApplicationDirectory := '';
+  if not SelectDirectory(
+    'Select the folder containing ' + FProjectProfile.ProjectName + '.exe',
+    '', ApplicationDirectory) then
+    Exit;
+  ExecutableFileName := TPath.Combine(ApplicationDirectory,
+    FProjectProfile.ProjectName + '.exe');
+  if not TFile.Exists(ExecutableFileName) then
+  begin
+    lblFooterStatus.Text := Format(
+      'Select the folder containing %s. Nothing was copied.',
+      [FProjectProfile.ProjectName + '.exe']);
+    Exit;
+  end;
+  btnDeployApplicationFolder.Enabled := False;
+  try
+    if not RunDeploymentScript(ApplicationDirectory) then
+      raise Exception.Create('Language-pack deployment failed.');
+    lblFooterStatus.Text := 'Language packs deployed to ' +
+      TPath.Combine(ApplicationDirectory, 'Localization\Languages');
+  except
+    on E: Exception do
+      lblFooterStatus.Text := E.Message;
+  end;
+  btnDeployApplicationFolder.Enabled := True;
 end;
 
 end.

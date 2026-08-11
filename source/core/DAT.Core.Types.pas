@@ -34,7 +34,8 @@ type
     torDeepL,
     torHuman,
     torImported,
-    torSuggestion
+    torSuggestion,
+    torTerminology
   );
 
   TRuntimeApplicationKind = (
@@ -108,6 +109,10 @@ type
     FRuntimeApplication: TRuntimeApplicationKind;
     FRuntimeTextRole: TRuntimeTextRole;
     FRuntimeWiringConfirmed: Boolean;
+    FContextKind: string;
+    FContextDescription: string;
+    FSemanticConcept: string;
+    FContextConfidence: string;
   public
     property Key: string read FKey write FKey;
     property SourceText: string read FSourceText write FSourceText;
@@ -134,6 +139,13 @@ type
       write FRuntimeTextRole;
     property RuntimeWiringConfirmed: Boolean read FRuntimeWiringConfirmed
       write FRuntimeWiringConfirmed;
+    property ContextKind: string read FContextKind write FContextKind;
+    property ContextDescription: string read FContextDescription
+      write FContextDescription;
+    property SemanticConcept: string read FSemanticConcept
+      write FSemanticConcept;
+    property ContextConfidence: string read FContextConfidence
+      write FContextConfidence;
   end;
 
   TTranslationCatalog = class
@@ -189,7 +201,7 @@ uses
 constructor TTranslationCatalog.Create;
 begin
   inherited Create;
-  FSchemaVersion := 4;
+  FSchemaVersion := 5;
   FFramework := tfUnknown;
   FLocale := TLocaleProfile.Create;
   FLocale.TextDirection := 'ltr';
@@ -322,6 +334,8 @@ begin
       Result := 'imported';
     torSuggestion:
       Result := 'suggestion';
+    torTerminology:
+      Result := 'terminology';
   else
     Result := 'unknown';
   end;
@@ -344,6 +358,8 @@ begin
     Result := torImported
   else if SameText(AValue, 'suggestion') then
     Result := torSuggestion
+  else if SameText(AValue, 'terminology') then
+    Result := torTerminology
   else
     Result := torUnknown;
 end;
@@ -366,6 +382,8 @@ begin
       Result := 'Imported';
     torSuggestion:
       Result := 'Catalog suggestion';
+    torTerminology:
+      Result := 'Approved UI terminology';
   else
     Result := 'Unknown';
   end;

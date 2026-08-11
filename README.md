@@ -49,6 +49,12 @@ Current target scope:
 
 macOS, iOS, Android, Linux, and C++Builder are outside the current scope.
 
+### Context-aware automatic translation
+
+Current scans record each entry's UI role, semantic concept, contextual description, and confidence. The Studio reuses reviewed contextual translation memory and vetted interface terminology before calling a provider. DeepL receives context directly; Google Cloud Translation Basic v2 does not support a context field, so Google results use local context and are flagged when short wording remains ambiguous. Terms such as **Play**, **Schedule**, **Close**, **Activate**, and **Enable** are resolved according to their inferred application meaning where possible.
+
+The Setup Wizard is the recommended integration path. It requires the target project to be closed before final processing, inserts its marked settings into Delphi's native Base compiler group, and offers **Deploy to App Folder** for portable or USB installations.
+
 ## Current safety model
 
 Project scanning is read-only. Saving a development catalog or exporting a
@@ -60,20 +66,23 @@ The recommended integration path is **Component Integration**:
 1. The Studio generates a component kit under its own `export` folder.
 2. The developer manually installs the applicable Win32 design-time BPL through
    RAD Studio's **Component > Install Packages > Add** command.
-3. The developer places one language-manager component, plus an optional
-   selector, on the target application's primary form in Delphi's Form Designer.
-4. The developer deploys the generated JSON language packs beside each target
-   executable.
+3. The developer places one language-manager component and a visible language
+   selector on the target application's primary form in Delphi's Form Designer.
+   A connected Language menu may replace the supplied combo box.
+4. After explicit final authorization and a required safety backup, the Wizard
+   inserts marked Search Path and post-build properties inside Delphi's native
+   DPROJ Base compiler group, inherited by all configurations/platforms.
 
 This recommended path does not authorize the Studio to rewrite target Pascal,
-DFM, FMX, DPR, or DPROJ files. Earlier source-integration experiments and
+DFM, FMX, or DPR files. The only automatic project-file edit is the reviewed,
+backed-up DPROJ properties described above. Earlier source-integration experiments and
 advanced mutation paths are not the recommended pre-release workflow and
 should not be used on valuable projects.
 
 Before evaluation:
 
-- Commit the target project and confirm `git status --short` is clean.
-- Keep an independent backup.
+- If the target uses Git, commit it and confirm `git status --short` is clean.
+- Git is not required. Always keep an independent verified backup or pristine copy.
 - Use a disposable project copy.
 - Review the generated JSON catalogs and component kit.
 - Build and test both Win32 and Win64 before drawing conclusions.
@@ -86,8 +95,8 @@ project and language selection, provider configuration, scanning, automatic tran
 validation, JSON runtime-pack export, component-kit generation, the approved
 manual RAD Studio package step, and Win32/Win64 deployment. Completed wizard
 steps may be revisited; future steps cannot be skipped. Cancel remains safe
-until final processing begins, and the wizard never automatically rewrites
-Delphi Pascal, form, DPR, or DPROJ files.
+until final processing begins. The Wizard never rewrites Delphi Pascal, form,
+or DPR files; it adds only its marked, transactional DPROJ configuration block.
 
 - VCL `.dfm` and FireMonkey `.fmx` form scanning.
 - Delphi `resourcestring` extraction.

@@ -101,6 +101,7 @@ type
     btnApproveAllReviewed: TButton;
     lblSourceTextEditor: TLabel;
     lblRuntimeApplicationValue: TLabel;
+    lblTranslationContextValue: TLabel;
     memSourceText: TMemo;
     chkRuntimeWiringConfirmed: TCheckBox;
     lblTranslationSuggestion: TLabel;
@@ -280,6 +281,7 @@ uses
   DAT.Core.CatalogJson,
   DAT.Core.ProjectDetection,
   DAT.Core.RuntimePack,
+  DAT.Core.Terminology,
   DAT.Core.TranslationWorkspace,
   DAT.Integration.Package,
   DAT.Integration.BuildDeploy,
@@ -770,6 +772,9 @@ begin
   memSourceText.Text := '';
   memTranslatedText.Text := '';
   lblRuntimeApplicationValue.Text := 'Runtime: select an entry';
+  lblTranslationContextValue.Text := 'Context: select an entry';
+  lblTranslationContextValue.Hint :=
+    'Select an entry to see its inferred translation context.';
   chkRuntimeWiringConfirmed.IsChecked := False;
   chkRuntimeWiringConfirmed.Enabled := False;
   cboTranslationSuggestions.Items.Clear;
@@ -861,6 +866,11 @@ begin
          (Trim(Candidate.TranslatedText) <> '') then
       begin
         Score := 0;
+        if (AEntry.SemanticConcept <> '') and
+          SameText(Candidate.SemanticConcept, AEntry.SemanticConcept) then
+          Inc(Score, 300)
+        else if SameText(Candidate.ContextKind, AEntry.ContextKind) then
+          Inc(Score, 80);
         if SameText(Candidate.FormName, AEntry.FormName) then
           Inc(Score, 100);
         if SameText(Candidate.ComponentClassName,
@@ -1064,6 +1074,9 @@ begin
   memSourceText.Text := '';
   memTranslatedText.Text := '';
   lblRuntimeApplicationValue.Text := 'Runtime: select an entry';
+  lblTranslationContextValue.Text := 'Context: select an entry';
+  lblTranslationContextValue.Hint :=
+    'Select an entry to see its inferred translation context.';
   chkRuntimeWiringConfirmed.IsChecked := False;
   chkRuntimeWiringConfirmed.Enabled := False;
   cboTranslationSuggestions.Items.Clear;
@@ -1437,13 +1450,13 @@ begin
       lstIntegrationPlan.Items.Add(
         '3. Place one DAT language manager on the primary form.');
       lstIntegrationPlan.Items.Add(
-        '4. Configure ApplicationId and LanguagesFolder in Object Inspector.');
+        '4. Use the detected ApplicationId and LanguagesFolder in Object Inspector.');
       lstIntegrationPlan.Items.Add(
-        '5. Optionally place the matching DAT language combo box.');
+        '5. Place the matching DAT language combo box, or connect an equivalent Language menu.');
       lstIntegrationPlan.Items.Add(
-        '6. Deploy the JSON packs beside Win32 and Win64 executables.');
+        '6. Configure automatic Search Path and JSON-pack deployment.');
       lstIntegrationPlan.Items.Add(
-        '7. Build and test. No Studio-written target changes are required.');
+        '7. Build and test Win32 and Win64. Pascal and form source remain designer-owned.');
       Languages := TLanguagePackDiscovery.Discover(
         TTranslationWorkspace.LanguagesDirectory(FProjectProfile),
         FProjectProfile.ProjectName);
@@ -1988,6 +2001,11 @@ begin
       ' | Role: ' + RuntimeTextRoleDisplayName(Entry.RuntimeTextRole) +
       ' | Origin: ' +
       TranslationOriginDisplayName(Entry.TranslationOrigin);
+    lblTranslationContextValue.Text := 'Context: ' + Entry.ContextKind;
+    lblTranslationContextValue.Hint := Entry.ContextDescription +
+      IfThen(Entry.SemanticConcept <> '', sLineBreak + 'Concept: ' +
+        Entry.SemanticConcept, '') + sLineBreak + 'Confidence: ' +
+        Entry.ContextConfidence;
     chkRuntimeWiringConfirmed.Enabled :=
       Entry.RuntimeApplication = rakManualTranslateText;
     chkRuntimeWiringConfirmed.IsChecked :=
@@ -2241,6 +2259,9 @@ var
   ResolvedCount: Integer;
   SourceTexts: TArray<string>;
   TranslatedTexts: TArray<string>;
+  Contexts: TArray<string>;
+  ProviderCount: Integer;
+  ResolvedText: string;
 begin
   if FTranslationCatalog = nil then
   begin
@@ -2297,7 +2318,8 @@ begin
 
     SetLength(EntryIndexes, MissingCount);
     SetLength(SourceTexts, MissingCount);
-    MissingCount := 0;
+    SetLength(Contexts, MissingCount);
+    ProviderCount := 0;
     for Index := 0 to FTranslationCatalog.Entries.Count - 1 do
     begin
       Entry := FTranslationCatalog.Entries[Index];
@@ -2308,22 +2330,49 @@ begin
           (Entry.Status in [tsNeedsTranslation, tsSourceChanged,
             tsError])) then
       begin
-        EntryIndexes[MissingCount] := Index;
-        SourceTexts[MissingCount] := Entry.SourceText;
-        Inc(MissingCount);
+        if TTerminologyResolver.TryTranslationMemory(FTranslationCatalog,
+          Entry, ResolvedText) then
+        begin
+          Entry.TranslatedText := ResolvedText;
+          Entry.Status := tsMachineTranslated;
+          Entry.TranslationOrigin := torSuggestion;
+          Entry.TranslationConfidence := 'translation-memory';
+          Entry.TranslationReviewNote :=
+            'Reused from a reviewed or approved entry with matching context.';
+        end
+        else if TTerminologyResolver.TryResolve(Entry,
+          FTranslationCatalog.Locale.LanguageCode, ResolvedText) then
+        begin
+          Entry.TranslatedText := ResolvedText;
+          Entry.Status := tsMachineTranslated;
+          Entry.TranslationOrigin := torTerminology;
+          Entry.TranslationConfidence := 'terminology';
+          Entry.TranslationReviewNote := '';
+        end
+        else
+        begin
+          EntryIndexes[ProviderCount] := Index;
+          SourceTexts[ProviderCount] := Entry.SourceText;
+          Contexts[ProviderCount] := Entry.ContextDescription;
+          Inc(ProviderCount);
+        end;
       end;
     end;
 
+    SetLength(EntryIndexes, ProviderCount);
+    SetLength(SourceTexts, ProviderCount);
+    SetLength(Contexts, ProviderCount);
+
     btnTranslateMissing.Enabled := False;
-    lblStatus.Text := Format('Translating %d strings with %s...',
-      [MissingCount, TranslationProviderDisplayName(Provider)]);
+    lblStatus.Text := Format('Translating %d provider strings with %s...',
+      [ProviderCount, TranslationProviderDisplayName(Provider)]);
     Application.ProcessMessages;
     Client := TTranslationProviderClient.Create(Provider,
       FProviderSettings.DeepLPlan, ApiKey,
       FProviderSettings.RequestTimeoutSeconds,
       FProviderSettings.BatchSize);
     try
-      TranslatedTexts := Client.Translate(SourceTexts,
+      TranslatedTexts := Client.TranslateWithContexts(SourceTexts, Contexts,
         FTranslationCatalog.SourceLanguage,
         FTranslationCatalog.Locale.LanguageCode);
     finally
@@ -2338,15 +2387,29 @@ begin
         Entry.TranslationOrigin := torGoogle
       else
         Entry.TranslationOrigin := torDeepL;
-      Entry.TranslationConfidence := '';
-      Entry.TranslationReviewNote := '';
+      if Provider = tpGoogle then
+      begin
+        Entry.TranslationConfidence := 'provider-basic';
+        if SameText(Entry.ContextConfidence, 'unknown') or
+          ((Length(Trim(Entry.SourceText)) <= 12) and
+           (Entry.SemanticConcept = '')) then
+          Entry.TranslationReviewNote :=
+            'Short or ambiguous text translated by Google Basic without provider-side context; review recommended.'
+        else
+          Entry.TranslationReviewNote := '';
+      end
+      else
+      begin
+        Entry.TranslationConfidence := 'contextual-provider';
+        Entry.TranslationReviewNote := '';
+      end;
     end;
     DisplayCatalogEntries;
     InvalidateValidation;
     SaveCatalog;
     lblStatus.Text := Format(
-      '%d machine translations recorded and saved. Review provider results before export.',
-      [Length(TranslatedTexts)]);
+      '%d entries resolved and saved; %d were sent to the provider. Review flagged ambiguous results before export.',
+      [MissingCount, Length(TranslatedTexts)]);
   except
     on E: Exception do
       lblStatus.Text := 'Bulk translation failed: ' + E.Message;

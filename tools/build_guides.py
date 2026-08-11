@@ -98,7 +98,7 @@ def add_field(paragraph, instruction: str) -> None:
     separate = OxmlElement("w:fldChar")
     separate.set(qn("w:fldCharType"), "separate")
     placeholder = OxmlElement("w:t")
-    placeholder.text = "Update this field in Microsoft Word."
+    placeholder.text = "The table of contents is refreshed during document finalization."
     end = OxmlElement("w:fldChar")
     end.set(qn("w:fldCharType"), "end")
     run = paragraph.add_run()
@@ -416,7 +416,7 @@ def build_user_guide() -> Path:
             ["Development catalog", "A detailed JSON working file under Localization\\Development.", "Preserves source text, translations, review state, origin, runtime classification, and locale settings between scans."],
             ["Runtime language pack", "A compact JSON file under Localization\\Languages, such as es-ES.json.", "Supplies translated text to the finished application without Internet access or an API key."],
             ["TDAT language manager component", "One nonvisual VCL or FMX component placed on the application's primary form.", "Loads packs, remembers the selected language, translates open forms, and supervises forms opened later."],
-            ["Language selector", "An optional visual combo-box component linked to the manager.", "Shows the installed languages and lets the user switch language immediately."],
+            ["Language selector", "A required user-facing language choice, normally the visual DAT combo-box linked to the manager.", "Shows installed languages and switches immediately. A connected Language menu may be used instead."],
             ["Component integration kit", "A generated, project-specific folder under the Studio export tree.", "Provides component source, packs, deployment script, manifest, and exact integration instructions without rewriting the target project."],
         ],
     )
@@ -604,7 +604,7 @@ def build_user_guide() -> Path:
             "Choose Test Connection. Resolve any authentication, billing, restriction, firewall, or quota error before translating a project.",
             "Return to Translate, select the target language, and choose Translate Automatically.",
             "Confirm the displayed provider and unresolved-entry count. The Studio sends only eligible unresolved source strings; Reviewed, Approved, Excluded, and Obsolete entries are not replaced.",
-            "The Studio processes provider requests in bounded batches, records each result as Machine translated with Google or DeepL provenance, saves the development catalog automatically, and leaves every result ready for human review.",
+            "The Studio first reuses approved contextual translation memory and vetted UI terminology where available. Remaining entries are sent in bounded batches. DeepL receives inferred UI context; Google Basic v2 does not support a context field, so short or ambiguous Google results are flagged for focused review. The catalog is saved automatically.",
         ],
     )
     add_callout(
@@ -621,7 +621,9 @@ def build_user_guide() -> Path:
             "Pascal resourcestring entries require an explicit TranslateText(Key, Fallback) call at the intended code location. Mark Manual wiring confirmed only after adding and reviewing that call.",
             "Translation origin is independent of Draft, Reviewed, and Approved status. A provider result is never silently approved.",
             "Only Needs Translation, Source Changed, and Error entries are eligible. Existing Machine-translated, Imported, Edited, Reviewed, Approved, Excluded, and Obsolete work is protected unless the developer changes its status deliberately.",
-            "The terminology profile records application context, audience, tone, formality, protected names, and preferred terminology.",
+            "Each scanned entry records form, component, class, property, UI role, semantic concept, contextual description, and context confidence. This distinguishes meanings such as media Play, game Play, command Schedule, and the noun Schedule.",
+            "Vetted UI terminology is applied before a provider call where a supported target-language term is known. Reviewed and Approved entries also form contextual translation memory for matching later entries.",
+            "DeepL accepts the Studio's contextual description. Google Cloud Translation Basic v2 does not accept context or glossaries; the Studio uses local context, terminology, memory, and focused warnings around Google.",
             "Validation focuses on placeholders, accelerators, inconsistent repeated terms, source changes, and runtime wiring.",
             "Exact-source translations from other stable keys are suggestions only. The developer must explicitly accept one, and the accepted target remains Edited rather than inheriting approval.",
         ],
@@ -773,10 +775,10 @@ def build_user_guide() -> Path:
             "If DAT Localization is not already in the Tool Palette, choose Show Design BPL. It selects the stable package under the Studio's bin\\packages\\Win32\\Release folder. In RAD Studio choose Component > Install Packages > Add, select that exact design BPL, confirm the package is listed and checked, and choose OK.",
             "Open the target application's primary form in the Delphi Form Designer and place one TDATVCLLanguageManager or TDATFMXLanguageManager from DAT Localization.",
             "Set ApplicationId exactly to the detected Delphi project name. Leave LanguagesFolder as Localization\\Languages and set SourceLanguage to the catalog source locale, normally en-US.",
-            "Optionally place TDATVCLLanguageComboBox or TDATFMXLanguageComboBox and set its LanguageManager property to the manager. Size and align it in the designer like every other visual control.",
-            "Add the kit's ComponentSource folder to the target Search Path, or reference the installed component source location. Delphi will persist the manager field and component unit through normal designer operations.",
-            "Copy the kit's Localization folder beside every built Win32/Win64 executable, or run Deploy-LanguagePacks.ps1 with that executable directory.",
-            "Build and run the target. The saved language is applied during startup. Choosing another locale from the optional selector immediately retranslates open forms and saves the preference.",
+            "Place TDATVCLLanguageComboBox or TDATFMXLanguageComboBox and set its LanguageManager property to the manager. A connected Language menu is the supported alternative; some visible selector is required.",
+            "The Setup Wizard adds the kit's ComponentSource folder to the DPROJ Base Search Path, which is inherited by Debug/Release and Win32/Win64.",
+            "The Setup Wizard adds a post-build command that deploys the kit's Localization folder to the active DCC_ExeOutput directory with PowerShell ExecutionPolicy Bypass.",
+            "Build and run the target. The saved language is applied during startup. Choosing another locale immediately retranslates open forms and saves the preference.",
         ],
     )
 
@@ -928,8 +930,8 @@ def build_setup_wizard_guide() -> Path:
         document,
         [
             "The Setup Wizard is the recommended way to localize a Delphi application for the first time. It presents one decision at a time, verifies prerequisites before allowing the next step, and records the files and commands needed to finish the integration.",
-            "At completion, the developer has a saved development catalog, a compact JSON runtime language pack, a component integration kit, a safety backup when requested, and exact deployment commands. The selected Delphi project is scanned but its Pascal, DFM, FMX, DPR, and DPROJ files are not automatically rewritten.",
-            "The Wizard cannot perform Delphi's design-time work on the developer's behalf. RAD Studio must install the design package through its normal Install Packages dialog, and the developer must place and configure one language-manager component on the target application's primary form. These visible IDE changes are deliberate safeguards.",
+            "At completion, the developer has a saved development catalog, compact JSON runtime language packs, a component integration kit, a required safety backup, and automatic build deployment. Pascal, DFM, FMX, and DPR files remain untouched. The Wizard adds one clearly marked, backed-up block to the DPROJ for the ComponentSource Search Path and post-build language-pack deployment.",
+            "The Wizard cannot perform Delphi's design-time work on the developer's behalf. RAD Studio must install the design package through its normal Install Packages dialog, and the developer must place and configure the language manager and visible selector on the target application's primary form. These visible IDE changes are deliberate safeguards.",
         ],
     )
     add_callout(
@@ -985,7 +987,7 @@ def build_setup_wizard_guide() -> Path:
     add_callout(
         document,
         "Cancel boundary.",
-        "Cancel is safe through the Review and Authorize page, before Begin Final Processing is selected. During final processing the Wizard cannot be closed. If an operation fails, the Wizard stops, restores navigation as appropriate, and reports the stopping point without automatically editing target source files.",
+        "Cancel is safe through the Review and Authorize page, before Begin Final Processing is selected. During final processing the Wizard cannot be closed. If a failure occurs after the controlled DPROJ update, the transaction restores the prior project configuration automatically. Pascal and form source are not rewritten.",
     )
 
     document.add_heading("4. Complete the Eight Wizard Steps", level=1)
@@ -1013,11 +1015,12 @@ def build_setup_wizard_guide() -> Path:
             "Select Browse.",
             "Navigate to the test copy and select its .dproj file.",
             "Confirm the displayed project name, VCL or FireMonkey framework, Windows targets, and form-resource count.",
+            "Confirm the detected Application ID. It is the project filename without .dproj, such as Carillon for Carillon.dproj. Use Copy ID if the value will be needed in RAD Studio.",
             "If the project is wrong, select Browse again before continuing.",
             "Select Next.",
         ],
     )
-    add_callout(document, "Expected result.", "The footer reports that the project was identified and no target file was changed.")
+    add_callout(document, "Expected result.", "The footer reports that the project was identified and no target file was changed. The exact Application ID is displayed explicitly rather than inferred from the folder name.")
 
     document.add_heading("4.3 Step 3 - Languages", level=2)
     add_paragraphs(
@@ -1081,7 +1084,7 @@ def build_setup_wizard_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "This page explains the one manual RAD Studio operation that cannot safely be performed by the Wizard. The design-time BPL makes TDATVCLLanguageManager or TDATFMXLanguageManager available on the DAT Localization Tool Palette page. Installing it is normally a one-time operation for the current RAD Studio installation.",
+            "This page explains the remaining manual RAD Studio phase that cannot safely be performed by the Wizard. The design-time BPL makes the manager and selector available on the DAT Localization Tool Palette page. Installing it is normally a one-time operation for the current RAD Studio installation; placing and arranging components remains designer-owned work.",
         ],
     )
     add_steps(
@@ -1108,7 +1111,8 @@ def build_setup_wizard_guide() -> Path:
             "Confirm the project path and application name.",
             "Confirm the target language and provider.",
             "Compare Scanned entries with Unresolved entries to translate. A lower unresolved count is normal when entries are protected, excluded, obsolete, or already translated.",
-            "Leave Create a timestamped ZIP safety backup selected unless a deliberate and verified alternate backup is being used.",
+            "Close the target project in RAD Studio, then select Required: the target project is closed in RAD Studio. This prevents the IDE from overwriting the controlled DPROJ update with an older in-memory copy.",
+            "Confirm that the required timestamped ZIP safety backup is selected. It cannot be disabled because final processing adds controlled properties inside Delphi's native Base compiler group.",
             "Select I reviewed these choices and authorize final processing.",
             "Select Begin Final Processing only when every item is correct.",
         ],
@@ -1119,7 +1123,7 @@ def build_setup_wizard_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "Final processing runs in a fixed order: optional ZIP backup, automatic translation of eligible unresolved entries, development-catalog save, structural validation, runtime-pack export, component-kit generation, deployment-command creation, and completion-report creation.",
+            "Final processing runs in a fixed order: required ZIP backup, automatic translation of eligible unresolved entries, development-catalog save, structural validation, runtime-pack export, component-kit generation, deployment to existing output folders, backed-up transactional DPROJ configuration, and completion-report creation.",
             "Machine translations are recorded with Google or DeepL provenance. Existing Reviewed, Approved, Excluded, and Obsolete entries are not overwritten. Blocking validation errors stop the sequence; warnings are recorded but do not necessarily prevent export.",
         ],
     )
@@ -1129,12 +1133,13 @@ def build_setup_wizard_guide() -> Path:
             "Watch the timestamped progress log. Do not terminate the Studio or Windows while processing is active.",
             "When processing completes, select the blue component-kit path or Open Kit Folder.",
             "Keep the Wizard open while completing the RAD Studio steps in Chapter 5; the generated commands and paths remain visible.",
-            "After the target configurations are built, select Run Pack Deployment. The Wizard deploys only to build-output folders that already exist.",
-            "Use Copy All Commands when manual PowerShell execution is preferred or when the target has a custom output layout.",
+            "Build the target configurations. The Wizard's post-build step automatically deploys the current JSON packs to the executable's Localization\\Languages folder.",
+            "Use Deploy Build Outputs to refresh detected build folders. For a portable, USB, or custom installation, choose Deploy to App Folder and select the folder containing the exact application EXE. The Wizard verifies the EXE before copying anything.",
+            "Use Copy Fallback Commands only for troubleshooting or a deliberately manual deployment.",
             "Select Finish after reviewing the completion results.",
         ],
     )
-    add_callout(document, "Expected result.", "The progress log ends successfully, the component-kit folder exists, Wizard-Completion-Report.txt records the paths, and deployment commands include -NoProfile -ExecutionPolicy Bypass.")
+    add_callout(document, "Expected result.", "The progress log ends successfully, the component-kit folder exists, Wizard-Completion-Report.txt records the exact Application ID, Search Path, backups, and deployments, and the DPROJ contains one marked Wizard block.")
 
     document.add_heading("5. Complete the Manual RAD Studio Step", level=1)
     add_paragraphs(
@@ -1167,30 +1172,43 @@ def build_setup_wizard_guide() -> Path:
         [
             "Open the target test project and its primary form in the Form Designer.",
             "Place one TDATFMXLanguageManager for an FMX project or one TDATVCLLanguageManager for a VCL project. One manager supervises the application; it is not placed on all forms.",
-            "Set ApplicationId exactly to the project name shown by the Wizard and stored in the runtime pack.",
+            "Set ApplicationId to the exact value shown in Detected Application ID. For example, Carillon.dproj produces Carillon regardless of the containing folder name.",
             "Leave LanguagesFolder as Localization\\Languages unless the application has an intentional custom deployment layout.",
             "Set SourceLanguage to en-US when English (United States) is the source.",
-            "Optionally place the matching TDAT language combo box, set its LanguageManager property to the manager, and position it where the user can select a language.",
-            "Add the generated kit's ComponentSource folder to the target project's Search Path when the units are not already available through an approved common source location.",
-            "Save the form and project. Delphi will make normal, visible form-resource, Pascal-field, uses-clause, and DPROJ search-path changes.",
+            "Place the matching TDAT language combo box. In Object Inspector, set its LanguageManager property to the manager component; do not leave this property blank. Position it where users can select a language. A connected Language menu may replace the combo box, but a visible language choice is required.",
+            "Save the form and project. Delphi makes the normal visible form-resource, Pascal-field, and uses-clause changes. The Wizard has already configured the DPROJ Search Path and post-build deployment.",
         ],
+    )
+
+    document.add_heading("5.3 Verify the Automatic Search Path", level=2)
+    add_paragraphs(
+        document,
+        [
+            "The Wizard adds the generated kit's ComponentSource directory under the DPROJ Base configuration. Base inheritance makes the same path available to Debug and Release on both Win32 and Win64. No four-way manual entry is normally required.",
+            "To verify or repair the setting manually in RAD Studio, open Project > Options. Select Building > Delphi Compiler. At the top of the page select All configurations and All platforms, then locate Search path. The value must contain the exact ComponentSource path recorded in Wizard-Completion-Report.txt. Do not delete existing paths or the inherited $(DCC_UnitSearchPath) value.",
+        ],
+    )
+    add_callout(
+        document,
+        "Manual fallback screen reference.",
+        "RAD Studio path: Project > Options > Building > Delphi Compiler > Search path. Select All configurations and All platforms before editing. The Wizard normally performs this operation automatically; this reference exists for verification and recovery.",
     )
 
     document.add_heading("6. Build and Deploy the Language Packs", level=1)
     add_paragraphs(
         document,
         [
-            "The JSON packs must be beside each executable under Localization\\Languages. The Wizard generates commands for the conventional bin\\Win32\\Debug, bin\\Win32\\Release, bin\\Win64\\Debug, and bin\\Win64\\Release folders. It skips any folder that does not yet exist.",
+            "The JSON packs must be beside each executable under Localization\\Languages. The Wizard configures a post-build event that uses Delphi's active DCC_ExeOutput value, so Debug, Release, Win32, Win64, and intentional custom output paths are handled by the build that produced the executable.",
         ],
     )
     add_steps(
         document,
         [
             "Build each target platform/configuration that will be tested or released.",
-            "Return to the Wizard and select Run Pack Deployment.",
-            "Confirm the footer reports the number of existing build folders that received packs.",
+            "Confirm each successful build reports language-pack deployment in its build output. The command runs PowerShell with -NoProfile -ExecutionPolicy Bypass.",
             "For each executable, verify that Localization\\Languages contains the English source pack and the translated target pack.",
-            "If the application uses a custom output folder, select Copy All Commands, change only the ApplicationDirectory value, and run the command in PowerShell.",
+            "If an already-built output needs refreshing, select Deploy Build Outputs. Copy Fallback Commands remains available for troubleshooting.",
+            "For a portable or USB copy, select Deploy to App Folder and choose the folder containing <ProjectName>.exe. The LanguagesFolder component property remains the relative value Localization\\Languages, while the physical destination includes the drive, for example F:\\Localization\\Languages.",
         ],
     )
     add_callout(
@@ -1226,7 +1244,8 @@ def build_setup_wizard_guide() -> Path:
         [
             ["<Target>\\Localization\\Development\\<Project>.<locale>.translation-project.json", "Detailed working catalog retained for later rescans, updates, and review."],
             ["<Target>\\Localization\\Languages\\<locale>.json", "Compact runtime pack for deployment beside the application."],
-            ["Documents\\Delphi App Translation Backups\\<Project>\\<timestamp>.zip", "Optional pre-processing safety backup."],
+            ["Documents\\Delphi App Translation Backups\\<Project>\\<timestamp>.zip", "Required pre-processing safety backup."],
+            ["<Target>.dproj marked Wizard block", "Inherits ComponentSource through all configurations/platforms and runs pack deployment after builds."],
             ["<Studio>\\export\\component-integration\\<Project>", "Generated component integration kit."],
             ["ComponentSource", "Framework-neutral and VCL/FMX component/runtime units needed by the target."],
             ["Deploy-LanguagePacks.ps1", "Copies the kit's Localization folder to a specified executable directory."],
@@ -1254,14 +1273,12 @@ def build_setup_wizard_guide() -> Path:
         document,
         ["Problem", "What it means", "Action"],
         [
-            ["Browse reports an access violation", "The Wizard form resource is incomplete or an old executable is being run.", "Use a current repaired build; verify that the build date and executable path are the intended ones."],
-            ["Framework cannot be identified", "The selected file lacks recognizable VCL/FMX project metadata.", "Select the .dproj instead of .dpr and confirm the project opens normally in RAD Studio."],
+            ["Project browse or identification fails", "An old Wizard build may be running, or the selected file lacks recognizable VCL/FMX metadata.", "Use the current executable, select the .dproj rather than .dpr, and confirm the project opens normally in RAD Studio."],
             ["Connection test fails", "Provider authentication, billing, restriction, quota, plan, or network setup is incomplete.", "Correct the provider account before scanning or final processing."],
             ["Scan returns zero", "The wrong project was selected or the forms are not readable text resources.", "Verify the project path and convert binary DFM resources through Delphi."],
             ["Unresolved count is lower than scan count", "Some entries are dynamic, excluded, obsolete, protected, or already translated.", "This is normally correct; review classifications in the full Studio when needed."],
-            ["Show Design BPL says it has not been built", "The stable component packages are missing from the Studio build tree.", "Build the package set, then rerun Show Design BPL."],
-            ["DAT Localization is absent", "The design BPL is not installed or not enabled in this RAD Studio installation.", "Use Component > Install Packages > Add with the exact Win32 Release design BPL."],
-            ["Run Pack Deployment finds no folders", "The target has not been built into the conventional output folders.", "Build the target configurations, then run deployment again or use a command with the custom output directory."],
+            ["Package or DAT Localization is unavailable", "The design package is not built, installed, or enabled in this RAD Studio installation.", "Build the package set if needed, then use Component > Install Packages > Add with the exact Win32 Release design BPL."],
+            ["Packs are absent after a build", "The marked DPROJ settings are missing, the kit moved, or the post-build command failed.", "Inspect the build output, verify the kit path, and use Deploy Build Outputs, Deploy to App Folder, or the documented manual fallback."],
             ["Selector is empty", "Packs are missing, invalid, or have a different applicationId.", "Check Localization\\Languages beside the running executable and verify ApplicationId."],
             ["Some text remains English", "The text may be dynamic, excluded, added after the scan, or not wired as a resourcestring.", "Rescan and translate new entries; use the full Studio to inspect runtime classifications and manual wiring warnings."],
         ],
@@ -1324,7 +1341,7 @@ def build_engineering_guide() -> Path:
             ["source\\validation", "Catalog safety and completeness checks."],
             ["source\\provider", "Provider types/settings, Credential Manager, DeepL/Google HTTPS client."],
             ["source\\runtime", "Pack discovery/loading, preference, manager, VCL and FMX applicators."],
-            ["source\\components", "Framework-neutral manager core, VCL/FMX lifecycle adapters, and optional language selectors."],
+            ["source\\components", "Framework-neutral manager core, VCL/FMX lifecycle adapters, and supplied language selectors."],
             ["source\\design", "VCL and FMX Tool Palette registration units."],
             ["packages\\runtime / packages\\design", "Core and framework runtime BPLs plus Win32 IDE design packages."],
             ["source\\integration", "Non-mutating component kits plus advanced planning, resource/source changes, transactions, and reset."],
@@ -1456,7 +1473,7 @@ def build_engineering_guide() -> Path:
         [
             "DAT.Studio.SetupWizard is a separate, designer-authored FMX modal form opened by Start Setup Wizard. It is borderless, fixed-size, centered, and deliberately omits menu and system controls. Its eight hidden TabControl pages, left navigation rail, footer controls, labels, dialogs, check boxes, memos, and layout geometry are all persisted in DAT.Studio.SetupWizard.fmx and remain editable in the Form Designer.",
             "The Wizard owns isolated project-profile, scan-result, catalog, provider-key, backup, and component-kit state. Steps already reached may be revisited; future steps remain disabled. Changing the project or target language invalidates downstream scan/catalog state. Before final processing, the target project is read only except for an explicitly saved provider credential outside the project. During final processing, navigation and closing are disabled.",
-            "Final processing optionally creates a timestamped ZIP, translates eligible unresolved entries, saves the development catalog, validates, exports the runtime JSON pack, generates the component kit, writes Wizard-Completion-Report.txt, and generates four deployment commands. Each command launches the system Windows PowerShell executable with -NoProfile -ExecutionPolicy Bypass. The Wizard never edits target Pascal, form, DPR, or DPROJ files and never writes RAD Studio's package registry.",
+            "Final processing requires confirmation that the target project is closed, creates a timestamped ZIP, translates eligible unresolved entries, saves the development catalog, validates, exports the runtime JSON pack, generates the component kit, deploys packs to existing outputs, and transactionally inserts marked Search Path and PostBuildEvent properties inside Delphi's native Base compiler property group. Base inheritance covers Debug/Release and Win32/Win64. The Wizard never edits target Pascal, form, or DPR files and never writes RAD Studio's package registry.",
         ],
     )
     add_callout(
@@ -1503,8 +1520,8 @@ def build_engineering_guide() -> Path:
         document,
         ["Provider", "Endpoint", "Authentication", "Payload"],
         [
-            ["DeepL API Free", "https://api-free.deepl.com/v2/translate", "Authorization: DeepL-Auth-Key", "text array, source_lang, target_lang"],
-            ["DeepL API Pro", "https://api.deepl.com/v2/translate", "Authorization: DeepL-Auth-Key", "text array, source_lang, target_lang"],
+            ["DeepL API Free", "https://api-free.deepl.com/v2/translate", "Authorization: DeepL-Auth-Key", "text array, source_lang, target_lang, context"],
+            ["DeepL API Pro", "https://api.deepl.com/v2/translate", "Authorization: DeepL-Auth-Key", "text array, source_lang, target_lang, context"],
             ["Google Basic v2", "https://translation.googleapis.com/language/translate/v2", "X-Goog-Api-Key", "q array, source, target, format=text"],
         ],
     )
@@ -1514,6 +1531,8 @@ def build_engineering_guide() -> Path:
         [
             "Batch size is capped at 50 and Google language tags are reduced to base language where appropriate.",
             "DeepL source codes are normalized to two-letter uppercase; targets retain supported regional forms.",
+            "DeepL receives a batch context assembled from each entry's inferred UI role and semantic concept. DeepL documents context as unbilled supporting text.",
+            "Google Basic v2 has no context or glossary request field. Context is used locally for terminology, memory matching, and ambiguity warnings but is not sent to Google.",
             "HTTP 429 and 5xx responses receive three bounded attempts with short backoff.",
             "Other non-2xx statuses fail immediately with provider, status, and corrective categories.",
             "A cancellation callback is checked between batches.",
@@ -1537,10 +1556,11 @@ def build_engineering_guide() -> Path:
         document,
         [
             "Translate Automatically is the canonical machine-translation path. It validates the selected catalog language, loads the selected provider settings and effective key, counts eligible unresolved entries, and shows the provider and count before any network request.",
-            "Eligible source strings are copied into ordered arrays and sent through DAT.Provider.Client in bounded batches. Reviewed, Approved, Excluded, and Obsolete entries are not overwritten. Provider results are mapped back by index, marked Machine translated, tagged with Google or DeepL provenance, and saved to the canonical development catalog automatically.",
+            "Every scan entry receives ContextKind, ContextDescription, SemanticConcept, and ContextConfidence metadata. Before a network request, the Studio reuses a Reviewed or Approved translation only when source text and semantic context match, then applies supported vetted UI terminology. Remaining strings are sent through DAT.Provider.Client in bounded batches. Reviewed, Approved, Excluded, and Obsolete entries are not overwritten.",
+            "DeepL receives contextual descriptions. Google Basic results are tagged provider-basic; short terms with unknown meaning receive a review note. DeepL contextual results are tagged contextual-provider. Terminology and translation-memory results retain their own provenance.",
             "If no key is available, the workflow opens Provider Settings and gives a specific corrective message. HTTP or parsing failures leave the catalog entries unchanged for the failed operation and report a redacted summary in the status card.",
             "CSV interchange and manual editing remain optional alternatives for translation-company collaboration or specialized review, not prerequisites for automatic translation.",
-            "The Studio never copies a translation from one stable key to another automatically. Exact-source matches are suggestions only. Explicit acceptance creates an Edited result and does not inherit Reviewed or Approved status.",
+            "The Studio may automatically reuse a Reviewed or Approved translation when both source text and semantic context match. It does not reuse approval state: the new entry remains Machine translated for review. Suggestions remain available for deliberate acceptance of other exact-source candidates.",
         ],
     )
     add_bullets(
@@ -1560,7 +1580,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Validation.Catalog validates metadata, missing target text, duplicates, changed source, Delphi indexed and sequential Format arguments, accelerators, inconsistent repeated-source terminology, and status conditions. Export is blocked by errors. Common runtime placeholders such as -- are informational when intentionally unchanged. The UI explains severity and maps a double-clicked entry issue back to the Translate list. Manual resourcestring wiring is reported separately from structural errors. DAT.Core.RuntimePack serializes only runtime-required metadata and strings and records a source-catalog checksum.",
+            "DAT.Validation.Catalog validates metadata, missing target text, duplicates, changed source, Delphi indexed and sequential Format arguments, accelerators, inconsistent repeated-source terminology within the same semantic context, ambiguous context, and status conditions. Export is blocked by errors. Common runtime placeholders such as -- are informational when intentionally unchanged. The UI explains severity and maps a double-clicked entry issue back to the Translate list. Manual resourcestring wiring is reported separately from structural errors. DAT.Core.RuntimePack serializes only runtime-required metadata and strings and records a source-catalog checksum.",
             "Locale data is retained in the runtime pack so DAT.Runtime.Manager can expose a pack-specific TFormatSettings without globally mutating the developer's source code.",
         ],
     )
@@ -1582,11 +1602,11 @@ def build_engineering_guide() -> Path:
             "PreserveControlState protects writable edit/memo data, focus, selection ranges, and list/combo ItemIndex. Collection replacement temporarily suppresses and then restores OnChange. Read-only instructional memo content remains translatable.",
         ],
     )
-    document.add_heading("11.2 Optional selectors", level=2)
+    document.add_heading("11.2 Required language-selection UI", level=2)
     add_paragraphs(
         document,
         [
-            "TDATVCLLanguageComboBox and TDATFMXLanguageComboBox are normal designer-owned controls. Their typed LanguageManager property streams in DFM/FMX resources. At runtime AutoPopulate obtains validated descriptors, ShowLanguageCode controls display formatting, and selection calls the manager while preserving the inherited OnChange notification. RefreshLanguages supports packs deployed after startup.",
+            "TDATVCLLanguageComboBox and TDATFMXLanguageComboBox are the supplied designer-owned language selectors. Their typed LanguageManager property streams in DFM/FMX resources. At runtime AutoPopulate obtains validated descriptors, ShowLanguageCode controls display formatting, and selection calls the manager while preserving the inherited OnChange notification. RefreshLanguages supports packs deployed after startup. A connected Language menu is permitted instead, but the localized application must expose some visible language-selection UI.",
         ],
     )
     document.add_heading("11.3 Deployment paths", level=2)
@@ -1736,7 +1756,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "The editable guides are generated from actual source and engineering notes with python-docx. Each DOCX contains a real Word TOC field, a dedicated TOC section, and a new-page content section. Microsoft Word COM updates and saves the real TOC. Word ExportAsFixedFormat is attempted first for companion PDFs; when the local Word exporter is unresponsive, the approved HTML/CSS and browser-print fallback produces the PDFs. Every PDF page is rendered to images and inspected before release. LibreOffice is not used for this project.",
+            "The editable guides are generated from actual source and engineering notes with python-docx. Each DOCX contains a real TOC field, a dedicated TOC section, and a new-page content section. Finalization attempts Microsoft Word COM first to refresh TOCs and export companion PDFs. A bounded timeout prevents Word automation from hanging indefinitely; if Word fails, the approved Playwright HTML/CSS pipeline creates the PDFs. Every final PDF is rendered to page images and inspected before release.",
         ],
     )
 

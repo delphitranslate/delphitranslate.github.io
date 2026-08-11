@@ -240,6 +240,7 @@ var
   KnownKeys: TStringList;
   KnownTranslation: string;
   KnownTranslations: TDictionary<string, string>;
+  ConsistencyKey: string;
 begin
   Result := TCatalogValidationResult.Create;
   if ACatalog = nil then
@@ -328,7 +329,9 @@ begin
             AddIssue(Result, vsWarning, 'entry.sameText', Entry.Key,
               'Translation matches the source. Review whether this term should remain unchanged; export is not blocked.');
         end;
-        if KnownTranslations.TryGetValue(Entry.SourceText,
+        ConsistencyKey := LowerCase(Entry.SourceText + '|' +
+          Entry.SemanticConcept + '|' + Entry.ContextKind);
+        if KnownTranslations.TryGetValue(ConsistencyKey,
           KnownTranslation) then
         begin
           if not SameText(KnownTranslation, Entry.TranslatedText) then
@@ -338,7 +341,7 @@ begin
               'Confirm that context requires the difference.');
         end
         else
-          KnownTranslations.Add(Entry.SourceText,
+          KnownTranslations.Add(ConsistencyKey,
             Entry.TranslatedText);
       end;
 
@@ -348,6 +351,13 @@ begin
       if SameText(Entry.TranslationConfidence, 'low') then
         AddIssue(Result, vsWarning, 'entry.aiLowConfidence', Entry.Key,
           'The AI agent marked this translation as low confidence.');
+      if SameText(Entry.ContextConfidence, 'unknown') then
+        AddIssue(Result, vsWarning, 'entry.ambiguousContext', Entry.Key,
+          'The source text is ambiguous and its intended UI meaning could not be inferred. Review the translation in context.');
+      if (Trim(Entry.ContextKind) = '') and
+         (Length(Trim(Entry.SourceText)) <= 20) then
+        AddIssue(Result, vsInformation, 'entry.contextMissing', Entry.Key,
+          'No UI context metadata is available for this short source text.');
       if Trim(Entry.TranslationReviewNote) <> '' then
         AddIssue(Result, vsWarning, 'entry.aiReviewNote', Entry.Key,
           'AI review note: ' + Entry.TranslationReviewNote);

@@ -272,7 +272,7 @@ object frmSetupWizard: TfrmSetupWizard
                 Size.PlatformDefault = False
                 TextSettings.Font.Size = 15.000000000000000000
                 TextSettings.FontColor = xFF68420C
-                Text = 'Safety first: nothing is written to the selected project before final processing. Final processing creates a safety backup and localization files, but does not automatically rewrite Delphi source, form, or project files.'
+                Text = 'Safety first: nothing is written before final processing. After authorization, the Wizard creates a safety backup, writes localization files, and adds one marked Search Path/deployment block to the DPROJ. It does not rewrite Pascal or form source.'
               end
             end
           end
@@ -300,7 +300,7 @@ object frmSetupWizard: TfrmSetupWizard
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
               TextSettings.FontColor = xFF365674
-              Text = 'Choose the .dproj or .dpr file. The wizard reads project metadata only and does not alter the project.'
+              Text = 'Choose the .dproj or .dpr file. The Wizard reads project metadata now; no target file changes until you explicitly authorize final processing.'
             end
             object edtProjectFile: TEdit
               ReadOnly = True
@@ -324,7 +324,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               WordWrap = True
               Position.X = 8.000000000000000000
-              Position.Y = 210.000000000000000000
+              Position.Y = 300.000000000000000000
               Size.Width = 730.000000000000000000
               Size.Height = 90.000000000000000000
               Size.PlatformDefault = False
@@ -332,6 +332,32 @@ object frmSetupWizard: TfrmSetupWizard
               TextSettings.Font.StyleExt = {00070000000000000004000000}
               TextSettings.FontColor = xFF17416F
               Text = 'Project details will appear here.'
+            end
+            object lblApplicationId: TLabel
+              Position.X = 8.000000000000000000
+              Position.Y = 210.000000000000000000
+              Size.Width = 300.000000000000000000
+              Size.Height = 24.000000000000000000
+              Size.PlatformDefault = False
+              Text = 'Detected Application ID'
+            end
+            object edtApplicationId: TEdit
+              ReadOnly = True
+              Position.X = 8.000000000000000000
+              Position.Y = 238.000000000000000000
+              Size.Width = 575.000000000000000000
+              Size.Height = 42.000000000000000000
+              Size.PlatformDefault = False
+              TextPrompt = 'Select a Delphi project'
+            end
+            object btnCopyApplicationId: TButton
+              Position.X = 598.000000000000000000
+              Position.Y = 238.000000000000000000
+              Size.Width = 140.000000000000000000
+              Size.Height = 42.000000000000000000
+              Size.PlatformDefault = False
+              Text = 'Copy ID'
+              OnClick = btnCopyApplicationIdClick
             end
           end
           object tabLanguages: TTabItem
@@ -653,7 +679,7 @@ object frmSetupWizard: TfrmSetupWizard
               TextSettings.Font.Size = 24.000000000000000000
               TextSettings.Font.StyleExt = {00070000000000000004000000}
               TextSettings.FontColor = xFF163A63
-              Text = 'Understand the one manual Delphi step'
+              Text = 'Understand the manual RAD Studio phase'
             end
             object lblComponentText: TLabel
               StyledSettings = []
@@ -665,7 +691,7 @@ object frmSetupWizard: TfrmSetupWizard
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
               TextSettings.FontColor = xFF365674
-              Text = 'RAD Studio must register design-time packages through its approved Install Packages dialog. The wizard opens the exact BPL location; it never changes the IDE package registry itself.'
+              Text = 'RAD Studio must register the design package and place the two components through its approved designer workflow. The Wizard handles Search Paths and language-pack deployment automatically.'
             end
             object memComponentInstructions: TMemo
               Position.X = 8.000000000000000000
@@ -683,9 +709,10 @@ object frmSetupWizard: TfrmSetupWizard
                 '3. Select the exact design BPL shown by this wizard.'
                 '4. Confirm the DAT package is checked, then click OK.'
                 '5. Open the target project and its primary form.'
-                '6. Place one DAT language manager and, optionally, one DAT language combo box.'
-                '7. Set ApplicationId to the project name and leave LanguagesFolder as Localization\\Languages.'
-                '8. Save the form and build the required configurations.')
+                '6. Place the DAT language manager and required visible language selector.'
+                '7. Use the exact Application ID detected by this Wizard.'
+                '8. Save the form and build Win32 and Win64 as required.'
+                'The Wizard configures Search Paths and language-pack deployment automatically.')
             end
             object btnShowDesignBPL: TButton
               Position.X = 8.000000000000000000
@@ -702,7 +729,7 @@ object frmSetupWizard: TfrmSetupWizard
               Size.Width = 518.000000000000000000
               Size.Height = 46.000000000000000000
               Size.PlatformDefault = False
-              Text = 'I understand this manual RAD Studio step'
+              Text = 'I understand the remaining manual RAD Studio phase'
               OnChange = chkUnderstandManualStepChange
             end
           end
@@ -736,7 +763,7 @@ object frmSetupWizard: TfrmSetupWizard
               Position.X = 8.000000000000000000
               Position.Y = 116.000000000000000000
               Size.Width = 730.000000000000000000
-              Size.Height = 190.000000000000000000
+              Size.Height = 164.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True
@@ -744,15 +771,24 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object chkCreateBackup: TCheckBox
               Position.X = 8.000000000000000000
-              Position.Y = 318.000000000000000000
+              Position.Y = 288.000000000000000000
               Size.Width = 520.000000000000000000
               Size.Height = 32.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Create a timestamped ZIP safety backup before processing'
+              Text = 'Required: create a timestamped ZIP safety backup before processing'
+            end
+            object chkTargetProjectClosed: TCheckBox
+              Position.X = 8.000000000000000000
+              Position.Y = 324.000000000000000000
+              Size.Width = 700.000000000000000000
+              Size.Height = 32.000000000000000000
+              Size.PlatformDefault = False
+              Text = 'Required: the target project is closed in RAD Studio'
+              OnChange = chkAuthorizeFinalChange
             end
             object chkAuthorizeFinal: TCheckBox
               Position.X = 8.000000000000000000
-              Position.Y = 354.000000000000000000
+              Position.Y = 360.000000000000000000
               Size.Width = 650.000000000000000000
               Size.Height = 32.000000000000000000
               Size.PlatformDefault = False
@@ -763,7 +799,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               WordWrap = True
               Position.X = 8.000000000000000000
-              Position.Y = 394.000000000000000000
+              Position.Y = 398.000000000000000000
               Size.Width = 730.000000000000000000
               Size.Height = 52.000000000000000000
               Size.PlatformDefault = False
@@ -835,29 +871,38 @@ object frmSetupWizard: TfrmSetupWizard
             object btnCopyCommands: TButton
               Position.X = 8.000000000000000000
               Position.Y = 410.000000000000000000
-              Size.Width = 180.000000000000000000
+              Size.Width = 168.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Copy All Commands'
+              Text = 'Copy Fallback Commands'
               OnClick = btnCopyCommandsClick
             end
             object btnOpenKitFolder: TButton
-              Position.X = 396.000000000000000000
+              Position.X = 368.000000000000000000
               Position.Y = 410.000000000000000000
-              Size.Width = 180.000000000000000000
+              Size.Width = 168.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
               Text = 'Open Kit Folder'
               OnClick = btnOpenKitFolderClick
             end
             object btnRunDeployment: TButton
-              Position.X = 202.000000000000000000
+              Position.X = 188.000000000000000000
               Position.Y = 410.000000000000000000
-              Size.Width = 180.000000000000000000
+              Size.Width = 168.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Run Pack Deployment'
+              Text = 'Deploy Build Outputs'
               OnClick = btnRunDeploymentClick
+            end
+            object btnDeployApplicationFolder: TButton
+              Position.X = 548.000000000000000000
+              Position.Y = 410.000000000000000000
+              Size.Width = 190.000000000000000000
+              Size.Height = 40.000000000000000000
+              Size.PlatformDefault = False
+              Text = 'Deploy to App Folder...'
+              OnClick = btnDeployApplicationFolderClick
             end
           end
         end

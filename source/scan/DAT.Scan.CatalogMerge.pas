@@ -48,6 +48,10 @@ begin
   AEntry.SourceLine := AScanItem.SourceLine;
   AEntry.SourceKind := ScannedTextKindDisplayName(AScanItem.Kind);
   AEntry.RuntimeTextRole := AScanItem.RuntimeTextRole;
+  AEntry.ContextKind := AScanItem.ContextKind;
+  AEntry.ContextDescription := AScanItem.ContextDescription;
+  AEntry.SemanticConcept := AScanItem.SemanticConcept;
+  AEntry.ContextConfidence := AScanItem.ContextConfidence;
   case AEntry.RuntimeTextRole of
     rtrStaticText:
       begin

@@ -15,6 +15,7 @@ uses
   DAT.Core.AITranslation in '..\..\source\core\DAT.Core.AITranslation.pas',
   DAT.Core.TranslationWorkspace in '..\..\source\core\DAT.Core.TranslationWorkspace.pas',
   DAT.Core.RuntimePack in '..\..\source\core\DAT.Core.RuntimePack.pas',
+  DAT.Core.Terminology in '..\..\source\core\DAT.Core.Terminology.pas',
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
@@ -29,6 +30,7 @@ uses
   DAT.Integration.Engine in '..\..\source\integration\DAT.Integration.Engine.pas',
   DAT.Scan.Types in '..\..\source\scan\DAT.Scan.Types.pas',
   DAT.Scan.Rules in '..\..\source\scan\DAT.Scan.Rules.pas',
+  DAT.Scan.Context in '..\..\source\scan\DAT.Scan.Context.pas',
   DAT.Scan.TextCodec in '..\..\source\scan\DAT.Scan.TextCodec.pas',
   DAT.Scan.FormText in '..\..\source\scan\DAT.Scan.FormText.pas',
   DAT.Scan.PascalResources in '..\..\source\scan\DAT.Scan.PascalResources.pas',
@@ -42,7 +44,8 @@ type
   TProviderClientAccess = class(TTranslationProviderClient)
   public
     function PublicBuildRequestBody(const ATexts: TArray<string>;
-      const ASourceLanguage, ATargetLanguage: string): string;
+      const ASourceLanguage, ATargetLanguage: string;
+      const AContext: string = ''): string;
     function PublicEndpoint: string;
     function PublicParseResponse(
       const AResponseText: string): TArray<string>;
@@ -50,10 +53,10 @@ type
 
 function TProviderClientAccess.PublicBuildRequestBody(
   const ATexts: TArray<string>; const ASourceLanguage,
-  ATargetLanguage: string): string;
+  ATargetLanguage, AContext: string): string;
 begin
   Result := BuildRequestBody(ATexts,
-    ASourceLanguage, ATargetLanguage);
+    ASourceLanguage, ATargetLanguage, AContext);
 end;
 
 function TProviderClientAccess.PublicEndpoint: string;
@@ -95,6 +98,10 @@ begin
       'The DeepL request text array is incorrect.');
     Require(ContainsText(RequestBody, '"source_lang":"EN"'),
       'The DeepL source language is incorrect.');
+    RequestBody := Client.PublicBuildRequestBody(SourceTexts, 'en-US',
+      'it-IT', 'Text used as a user command in a desktop application.');
+    Require(ContainsText(RequestBody, '"context":'),
+      'The DeepL request does not include approved UI context.');
     Translations := Client.PublicParseResponse(
       '{"translations":[{"text":"Salva"},{"text":"Annulla"}]}');
     Require((Length(Translations) = 2) and
@@ -117,6 +124,10 @@ begin
       'The Google request text array is incorrect.');
     Require(ContainsText(RequestBody, '"target":"it"'),
       'The Google target language is incorrect.');
+    RequestBody := Client.PublicBuildRequestBody(SourceTexts, 'en-US',
+      'it-IT', 'Context must not be sent to Google Basic.');
+    Require(not ContainsText(RequestBody, '"context":'),
+      'Google Basic was sent an unsupported context field.');
     Translations := Client.PublicParseResponse(
       '{"data":{"translations":[' +
       '{"translatedText":"Salva"},' +
@@ -182,6 +193,11 @@ begin
     Entry.RuntimeApplication := rakManualTranslateText;
     Entry.RuntimeTextRole := rtrRuntimeTemplate;
     Entry.RuntimeWiringConfirmed := True;
+    Entry.ContextKind := 'user command';
+    Entry.ContextDescription :=
+      'Text used as a user command in a desktop application.';
+    Entry.SemanticConcept := 'command.save';
+    Entry.ContextConfidence := 'inferred';
     SourceCatalog.Entries.Add(Entry);
 
     JsonText := TCatalogJson.Serialize(SourceCatalog);
@@ -213,6 +229,10 @@ begin
         'Source filename was not preserved.');
       Require(LoadedCatalog.Entries[0].SourceLine = 42,
         'Source line was not preserved.');
+      Require((LoadedCatalog.Entries[0].ContextKind = 'user command') and
+        (LoadedCatalog.Entries[0].SemanticConcept = 'command.save') and
+        (LoadedCatalog.Entries[0].ContextConfidence = 'inferred'),
+        'Translation context metadata was not preserved.');
     finally
       LoadedCatalog.Free;
     end;
@@ -223,8 +243,8 @@ begin
       '"sourceText":"Message","sourceKind":"Resource string",' +
       '"status":"needsTranslation"}]}');
     try
-      Require(LoadedCatalog.SchemaVersion = 4,
-        'A schema version 1 catalog was not migrated to version 4.');
+      Require(LoadedCatalog.SchemaVersion = 5,
+        'A schema version 1 catalog was not migrated to version 5.');
       Require(LoadedCatalog.Entries[0].RuntimeApplication =
         rakManualTranslateText,
         'Legacy resourcestring runtime mode was not derived.');
@@ -237,6 +257,58 @@ begin
     end;
   finally
     SourceCatalog.Free;
+  end;
+end;
+
+procedure TestContextualTerminology;
+var
+  Catalog: TTranslationCatalog;
+  Entry: TTranslationEntry;
+  ScanItem: TScanItem;
+  Translation: string;
+begin
+  ScanItem := TScanItem.Create;
+  try
+    ScanItem.SourceText := 'Play';
+    ScanItem.FormName := 'frmCarillon';
+    ScanItem.ComponentName := 'btnPlaySong';
+    ScanItem.ComponentClassName := 'TButton';
+    ScanItem.PropertyName := 'Text';
+    TScanContextAnalyzer.Analyze(ScanItem);
+    Require(ScanItem.SemanticConcept = 'media.play',
+      'Carillon Play was not classified as media playback.');
+    Entry := TTranslationEntry.Create;
+    try
+      Entry.SemanticConcept := ScanItem.SemanticConcept;
+      Require(TTerminologyResolver.TryResolve(Entry, 'es-ES', Translation)
+        and (Translation = 'Reproducir'),
+        'Spanish media Play terminology is incorrect.');
+    finally
+      Entry.Free;
+    end;
+  finally
+    ScanItem.Free;
+  end;
+
+  Catalog := TTranslationCatalog.Create;
+  try
+    Entry := TTranslationEntry.Create;
+    Entry.SourceText := 'Close';
+    Entry.ContextKind := 'user command';
+    Entry.SemanticConcept := 'command.close';
+    Entry.TranslatedText := 'Cerrar';
+    Entry.Status := tsApproved;
+    Catalog.Entries.Add(Entry);
+    Entry := TTranslationEntry.Create;
+    Entry.SourceText := 'Close';
+    Entry.ContextKind := 'user command';
+    Entry.SemanticConcept := 'command.close';
+    Catalog.Entries.Add(Entry);
+    Require(TTerminologyResolver.TryTranslationMemory(Catalog, Entry,
+      Translation) and (Translation = 'Cerrar'),
+      'Approved contextual translation memory was not reused.');
+  finally
+    Catalog.Free;
   end;
 end;
 
@@ -771,15 +843,23 @@ begin
     TDirectory.Delete(TPath.GetDirectoryName(LanguageDirectory), True);
 end;
 
+function CountTextOccurrences(const AText, ASearchText: string): Integer;
+  forward;
+
 procedure TestIntegrationPlanningAndPackage;
 var
   ComponentOutputDirectory: string;
+  ConfiguredProjectText: string;
   FormHashBefore: string;
   OutputDirectory: string;
   Plan: TIntegrationPlan;
   Profile: TProjectProfile;
   ProjectRoot: string;
   ProjectHashBefore: string;
+  ProjectText: string;
+  BaseGroupAt: Integer;
+  BaseGroupEndAt: Integer;
+  WizardBlockAt: Integer;
 begin
   ProjectRoot := TPath.GetFullPath(GetCurrentDir);
   Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
@@ -870,6 +950,52 @@ begin
   Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
     'Localization\Languages\en-US.json')),
     'The VCL component kit is missing its English pack.');
+  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
+    ComponentOutputDirectory, 'README.txt')),
+    'A visible selector is required'),
+    'The VCL instructions incorrectly describe language selection as optional.');
+  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
+    ComponentOutputDirectory, 'Deploy-LanguagePacks.ps1')),
+    '$ProjectDirectory'),
+    'The deployment script cannot resolve relative Delphi output paths.');
+  ProjectText := TFile.ReadAllText(Profile.ProjectFileName, TEncoding.UTF8);
+  ConfiguredProjectText :=
+    TComponentIntegrationPackageGenerator.BuildConfiguredProjectText(
+      ProjectText,
+      TPath.Combine(ComponentOutputDirectory, 'ComponentSource'),
+      TPath.Combine(ComponentOutputDirectory, 'Deploy-LanguagePacks.ps1'));
+  Require(ContainsText(ConfiguredProjectText,
+    '<DCC_UnitSearchPath>') and
+    ContainsText(ConfiguredProjectText, '$(DCC_UnitSearchPath)'),
+    'The Wizard project configuration does not inherit the Delphi Search Path.');
+  Require(ContainsText(ConfiguredProjectText,
+    '-ExecutionPolicy Bypass') and
+    ContainsText(ConfiguredProjectText, '$(DCC_ExeOutput)') and
+    ContainsText(ConfiguredProjectText, '$(MSBuildProjectDirectory)'),
+    'The Wizard project configuration does not deploy packs after every build.');
+  Require(Pos('Delphi App Translation Setup Wizard: begin',
+    ConfiguredProjectText) < Pos('<Import Project=', ConfiguredProjectText),
+    'The Wizard Search Path was placed after Delphi targets were imported.');
+  BaseGroupAt := Pos('<PropertyGroup Condition="''$(Base)''!=''''">',
+    ConfiguredProjectText);
+  BaseGroupEndAt := PosEx('</PropertyGroup>', ConfiguredProjectText,
+    BaseGroupAt);
+  WizardBlockAt := Pos('Delphi App Translation Setup Wizard: begin',
+    ConfiguredProjectText);
+  Require((BaseGroupAt > 0) and (WizardBlockAt > BaseGroupAt) and
+    (WizardBlockAt < BaseGroupEndAt),
+    'The Wizard settings were not inserted into Delphi''s native Base compiler property group.');
+  ConfiguredProjectText :=
+    TComponentIntegrationPackageGenerator.BuildConfiguredProjectText(
+      ConfiguredProjectText,
+      TPath.Combine(ComponentOutputDirectory, 'ComponentSource'),
+      TPath.Combine(ComponentOutputDirectory, 'Deploy-LanguagePacks.ps1'));
+  Require(CountTextOccurrences(ConfiguredProjectText,
+    'Delphi App Translation Setup Wizard: begin') = 1,
+    'Repeated Wizard configuration duplicated the DPROJ integration block.');
+  TFile.WriteAllText(TPath.Combine(ProjectRoot,
+    'export\ComponentIntegrationSmoke\ConfiguredProjectSmoke.dproj'),
+    ConfiguredProjectText, TEncoding.UTF8);
   Require(SameText(ProjectHashBefore, THashSHA2.GetHashStringFromFile(
     Profile.ProjectFileName)),
     'Component integration changed the VCL project file.');
@@ -1823,6 +1949,7 @@ begin
     TestProjectDetection;
     TestProviderProtocolFixtures;
     TestCatalogRoundTrip;
+    TestContextualTerminology;
     TestProjectScanning;
     TestStudioProjectScanning;
     TestIncrementalCatalogMerge;

@@ -185,6 +185,10 @@ begin
       EntryObject.AddPair('sourceKind', Entry.SourceKind);
       EntryObject.AddPair('sourceChecksum', Entry.SourceChecksum);
       EntryObject.AddPair('developerNote', Entry.DeveloperNote);
+      EntryObject.AddPair('contextKind', Entry.ContextKind);
+      EntryObject.AddPair('contextDescription', Entry.ContextDescription);
+      EntryObject.AddPair('semanticConcept', Entry.SemanticConcept);
+      EntryObject.AddPair('contextConfidence', Entry.ContextConfidence);
       EntryObject.AddPair('status', TranslationStatusToString(Entry.Status));
       EntryObject.AddPair('translationOrigin',
         TranslationOriginToString(Entry.TranslationOrigin));
@@ -291,6 +295,14 @@ begin
               JsonValueText(EntryObject, 'sourceChecksum', '');
             Entry.DeveloperNote :=
               JsonValueText(EntryObject, 'developerNote', '');
+            Entry.ContextKind := JsonValueText(EntryObject,
+              'contextKind', '');
+            Entry.ContextDescription := JsonValueText(EntryObject,
+              'contextDescription', '');
+            Entry.SemanticConcept := JsonValueText(EntryObject,
+              'semanticConcept', '');
+            Entry.ContextConfidence := JsonValueText(EntryObject,
+              'contextConfidence', '');
             Entry.Status := StringToTranslationStatus(
               JsonValueText(EntryObject, 'status', 'needsTranslation'));
             Entry.TranslationOrigin := StringToTranslationOrigin(
@@ -320,8 +332,8 @@ begin
               'true');
             Result.Entries.Add(Entry);
           end;
-      if Result.SchemaVersion < 4 then
-        Result.SchemaVersion := 4;
+      if Result.SchemaVersion < 5 then
+        Result.SchemaVersion := 5;
     except
       Result.Free;
       raise;

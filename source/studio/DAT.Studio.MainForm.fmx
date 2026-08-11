@@ -943,6 +943,22 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = 'Manual TranslateText wiring confirmed'
             OnChange = chkRuntimeWiringConfirmedChange
           end
+          object lblTranslationContextValue: TLabel
+            Anchors = [akTop, akRight]
+            Cursor = crHelp
+            Hint = 'Select an entry to see its inferred translation context.'
+            ShowHint = True
+            StyledSettings = []
+            Position.X = 710.000000000000000000
+            Position.Y = 306.000000000000000000
+            Size.Width = 176.000000000000000000
+            Size.Height = 24.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.HorzAlign = Trailing
+            TextSettings.Font.Size = 10.000000000000000000
+            TextSettings.FontColor = xFF5D7693
+            Text = 'Context: select an entry'
+          end
           object lblTranslationSuggestion: TLabel
             Position.X = 446.000000000000000000
             Position.Y = 334.000000000000000000

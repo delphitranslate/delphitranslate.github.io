@@ -11,6 +11,11 @@ type
     class function Generate(const AProfile: TProjectProfile;
       const AOutputRoot, ARuntimeSourceDirectory,
       AComponentSourceDirectory: string): string; static;
+    class function BuildConfiguredProjectText(const AOriginalText,
+      AComponentSourceDirectory, ADeploymentScriptFileName: string): string;
+      static;
+    class function ConfigureProject(const AProfile: TProjectProfile;
+      const AKitDirectory, ABackupDirectory: string): string; static;
   end;
 
 implementation
@@ -19,13 +24,159 @@ uses
   System.Generics.Collections,
   System.IOUtils,
   System.JSON,
+  System.StrUtils,
   System.SysUtils,
   DAT.Core.RuntimePack,
   DAT.Core.TranslationWorkspace,
+  DAT.Integration.Transaction,
+  DAT.Integration.Types,
   DAT.Runtime.LanguagePack,
   DAT.Scan.CatalogMerge,
   DAT.Scan.Project,
   DAT.Scan.Types;
+
+const
+  WizardProjectBlockBegin =
+    '        <!-- Delphi App Translation Setup Wizard: begin -->';
+  WizardProjectBlockEnd =
+    '        <!-- Delphi App Translation Setup Wizard: end -->';
+
+function XmlElementText(const AValue: string): string;
+begin
+  Result := StringReplace(AValue, '&', '&amp;', [rfReplaceAll]);
+  Result := StringReplace(Result, '<', '&lt;', [rfReplaceAll]);
+  Result := StringReplace(Result, '>', '&gt;', [rfReplaceAll]);
+  Result := StringReplace(Result, '"', '&quot;', [rfReplaceAll]);
+end;
+
+class function TComponentIntegrationPackageGenerator.BuildConfiguredProjectText(
+  const AOriginalText, AComponentSourceDirectory,
+  ADeploymentScriptFileName: string): string;
+var
+  BlockEndAt: Integer;
+  BlockStartAt: Integer;
+  ConfigurationBlock: string;
+  BaseGroupAt: Integer;
+  BaseGroupEndAt: Integer;
+  LineBreak: string;
+  SearchAt: Integer;
+  GroupText: string;
+begin
+  if Trim(AOriginalText) = '' then
+    raise EArgumentException.Create('The Delphi project file is empty.');
+  if Trim(AComponentSourceDirectory) = '' then
+    raise EArgumentException.Create('The ComponentSource path is required.');
+  if Trim(ADeploymentScriptFileName) = '' then
+    raise EArgumentException.Create('The deployment script path is required.');
+
+  if Pos(#13#10, AOriginalText) > 0 then
+    LineBreak := #13#10
+  else
+    LineBreak := #10;
+  ConfigurationBlock :=
+    WizardProjectBlockBegin + LineBreak +
+    '        <DCC_UnitSearchPath>' +
+      XmlElementText(TPath.GetFullPath(AComponentSourceDirectory)) +
+      ';$(DCC_UnitSearchPath)</DCC_UnitSearchPath>' + LineBreak +
+    '        <PostBuildEvent>$(PostBuildEvent)&#xD;&#xA;' +
+      '&quot;C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe&quot; ' +
+      '-NoProfile -ExecutionPolicy Bypass -File &quot;' +
+      XmlElementText(TPath.GetFullPath(ADeploymentScriptFileName)) +
+      '&quot; -ApplicationDirectory &quot;$(DCC_ExeOutput)&quot; ' +
+      '-ProjectDirectory &quot;$(MSBuildProjectDirectory)&quot;</PostBuildEvent>' +
+      LineBreak +
+    WizardProjectBlockEnd;
+
+  Result := AOriginalText;
+  BlockStartAt := Pos(WizardProjectBlockBegin, Result);
+  if BlockStartAt > 0 then
+  begin
+    BlockEndAt := PosEx(WizardProjectBlockEnd, Result, BlockStartAt);
+    if BlockEndAt = 0 then
+      raise EInvalidOpException.Create(
+        'The existing Setup Wizard project block is incomplete.');
+    Delete(Result, BlockStartAt,
+      BlockEndAt + Length(WizardProjectBlockEnd) - BlockStartAt);
+  end;
+
+  BaseGroupAt := 0;
+  SearchAt := 1;
+  repeat
+    SearchAt := PosEx('<PropertyGroup Condition="''$(Base)''!=''''">',
+      Result, SearchAt);
+    if SearchAt = 0 then
+      Break;
+    BaseGroupEndAt := PosEx('</PropertyGroup>', Result, SearchAt);
+    if BaseGroupEndAt = 0 then
+      raise EInvalidOpException.Create(
+        'The Delphi project contains an incomplete Base property group.');
+    GroupText := Copy(Result, SearchAt,
+      BaseGroupEndAt - SearchAt + Length('</PropertyGroup>'));
+    if ContainsText(GroupText, '<DCC_Namespace>') or
+       ContainsText(GroupText, '<DCC_DcuOutput>') or
+       ContainsText(GroupText, '<DCC_ExeOutput>') then
+    begin
+      BaseGroupAt := SearchAt;
+      Break;
+    end;
+    SearchAt := BaseGroupEndAt + Length('</PropertyGroup>');
+  until False;
+
+  if BaseGroupAt = 0 then
+    raise EInvalidOpException.Create(
+      'The Delphi-native Base compiler property group was not found. The target project was not changed.');
+  BaseGroupEndAt := PosEx('</PropertyGroup>', Result, BaseGroupAt);
+  Insert(ConfigurationBlock + LineBreak, Result, BaseGroupEndAt);
+
+  if (Pos(WizardProjectBlockBegin, Result) = 0) or
+     (Pos(WizardProjectBlockEnd, Result) = 0) or
+     (Pos(WizardProjectBlockBegin, Result) > BaseGroupEndAt) or
+     (Pos('</Project>', Result) = 0) then
+    raise EInvalidOpException.Create(
+      'The proposed Delphi project configuration failed structural validation.');
+end;
+
+class function TComponentIntegrationPackageGenerator.ConfigureProject(
+  const AProfile: TProjectProfile; const AKitDirectory,
+  ABackupDirectory: string): string;
+var
+  ApplyResult: TIntegrationApplyResult;
+  ChangeSet: TIntegrationChangeSet;
+  NewProjectText: string;
+  OriginalProjectText: string;
+begin
+  if not TFile.Exists(AProfile.ProjectFileName) then
+    raise EFileNotFoundException.CreateFmt(
+      'The Delphi project file was not found: %s',
+      [AProfile.ProjectFileName]);
+  OriginalProjectText := TFile.ReadAllText(AProfile.ProjectFileName,
+    TEncoding.UTF8);
+  NewProjectText := BuildConfiguredProjectText(OriginalProjectText,
+    TPath.Combine(AKitDirectory, 'ComponentSource'),
+    TPath.Combine(AKitDirectory, 'Deploy-LanguagePacks.ps1'));
+  if NewProjectText = OriginalProjectText then
+    Exit('');
+
+  ChangeSet := TIntegrationChangeSet.Create;
+  try
+    ChangeSet.ProjectDirectory :=
+      TPath.GetDirectoryName(AProfile.ProjectFileName);
+    ChangeSet.ProjectName := AProfile.ProjectName;
+    ChangeSet.AddTextChange(ickProjectMetadata,
+      AProfile.ProjectFileName,
+      'Add the generated ComponentSource Search Path and automatic ' +
+      'post-build language-pack deployment for every configuration and platform.',
+      NewProjectText);
+    ApplyResult := TIntegrationTransaction.Apply(ChangeSet, ABackupDirectory);
+    try
+      Result := ApplyResult.BackupDirectory;
+    finally
+      ApplyResult.Free;
+    end;
+  finally
+    ChangeSet.Free;
+  end;
+end;
 
 function SafeDirectoryName(const AValue: string): string;
 var
@@ -126,14 +277,18 @@ begin
     'Target: ' + AProfile.ProjectName + sLineBreak +
     'Framework: ' + TargetFrameworkToString(AProfile.Framework) +
       sLineBreak + sLineBreak +
-    'This kit does not modify the target project. Delphi performs package ' +
-      'registration through its own Install Packages dialog. Never use the ' +
-      'Install Component wizard and never select a .dpk.' +
+    'Generating this kit does not modify the target project. When this kit is ' +
+      'created by the Setup Wizard, final processing adds only the marked ' +
+      'Search Path and post-build block to the DPROJ after creating the ' +
+      'required backups. Pascal source, form resources, and the DPR remain ' +
+      'unchanged. Delphi performs package registration through its own Install ' +
+      'Packages dialog. Never use the Install Component wizard and never ' +
+      'select a .dpk.' +
       sLineBreak + sLineBreak +
     '1. In Delphi App Translation Studio, build the Integration plan and ' +
       'choose Show Design BPL. The Studio selects the stable verified ' +
       APackageName + ' under bin\packages\Win32\Release.' + sLineBreak +
-    '2. Start RAD Studio without opening the target form.' + sLineBreak +
+    '2. Keep the target project closed while the Setup Wizard performs final processing. Then start RAD Studio without opening the target form.' + sLineBreak +
     '3. Choose Component > Install Packages, then choose Add.' + sLineBreak +
     '4. Select the exact design BPL shown by the Studio and choose Open.' +
       sLineBreak +
@@ -146,14 +301,22 @@ begin
     '8. Set ApplicationId to "' + AProfile.ProjectName + '".' + sLineBreak +
     '9. Leave LanguagesFolder as "Localization\Languages" and ' +
       'SourceLanguage as "en-US".' + sLineBreak +
-    '10. Optionally place one ' + ASelectorClass + ' and set its ' +
-      'LanguageManager property to the manager.' + sLineBreak +
-    '11. Add this kit''s ComponentSource folder to the project Search Path, ' +
-      'or reference the installed component source location.' + sLineBreak +
-    '12. Copy Localization beside every built executable. The included ' +
-      'Deploy-LanguagePacks.ps1 script can do this.' + sLineBreak +
+    '10. Place one ' + ASelectorClass + '. In Object Inspector, set its ' +
+      'LanguageManager property to the manager component. Do not leave this ' +
+      'property blank. A visible selector is required unless the ' +
+      'application provides an equivalent connected Language menu.' + sLineBreak +
+    '11. The Setup Wizard adds this kit''s ComponentSource folder to the ' +
+      'project Search Path for all configurations and platforms.' + sLineBreak +
+    '12. The Setup Wizard adds automatic post-build deployment of ' +
+      'Localization\Languages. The included Deploy-LanguagePacks.ps1 ' +
+      'script remains the manual fallback.' + sLineBreak +
     '13. Build and test Win32 and Win64. Changing the selector applies the ' +
-      'language immediately and saves the preference.' + sLineBreak + sLineBreak +
+      'language immediately and saves the preference.' + sLineBreak +
+    '14. For a portable or USB installation, use Deploy to App Folder in the ' +
+      'Wizard and select the folder containing ' + AProfile.ProjectName +
+      '.exe. The component property stays relative as Localization\Languages; ' +
+      'the physical destination includes the drive, for example ' +
+      'F:\Localization\Languages.' + sLineBreak + sLineBreak +
     'Ordinary forms need no component. For inherited or unusually renamed ' +
       'forms, configure FormIdentityMappings on the manager using ' +
       'FormClass=ScannerFormRoot entries.' + sLineBreak + sLineBreak +
@@ -303,8 +466,20 @@ begin
   end;
 
   DeploymentScript :=
-    'param([Parameter(Mandatory=$true)][string]$ApplicationDirectory)' +
+    'param(' + sLineBreak +
+    '  [Parameter(Mandatory=$true)][string]$ApplicationDirectory,' + sLineBreak +
+    '  [string]$ProjectDirectory = '''')' +
     sLineBreak + '$ErrorActionPreference = ''Stop''' + sLineBreak +
+    'if (-not [System.IO.Path]::IsPathRooted($ApplicationDirectory)) {' +
+      sLineBreak +
+    '  if ([string]::IsNullOrWhiteSpace($ProjectDirectory)) {' + sLineBreak +
+    '    $ProjectDirectory = (Get-Location).Path' + sLineBreak +
+    '  }' + sLineBreak +
+    '  $ApplicationDirectory = Join-Path $ProjectDirectory $ApplicationDirectory' +
+      sLineBreak +
+    '}' + sLineBreak +
+    '$ApplicationDirectory = [System.IO.Path]::GetFullPath($ApplicationDirectory)' +
+      sLineBreak +
     '$source = Join-Path $PSScriptRoot ''Localization\Languages''' +
     sLineBreak +
     '$destination = Join-Path $ApplicationDirectory ''Localization\Languages''' +

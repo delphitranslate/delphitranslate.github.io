@@ -3,6 +3,7 @@ program StudioFormSmokeTests;
 {$APPTYPE CONSOLE}
 
 uses
+  System.StrUtils,
   System.SysUtils,
   System.UITypes,
   FMX.Types,
@@ -26,6 +27,10 @@ begin
       raise Exception.Create('The Setup Wizard does not have eight steps.');
     if not Assigned(Wizard.dlgOpenProject) then
       raise Exception.Create('The Setup Wizard project dialog is missing.');
+    if not Assigned(Wizard.btnCopyApplicationId.OnClick) or
+       not Wizard.edtApplicationId.ReadOnly then
+      raise Exception.Create(
+        'The detected Application ID is not exposed safely by the Wizard.');
     if Wizard.cboTargetLanguage.Items.Count < 35 then
       raise Exception.Create('The wizard target-language list is incomplete.');
     if not Wizard.edtApiKey.Password then
@@ -35,6 +40,13 @@ begin
        not Assigned(Wizard.btnTestConnection.OnClick) or
        not Assigned(Wizard.btnRunDeployment.OnClick) then
       raise Exception.Create('A primary wizard action is not designer-wired.');
+    if Wizard.chkCreateBackup.Enabled or
+       not Wizard.chkCreateBackup.IsChecked then
+      raise Exception.Create(
+        'The Wizard safety backup is not mandatory.');
+    if ContainsText(Wizard.memComponentInstructions.Text, 'optionally') then
+      raise Exception.Create(
+        'The Wizard still describes the visible language selector as optional.');
     if Wizard.memScanResults.WordWrap then
       raise Exception.Create('Wizard scan rows must not wrap over one another.');
     if Wizard.memCommands.WordWrap then

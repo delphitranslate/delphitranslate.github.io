@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last changed: August 8, 2026
+Last changed: August 10, 2026
 
 - Confirm `.git/index.lock` is absent or remove it only when zero bytes and no
   Git process is running.
@@ -28,19 +28,26 @@ Last changed: August 8, 2026
   require byte-for-byte equality and zero target writes.
 - Build and stream the matching VCL/FMX Win32 design packages and the Win32 and
   Win64 runtime packages in Debug and Release.
-- Confirm each design BPL imports no custom DAT runtime BPL, and run the
-  component installer in WhatIf mode before an actual setup/repair test.
+- Confirm each design BPL imports no custom DAT runtime BPL, and verify the
+  manual RAD Studio package-installation instructions before an installation
+  test. Automatic package installation must remain unavailable.
 - Confirm Studio result lists have stable row heights, workflow status guidance
   changes per page, catalog path navigation works, validation issues navigate to
   entries, and large-catalog review/approval actions preserve excluded work.
-- Verify the optional typed language selector populates validated packs and
+- Verify the required typed language selector populates validated packs and
   changes the linked manager while preserving inherited `OnChange` behavior.
+  A connected designer-authored language menu is the supported alternative.
+- Verify the Setup Wizard displays the exact detected `ApplicationId`, adds one
+  marked and inherited Search Path/post-build block to the target `.dproj`,
+  deploys packs to existing output folders, and does not modify Pascal source,
+  form resources, or the `.dpr` file.
 - For the advanced fallback, generate VCL and FMX previews and verify the final
   authorization gate, transaction backup, Apply, Restore, and Complete Reset.
 - Verify that target preferences are written under `%LOCALAPPDATA%` and packs
   are read from `Localization\Languages` beside the executable.
-- Update the real Word TOCs, repaginate, and export both guide PDFs through
-  Microsoft Word.
+- Refresh the real TOCs and export guide PDFs through Microsoft Word COM first.
+  If Word fails or times out, use the bounded Playwright HTML/CSS fallback.
+  Do not use LibreOffice.
 - Render and inspect every documentation PDF page.
 - Confirm the TOC-to-content transition starts on a new page, page numbering
   restarts correctly, and there are no blank, clipped, or overlapping pages.

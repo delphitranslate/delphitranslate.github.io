@@ -1,6 +1,16 @@
 # Delphi App Translation Studio — Engineering Notes
 
-Last changed: August 6, 2026
+Last changed: August 10, 2026
+
+## Contextual Translation Engine - August 10, 2026
+
+- Development-catalog schema version 5 adds `contextKind`, `contextDescription`, `semanticConcept`, and `contextConfidence` to every entry.
+- Scan analysis distinguishes UI roles and common ambiguous concepts. `Play` may become `media.play`, `game.play`, `instrument.play`, or `ambiguous.play`; `Schedule` may become a command or a noun.
+- Resolution order is contextual translation memory, vetted UI terminology, then the configured provider. Reused terms remain Machine translated and do not inherit approval.
+- DeepL requests include the official `context` field. Google Basic v2 receives no unsupported fields; short or unknown-context Google results are marked for review.
+- Consistency validation is scoped by source text plus semantic context, so legitimate contextual differences do not create false inconsistency warnings.
+- Wizard DPROJ settings are inserted inside Delphi's existing native Base compiler property group. The target project must be closed in RAD Studio first.
+- Portable deployment selects a folder containing the exact project EXE and writes only `Localization\Languages` below that folder.
 
 ## Purpose of This Document
 
@@ -1555,7 +1565,7 @@ instructions.
 
 Completion date: August 9, 2026
 
-The development catalog contract is now schema version 4. Every entry records a
+The development catalog contract described in this earlier milestone was schema version 4. The current contextual catalog is schema version 5. Every entry records a
 runtime text role: static text, dynamic value, runtime template, data value,
 identifier, or excluded content. The scanner assigns conservative roles during
 form and resourcestring extraction. Catalog merge maps those roles to automatic,
@@ -1675,27 +1685,38 @@ Process and Finish. Completed steps are selectable in the left rail; future
 steps cannot be skipped. Back and Cancel remain available until the developer
 authorizes final processing. During final processing the rail, Back, Cancel,
 and window closing are disabled. If processing stops on an error, the wizard
-returns control without automatically editing Delphi source, form, DPR, or
-DPROJ files.
+returns control without automatically editing Delphi Pascal, form, or DPR
+files. A DPROJ configuration change is allowed only during authorized final
+processing and is transactionally backed up.
 
 Final processing performs these operations in order:
 
-1. Create an optional timestamped ZIP under the user's Documents folder.
+1. Create a required timestamped ZIP under the user's Documents folder.
 2. Send only unresolved, eligible entries to Google Cloud Translation or
    DeepL; reviewed and approved work is preserved.
 3. Save the development JSON catalog.
 4. Validate the catalog and stop on blocking errors.
 5. Export the offline runtime JSON pack.
 6. Generate the component integration kit under the Studio `export` folder.
-7. Write a completion report and exact Win32/Win64 Debug/Release PowerShell
-   deployment commands using `-NoProfile -ExecutionPolicy Bypass`.
+7. Deploy packs to existing detected output folders.
+8. Add one marked DPROJ block that inherits the generated ComponentSource
+   Search Path through all configurations/platforms and runs pack deployment
+   after each future build.
+9. Write a completion report and manual fallback PowerShell commands using
+   `-NoProfile -ExecutionPolicy Bypass`.
 
 The wizard does not automate RAD Studio design-package registration. It opens
 the exact verified Win32 Release design BPL and instructs the developer to use
 **Component > Install Packages > Add**. It also does not place controls on a
 target form; those edits remain visible, designer-authored Delphi changes.
 
-The Finish page can run pack deployment for build output folders that already
-exist. Missing output folders are skipped so developers may build first and
-rerun deployment. Every command remains visible and copyable as a manual
-fallback.
+The Finish page can repeat pack deployment for build output folders that
+already exist. Normal future deployment is automatic through the active
+`DCC_ExeOutput`, covering Win32/Win64 and Debug/Release without four manual
+commands. Every command remains visible and copyable as a fallback.
+
+The Wizard displays the detected `ApplicationId` explicitly and provides a
+Copy ID action. A visible language choice is required: the supplied language
+combo box is the default, while a connected Language menu is the supported
+alternative. Calling the selector simply optional is prohibited because it
+would leave ordinary users unable to change languages.

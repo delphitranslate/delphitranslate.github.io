@@ -23,6 +23,7 @@ uses
   System.StrUtils,
   System.SysUtils,
   DAT.Scan.Rules,
+  DAT.Scan.Context,
   DAT.Scan.TextCodec;
 
 type
@@ -116,6 +117,7 @@ begin
   ScanItem.RuntimeTextRole := TScanRuleSet.ClassifyRuntimeTextRole(
     AContext.ComponentName, AContext.ComponentClassName, APropertyName,
     ASourceText);
+  TScanContextAnalyzer.Analyze(ScanItem);
   AResult.Items.Add(ScanItem);
 end;
 

@@ -23,15 +23,21 @@ type
   protected
     function Endpoint: string;
     function BuildRequestBody(const ATexts: TArray<string>;
-      const ASourceLanguage, ATargetLanguage: string): string;
+      const ASourceLanguage, ATargetLanguage: string;
+      const AContext: string = ''): string;
     function ParseResponse(const AResponseText: string): TArray<string>;
     function TranslateBatch(const ATexts: TArray<string>;
-      const ASourceLanguage, ATargetLanguage: string): TArray<string>;
+      const ASourceLanguage, ATargetLanguage: string;
+      const AContext: string = ''): TArray<string>;
   public
     constructor Create(const AProvider: TTranslationProvider;
       const ADeepLPlan: TDeepLPlan; const AApiKey: string;
       const ATimeoutSeconds, ABatchSize: Integer);
     function Translate(const ATexts: TArray<string>;
+      const ASourceLanguage, ATargetLanguage: string;
+      const ACancelCheck: TTranslationCancelCheck = nil;
+      const AProgress: TTranslationProgressEvent = nil): TArray<string>;
+    function TranslateWithContexts(const ATexts, AContexts: TArray<string>;
       const ASourceLanguage, ATargetLanguage: string;
       const ACancelCheck: TTranslationCancelCheck = nil;
       const AProgress: TTranslationProgressEvent = nil): TArray<string>;
@@ -93,7 +99,7 @@ end;
 
 function TTranslationProviderClient.BuildRequestBody(
   const ATexts: TArray<string>; const ASourceLanguage,
-  ATargetLanguage: string): string;
+  ATargetLanguage, AContext: string): string;
 var
   JsonArray: TJSONArray;
   JsonObject: TJSONObject;
@@ -120,6 +126,8 @@ begin
         NormalizeDeepLLanguageCode(ASourceLanguage, False));
       JsonObject.AddPair('target_lang',
         NormalizeDeepLLanguageCode(ATargetLanguage, True));
+      if Trim(AContext) <> '' then
+        JsonObject.AddPair('context', AContext);
     end;
     Result := JsonObject.ToJSON;
   finally
@@ -174,7 +182,7 @@ end;
 
 function TTranslationProviderClient.TranslateBatch(
   const ATexts: TArray<string>; const ASourceLanguage,
-  ATargetLanguage: string): TArray<string>;
+  ATargetLanguage, AContext: string): TArray<string>;
 var
   Attempt: Integer;
   Client: THTTPClient;
@@ -202,7 +210,7 @@ begin
     for Attempt := 1 to 3 do
     begin
       Content := TStringStream.Create(
-        BuildRequestBody(ATexts, ASourceLanguage, ATargetLanguage),
+        BuildRequestBody(ATexts, ASourceLanguage, ATargetLanguage, AContext),
         TEncoding.UTF8);
       try
         Response := Client.Post(Endpoint, Content, nil, Headers);
@@ -223,6 +231,50 @@ begin
     end;
   finally
     Client.Free;
+  end;
+end;
+
+function TTranslationProviderClient.TranslateWithContexts(
+  const ATexts, AContexts: TArray<string>; const ASourceLanguage,
+  ATargetLanguage: string; const ACancelCheck: TTranslationCancelCheck;
+  const AProgress: TTranslationProgressEvent): TArray<string>;
+var
+  Batch: TArray<string>;
+  BatchContext: string;
+  BatchCount: Integer;
+  BatchResults: TArray<string>;
+  Completed: Integer;
+  Index: Integer;
+begin
+  if Length(AContexts) <> Length(ATexts) then
+    raise EArgumentException.Create(
+      'Each source string must have one contextual description.');
+  SetLength(Result, Length(ATexts));
+  Completed := 0;
+  while Completed < Length(ATexts) do
+  begin
+    if Assigned(ACancelCheck) and ACancelCheck() then
+      raise TTranslationCancelled.Create('Translation was cancelled.');
+    BatchCount := Min(FBatchSize, Length(ATexts) - Completed);
+    SetLength(Batch, BatchCount);
+    BatchContext := '';
+    for Index := 0 to BatchCount - 1 do
+    begin
+      Batch[Index] := ATexts[Completed + Index];
+      if Trim(AContexts[Completed + Index]) <> '' then
+        BatchContext := BatchContext + ATexts[Completed + Index] + ': ' +
+          AContexts[Completed + Index] + sLineBreak;
+    end;
+    BatchResults := TranslateBatch(Batch, ASourceLanguage,
+      ATargetLanguage, Trim(BatchContext));
+    if Length(BatchResults) <> BatchCount then
+      raise ETranslationProviderError.Create(
+        'The provider returned an unexpected number of translations.');
+    for Index := 0 to BatchCount - 1 do
+      Result[Completed + Index] := BatchResults[Index];
+    Inc(Completed, BatchCount);
+    if Assigned(AProgress) then
+      AProgress(Completed, Length(ATexts));
   end;
 end;
 

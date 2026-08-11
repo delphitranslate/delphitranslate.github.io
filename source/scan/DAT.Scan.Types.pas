@@ -32,6 +32,10 @@ type
     FFramework: TTargetFramework;
     FKind: TScannedTextKind;
     FRuntimeTextRole: TRuntimeTextRole;
+    FContextKind: string;
+    FContextDescription: string;
+    FSemanticConcept: string;
+    FContextConfidence: string;
   public
     property Key: string read FKey write FKey;
     property SourceText: string read FSourceText write FSourceText;
@@ -46,6 +50,13 @@ type
     property Kind: TScannedTextKind read FKind write FKind;
     property RuntimeTextRole: TRuntimeTextRole read FRuntimeTextRole
       write FRuntimeTextRole;
+    property ContextKind: string read FContextKind write FContextKind;
+    property ContextDescription: string read FContextDescription
+      write FContextDescription;
+    property SemanticConcept: string read FSemanticConcept
+      write FSemanticConcept;
+    property ContextConfidence: string read FContextConfidence
+      write FContextConfidence;
   end;
 
   TScanDiagnostic = class
