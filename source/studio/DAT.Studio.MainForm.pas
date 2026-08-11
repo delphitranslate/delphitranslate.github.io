@@ -170,6 +170,7 @@ type
     dlgOpenCatalog: TOpenDialog;
     dlgImportCatalogCsv: TOpenDialog;
     dlgExportCatalogCsv: TSaveDialog;
+    rectWizardBackdrop: TRectangle;
     procedure btnOpenProjectClick(Sender: TObject);
     procedure btnGuidedSetupClick(Sender: TObject);
     procedure btnScanProjectClick(Sender: TObject);
@@ -303,6 +304,10 @@ procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var
   SetupWizard: TfrmSetupWizard;
 begin
+  rectWizardBackdrop.Visible := True;
+  rectWizardBackdrop.BringToFront;
+  rectWizardBackdrop.Repaint;
+  Application.ProcessMessages;
   SetupWizard := TfrmSetupWizard.Create(Self);
   try
     SetupWizard.ShowModal;
@@ -310,6 +315,7 @@ begin
       'Setup Wizard closed. Advanced Studio pages remain available.';
   finally
     SetupWizard.Free;
+    rectWizardBackdrop.Visible := False;
   end;
 end;
 
@@ -2282,6 +2288,7 @@ begin
       Exit;
     end;
     ActiveCount := 0;
+    TTerminologyResolver.ApplyAuthoritativeTerms(FTranslationCatalog);
     MissingCount := 0;
     ProtectedCount := 0;
     ResolvedCount := 0;
@@ -2303,6 +2310,8 @@ begin
     end;
     if MissingCount = 0 then
     begin
+      SaveCatalog;
+      DisplayCatalogEntries;
       lblStatus.Text := 'No missing translations were found.';
       Exit;
     end;

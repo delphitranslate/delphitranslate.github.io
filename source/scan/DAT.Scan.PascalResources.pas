@@ -16,12 +16,19 @@ implementation
 
 uses
   System.Classes,
+  System.Generics.Collections,
   System.IOUtils,
   System.StrUtils,
   System.SysUtils,
   DAT.Core.Types,
   DAT.Scan.TextCodec,
   DAT.Scan.Context;
+
+type
+  TRuntimeStatement = record
+    SourceLine: Integer;
+    Text: string;
+  end;
 
 function IsSectionBoundary(const ALine: string): Boolean;
 var
@@ -116,6 +123,217 @@ begin
   AResult.Items.Add(ScanItem);
 end;
 
+function LastIdentifier(const AValue: string): string;
+var
+  DotAt: Integer;
+begin
+  Result := Trim(AValue);
+  DotAt := LastDelimiter('.', Result);
+  if DotAt > 0 then
+    Result := Trim(Copy(Result, DotAt + 1, MaxInt));
+end;
+
+function IsRuntimeTextProperty(const APropertyName: string): Boolean;
+begin
+  Result := MatchText(APropertyName,
+    ['Text', 'Caption', 'Header', 'Hint', 'TextPrompt']);
+end;
+
+function IsNonUiAssignment(const ALeftSide, ASourceText: string): Boolean;
+var
+  LowerLeft: string;
+  LowerText: string;
+begin
+  LowerLeft := LowerCase(StringReplace(ALeftSide, ' ', '', [rfReplaceAll]));
+  LowerText := LowerCase(Trim(ASourceText));
+  Result := ContainsText(LowerLeft, '.sql.') or
+    EndsText('.sql.text', LowerLeft) or
+    StartsText('select ', LowerText) or StartsText('update ', LowerText) or
+    StartsText('insert ', LowerText) or StartsText('delete ', LowerText) or
+    StartsText('pragma ', LowerText) or ContainsText(LowerText, '<tr') or
+    ContainsText(LowerText, '<td');
+end;
+
+function ExtractFormatTemplate(const AExpression: string;
+  out ATemplate: string): Boolean;
+var
+  CloseAt: Integer;
+  CommaAt: Integer;
+  InString: Boolean;
+  Index: Integer;
+  OpenAt: Integer;
+  TemplateExpression: string;
+begin
+  Result := False;
+  ATemplate := '';
+  OpenAt := Pos('Format(', AExpression);
+  if OpenAt = 0 then
+    Exit;
+  Inc(OpenAt, Length('Format('));
+  InString := False;
+  CommaAt := 0;
+  CloseAt := 0;
+  Index := OpenAt;
+  while Index <= Length(AExpression) do
+  begin
+    if AExpression[Index] = '''' then
+    begin
+      if InString and (Index < Length(AExpression)) and
+        (AExpression[Index + 1] = '''') then
+        Inc(Index)
+      else
+        InString := not InString;
+    end
+    else if not InString then
+    begin
+      if AExpression[Index] = ',' then
+      begin
+        CommaAt := Index;
+        Break;
+      end;
+      if AExpression[Index] = ')' then
+      begin
+        CloseAt := Index;
+        Break;
+      end;
+    end;
+    Inc(Index);
+  end;
+  if CommaAt > 0 then
+    CloseAt := CommaAt;
+  if CloseAt = 0 then
+    Exit;
+  TemplateExpression := Trim(Copy(AExpression, OpenAt,
+    CloseAt - OpenAt));
+  Result := TryDecodeDelphiStringExpression(TemplateExpression, ATemplate) and
+    (ATemplate <> '');
+end;
+
+procedure AddRuntimeItem(const AResult: TProjectScanResult;
+  const AFileName, AUnitName, ALeftSide, APropertyName, ASourceText: string;
+  const ASourceLine: Integer; const ARuntimeRole: TRuntimeTextRole);
+var
+  Context: string;
+  ScanItem: TScanItem;
+begin
+  if Trim(ASourceText) = '' then
+    Exit;
+  Context := StringReplace(Trim(ALeftSide), ' ', '', [rfReplaceAll]);
+  ScanItem := TScanItem.Create;
+  ScanItem.Key := Format('%s.Runtime.%s.%d',
+    [AUnitName, Context, ASourceLine]);
+  ScanItem.SourceText := ASourceText;
+  ScanItem.ComponentName := Context;
+  ScanItem.ComponentClassName := '';
+  ScanItem.PropertyName := APropertyName;
+  ScanItem.SourceFileName := AFileName;
+  ScanItem.SourceLine := ASourceLine;
+  ScanItem.CollectionIndex := -1;
+  ScanItem.Framework := tfUnknown;
+  ScanItem.Kind := stkRuntimeAssignment;
+  ScanItem.RuntimeTextRole := ARuntimeRole;
+  TScanContextAnalyzer.Analyze(ScanItem);
+  AResult.Items.Add(ScanItem);
+end;
+
+procedure CollectRuntimeStatements(const ALines: TStrings;
+  const AStatements: TList<TRuntimeStatement>);
+var
+  LineIndex: Integer;
+  SourceLine: Integer;
+  Statement: string;
+  StatementRecord: TRuntimeStatement;
+  TerminatorAt: Integer;
+  TrimmedLine: string;
+begin
+  Statement := '';
+  SourceLine := 0;
+  for LineIndex := 0 to ALines.Count - 1 do
+  begin
+    TrimmedLine := Trim(ALines[LineIndex]);
+    if (TrimmedLine = '') or StartsText('//', TrimmedLine) then
+      Continue;
+    if (Statement = '') and
+      (SameText(TrimmedLine, 'begin') or SameText(TrimmedLine, 'end') or
+       SameText(TrimmedLine, 'end.') or SameText(TrimmedLine, 'try') or
+       SameText(TrimmedLine, 'finally') or SameText(TrimmedLine, 'else') or
+       EndsText(' then', TrimmedLine) or EndsText(' do', TrimmedLine) or
+       EndsText(' begin', TrimmedLine)) then
+      Continue;
+    if Statement = '' then
+    begin
+      Statement := TrimmedLine;
+      SourceLine := LineIndex + 1;
+    end
+    else
+      Statement := Statement + ' ' + TrimmedLine;
+    repeat
+      TerminatorAt := FindStatementTerminator(Statement);
+      if TerminatorAt > 0 then
+      begin
+        StatementRecord.SourceLine := SourceLine;
+        StatementRecord.Text := Trim(Copy(Statement, 1, TerminatorAt));
+        AStatements.Add(StatementRecord);
+        Statement := Trim(Copy(Statement, TerminatorAt + 1, MaxInt));
+        SourceLine := LineIndex + 1;
+      end;
+    until TerminatorAt = 0;
+  end;
+end;
+
+procedure ScanRuntimeTextAssignments(const ALines: TStrings;
+  const AFileName, AUnitName: string; const AResult: TProjectScanResult);
+var
+  AssignAt: Integer;
+  Expression: string;
+  FormatTemplate: string;
+  LeftSide: string;
+  PropertyName: string;
+  Statement: TRuntimeStatement;
+  Statements: TList<TRuntimeStatement>;
+  ValueText: string;
+begin
+  Statements := TList<TRuntimeStatement>.Create;
+  try
+    CollectRuntimeStatements(ALines, Statements);
+    for Statement in Statements do
+    begin
+      AssignAt := Pos(':=', Statement.Text);
+      if AssignAt = 0 then
+        Continue;
+      LeftSide := Trim(Copy(Statement.Text, 1, AssignAt - 1));
+      Expression := Trim(Copy(Statement.Text, AssignAt + 2, MaxInt));
+      if EndsText(';', Expression) then
+        Delete(Expression, Length(Expression), 1);
+      PropertyName := LastIdentifier(LeftSide);
+      if IsRuntimeTextProperty(PropertyName) then
+      begin
+        if TryDecodeDelphiStringExpression(Expression, ValueText) then
+        begin
+          if not IsNonUiAssignment(LeftSide, ValueText) then
+            AddRuntimeItem(AResult, AFileName, AUnitName, LeftSide,
+              PropertyName, ValueText, Statement.SourceLine, rtrStaticText);
+        end
+        else if ExtractFormatTemplate(Expression, FormatTemplate) then
+        begin
+          if not IsNonUiAssignment(LeftSide, FormatTemplate) then
+            AddRuntimeItem(AResult, AFileName, AUnitName, LeftSide,
+              PropertyName, FormatTemplate, Statement.SourceLine,
+              rtrRuntimeTemplate);
+        end;
+      end
+      else if ExtractFormatTemplate(Expression, FormatTemplate) and
+        ContainsText(LowerCase(LeftSide), 'displaytext') and
+        not IsNonUiAssignment(LeftSide, FormatTemplate) then
+        AddRuntimeItem(AResult, AFileName, AUnitName, LeftSide,
+          'FormatTemplate', FormatTemplate, Statement.SourceLine,
+          rtrRuntimeTemplate);
+    end;
+  finally
+    Statements.Free;
+  end;
+end;
+
 class procedure TPascalResourceStringScanner.ScanFile(
   const AFileName: string; const AResult: TProjectScanResult);
 var
@@ -171,6 +389,7 @@ begin
         Statement := Trim(Copy(Statement, TerminatorPosition + 1, MaxInt));
       end;
     end;
+    ScanRuntimeTextAssignments(Lines, AFileName, UnitName, AResult);
   finally
     Lines.Free;
   end;

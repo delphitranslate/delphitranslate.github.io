@@ -44,6 +44,9 @@ type
     FLocale: TRuntimeLocale;
     FStrings: TDictionary<string, string>;
     FTemplates: TDictionary<string, string>;
+    FSources: TDictionary<string, string>;
+    FSourceStrings: TDictionary<string, string>;
+    FSourceTemplates: TDictionary<string, string>;
   public
     constructor Create;
     destructor Destroy; override;
@@ -52,6 +55,11 @@ type
     function TryGetText(const AKey: string; out AText: string): Boolean;
     function GetText(const AKey, AFallbackText: string): string;
     function TryGetTemplate(const AKey: string; out AText: string): Boolean;
+    function TryGetSource(const AKey: string; out AText: string): Boolean;
+    function TryTranslateSource(const ASourceText: string;
+      out ATranslatedText: string): Boolean;
+    function TryTranslateDynamicText(const ASourceText: string;
+      out ATranslatedText: string): Boolean;
     function GetTemplate(const AKey, AFallbackText: string): string;
     function GetAnyText(const AKey, AFallbackText: string): string;
     function FormatTemplate(const AKey, AFallbackText: string;
@@ -70,6 +78,9 @@ type
     property Locale: TRuntimeLocale read FLocale;
     property Strings: TDictionary<string, string> read FStrings;
     property Templates: TDictionary<string, string> read FTemplates;
+    property Sources: TDictionary<string, string> read FSources;
+    property SourceStrings: TDictionary<string, string> read FSourceStrings;
+    property SourceTemplates: TDictionary<string, string> read FSourceTemplates;
   end;
 
   TLanguagePackDescriptor = class
@@ -101,7 +112,8 @@ implementation
 uses
   System.Generics.Defaults,
   System.IOUtils,
-  System.JSON;
+  System.JSON,
+  System.StrUtils;
 
 function CanonicalNativeLanguageName(const ALanguageCode,
   AFallbackName: string): string;
@@ -239,10 +251,16 @@ begin
   FLocale := TRuntimeLocale.Create;
   FStrings := TDictionary<string, string>.Create;
   FTemplates := TDictionary<string, string>.Create;
+  FSources := TDictionary<string, string>.Create;
+  FSourceStrings := TDictionary<string, string>.Create;
+  FSourceTemplates := TDictionary<string, string>.Create;
 end;
 
 destructor TRuntimeLanguagePack.Destroy;
 begin
+  FSourceTemplates.Free;
+  FSourceStrings.Free;
+  FSources.Free;
   FTemplates.Free;
   FStrings.Free;
   FLocale.Free;
@@ -258,6 +276,9 @@ var
   LanguageObject: TJSONObject;
   LocaleObject: TJSONObject;
   StringsObject: TJSONObject;
+  SourcesObject: TJSONObject;
+  SourceStringsObject: TJSONObject;
+  SourceTemplatesObject: TJSONObject;
   TemplatesObject: TJSONObject;
 begin
   JsonValue := TJSONObject.ParseJSONValue(AJsonText);
@@ -273,7 +294,7 @@ begin
     Result := TRuntimeLanguagePack.Create;
     try
       Result.FSchemaVersion := JsonRoot.GetValue<Integer>('schemaVersion', 0);
-      if Result.FSchemaVersion <> 1 then
+      if not (Result.FSchemaVersion in [1, 2]) then
         raise ELanguagePackError.CreateFmt(
           'Runtime language-pack schema %d is not supported.',
           [Result.FSchemaVersion]);
@@ -316,6 +337,21 @@ begin
         for JsonPair in TemplatesObject do
           Result.FTemplates.AddOrSetValue(JsonPair.JsonString.Value,
             JsonPair.JsonValue.Value);
+      SourcesObject := JsonRoot.GetValue('sources') as TJSONObject;
+      if SourcesObject <> nil then
+        for JsonPair in SourcesObject do
+          Result.FSources.AddOrSetValue(JsonPair.JsonString.Value,
+            JsonPair.JsonValue.Value);
+      SourceStringsObject := JsonRoot.GetValue('sourceStrings') as TJSONObject;
+      if SourceStringsObject <> nil then
+        for JsonPair in SourceStringsObject do
+          Result.FSourceStrings.AddOrSetValue(JsonPair.JsonString.Value,
+            JsonPair.JsonValue.Value);
+      SourceTemplatesObject := JsonRoot.GetValue('sourceTemplates') as TJSONObject;
+      if SourceTemplatesObject <> nil then
+        for JsonPair in SourceTemplatesObject do
+          Result.FSourceTemplates.AddOrSetValue(JsonPair.JsonString.Value,
+            JsonPair.JsonValue.Value);
     except
       Result.Free;
       raise;
@@ -351,6 +387,167 @@ function TRuntimeLanguagePack.TryGetTemplate(
   const AKey: string; out AText: string): Boolean;
 begin
   Result := FTemplates.TryGetValue(AKey, AText) and (AText <> '');
+end;
+
+function TRuntimeLanguagePack.TryGetSource(
+  const AKey: string; out AText: string): Boolean;
+begin
+  Result := FSources.TryGetValue(AKey, AText) and (AText <> '');
+end;
+
+function TRuntimeLanguagePack.TryTranslateSource(const ASourceText: string;
+  out ATranslatedText: string): Boolean;
+begin
+  Result := FSourceStrings.TryGetValue(ASourceText, ATranslatedText) and
+    (ATranslatedText <> '');
+end;
+
+function IsFormatConversion(const AValue: Char): Boolean;
+begin
+  Result := CharInSet(AValue,
+    ['d', 'i', 'u', 'o', 'x', 'X', 'f', 'F', 'e', 'E', 'g', 'G',
+     'a', 'A', 'c', 's', 'p', 'n']);
+end;
+
+procedure ParseFormatTemplate(const ATemplate: string;
+  const ALiterals, APlaceholders: TStrings);
+var
+  Index: Integer;
+  LiteralText: string;
+  PlaceholderText: string;
+begin
+  ALiterals.Clear;
+  APlaceholders.Clear;
+  LiteralText := '';
+  Index := 1;
+  while Index <= Length(ATemplate) do
+  begin
+    if ATemplate[Index] <> '%' then
+    begin
+      LiteralText := LiteralText + ATemplate[Index];
+      Inc(Index);
+      Continue;
+    end;
+    if (Index < Length(ATemplate)) and (ATemplate[Index + 1] = '%') then
+    begin
+      LiteralText := LiteralText + '%';
+      Inc(Index, 2);
+      Continue;
+    end;
+    ALiterals.Add(LiteralText);
+    LiteralText := '';
+    PlaceholderText := '%';
+    Inc(Index);
+    while Index <= Length(ATemplate) do
+    begin
+      PlaceholderText := PlaceholderText + ATemplate[Index];
+      if IsFormatConversion(ATemplate[Index]) then
+      begin
+        Inc(Index);
+        Break;
+      end;
+      Inc(Index);
+    end;
+    APlaceholders.Add(PlaceholderText);
+  end;
+  ALiterals.Add(LiteralText);
+end;
+
+function TryApplyFormatTemplate(const ACurrentText, ASourceTemplate,
+  ATranslatedTemplate: string; out ATranslatedText: string): Boolean;
+var
+  Captures: TStringList;
+  CurrentAt: Integer;
+  Index: Integer;
+  LiteralAt: Integer;
+  MatchEnd: Integer;
+  MatchStart: Integer;
+  NextLiteral: string;
+  OutputText: string;
+  SourceLiterals: TStringList;
+  SourcePlaceholders: TStringList;
+  TranslatedLiterals: TStringList;
+  TranslatedPlaceholders: TStringList;
+begin
+  Result := False;
+  ATranslatedText := '';
+  SourceLiterals := TStringList.Create;
+  SourcePlaceholders := TStringList.Create;
+  TranslatedLiterals := TStringList.Create;
+  TranslatedPlaceholders := TStringList.Create;
+  Captures := TStringList.Create;
+  try
+    ParseFormatTemplate(ASourceTemplate, SourceLiterals, SourcePlaceholders);
+    ParseFormatTemplate(ATranslatedTemplate, TranslatedLiterals,
+      TranslatedPlaceholders);
+    if (SourcePlaceholders.Count = 0) or
+      (SourcePlaceholders.Count <> TranslatedPlaceholders.Count) or
+      (TranslatedLiterals.Count <> TranslatedPlaceholders.Count + 1) then
+      Exit;
+    MatchStart := Pos(SourceLiterals[0], ACurrentText);
+    if MatchStart = 0 then
+      Exit;
+    CurrentAt := MatchStart + Length(SourceLiterals[0]);
+    for Index := 1 to SourceLiterals.Count - 1 do
+    begin
+      NextLiteral := SourceLiterals[Index];
+      if NextLiteral = '' then
+      begin
+        if Index = SourceLiterals.Count - 1 then
+          LiteralAt := Length(ACurrentText) + 1
+        else
+          Exit;
+      end
+      else
+        LiteralAt := PosEx(NextLiteral, ACurrentText, CurrentAt);
+      if LiteralAt = 0 then
+        Exit;
+      Captures.Add(Copy(ACurrentText, CurrentAt, LiteralAt - CurrentAt));
+      CurrentAt := LiteralAt + Length(NextLiteral);
+    end;
+    MatchEnd := CurrentAt;
+    OutputText := TranslatedLiterals[0];
+    for Index := 0 to Captures.Count - 1 do
+      OutputText := OutputText + Captures[Index] + TranslatedLiterals[Index + 1];
+    ATranslatedText := Copy(ACurrentText, 1, MatchStart - 1) + OutputText +
+      Copy(ACurrentText, MatchEnd, MaxInt);
+    Result := ATranslatedText <> ACurrentText;
+  finally
+    Captures.Free;
+    TranslatedPlaceholders.Free;
+    TranslatedLiterals.Free;
+    SourcePlaceholders.Free;
+    SourceLiterals.Free;
+  end;
+end;
+
+function TRuntimeLanguagePack.TryTranslateDynamicText(
+  const ASourceText: string; out ATranslatedText: string): Boolean;
+var
+  Candidate: string;
+  LongestSource: string;
+  SourceTemplate: string;
+begin
+  if TryTranslateSource(ASourceText, ATranslatedText) then
+    Exit(True);
+  LongestSource := '';
+  for Candidate in FSourceStrings.Keys do
+    if (Length(Candidate) >= 4) and
+      (Length(Candidate) > Length(LongestSource)) and
+      ContainsStr(ASourceText, Candidate) then
+      LongestSource := Candidate;
+  if LongestSource <> '' then
+  begin
+    ATranslatedText := StringReplace(ASourceText, LongestSource,
+      FSourceStrings[LongestSource], [rfReplaceAll]);
+    Exit(ATranslatedText <> ASourceText);
+  end;
+  for SourceTemplate in FSourceTemplates.Keys do
+    if TryApplyFormatTemplate(ASourceText, SourceTemplate,
+      FSourceTemplates[SourceTemplate], ATranslatedText) then
+      Exit(True);
+  ATranslatedText := ASourceText;
+  Result := False;
 end;
 
 function TRuntimeLanguagePack.GetTemplate(

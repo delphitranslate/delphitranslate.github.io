@@ -45,9 +45,9 @@ Last changed: August 10, 2026
   authorization gate, transaction backup, Apply, Restore, and Complete Reset.
 - Verify that target preferences are written under `%LOCALAPPDATA%` and packs
   are read from `Localization\Languages` beside the executable.
-- Refresh the real TOCs and export guide PDFs through Microsoft Word COM first.
-  If Word fails or times out, use the bounded Playwright HTML/CSS fallback.
-  Do not use LibreOffice.
+- Regenerate the editable DOCX guides from the reviewed source-backed guide builder.
+- Export companion PDFs with LibreOffice using an isolated user profile.
+- Do not use Microsoft Word for this project documentation workflow.
 - Render and inspect every documentation PDF page.
 - Confirm the TOC-to-content transition starts on a new page, page numbering
   restarts correctly, and there are no blank, clipped, or overlapping pages.

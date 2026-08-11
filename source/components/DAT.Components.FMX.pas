@@ -7,6 +7,7 @@ uses
   System.Generics.Collections,
   System.Messaging,
   FMX.Forms,
+  FMX.Types,
   DAT.Components.Core,
   DAT.Runtime.LanguagePack;
 
@@ -15,6 +16,13 @@ type
   private
     FBeforeShownSubscription: TMessageSubscriptionId;
     FReleasedSubscription: TMessageSubscriptionId;
+    FAutoRefreshDynamicText: Boolean;
+    FDynamicRefreshInterval: Cardinal;
+    FDynamicTimer: TTimer;
+    procedure EnsureDynamicTimer;
+    procedure DynamicTimerTick(Sender: TObject);
+    procedure SetAutoRefreshDynamicText(const Value: Boolean);
+    procedure SetDynamicRefreshInterval(const Value: Cardinal);
     procedure SubscribeToLifecycle;
     procedure UnsubscribeFromLifecycle;
     procedure HandleBeforeShown(const Sender: TObject;
@@ -22,6 +30,7 @@ type
     procedure HandleReleased(const Sender: TObject;
       const AMessage: TMessage);
   protected
+    procedure Loaded; override;
     function SupportsManagedObject(
       const AManagedObject: TObject): Boolean; override;
     function ManagedObjectInstanceName(
@@ -35,6 +44,12 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     function ApplyToForm(const AForm: TCommonCustomForm): Integer;
+    procedure RefreshDynamicText;
+  published
+    property AutoRefreshDynamicText: Boolean read FAutoRefreshDynamicText
+      write SetAutoRefreshDynamicText default True;
+    property DynamicRefreshInterval: Cardinal read FDynamicRefreshInterval
+      write SetDynamicRefreshInterval default 1000;
   end;
 
 implementation
@@ -45,14 +60,73 @@ uses
 constructor TDATFMXLanguageManager.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+  FAutoRefreshDynamicText := True;
+  FDynamicRefreshInterval := 1000;
   if not (csDesigning in ComponentState) then
     SubscribeToLifecycle;
 end;
 
 destructor TDATFMXLanguageManager.Destroy;
 begin
+  FDynamicTimer.Free;
   UnsubscribeFromLifecycle;
   inherited Destroy;
+end;
+
+procedure TDATFMXLanguageManager.DynamicTimerTick(Sender: TObject);
+begin
+  RefreshDynamicText;
+end;
+
+procedure TDATFMXLanguageManager.EnsureDynamicTimer;
+begin
+  if (csDesigning in ComponentState) or (csDestroying in ComponentState) then
+    Exit;
+  if FDynamicTimer = nil then
+  begin
+    FDynamicTimer := TTimer.Create(nil);
+    FDynamicTimer.OnTimer := DynamicTimerTick;
+  end;
+  FDynamicTimer.Interval := FDynamicRefreshInterval;
+  FDynamicTimer.Enabled := FAutoRefreshDynamicText and
+    (FDynamicRefreshInterval > 0);
+end;
+
+procedure TDATFMXLanguageManager.Loaded;
+begin
+  inherited Loaded;
+  EnsureDynamicTimer;
+end;
+
+procedure TDATFMXLanguageManager.RefreshDynamicText;
+var
+  Form: TObject;
+  Forms: TList<TObject>;
+begin
+  if not Initialized or (ActivePack = nil) then
+    Exit;
+  Forms := TList<TObject>.Create;
+  try
+    CollectOpenManagedObjects(Forms);
+    for Form in Forms do
+      ReapplyToManagedObject(Form);
+  finally
+    Forms.Free;
+  end;
+end;
+
+procedure TDATFMXLanguageManager.SetAutoRefreshDynamicText(
+  const Value: Boolean);
+begin
+  FAutoRefreshDynamicText := Value;
+  EnsureDynamicTimer;
+end;
+
+procedure TDATFMXLanguageManager.SetDynamicRefreshInterval(
+  const Value: Cardinal);
+begin
+  FDynamicRefreshInterval := Value;
+  EnsureDynamicTimer;
 end;
 
 function TDATFMXLanguageManager.ApplyLanguagePack(

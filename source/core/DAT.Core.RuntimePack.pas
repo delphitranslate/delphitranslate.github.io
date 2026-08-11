@@ -51,7 +51,14 @@ var
   LocaleObject: TJSONObject;
   Root: TJSONObject;
   StringsObject: TJSONObject;
+  SourceStrings: TDictionary<string, string>;
+  SourceStringsObject: TJSONObject;
+  SourceTemplates: TDictionary<string, string>;
+  SourceTemplatesObject: TJSONObject;
+  SourcesObject: TJSONObject;
   TemplatesObject: TJSONObject;
+  ExistingText: string;
+  SourceText: string;
   ValidationResult: TCatalogValidationResult;
 begin
   ValidationResult := TCatalogValidator.Validate(ACatalog);
@@ -66,7 +73,7 @@ begin
 
   Root := TJSONObject.Create;
   try
-    Root.AddPair('schemaVersion', TJSONNumber.Create(1));
+    Root.AddPair('schemaVersion', TJSONNumber.Create(2));
     Root.AddPair('applicationId', ACatalog.ApplicationId);
     Root.AddPair('applicationVersion', ACatalog.ApplicationVersion);
     Root.AddPair('framework', TargetFrameworkToString(ACatalog.Framework));
@@ -100,17 +107,62 @@ begin
 
     StringsObject := TJSONObject.Create;
     TemplatesObject := TJSONObject.Create;
-    for Entry in ACatalog.Entries do
-      if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
-        not (Entry.Status in [tsExcluded, tsObsolete]) then
-        case Entry.RuntimeTextRole of
-          rtrStaticText:
-            StringsObject.AddPair(Entry.Key, Entry.TranslatedText);
-          rtrDynamicValue, rtrRuntimeTemplate:
-            TemplatesObject.AddPair(Entry.Key, Entry.TranslatedText);
+    SourceStringsObject := TJSONObject.Create;
+    SourceTemplatesObject := TJSONObject.Create;
+    SourcesObject := TJSONObject.Create;
+    SourceStrings := TDictionary<string, string>.Create;
+    SourceTemplates := TDictionary<string, string>.Create;
+    try
+      for Entry in ACatalog.Entries do
+        if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+          not (Entry.Status in [tsExcluded, tsObsolete]) then
+        begin
+          SourceText := Entry.SourceText;
+          SourcesObject.AddPair(Entry.Key, SourceText);
+          case Entry.RuntimeTextRole of
+            rtrStaticText:
+              begin
+                StringsObject.AddPair(Entry.Key, Entry.TranslatedText);
+                if (Trim(SourceText) <> '') and
+                  (Trim(Entry.TranslatedText) <> '') then
+                begin
+                  if SourceStrings.TryGetValue(SourceText, ExistingText) and
+                    not SameText(ExistingText, Entry.TranslatedText) then
+                    SourceStrings[SourceText] := ''
+                  else if not SourceStrings.ContainsKey(SourceText) then
+                    SourceStrings.Add(SourceText, Entry.TranslatedText);
+                end;
+              end;
+            rtrDynamicValue, rtrRuntimeTemplate:
+              begin
+                TemplatesObject.AddPair(Entry.Key, Entry.TranslatedText);
+                if (Trim(SourceText) <> '') and
+                  (Trim(Entry.TranslatedText) <> '') then
+                begin
+                  if SourceTemplates.TryGetValue(SourceText, ExistingText) and
+                    not SameText(ExistingText, Entry.TranslatedText) then
+                    SourceTemplates[SourceText] := ''
+                  else if not SourceTemplates.ContainsKey(SourceText) then
+                    SourceTemplates.Add(SourceText, Entry.TranslatedText);
+                end;
+              end;
+          end;
         end;
+      for SourceText in SourceStrings.Keys do
+        if SourceStrings[SourceText] <> '' then
+          SourceStringsObject.AddPair(SourceText, SourceStrings[SourceText]);
+      for SourceText in SourceTemplates.Keys do
+        if SourceTemplates[SourceText] <> '' then
+          SourceTemplatesObject.AddPair(SourceText, SourceTemplates[SourceText]);
+    finally
+      SourceTemplates.Free;
+      SourceStrings.Free;
+    end;
     Root.AddPair('strings', StringsObject);
     Root.AddPair('templates', TemplatesObject);
+    Root.AddPair('sourceStrings', SourceStringsObject);
+    Root.AddPair('sourceTemplates', SourceTemplatesObject);
+    Root.AddPair('sources', SourcesObject);
 
     Result := Root.ToJSON;
   finally

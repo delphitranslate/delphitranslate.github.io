@@ -552,6 +552,8 @@ def build_user_guide() -> Path:
             "Captions, Text values, prompts, hints, headings, and designated list content.",
             "Memo and string-list content when it represents user-visible text.",
             "Delphi resourcestring symbols with stable unit-and-symbol keys.",
+            "Multiline DFM/FMX string expressions and supported runtime UI assignments in Pascal, including Text, Caption, Header, Hint, TextPrompt, and Format templates.",
+            "Nested utility or conversion projects are excluded when a separate DPROJ or DPR identifies them as a different application.",
             "Locale metadata such as date, time, number, and currency formatting is entered on the Languages page rather than guessed from UI text.",
         ],
     )
@@ -621,8 +623,8 @@ def build_user_guide() -> Path:
             "Pascal resourcestring entries require an explicit TranslateText(Key, Fallback) call at the intended code location. Mark Manual wiring confirmed only after adding and reviewing that call.",
             "Translation origin is independent of Draft, Reviewed, and Approved status. A provider result is never silently approved.",
             "Only Needs Translation, Source Changed, and Error entries are eligible. Existing Machine-translated, Imported, Edited, Reviewed, Approved, Excluded, and Obsolete work is protected unless the developer changes its status deliberately.",
-            "Each scanned entry records form, component, class, property, UI role, semantic concept, contextual description, and context confidence. This distinguishes meanings such as media Play, game Play, command Schedule, and the noun Schedule.",
-            "Vetted UI terminology is applied before a provider call where a supported target-language term is known. Reviewed and Approved entries also form contextual translation memory for matching later entries.",
+            "Each scanned entry records form, component, class, property, UI role, semantic concept, contextual description, and context confidence. This distinguishes meanings such as media Play, game Play, command Schedule, the noun Schedule, weekday abbreviations, Save, Close, and media-playback timing.",
+            "Vetted UI terminology is applied before a provider call where a supported target-language term is known, and it repairs unreviewed provider drafts when a definitive application term is available. Reviewed and Approved entries remain protected. Reviewed and Approved entries also form contextual translation memory for matching later entries.",
             "DeepL accepts the Studio's contextual description. Google Cloud Translation Basic v2 does not accept context or glossaries; the Studio uses local context, terminology, memory, and focused warnings around Google.",
             "Validation focuses on placeholders, accelerators, inconsistent repeated terms, source changes, and runtime wiring.",
             "Exact-source translations from other stable keys are suggestions only. The developer must explicitly accept one, and the accepted target remains Edited rather than inheriting approval.",
@@ -1401,7 +1403,7 @@ def build_engineering_guide() -> Path:
     document.add_heading("4.2 Development catalog", level=2)
     document.add_paragraph(
         '{\n'
-        '  "schemaVersion": 3,\n'
+        '  "schemaVersion": 5,\n'
         '  "applicationId": "SampleApp",\n'
         '  "sourceLanguage": "en-US",\n'
         '  "locale": {"languageCode": "it-IT", "nativeLanguageName": "Italiano"},\n'
@@ -1415,12 +1417,15 @@ def build_engineering_guide() -> Path:
     document.add_heading("4.3 Runtime pack", level=2)
     document.add_paragraph(
         '{\n'
-        '  "schemaVersion": 1,\n'
+        '  "schemaVersion": 2,\n'
         '  "applicationId": "SampleApp",\n'
         '  "languageCode": "it-IT",\n'
-        '  "nativeLanguageName": "Italiano",\n'
+        '  "language": {"code": "it-IT", "nativeName": "Italiano", "direction": "ltr"},\n'
         '  "sourceCatalogChecksum": "...",\n'
-        '  "strings": {"frmMain.btnSave.Text": "Salva"}\n'
+        '  "strings": {"frmMain.btnSave.Text": "Salva"},\n'
+        '  "sources": {"frmMain.btnSave.Text": "Save"},\n'
+        '  "sourceStrings": {"Save": "Salva"},\n'
+        '  "sourceTemplates": {}\n'
         "}",
         style="Code Block",
     )
@@ -1435,8 +1440,8 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Core.ProjectDetection reads project metadata, resolves the DPR, detects VCL or FMX through project/form evidence, records Win32/Win64 support, and enumerates forms and Pascal sources. DAT.Scan.Project coordinates form and resourcestring scanners while measuring elapsed milliseconds.",
-            "DAT.Scan.FormText parses text DFM/FMX without instantiating target forms. DAT.Scan.PascalResources extracts resourcestring declarations. DAT.Scan.TextCodec preserves Delphi text encodings and escaped string syntax. DAT.Scan.Rules centralizes designated property decisions.",
+            "DAT.Core.ProjectDetection reads project metadata, resolves the DPR, detects VCL or FMX through project/form evidence, records Win32/Win64 support, and enumerates forms and Pascal sources. DAT.Scan.Project coordinates form and Pascal scanners while measuring elapsed milliseconds. Generated folders and nested directories that contain another DPROJ or DPR are excluded so a conversion utility is not mistaken for part of the selected application.",
+            "DAT.Scan.FormText parses text DFM/FMX without instantiating target forms, including Delphi multiline string expressions. DAT.Scan.PascalResources extracts resourcestring declarations plus supported runtime UI assignments and Format templates. It rejects SQL and HTML payloads that merely use Text properties. DAT.Scan.TextCodec preserves Delphi text encodings and escaped string syntax. DAT.Scan.Rules centralizes designated property decisions.",
         ],
     )
     document.add_heading("5.1 Incremental merge", level=2)
@@ -1471,7 +1476,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Studio.SetupWizard is a separate, designer-authored FMX modal form opened by Start Setup Wizard. It is borderless, fixed-size, centered, and deliberately omits menu and system controls. Its eight hidden TabControl pages, left navigation rail, footer controls, labels, dialogs, check boxes, memos, and layout geometry are all persisted in DAT.Studio.SetupWizard.fmx and remain editable in the Form Designer.",
+            "DAT.Studio.SetupWizard is a separate, designer-authored FMX modal form opened by Start Setup Wizard. It is borderless, fixed-size, centered, and deliberately omits menu and system controls. Its eight hidden TabControl pages, left navigation rail, footer controls, labels, dialogs, check boxes, memos, and layout geometry are all persisted in DAT.Studio.SetupWizard.fmx and remain editable in the Form Designer. A designer-authored modal backdrop dims and blocks the Studio while the Wizard is open so the two blue interfaces remain visually distinct.",
             "The Wizard owns isolated project-profile, scan-result, catalog, provider-key, backup, and component-kit state. Steps already reached may be revisited; future steps remain disabled. Changing the project or target language invalidates downstream scan/catalog state. Before final processing, the target project is read only except for an explicitly saved provider credential outside the project. During final processing, navigation and closing are disabled.",
             "Final processing requires confirmation that the target project is closed, creates a timestamped ZIP, translates eligible unresolved entries, saves the development catalog, validates, exports the runtime JSON pack, generates the component kit, deploys packs to existing outputs, and transactionally inserts marked Search Path and PostBuildEvent properties inside Delphi's native Base compiler property group. Base inheritance covers Debug/Release and Win32/Win64. The Wizard never edits target Pascal, form, or DPR files and never writes RAD Studio's package registry.",
         ],
@@ -1556,7 +1561,7 @@ def build_engineering_guide() -> Path:
         document,
         [
             "Translate Automatically is the canonical machine-translation path. It validates the selected catalog language, loads the selected provider settings and effective key, counts eligible unresolved entries, and shows the provider and count before any network request.",
-            "Every scan entry receives ContextKind, ContextDescription, SemanticConcept, and ContextConfidence metadata. Before a network request, the Studio reuses a Reviewed or Approved translation only when source text and semantic context match, then applies supported vetted UI terminology. Remaining strings are sent through DAT.Provider.Client in bounded batches. Reviewed, Approved, Excluded, and Obsolete entries are not overwritten.",
+            "Every scan entry receives ContextKind, ContextDescription, SemanticConcept, and ContextConfidence metadata. Before a network request, the Studio reuses a Reviewed or Approved translation only when source text and semantic context match, then applies supported vetted UI terminology. The same authoritative terminology repairs unreviewed Google or DeepL drafts when a definitive application term is known, including commands, media playback, schedule terms, weekday abbreviations, and runtime uptime templates. Remaining strings are sent through DAT.Provider.Client in bounded batches. Reviewed, Approved, Edited, Excluded, and Obsolete entries are not overwritten.",
             "DeepL receives contextual descriptions. Google Basic results are tagged provider-basic; short terms with unknown meaning receive a review note. DeepL contextual results are tagged contextual-provider. Terminology and translation-memory results retain their own provenance.",
             "If no key is available, the workflow opens Provider Settings and gives a specific corrective message. HTTP or parsing failures leave the catalog entries unchanged for the failed operation and report a redacted summary in the status card.",
             "CSV interchange and manual editing remain optional alternatives for translation-company collaboration or specialized review, not prerequisites for automatic translation.",
@@ -1589,8 +1594,8 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Runtime.LanguagePack loads and discovers JSON packs, checks application identity, rejects empty/invalid packs, canonicalizes native language names, de-duplicates exact locale codes, and suppresses a generic locale when a regional variant exists. DAT.Runtime.Preference reads/writes the selected locale. DAT.Runtime.Manager owns the active pack, discovery, preference, translation lookup, and locale format settings. The source language loads its generated JSON pack when present and falls back to designer text only for older deployments without that pack.",
-            "DAT.Runtime.VCL and DAT.Runtime.FMX traverse existing component trees and supported collection properties. They apply values by stable key to already designer-created controls. Missing keys retain source text. The adapters do not create controls or rearrange layouts.",
+            "DAT.Runtime.LanguagePack loads and discovers JSON packs, checks application identity, rejects empty/invalid packs, canonicalizes native language names, de-duplicates exact locale codes, and suppresses a generic locale when a regional variant exists. Runtime schema 2 retains keyed strings and templates while adding source text, source-string, and source-template indexes; schema 1 packs remain readable. DAT.Runtime.Preference reads/writes the selected locale. DAT.Runtime.Manager owns the active pack, discovery, preference, translation lookup, and locale format settings. The source language loads its generated JSON pack when present and falls back to designer text only for older deployments without that pack.",
+            "DAT.Runtime.VCL and DAT.Runtime.FMX traverse existing component trees and supported collection properties. They apply values by stable key to already designer-created controls. The FMX adapter also translates anonymous runtime-created components and recognizes current dynamic text through the source indexes. Missing keys retain source text. The adapters do not create controls or rearrange layouts.",
         ],
     )
     document.add_heading("11.1 Component manager core", level=2)
@@ -1598,7 +1603,7 @@ def build_engineering_guide() -> Path:
         document,
         [
             "TDATCustomLanguageManager owns TTranslationRuntime, immutable post-initialization configuration, stable form-identity mappings, generation tracking, deterministic removal, main-thread and reentrancy guards, exclusion policy, diagnostics, and lifecycle events. SelectLanguage advances the generation, applies the active pack to open forms, saves the preference, and raises additive notifications.",
-            "TDATFMXLanguageManager subscribes additively to TFormBeforeShownMessage and TFormReleasedMessage. It translates after streaming but before OnShow/first paint and never replaces a global handler. TDATVCLLanguageManager owns a private TApplicationEvents, discovers visible forms on throttled idle, and inspects modal forms before display. VCL has no public additive before-show notification for every dynamic modeless form; such a form can paint once in the source language unless the application calls ApplyToForm before Show.",
+            "TDATFMXLanguageManager subscribes additively to TFormBeforeShownMessage and TFormReleasedMessage. It translates after streaming but before OnShow/first paint and never replaces a global handler. Its designer-visible AutoRefreshDynamicText and DynamicRefreshInterval properties reapply the active pack to visible forms so timers and application code cannot permanently overwrite translated status text, menu captions, grid headers, or uptime displays. TDATVCLLanguageManager owns a private TApplicationEvents, discovers visible forms on throttled idle, and inspects modal forms before display. VCL has no public additive before-show notification for every dynamic modeless form; such a form can paint once in the source language unless the application calls ApplyToForm before Show.",
             "PreserveControlState protects writable edit/memo data, focus, selection ranges, and list/combo ItemIndex. Collection replacement temporarily suppresses and then restores OnChange. Read-only instructional memo content remains translatable.",
         ],
     )
@@ -1756,7 +1761,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "The editable guides are generated from actual source and engineering notes with python-docx. Each DOCX contains a real TOC field, a dedicated TOC section, and a new-page content section. Finalization attempts Microsoft Word COM first to refresh TOCs and export companion PDFs. A bounded timeout prevents Word automation from hanging indefinitely; if Word fails, the approved Playwright HTML/CSS pipeline creates the PDFs. Every final PDF is rendered to page images and inspected before release.",
+            "The editable guides are generated from actual source and engineering notes with python-docx. Each DOCX contains a real TOC field, a dedicated TOC section, and a new-page content section. LibreOffice performs the approved headless PDF conversion with an isolated user profile. Microsoft Word is not used. Every final PDF is rendered to page images and inspected before release.",
         ],
     )
 

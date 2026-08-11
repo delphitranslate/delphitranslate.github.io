@@ -312,6 +312,146 @@ begin
   end;
 end;
 
+procedure TestAuthoritativeTerminologyRepair;
+var
+  Catalog: TTranslationCatalog;
+  Entry: TTranslationEntry;
+begin
+  Catalog := TTranslationCatalog.Create;
+  try
+    Catalog.Locale.LanguageCode := 'es-ES';
+    Entry := TTranslationEntry.Create;
+    Entry.SourceText := 'Close';
+    Entry.TranslatedText := 'Cerca';
+    Entry.SemanticConcept := 'command.close';
+    Entry.Status := tsMachineTranslated;
+    Entry.TranslationOrigin := torGoogle;
+    Catalog.Entries.Add(Entry);
+    Entry := TTranslationEntry.Create;
+    Entry.SourceText := 'Wed';
+    Entry.TranslatedText := 'Casarse';
+    Entry.SemanticConcept := 'calendar.wednesday';
+    Entry.Status := tsMachineTranslated;
+    Entry.TranslationOrigin := torGoogle;
+    Catalog.Entries.Add(Entry);
+    Entry := TTranslationEntry.Create;
+    Entry.SourceText := 'Times to play:';
+    Entry.TranslatedText := 'Tiempos para jugar:';
+    Entry.SemanticConcept := 'media.timesToPlay';
+    Entry.Status := tsMachineTranslated;
+    Entry.TranslationOrigin := torGoogle;
+    Catalog.Entries.Add(Entry);
+    Require(TTerminologyResolver.ApplyAuthoritativeTerms(Catalog) = 3,
+      'Authoritative terminology did not repair a provider translation.');
+    Require(Catalog.Entries[0].TranslatedText = 'Cerrar',
+      'Provider Close was not repaired to Spanish Cerrar.');
+    Require(Catalog.Entries[1].TranslatedText = 'Mi' + #$00E9,
+      'Provider Wednesday was not repaired to Spanish Mi' + #$00E9 + '.');
+    Require(Catalog.Entries[2].TranslatedText = 'Veces:',
+      'Provider Times to play was not repaired to Spanish Veces.');
+  finally
+    Catalog.Free;
+  end;
+end;
+
+procedure RequireSourceText(const AResult: TProjectScanResult;
+  const AExpectedText: string; const AExpectedKind: TScannedTextKind);
+var
+  Item: TScanItem;
+begin
+  for Item in AResult.Items do
+    if (Item.Kind = AExpectedKind) and
+      (Item.SourceText = AExpectedText) then
+      Exit;
+  raise Exception.Create('Expected scanned source text was not found: ' +
+    AExpectedText);
+end;
+
+procedure TestExtendedTextScanning;
+var
+  FormFileName: string;
+  PascalFileName: string;
+  ScanResult: TProjectScanResult;
+  TempDirectory: string;
+begin
+  TempDirectory := TPath.Combine(TPath.GetTempPath,
+    'DAT-Extended-Scan-' + FormatDateTime('hhnnsszzz', Now));
+  TDirectory.CreateDirectory(TempDirectory);
+  FormFileName := TPath.Combine(TempDirectory, 'RuntimeForm.fmx');
+  PascalFileName := TPath.Combine(TempDirectory, 'RuntimeForm.pas');
+  TFile.WriteAllText(FormFileName,
+    'object frmRuntime: TForm' + sLineBreak +
+    '  object lblInstructions: TLabel' + sLineBreak +
+    '    Text =' + sLineBreak +
+    '      ''Select a folder for each slot. Dates use month/day format, for e'' +' + sLineBreak +
+    '      ''xample 04/27.''' + sLineBreak +
+    '  end' + sLineBreak +
+    'end', TEncoding.UTF8);
+  TFile.WriteAllText(PascalFileName,
+    'unit RuntimeForm;' + sLineBreak +
+    'interface' + sLineBreak +
+    'implementation' + sLineBreak +
+    'procedure Build;' + sLineBreak +
+    'var DisplayText: string;' + sLineBreak +
+    'begin' + sLineBreak +
+    '  Column.Header := ''Play Date From'';' + sLineBreak +
+    '  RuntimeLabel.Text := ''Play Time'';' + sLineBreak +
+    '  DisplayText := Format('' Uptime: %d years %d seconds'', [1, 2]);' + sLineBreak +
+    'end;' + sLineBreak +
+    'end.', TEncoding.UTF8);
+  ScanResult := TProjectScanResult.Create;
+  try
+    TTextFormScanner.ScanFile(FormFileName, tfFireMonkey, ScanResult);
+    TPascalResourceStringScanner.ScanFile(PascalFileName, ScanResult);
+    RequireSourceText(ScanResult,
+      'Select a folder for each slot. Dates use month/day format, for example 04/27.',
+      stkFormProperty);
+    RequireSourceText(ScanResult, 'Play Date From', stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'Play Time', stkRuntimeAssignment);
+    RequireSourceText(ScanResult, ' Uptime: %d years %d seconds',
+      stkRuntimeAssignment);
+  finally
+    ScanResult.Free;
+    TDirectory.Delete(TempDirectory, True);
+  end;
+end;
+
+procedure TestNestedProjectExclusion;
+var
+  NestedDirectory: string;
+  Profile: TProjectProfile;
+  ScanResult: TProjectScanResult;
+  TempDirectory: string;
+begin
+  TempDirectory := TPath.Combine(TPath.GetTempPath,
+    'DAT-Nested-Project-' + FormatDateTime('hhnnsszzz', Now));
+  NestedDirectory := TPath.Combine(TempDirectory, 'Conversion Utility');
+  TDirectory.CreateDirectory(NestedDirectory);
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'Main.dproj'),
+    '<Project><FrameworkType>FMX</FrameworkType></Project>', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'Main.fmx'),
+    'object frmMain: TForm' + sLineBreak +
+    '  Caption = ''Main application''' + sLineBreak + 'end', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(NestedDirectory, 'Utility.dproj'),
+    '<Project><FrameworkType>FMX</FrameworkType></Project>', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(NestedDirectory, 'Utility.fmx'),
+    'object frmUtility: TForm' + sLineBreak +
+    '  Caption = ''Conversion utility''' + sLineBreak + 'end', TEncoding.UTF8);
+  Profile := Default(TProjectProfile);
+  Profile.ProjectFileName := TPath.Combine(TempDirectory, 'Main.dproj');
+  Profile.ProjectName := 'Main';
+  Profile.Framework := tfFireMonkey;
+  ScanResult := TProjectScanner.Scan(Profile);
+  try
+    RequireSourceText(ScanResult, 'Main application', stkFormProperty);
+    Require(ScanResult.Items.Count = 1,
+      'A nested Delphi utility project was included in the selected app scan.');
+  finally
+    ScanResult.Free;
+    TDirectory.Delete(TempDirectory, True);
+  end;
+end;
+
 procedure TestCatalogCsvRoundTrip;
 var
   Bytes: TBytes;
@@ -786,6 +926,7 @@ var
   PackFileName: string;
   PreferenceFileName: string;
   Runtime: TTranslationRuntime;
+  RuntimeText: string;
 begin
   LanguageDirectory := TPath.Combine(TPath.GetFullPath(GetCurrentDir),
     'export\RuntimeLoaderTest\Languages');
@@ -810,6 +951,12 @@ begin
     Require(Pack.FormatTemplate('MainForm.StatusMessage', 'Updated at %s',
       ['10:30']) = 'Aktualisiert um 10:30',
       'The runtime loader did not format a keyed template.');
+    Require(Pack.TryTranslateSource('E&xit', RuntimeText) and
+      (RuntimeText = '&Beenden'),
+      'The runtime source-text index did not translate a static string.');
+    Require(Pack.TryTranslateDynamicText('Updated at 10:30', RuntimeText) and
+      (RuntimeText = 'Aktualisiert um 10:30'),
+      'The runtime source-template index did not translate formatted text.');
   finally
     Pack.Free;
   end;
@@ -1950,6 +2097,9 @@ begin
     TestProviderProtocolFixtures;
     TestCatalogRoundTrip;
     TestContextualTerminology;
+    TestAuthoritativeTerminologyRepair;
+    TestExtendedTextScanning;
+    TestNestedProjectExclusion;
     TestProjectScanning;
     TestStudioProjectScanning;
     TestIncrementalCatalogMerge;

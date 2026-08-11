@@ -9,7 +9,8 @@ uses
 type
   TScannedTextKind = (
     stkFormProperty,
-    stkResourceString
+    stkResourceString,
+    stkRuntimeAssignment
   );
 
   TScanDiagnosticSeverity = (
@@ -141,6 +142,8 @@ begin
       Result := 'Form property';
     stkResourceString:
       Result := 'Resource string';
+    stkRuntimeAssignment:
+      Result := 'Runtime UI assignment';
   else
     Result := 'Unknown';
   end;

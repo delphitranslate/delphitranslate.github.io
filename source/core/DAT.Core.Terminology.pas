@@ -14,6 +14,8 @@ type
     class function TryTranslationMemory(const ACatalog: TTranslationCatalog;
       const AEntry: TTranslationEntry; out ATranslation: string): Boolean;
       static;
+    class function ApplyAuthoritativeTerms(
+      const ACatalog: TTranslationCatalog): Integer; static;
   end;
 
 implementation
@@ -30,6 +32,34 @@ begin
   SeparatorAt := Pos('-', Result);
   if SeparatorAt > 0 then
     Result := Copy(Result, 1, SeparatorAt - 1);
+end;
+
+class function TTerminologyResolver.ApplyAuthoritativeTerms(
+  const ACatalog: TTranslationCatalog): Integer;
+var
+  Entry: TTranslationEntry;
+  ResolvedText: string;
+begin
+  Result := 0;
+  if ACatalog = nil then
+    Exit;
+  for Entry in ACatalog.Entries do
+    if not (Entry.Status in [tsExcluded, tsObsolete, tsReviewed,
+      tsApproved, tsEdited]) and
+      ((Entry.TranslationOrigin in [torUnknown, torGoogle, torDeepL,
+        torSuggestion, torTerminology]) or
+       (Entry.Status in [tsNeedsTranslation, tsAiDraft,
+         tsMachineTranslated, tsSourceChanged, tsError])) and
+      TryResolve(Entry, ACatalog.Locale.LanguageCode, ResolvedText) and
+      not SameText(Trim(Entry.TranslatedText), Trim(ResolvedText)) then
+    begin
+      Entry.TranslatedText := ResolvedText;
+      Entry.Status := tsMachineTranslated;
+      Entry.TranslationOrigin := torTerminology;
+      Entry.TranslationConfidence := 'terminology';
+      Entry.TranslationReviewNote := '';
+      Inc(Result);
+    end;
 end;
 
 function ConceptTranslation(const ALanguage, AConcept: string;
@@ -55,6 +85,40 @@ begin
     else if AConcept = 'command.help' then ATranslation := 'Ayuda'
     else if AConcept = 'command.settings' then ATranslation := 'Ajustes'
     else if AConcept = 'command.properties' then ATranslation := 'Propiedades'
+    else if AConcept = 'command.add' then ATranslation := 'Agregar'
+    else if AConcept = 'command.delete' then ATranslation := 'Eliminar'
+    else if AConcept = 'calendar.monday' then ATranslation := 'Lun'
+    else if AConcept = 'calendar.tuesday' then ATranslation := 'Mar'
+    else if AConcept = 'calendar.wednesday' then ATranslation := 'Mi' + #$00E9
+    else if AConcept = 'calendar.thursday' then ATranslation := 'Jue'
+    else if AConcept = 'calendar.friday' then ATranslation := 'Vie'
+    else if AConcept = 'calendar.saturday' then ATranslation := 'S' + #$00E1 + 'b'
+    else if AConcept = 'calendar.sunday' then ATranslation := 'Dom'
+    else if AConcept = 'media.playSchedule' then ATranslation := 'Horario de reproducci' + #$00F3 + 'n'
+    else if AConcept = 'media.playDates' then ATranslation := 'Fechas de reproducci' + #$00F3 + 'n:'
+    else if AConcept = 'media.playTime' then ATranslation := 'Hora(s) de reproducci' + #$00F3 + 'n:'
+    else if AConcept = 'media.timesToPlay' then ATranslation := 'Veces:'
+    else if AConcept = 'media.playFollowingDays' then ATranslation := 'Reproducir en los siguientes d' + #$00ED + 'as:'
+    else if AConcept = 'media.playDateFrom' then ATranslation := 'Fecha inicial de reproducci' + #$00F3 + 'n'
+    else if AConcept = 'media.playDateTo' then ATranslation := 'Fecha final de reproducci' + #$00F3 + 'n'
+    else if AConcept = 'noun.group' then ATranslation := 'Grupo'
+    else if AConcept = 'media.pause' then ATranslation := 'Pausar'
+    else if AConcept = 'media.stop' then ATranslation := 'Detener'
+    else if AConcept = 'media.playing' then ATranslation := 'Reproduciendo'
+    else if AConcept = 'media.paused' then ATranslation := 'En pausa'
+    else if AConcept = 'media.stopped' then ATranslation := 'Detenido'
+    else if AConcept = 'command.refresh' then ATranslation := 'Actualizar'
+    else if AConcept = 'noun.themes' then ATranslation := 'Temas'
+    else if AConcept = 'media.songName' then ATranslation := 'Nombre de la canci' + #$00F3 + 'n'
+    else if AConcept = 'media.duration' then ATranslation := 'Duraci' + #$00F3 + 'n'
+    else if AConcept = 'calendar.dateTime' then ATranslation := 'Fecha/hora'
+    else if AConcept = 'noun.event' then ATranslation := 'Evento'
+    else if AConcept = 'schedule.enabled' then ATranslation := 'Horario activado'
+    else if AConcept = 'schedule.disabled' then ATranslation := 'Horario desactivado'
+    else if AConcept = 'runtime.uptime' then
+      ATranslation := '     Tiempo de actividad:       %d a' + #$00F1 +
+        'os       %d meses       %d semanas       %d d' + #$00ED +
+        'as       %d horas       %d minutos        %d segundos'
     else Result := False;
   end
   else if ALanguage = 'fr' then
@@ -70,6 +134,15 @@ begin
     else if AConcept = 'media.play' then ATranslation := 'Lire'
     else if AConcept = 'game.play' then ATranslation := 'Jouer'
     else if AConcept = 'instrument.play' then ATranslation := 'Jouer'
+    else if AConcept = 'command.add' then ATranslation := 'Ajouter'
+    else if AConcept = 'command.delete' then ATranslation := 'Supprimer'
+    else if AConcept = 'calendar.monday' then ATranslation := 'Lun'
+    else if AConcept = 'calendar.tuesday' then ATranslation := 'Mar'
+    else if AConcept = 'calendar.wednesday' then ATranslation := 'Mer'
+    else if AConcept = 'calendar.thursday' then ATranslation := 'Jeu'
+    else if AConcept = 'calendar.friday' then ATranslation := 'Ven'
+    else if AConcept = 'calendar.saturday' then ATranslation := 'Sam'
+    else if AConcept = 'calendar.sunday' then ATranslation := 'Dim'
     else Result := False;
   end
   else if ALanguage = 'de' then
@@ -85,6 +158,15 @@ begin
     else if AConcept = 'media.play' then ATranslation := 'Wiedergeben'
     else if AConcept = 'game.play' then ATranslation := 'Spielen'
     else if AConcept = 'instrument.play' then ATranslation := 'Spielen'
+    else if AConcept = 'command.add' then ATranslation := 'Hinzuf' + #$00FC + 'gen'
+    else if AConcept = 'command.delete' then ATranslation := 'L' + #$00F6 + 'schen'
+    else if AConcept = 'calendar.monday' then ATranslation := 'Mo'
+    else if AConcept = 'calendar.tuesday' then ATranslation := 'Di'
+    else if AConcept = 'calendar.wednesday' then ATranslation := 'Mi'
+    else if AConcept = 'calendar.thursday' then ATranslation := 'Do'
+    else if AConcept = 'calendar.friday' then ATranslation := 'Fr'
+    else if AConcept = 'calendar.saturday' then ATranslation := 'Sa'
+    else if AConcept = 'calendar.sunday' then ATranslation := 'So'
     else Result := False;
   end
   else if ALanguage = 'it' then
@@ -100,6 +182,15 @@ begin
     else if AConcept = 'media.play' then ATranslation := 'Riproduci'
     else if AConcept = 'game.play' then ATranslation := 'Gioca'
     else if AConcept = 'instrument.play' then ATranslation := 'Suona'
+    else if AConcept = 'command.add' then ATranslation := 'Aggiungi'
+    else if AConcept = 'command.delete' then ATranslation := 'Elimina'
+    else if AConcept = 'calendar.monday' then ATranslation := 'Lun'
+    else if AConcept = 'calendar.tuesday' then ATranslation := 'Mar'
+    else if AConcept = 'calendar.wednesday' then ATranslation := 'Mer'
+    else if AConcept = 'calendar.thursday' then ATranslation := 'Gio'
+    else if AConcept = 'calendar.friday' then ATranslation := 'Ven'
+    else if AConcept = 'calendar.saturday' then ATranslation := 'Sab'
+    else if AConcept = 'calendar.sunday' then ATranslation := 'Dom'
     else Result := False;
   end
   else if ALanguage = 'pt' then
@@ -115,6 +206,15 @@ begin
     else if AConcept = 'media.play' then ATranslation := 'Reproduzir'
     else if AConcept = 'game.play' then ATranslation := 'Jogar'
     else if AConcept = 'instrument.play' then ATranslation := 'Tocar'
+    else if AConcept = 'command.add' then ATranslation := 'Adicionar'
+    else if AConcept = 'command.delete' then ATranslation := 'Excluir'
+    else if AConcept = 'calendar.monday' then ATranslation := 'Seg'
+    else if AConcept = 'calendar.tuesday' then ATranslation := 'Ter'
+    else if AConcept = 'calendar.wednesday' then ATranslation := 'Qua'
+    else if AConcept = 'calendar.thursday' then ATranslation := 'Qui'
+    else if AConcept = 'calendar.friday' then ATranslation := 'Sex'
+    else if AConcept = 'calendar.saturday' then ATranslation := 'S' + #$00E1 + 'b'
+    else if AConcept = 'calendar.sunday' then ATranslation := 'Dom'
     else Result := False;
   end
   else

@@ -957,6 +957,7 @@ begin
       Plan := dpPro
     else
       Plan := dpFree;
+    TTerminologyResolver.ApplyAuthoritativeTerms(FCatalog);
     MissingCount := 0;
     for Entry in FCatalog.Entries do
       if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and

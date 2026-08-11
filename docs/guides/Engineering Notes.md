@@ -2,6 +2,19 @@
 
 Last changed: August 10, 2026
 
+## Carillon FMX Coverage and Context Repair - August 10, 2026
+
+- The form scanner now reads multiline Delphi string expressions from text FMX/DFM resources.
+- The Pascal scanner now inventories supported runtime assignments to `Text`, `Caption`, `Header`, `Hint`, and `TextPrompt`, plus `Format` templates used for visible dynamic text.
+- SQL statements and HTML row/cell payloads are rejected even when assigned through a property named `Text`.
+- Directories containing a separate nested DPROJ or DPR are excluded. Selecting Carillon therefore no longer includes its independent database-conversion utility.
+- The Carillon test scan now identifies 257 relevant entries: 213 form properties and 44 runtime UI assignments. This count is evidence for the new scanner, not a universal expected count for future Carillon revisions.
+- Vetted terminology now covers definitive desktop commands, media playback, scheduling phrases, weekday abbreviations, dynamic states, grid headings, and the uptime template. It is applied before provider translation and repairs unreviewed machine drafts such as Spanish `Cerca` for Close or `Casarse` for Wed. Reviewed, Approved, and Edited work remains protected.
+- Runtime-pack schema version 2 adds keyed source text, exact source-string translations, and source-template translations while retaining the original keyed dictionaries. The loader remains compatible with schema version 1.
+- The FMX runtime now translates anonymous runtime-created components by current source text and can translate formatted dynamic captions. `TDATFMXLanguageManager.AutoRefreshDynamicText` and `DynamicRefreshInterval` are Object Inspector properties; their defaults reapply translations to visible forms every second when application timers or code overwrite UI text.
+- The Studio displays a designer-authored dimmed backdrop while the modal Setup Wizard is open.
+- No universal control resizing is performed. Automatic resizing would be unsafe for carefully designed target layouts; accurate, shorter terminology and complete text capture resolve the demonstrated Carillon crowding without rearranging the application.
+
 ## Contextual Translation Engine - August 10, 2026
 
 - Development-catalog schema version 5 adds `contextKind`, `contextDescription`, `semanticConcept`, and `contextConfidence` to every entry.

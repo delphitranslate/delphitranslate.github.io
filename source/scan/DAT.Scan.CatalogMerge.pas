@@ -58,7 +58,12 @@ begin
         AEntry.RuntimeApplication := rakAutomatic;
         AEntry.RuntimeWiringConfirmed := True;
       end;
-    rtrDynamicValue, rtrRuntimeTemplate:
+    rtrRuntimeTemplate:
+      begin
+        AEntry.RuntimeApplication := rakAutomatic;
+        AEntry.RuntimeWiringConfirmed := True;
+      end;
+    rtrDynamicValue:
       begin
         AEntry.RuntimeApplication := rakManualTranslateText;
         AEntry.RuntimeWiringConfirmed := False;

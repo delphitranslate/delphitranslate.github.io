@@ -28,7 +28,9 @@ uses
 class function TProjectScanner.IsExcludedPath(const AProjectDirectory,
   AFileName: string): Boolean;
 var
+  CandidateDirectory: string;
   DirectoryPrefix: string;
+  NestedProjects: TArray<string>;
   RelativePath: string;
 begin
   DirectoryPrefix := IncludeTrailingPathDelimiter(
@@ -37,9 +39,37 @@ begin
   if StartsText(DirectoryPrefix, RelativePath) then
     Delete(RelativePath, 1, Length(DirectoryPrefix));
   Result := StartsText('.git' + PathDelim, RelativePath) or
+    StartsText('.agents' + PathDelim, RelativePath) or
+    StartsText('__history' + PathDelim, RelativePath) or
+    StartsText('__recovery' + PathDelim, RelativePath) or
     StartsText('bin' + PathDelim, RelativePath) or
     StartsText('dcu' + PathDelim, RelativePath) or
+    StartsText('docs' + PathDelim, RelativePath) or
+    StartsText('export' + PathDelim, RelativePath) or
+    StartsText('localization' + PathDelim, RelativePath) or
+    StartsText('samples' + PathDelim, RelativePath) or
     StartsText('source distributions' + PathDelim, RelativePath);
+  if Result then
+    Exit;
+
+  { A source tree may contain a separate utility or conversion project. Such
+    a nested project is not part of the application selected by the user. }
+  CandidateDirectory := TPath.GetDirectoryName(TPath.GetFullPath(AFileName));
+  while not SameText(CandidateDirectory,
+    TPath.GetFullPath(AProjectDirectory)) do
+  begin
+    NestedProjects := TDirectory.GetFiles(CandidateDirectory, '*.dproj',
+      TSearchOption.soTopDirectoryOnly);
+    if Length(NestedProjects) = 0 then
+      NestedProjects := TDirectory.GetFiles(CandidateDirectory, '*.dpr',
+        TSearchOption.soTopDirectoryOnly);
+    if Length(NestedProjects) > 0 then
+      Exit(True);
+    if SameText(TPath.GetDirectoryName(CandidateDirectory),
+      CandidateDirectory) then
+      Break;
+    CandidateDirectory := TPath.GetDirectoryName(CandidateDirectory);
+  end;
 end;
 
 class function TProjectScanner.Scan(

@@ -1683,6 +1683,17 @@ object frmTranslationStudio: TfrmTranslationStudio
       end
     end
   end
+  object rectWizardBackdrop: TRectangle
+    Align = Client
+    Fill.Color = x99071526
+    HitTest = True
+    Opacity = 0.720000028610229500
+    Size.Width = 1220.000000000000000000
+    Size.Height = 736.000000000000000000
+    Size.PlatformDefault = False
+    Stroke.Kind = None
+    Visible = False
+  end
   object dlgOpenProject: TOpenDialog
     DefaultExt = 'dproj'
     Filter = 

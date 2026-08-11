@@ -228,9 +228,23 @@ begin
           Inc(LineIndex);
         end;
       end
-      else if TryDecodeDelphiStringExpression(Expression, ValueText) then
-        AddScanItem(AResult, AFramework, AFileName, FormName, Context,
-          PropertyName, ValueText, LineIndex + 1, -1);
+      else
+      begin
+        SourceLine := LineIndex + 1;
+        while ((Expression = '') or EndsText('+', Expression)) and
+          (LineIndex + 1 < Lines.Count) do
+        begin
+          Inc(LineIndex);
+          TrimmedLine := Trim(Lines[LineIndex]);
+          if Expression = '' then
+            Expression := TrimmedLine
+          else
+            Expression := Expression + ' ' + TrimmedLine;
+        end;
+        if TryDecodeDelphiStringExpression(Expression, ValueText) then
+          AddScanItem(AResult, AFramework, AFileName, FormName, Context,
+            PropertyName, ValueText, SourceLine, -1);
+      end;
 
       Inc(LineIndex);
     end;
