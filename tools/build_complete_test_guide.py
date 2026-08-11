@@ -39,7 +39,7 @@ ICON = (
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
 DOCX_PATH = GUIDES_DIR / "Delphi App Translation Studio Complete Test Guide.docx"
-LAST_CHANGED = "August 10, 2026"
+LAST_CHANGED = "August 11, 2026"
 
 
 def set_run_font(
@@ -586,7 +586,7 @@ def build_document() -> Path:
         "Validate and export runtime JSON",
         "Verify structural defects block export and a valid catalog produces a compact offline pack.",
         [
-            "Select Validation and choose Validate Catalog.",
+            "Select Validation and choose Run Validation.",
             "Read the plain-language summary. Double-click an entry-specific warning and confirm Translate opens with that entry selected.",
             "Resolve all errors involving missing text, duplicate keys, changed source, placeholders, sequential/indexed Format arguments, or accelerator keys. Review warnings; informational runtime placeholders require no action.",
             "Treat manual resourcestring wiring as a separate readiness warning and resolve it before claiming complete runtime coverage.",
@@ -598,6 +598,30 @@ def build_document() -> Path:
             "A valid catalog reports that the runtime pack is ready.",
             r"Runtime path: C:\New Delphi Projects\Echurchsite Analytical - Component Test\Localization\Languages\<locale>.json.",
             "The runtime pack is smaller than the development catalog and contains no API key or development history.",
+        ],
+    )
+
+    add_test_case(
+        document,
+        "TC-08A",
+        "Incremental rescan after a saved UI change",
+        "Prove that a normal Delphi form change enters the existing catalog without discarding completed translations, and that stale scan results cannot be exported.",
+        [
+            "In the disposable target project, add a clearly named test label such as lblLocalizationRetest with the source text Localization update test:, or deliberately revise an existing test caption.",
+            "Choose File > Save All in RAD Studio. The scanner reads the saved DFM/FMX and Pascal files; an edit that exists only in the IDE buffer cannot be scanned.",
+            "Return to the same Studio project and target-language catalog, then choose Scan Project again.",
+            "Confirm the summary reports the new or changed entry. If a component was renamed, confirm its previous stable key is retained as Obsolete and its new key is added.",
+            "Choose Translate Automatically. Confirm that the prompt counts only eligible new, changed, or otherwise unresolved entries—not every entry in the catalog.",
+            "Run Validation, then export the runtime pack. Confirm the new stable key is present in the runtime JSON.",
+            "For the stale-scan guard, save one more harmless target text change after the scan and attempt validation/export without rescanning. Confirm final processing is blocked because target source was saved after the last scan.",
+            "Rescan, translate the newly unresolved entry, validate, export, rebuild the target, deploy the packs, and verify the changed control in both source and target languages.",
+        ],
+        [
+            "Matching Reviewed and Approved translations remain unchanged.",
+            "Only new, changed, or unresolved eligible text is sent to the provider.",
+            "Removed or renamed component keys remain traceable as Obsolete rather than silently disappearing.",
+            "Saving target source after the scan invalidates that scan and prevents an outdated runtime pack from being exported.",
+            "The Studio does not change the target form; the only target modification is the deliberate Form Designer change made by the tester.",
         ],
     )
 
@@ -1053,6 +1077,7 @@ def build_document() -> Path:
             ["Scan", "Project detection and scan are correct, fast, and read-only.", "PASS / FAIL"],
             ["Provider", "Connection and automatic translation succeed; key remains secret.", "PASS / FAIL"],
             ["Catalog", "Development JSON auto-saves and preserves status/provenance.", "PASS / FAIL"],
+            ["Incremental update", "Saved UI changes rescan correctly; completed translations survive; stale scans cannot export.", "PASS / FAIL"],
             ["Validation", "Errors block export; corrected catalog passes.", "PASS / FAIL"],
             ["Runtime pack", "Compact JSON exists under target Localization\\Languages.", "PASS / FAIL"],
             ["Kit safety", "Component kit is complete and target hashes/status do not change during generation.", "PASS / FAIL"],
@@ -1121,7 +1146,7 @@ def build_document() -> Path:
     add_paragraphs(
         document,
         [
-            "As of August 9, 2026, the project had current Studio executables in all four supported build folders, package outputs for Win32/Win64 Debug/Release, passing component/lifecycle/streaming/runtime/Studio launch/self-localization suites, and a clean pristine GA4 reference repository on branch codex/component-manager-pilot. The older C:\\New Delphi Projects\\Echurchsite Analytical - Test folder contained prior automatic-source-integration changes and was intentionally excluded from the clean component acceptance path.",
+            "As of August 11, 2026, commit 6ced725 had passed the complete Phase 10 release validation without Delphi running: current Studio executables in all four supported build folders, package outputs for Win32/Win64 Debug/Release, design streaming, component/lifecycle/runtime/integration tests, all four Studio form-streaming and launch tests, and Studio self-localization. The clean pristine GA4 reference repository remained the comparison source; older automatic-source-integration test folders remained excluded from the clean component acceptance path.",
             "This baseline is evidence, not a substitute for rerunning the tests. Record new executable timestamps, release-gate output, provider results, and target Git diffs for each acceptance session.",
         ],
     )

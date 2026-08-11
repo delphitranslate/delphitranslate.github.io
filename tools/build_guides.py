@@ -20,7 +20,7 @@ ICON = (
     / "images and icons"
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
-LAST_CHANGED = "August 10, 2026"
+LAST_CHANGED = "August 11, 2026"
 BLUE = "234C80"
 BRIGHT_BLUE = "1974DF"
 ORANGE = "F28A1B"
@@ -1236,7 +1236,7 @@ def build_setup_wizard_guide() -> Path:
     add_callout(
         document,
         "Translation length is application-specific.",
-        "A correct translation can be longer than its English source. If text clips, adjust the target form's wrapping, AutoSize, margins, or control dimensions in Delphi. The language pack should not guess or rewrite the application's visual design.",
+        "A correct translation can be substantially longer than its English source—20 to 50 percent growth is common for short interface phrases, and individual terms can grow more. Test every translated form at the supported window sizes. If text clips, overlaps, or loses alignment, adjust wrapping, AutoSize, margins, layout containers, or control dimensions in the target Form Designer. The language pack deliberately changes text only; it must not guess at or rewrite the application's visual design.",
     )
 
     document.add_heading("8. Files Created by the Wizard", level=1)
@@ -1257,7 +1257,35 @@ def build_setup_wizard_guide() -> Path:
         ],
     )
 
-    document.add_heading("9. Repeat, Resume, or Add Another Language", level=1)
+    document.add_heading("9. Update, Resume, or Add Another Language", level=1)
+    document.add_heading("9.1 Update an Existing Translation After UI or Text Changes", level=2)
+    add_paragraphs(
+        document,
+        [
+            "Changing an existing application is normal. New labels, revised captions, renamed controls, added forms, and changed resourcestrings must be saved and rescanned before they can enter the JSON catalog. The Wizard reuses the existing catalog and preserves matching work; it does not start the language over.",
+            "For the fewest provider calls and the clearest review, gather related interface changes into one practical batch. A single urgent correction can still be processed by itself.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Make the intended UI or source-text changes in Delphi, then choose File > Save All. The scanner reads saved DFM/FMX and Pascal files, not unsaved Form Designer buffers.",
+            "Run the current Translation Studio and start the Setup Wizard. Select the same .dproj, source language, target language, and provider used for the existing catalog.",
+            "Run Scan Project again. Read the new, changed, unchanged, and obsolete counts. A renamed component receives a new stable key; its former key remains Obsolete for traceability.",
+            "Continue to final processing. Automatic translation sends only eligible new, changed, or otherwise unresolved entries. Matching Reviewed and Approved translations are preserved.",
+            "If any target DFM/FMX or Pascal file is saved after the scan, final processing stops instead of exporting stale results. Return to Scan Project and scan again.",
+            "The already installed design package, manager, selector, and configured search path normally remain in place. Review the Delphi Component step and acknowledge the existing setup; do not add duplicate components.",
+            "Let final processing validate the catalog, export fresh JSON, regenerate the kit, and deploy to known build outputs. Use Deploy to App Folder again for a portable or USB copy.",
+            "Rebuild the target because its UI/source changed. Test every affected form in the source and target languages, including text wrapping, alignment, control state, and language persistence.",
+        ],
+    )
+    add_callout(
+        document,
+        "Repeatable update sequence.",
+        "Batch changes -> Save All -> Scan -> Translate unresolved -> Validate -> Export -> Deploy -> Rebuild -> Test.",
+    )
+
+    document.add_heading("9.2 What the Wizard Repeats Automatically", level=2)
     add_bullets(
         document,
         [
@@ -1267,6 +1295,7 @@ def build_setup_wizard_guide() -> Path:
             "A later scan preserves matching translations, marks changed source text for attention, adds new entries, and retains removed entries as obsolete.",
             "Automatic translation sends only eligible unresolved entries. Existing reviewed and approved work is preserved.",
             "Run the Wizard again when adding another language. Deploy all generated packs to each executable folder and refresh or restart the target application as required by its integration.",
+            "The Wizard can rescan, merge, translate unresolved entries, validate, export, regenerate the component kit, configure supported project metadata, and deploy packs. It cannot save an open Delphi editor buffer, decide whether a translation is linguistically ideal, or redesign controls for longer text.",
         ],
     )
 
@@ -1283,6 +1312,9 @@ def build_setup_wizard_guide() -> Path:
             ["Packs are absent after a build", "The marked DPROJ settings are missing, the kit moved, or the post-build command failed.", "Inspect the build output, verify the kit path, and use Deploy Build Outputs, Deploy to App Folder, or the documented manual fallback."],
             ["Selector is empty", "Packs are missing, invalid, or have a different applicationId.", "Check Localization\\Languages beside the running executable and verify ApplicationId."],
             ["Some text remains English", "The text may be dynamic, excluded, added after the scan, or not wired as a resourcestring.", "Rescan and translate new entries; use the full Studio to inspect runtime classifications and manual wiring warnings."],
+            ["A newly added label is missing from the scan", "The form was not saved, the wrong project/catalog is open, or the new property is not an eligible text property.", "Choose File > Save All in Delphi, confirm the same .dproj and target language, then rescan and inspect the entry classification."],
+            ["Final processing says source was saved after the scan", "The scan snapshot is stale and exporting it could omit a recent UI or source-text change.", "Choose Save All in Delphi, return to Scan Project, scan again, and then continue. Do not bypass this safeguard."],
+            ["Translated text clips or overlaps", "The target layout was sized only for the shorter source language.", "In the Delphi Form Designer, enable appropriate wrapping/AutoSize and adjust layout containers, margins, or control dimensions; then rebuild and visually retest every supported language."],
         ],
     )
 
