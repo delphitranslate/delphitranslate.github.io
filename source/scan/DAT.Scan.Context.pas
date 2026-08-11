@@ -76,11 +76,21 @@ begin
     AItem.SemanticConcept := 'command.enable'
   else if SameText(TextValue, 'schedule') then
   begin
-    if SameText(AItem.ContextKind, 'user command') then
+    if ContainsText(AItem.ComponentClassName, 'menuitem') then
+      AItem.SemanticConcept := 'noun.schedule'
+    else if SameText(AItem.ContextKind, 'user command') then
       AItem.SemanticConcept := 'command.schedule'
     else
       AItem.SemanticConcept := 'noun.schedule';
   end
+  else if SameText(TextValue, 'show remaining schedule') then
+    AItem.SemanticConcept := 'media.showRemainingSchedule'
+  else if MatchText(TextValue, ['language', 'language:']) then
+    AItem.SemanticConcept := 'noun.language'
+  else if SameText(TextValue, 'open all') then
+    AItem.SemanticConcept := 'command.openAll'
+  else if SameText(TextValue, 'close all') then
+    AItem.SemanticConcept := 'command.closeAll'
   else if SameText(TextValue, 'play') then
   begin
     if ContainsAny(Identity, ['music', 'audio', 'song', 'bell', 'carillon',

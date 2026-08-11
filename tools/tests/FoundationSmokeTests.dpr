@@ -290,6 +290,50 @@ begin
     ScanItem.Free;
   end;
 
+  ScanItem := TScanItem.Create;
+  try
+    ScanItem.SourceText := 'Schedule';
+    ScanItem.ComponentName := 'File2';
+    ScanItem.ComponentClassName := 'TMenuItem';
+    ScanItem.PropertyName := 'Text';
+    TScanContextAnalyzer.Analyze(ScanItem);
+    Require(ScanItem.SemanticConcept = 'noun.schedule',
+      'A Schedule menu heading was classified as a scheduling command.');
+    Entry := TTranslationEntry.Create;
+    try
+      Entry.SourceText := ScanItem.SourceText;
+      Entry.SemanticConcept := ScanItem.SemanticConcept;
+      Require(TTerminologyResolver.TryResolve(Entry, 'es-ES', Translation)
+        and (Translation = 'Horario'),
+        'Spanish Schedule menu terminology is incorrect.');
+    finally
+      Entry.Free;
+    end;
+  finally
+    ScanItem.Free;
+  end;
+
+  ScanItem := TScanItem.Create;
+  try
+    ScanItem.SourceText := 'Language:';
+    ScanItem.ComponentName := 'lblLanguage';
+    ScanItem.ComponentClassName := 'TLabel';
+    ScanItem.PropertyName := 'Text';
+    TScanContextAnalyzer.Analyze(ScanItem);
+    Entry := TTranslationEntry.Create;
+    try
+      Entry.SourceText := ScanItem.SourceText;
+      Entry.SemanticConcept := ScanItem.SemanticConcept;
+      Require(TTerminologyResolver.TryResolve(Entry, 'es-ES', Translation)
+        and (Translation = 'Idioma:'),
+        'The Spanish Language label did not preserve its colon.');
+    finally
+      Entry.Free;
+    end;
+  finally
+    ScanItem.Free;
+  end;
+
   Catalog := TTranslationCatalog.Create;
   try
     Entry := TTranslationEntry.Create;

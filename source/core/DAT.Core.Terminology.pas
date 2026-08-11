@@ -87,6 +87,9 @@ begin
     else if AConcept = 'command.properties' then ATranslation := 'Propiedades'
     else if AConcept = 'command.add' then ATranslation := 'Agregar'
     else if AConcept = 'command.delete' then ATranslation := 'Eliminar'
+    else if AConcept = 'command.openAll' then ATranslation := 'Abrir todo'
+    else if AConcept = 'command.closeAll' then ATranslation := 'Cerrar todo'
+    else if AConcept = 'noun.language' then ATranslation := 'Idioma'
     else if AConcept = 'calendar.monday' then ATranslation := 'Lun'
     else if AConcept = 'calendar.tuesday' then ATranslation := 'Mar'
     else if AConcept = 'calendar.wednesday' then ATranslation := 'Mi' + #$00E9
@@ -95,6 +98,7 @@ begin
     else if AConcept = 'calendar.saturday' then ATranslation := 'S' + #$00E1 + 'b'
     else if AConcept = 'calendar.sunday' then ATranslation := 'Dom'
     else if AConcept = 'media.playSchedule' then ATranslation := 'Horario de reproducci' + #$00F3 + 'n'
+    else if AConcept = 'media.showRemainingSchedule' then ATranslation := 'Mostrar horario restante'
     else if AConcept = 'media.playDates' then ATranslation := 'Fechas de reproducci' + #$00F3 + 'n:'
     else if AConcept = 'media.playTime' then ATranslation := 'Hora(s) de reproducci' + #$00F3 + 'n:'
     else if AConcept = 'media.timesToPlay' then ATranslation := 'Veces:'
@@ -237,6 +241,9 @@ begin
     if EndsText('...', Trim(AEntry.SourceText)) and
        not EndsText('...', ATranslation) then
       ATranslation := ATranslation + '...';
+    if EndsText(':', Trim(AEntry.SourceText)) and
+       not EndsText(':', ATranslation) then
+      ATranslation := ATranslation + ':';
   end;
 end;
 

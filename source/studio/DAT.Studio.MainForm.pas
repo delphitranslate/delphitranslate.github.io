@@ -229,6 +229,7 @@ type
     FProviderSettings: TProviderSettings;
     FSessionApiKeys: array[TTranslationProvider] of string;
     FUpdatingEntryControls: Boolean;
+    FLastScanCompletedAt: TDateTime;
     procedure ClearProjectSummary;
     procedure ClearScanSummary;
     procedure ResetCatalog;
@@ -440,6 +441,7 @@ end;
 procedure TfrmTranslationStudio.ClearScanSummary;
 begin
   FreeAndNil(FScanResult);
+  FLastScanCompletedAt := 0;
   lblScanSummaryValue.Text := 'No scan has been run';
   lblScanBreakdown.Text :=
     'Open a project, then scan its forms and resourcestrings.';
@@ -1278,6 +1280,7 @@ begin
     NewScanResult := TProjectScanner.Scan(FProjectProfile);
     FreeAndNil(FScanResult);
     FScanResult := NewScanResult;
+    FLastScanCompletedAt := Now;
     DisplayScanResult(FScanResult);
 
     if FTranslationCatalog = nil then
@@ -2413,6 +2416,7 @@ begin
         Entry.TranslationReviewNote := '';
       end;
     end;
+    TTerminologyResolver.ApplyAuthoritativeTerms(FTranslationCatalog);
     DisplayCatalogEntries;
     InvalidateValidation;
     SaveCatalog;
@@ -2443,10 +2447,21 @@ end;
 procedure TfrmTranslationStudio.btnExportRuntimePackClick(Sender: TObject);
 var
   Entry: TTranslationEntry;
+  Item: TScanItem;
   RuntimeEntryCount: Integer;
   RuntimeFileName: string;
 begin
   try
+    if FScanResult = nil then
+      raise Exception.Create(
+        'Scan the open project before exporting. This confirms that the catalog matches the saved Delphi forms and source files.');
+    for Item in FScanResult.Items do
+      if TFile.Exists(Item.SourceFileName) and
+         (TFile.GetLastWriteTime(Item.SourceFileName) >
+          FLastScanCompletedAt) then
+        raise Exception.CreateFmt(
+          'The source file "%s" was saved after the last scan. Save all files in Delphi, scan the project again, translate any new entries, and then export.',
+          [Item.SourceFileName]);
     SaveCatalog;
     RunCatalogValidation;
     if FValidationResult.HasErrors then

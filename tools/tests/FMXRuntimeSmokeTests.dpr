@@ -7,6 +7,8 @@ uses
   System.SysUtils,
   FMX.Forms,
   FMX.StdCtrls,
+  FMX.Types,
+  System.UITypes,
   SampleFMX.MainForm in '..\..\samples\FMXBasic\SampleFMX.MainForm.pas'
     {frmFMXSample},
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
@@ -53,6 +55,9 @@ end;
 var
   AppliedCount: Integer;
   DynamicLabel: TLabel;
+  OriginalFontColor: TAlphaColor;
+  OriginalHorizontalAlignment: TTextAlign;
+  OriginalStyledSettings: TStyledSettings;
   Pack: TRuntimeLanguagePack;
   TemplateLabel: TLabel;
 begin
@@ -61,6 +66,12 @@ begin
     frmFMXSample := TfrmFMXSample.Create(nil);
     DynamicLabel := TLabel.Create(frmFMXSample);
     DynamicLabel.Text := 'Close';
+    DynamicLabel.StyledSettings := [TStyledSetting.Family];
+    DynamicLabel.TextSettings.FontColor := TAlphaColorRec.White;
+    DynamicLabel.TextSettings.HorzAlign := TTextAlign.Trailing;
+    OriginalFontColor := DynamicLabel.TextSettings.FontColor;
+    OriginalHorizontalAlignment := DynamicLabel.TextSettings.HorzAlign;
+    OriginalStyledSettings := DynamicLabel.StyledSettings;
     TemplateLabel := TLabel.Create(frmFMXSample);
     TemplateLabel.Text := 'Uptime: 2 years';
     Pack := TestPack;
@@ -83,6 +94,10 @@ begin
         'The FMX memo lines were not translated.');
       Require(DynamicLabel.Text = 'Schlie' + #$00DF + 'en',
         'An anonymous runtime-created FMX label was not translated.');
+      Require((DynamicLabel.TextSettings.FontColor = OriginalFontColor) and
+        (DynamicLabel.TextSettings.HorzAlign = OriginalHorizontalAlignment) and
+        (DynamicLabel.StyledSettings = OriginalStyledSettings),
+        'FMX translation changed designer-owned label formatting.');
       Require(TemplateLabel.Text = 'Laufzeit: 2 Jahre',
         'A runtime-created FMX formatted caption was not translated.');
     finally

@@ -150,6 +150,7 @@ type
     FBackupFileName: string;
     FProjectConfigurationBackupDirectory: string;
     FSessionApiKey: string;
+    FLastScanCompletedAt: TDateTime;
     procedure SetStep(const AStep: Integer);
     procedure UpdateNavigation;
     procedure UpdateRail;
@@ -483,6 +484,7 @@ begin
        ProjectPlatformsDisplayName(FProjectProfile),
        FProjectProfile.FormResourceCount]);
     FreeAndNil(FScanResult);
+    FLastScanCompletedAt := 0;
     FreeAndNil(FCatalog);
     FCatalogFileName := '';
     FHighestStep := Min(FHighestStep, 4);
@@ -536,6 +538,7 @@ procedure TfrmSetupWizard.cboTargetLanguageChange(Sender: TObject);
 begin
   ApplyLocaleDefaults;
   FreeAndNil(FScanResult);
+  FLastScanCompletedAt := 0;
   FreeAndNil(FCatalog);
   FCatalogFileName := '';
   if FHighestStep > 5 then
@@ -676,6 +679,7 @@ begin
   try
     FreeAndNil(FScanResult);
     FScanResult := TProjectScanner.Scan(FProjectProfile);
+    FLastScanCompletedAt := Now;
     LoadExistingCatalog;
     MergeSummary := TScanCatalogMerger.Merge(FScanResult, FCatalog);
     memScanResults.Lines.BeginUpdate;
@@ -918,6 +922,7 @@ var
   BackupDirectory: string;
   Client: TTranslationProviderClient;
   Entry: TTranslationEntry;
+  ScanItem: TScanItem;
   EntryIndexes: TArray<Integer>;
   Index: Integer;
   MissingCount: Integer;
@@ -942,6 +947,16 @@ begin
   memProgress.Lines.Clear;
   FProjectConfigurationBackupDirectory := '';
   try
+    if FScanResult = nil then
+      raise Exception.Create(
+        'Run the project scan before final processing.');
+    for ScanItem in FScanResult.Items do
+      if TFile.Exists(ScanItem.SourceFileName) and
+         (TFile.GetLastWriteTime(ScanItem.SourceFileName) >
+          FLastScanCompletedAt) then
+        raise Exception.CreateFmt(
+          'The source file "%s" was saved after the Wizard scan. Save all files in Delphi, return to Scan Project, run the scan again, and then repeat final processing.',
+          [ScanItem.SourceFileName]);
     AddProgress('Creating the required pre-processing safety backup...');
     BackupDirectory := TPath.Combine(TPath.GetDocumentsPath,
       TPath.Combine('Delphi App Translation Backups',
@@ -1051,6 +1066,7 @@ begin
         else
           Entry.TranslationConfidence := 'contextual-provider';
       end;
+      TTerminologyResolver.ApplyAuthoritativeTerms(FCatalog);
       AddProgress(Format('%d translations recorded.', [Length(TranslatedTexts)]));
     end
     else
