@@ -494,15 +494,24 @@ class procedure TLocalizationReviewer.AnalyzeLayout(
 var
   Control, Other: TLayoutControl;
   RequiredWidth, RequiredHeight, FontSize: Double;
+  LineCount: Integer;
   NewWidth: Integer;
+  IsButton: Boolean;
+  IsColumn: Boolean;
+  IsWrappingText: Boolean;
 begin
   for Control in AReview.Controls do
   begin
     if (Control.TranslatedText = '') or not Control.HasSize then
       Continue;
     FontSize := Max(Control.FontSize, 9);
-    RequiredWidth := (Length(Control.TranslatedText) * FontSize * 0.57) + 18;
-    RequiredHeight := FontSize * 1.55;
+    RequiredWidth := (Length(Control.TranslatedText) * FontSize * 0.52) + 10;
+    RequiredHeight := FontSize * 1.65;
+    IsButton := ContainsText(Control.ComponentClassName, 'Button');
+    IsColumn := ContainsText(Control.ComponentClassName, 'Column');
+    IsWrappingText := ContainsText(Control.ComponentClassName, 'Label') or
+      ContainsText(Control.ComponentClassName, 'CheckBox') or
+      ContainsText(Control.ComponentClassName, 'GroupBox');
     if (Control.Width > 0) and (RequiredWidth > Control.Width * 1.05) then
     begin
       AddFinding(AReview, lfsHighRisk, 'Layout',
@@ -510,12 +519,31 @@ begin
         Format('Estimated translated width %.0f exceeds the %.0f-pixel control.',
           [RequiredWidth, Control.Width]),
         'Review the proposed width, wrapping, or nearby control placement.');
-      NewWidth := Ceil(RequiredWidth);
-      AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
-        IntToStr(NewWidth), 'Estimated translated text width plus padding.');
-      if (Control.Height >= RequiredHeight * 1.75) and not Control.WordWrap then
-        AddProposal(AReview, Control, 'WordWrap', 'False', 'True',
-          'The existing height can accommodate wrapped translated text.');
+      if IsWrappingText and (Control.Width >= 80) then
+      begin
+        LineCount := Max(2, Ceil(RequiredWidth / Control.Width));
+        if Control.AutoSize then
+          AddProposal(AReview, Control, 'AutoSize', 'True', 'False',
+            'Disable one-line automatic sizing so the translated text can wrap inside the designer width.');
+        if not Control.WordWrap then
+          AddProposal(AReview, Control, 'WordWrap', 'False', 'True',
+            'Wrap the translated text instead of expanding across neighboring controls.');
+        if Control.Height < RequiredHeight * LineCount then
+          AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
+            IntToStr(Ceil(RequiredHeight * LineCount)),
+            'Provide enough height for the estimated wrapped line count.');
+      end
+      else
+      begin
+        NewWidth := Ceil(RequiredWidth);
+        if IsColumn then
+          NewWidth := Min(NewWidth, 360)
+        else if IsButton then
+          NewWidth := Min(NewWidth, Max(Ceil(Control.Width * 2), 180));
+        AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
+          IntToStr(NewWidth),
+          'Expand this control for translated text; the visual review shows the resulting geometry.');
+      end;
     end;
     if (Control.Height > 0) and (RequiredHeight > Control.Height * 1.10) then
     begin
@@ -747,9 +775,12 @@ var
   Html: TStringList;
   Finding: TLocalizationFinding;
   Control: TLayoutControl;
+  Proposal: TLayoutProposal;
   FormNames: TStringList;
   FormName, Color: string;
   Scale, MaxWidth, MaxHeight: Double;
+  ProposedWidth, ProposedHeight: Double;
+  ProposedWrap: Boolean;
 begin
   if AReview = nil then Exit;
   RestoreDecisions(AReview, AProposalFileName);
@@ -767,9 +798,11 @@ begin
       'border-radius:14px;padding:20px;margin:18px 0}table{border-collapse:collapse;width:100%}' +
       'th,td{padding:9px;border-bottom:1px solid #dbe6f2;text-align:left}.high{color:#b42318;font-weight:700}' +
       '.warn{color:#9a6700;font-weight:700}.canvas{position:relative;background:#eef5fc;border:1px solid #8db4dc;' +
-      'min-height:180px;overflow:auto}.ctl{position:absolute;border:1px solid #2878c8;background:#dcecff;' +
-      'details{max-width:520px}summary{cursor:pointer;color:#1673d1}' +
-      'overflow:hidden;font-size:11px;padding:2px;box-sizing:border-box}</style></head><body>');
+      'min-height:180px;overflow:auto}.views{display:grid;grid-template-columns:1fr 1fr;gap:18px}' +
+      '.view h3{margin:4px 0 10px}.ctl{position:absolute;border:1px solid #2878c8;background:#dcecff;' +
+      'overflow:hidden;font-size:11px;padding:2px;box-sizing:border-box}.proposed{background:#e8f7ea;border-color:#238636}' +
+      '.wrapped{white-space:normal}.legend{padding:10px;background:#eef5fc;border-radius:8px}' +
+      'details{max-width:520px}summary{cursor:pointer;color:#1673d1}</style></head><body>');
     Html.Add('<h1>Localization Review Package</h1><div class="card"><b>' +
       HtmlEncode(AReview.ApplicationId) + '</b> &mdash; ' +
       HtmlEncode(AReview.LanguageCode) + '<p>' + HtmlEncode(AReview.Summary) +
@@ -803,7 +836,7 @@ begin
         end;
       Scale := Min(1, 800 / MaxWidth);
       Html.Add('<div class="card"><h2>' + HtmlEncode(FormName) +
-        '</h2><div class="canvas" style="width:' + IntToStr(Round(MaxWidth * Scale)) +
+        '</h2><p class="legend">Left: translated text in the designer geometry. Right: the proposed language-specific geometry. Green controls have at least one proposed width, height, wrapping, or sizing rule.</p><div class="views"><div class="view"><h3>Translated - current layout</h3><div class="canvas" style="width:' + IntToStr(Round(MaxWidth * Scale)) +
         'px;height:' + IntToStr(Round(MaxHeight * Scale)) + 'px">');
       for Control in AReview.Controls do
         if SameText(Control.FormName, FormName) and Control.HasPosition and
@@ -813,7 +846,43 @@ begin
              Round(Control.Top * Scale), Max(4, Round(Control.Width * Scale)),
              Max(4, Round(Control.Height * Scale)),
              HtmlEncode(Control.TranslatedText)]));
-      Html.Add('</div></div>');
+      Html.Add('</div></div><div class="view"><h3>Proposed runtime layout</h3><div class="canvas" style="width:' +
+        IntToStr(Round(MaxWidth * Scale)) + 'px;height:' +
+        IntToStr(Round(MaxHeight * Scale)) + 'px">');
+      for Control in AReview.Controls do
+        if SameText(Control.FormName, FormName) and Control.HasPosition and
+           Control.HasSize and (Control.TranslatedText <> '') then
+        begin
+          ProposedWidth := Control.Width;
+          ProposedHeight := Control.Height;
+          ProposedWrap := Control.WordWrap;
+          Color := 'ctl';
+          for Proposal in AReview.Proposals do
+            if SameText(Proposal.FormName, Control.FormName) and
+              SameText(Proposal.ComponentName, Control.ComponentName) and
+              not SameText(Proposal.Decision, 'rejected') and
+              not SameText(Proposal.Decision, 'manual') then
+            begin
+              Color := 'ctl proposed';
+              if SameText(Proposal.PropertyName, 'Width') then
+                ProposedWidth := StrToFloatDef(Proposal.ProposedValue,
+                  ProposedWidth, TFormatSettings.Invariant)
+              else if SameText(Proposal.PropertyName, 'Height') then
+                ProposedHeight := StrToFloatDef(Proposal.ProposedValue,
+                  ProposedHeight, TFormatSettings.Invariant)
+              else if SameText(Proposal.PropertyName, 'WordWrap') then
+                ProposedWrap := SameText(Proposal.ProposedValue, 'True');
+            end;
+          if ProposedWrap then
+            Color := Color + ' wrapped';
+          Html.Add(Format('<div class="%s" title="%s" style="left:%dpx;top:%dpx;width:%dpx;height:%dpx">%s</div>',
+            [Color, HtmlEncode(Control.ComponentName),
+             Round(Control.Left * Scale), Round(Control.Top * Scale),
+             Max(4, Round(ProposedWidth * Scale)),
+             Max(4, Round(ProposedHeight * Scale)),
+             HtmlEncode(Control.TranslatedText)]));
+        end;
+      Html.Add('</div></div></div></div>');
     end;
     Html.Add('</body></html>');
     ForceDirectories(TPath.GetDirectoryName(AHtmlFileName));

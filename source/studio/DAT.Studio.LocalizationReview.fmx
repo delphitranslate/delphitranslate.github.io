@@ -365,7 +365,7 @@ object frmLocalizationReview: TfrmLocalizationReview
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFF365674
-          Text = 'Accept, reject, or mark proposals for manual work. Decisions persist with a source checksum; no Delphi form is changed automatically.'
+          Text = 'Open Visual Review to compare the current translated layout with the proposed runtime layout. Accept, reject, or mark proposals for manual work. Decisions are saved per language; no Delphi source or form file is edited.'
         end
         object lstProposals: TListBox
           Position.X = 18.000000000000000000

@@ -13,7 +13,8 @@ type
       const APack: TRuntimeLanguagePack): Integer; overload; static;
     class function ApplyToForm(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
-      const APreserveControlState: Boolean = True): Integer; overload; static;
+      const APreserveControlState: Boolean = True;
+      const AApplyLayout: Boolean = True): Integer; overload; static;
     class function ApplyLayoutToForm(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const AUseTranslatedValues: Boolean): Integer; static;
@@ -24,13 +25,16 @@ implementation
 uses
   System.Classes,
   System.Generics.Collections,
+  System.JSON,
   System.SysUtils,
   System.StrUtils,
   System.TypInfo,
   FMX.Controls,
   FMX.Edit,
+  FMX.Grid,
   FMX.Memo,
-  FMX.Types;
+  FMX.Types,
+  FMX.WebBrowser;
 
 function TrySetLayoutProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
@@ -74,6 +78,82 @@ begin
   end;
 end;
 
+function JavaScriptString(const AValue: string): string;
+var
+  JsonString: TJSONString;
+begin
+  JsonString := TJSONString.Create(AValue);
+  try
+    Result := JsonString.ToJSON;
+  finally
+    JsonString.Free;
+  end;
+end;
+
+function ApplyBrowserText(const AComponent: TComponent;
+  const APack: TRuntimeLanguagePack): Integer;
+var
+  Candidate: string;
+  Pairs: TStringList;
+  Script: TStringBuilder;
+  TranslatedText: string;
+begin
+  Result := 0;
+  if not (AComponent is TCustomWebBrowser) then
+    Exit;
+  Pairs := TStringList.Create;
+  Script := TStringBuilder.Create;
+  try
+    for Candidate in APack.SourceStrings.Keys do
+    begin
+      TranslatedText := APack.SourceStrings[Candidate];
+      if (Trim(Candidate) <> '') and (Trim(TranslatedText) <> '') and
+        not SameText(Candidate, TranslatedText) then
+        Pairs.Add(JavaScriptString(Candidate) + ',' +
+          JavaScriptString(TranslatedText));
+    end;
+    if Pairs.Count = 0 then
+      Exit;
+    Script.Append('(function(){const p=[');
+    for Candidate in Pairs do
+    begin
+      if Script.Chars[Script.Length - 1] <> '[' then
+        Script.Append(',');
+      Script.Append('[').Append(Candidate).Append(']');
+    end;
+    Script.Append('];function a(){if(!document.body)return;const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){let v=n.nodeValue;for(const q of p){if(v.trim()===q[0]){const l=v.match(/^\\s*/)[0],r=v.match(/\\s*$/)[0];v=l+q[1]+r;break;}if(v.indexOf(q[0])>=0&&v.indexOf(q[1])<0)v=v.split(q[0]).join(q[1]);}if(n.nodeValue!==v)n.nodeValue=v;}}a();})();');
+    TCustomWebBrowser(AComponent).EvaluateJavaScript(Script.ToString);
+    Result := Pairs.Count;
+  finally
+    Script.Free;
+    Pairs.Free;
+  end;
+end;
+
+function ApplyGridText(const AComponent: TComponent;
+  const APack: TRuntimeLanguagePack): Integer;
+var
+  ColumnIndex: Integer;
+  CurrentText: string;
+  RowIndex: Integer;
+  TranslatedText: string;
+begin
+  Result := 0;
+  if not (AComponent is TStringGrid) then
+    Exit;
+  for ColumnIndex := 0 to TStringGrid(AComponent).ColumnCount - 1 do
+    for RowIndex := 0 to TStringGrid(AComponent).RowCount - 1 do
+    begin
+      CurrentText := TStringGrid(AComponent).Cells[ColumnIndex, RowIndex];
+      if APack.TryTranslateDynamicText(CurrentText, TranslatedText) and
+        (TranslatedText <> CurrentText) then
+      begin
+        TStringGrid(AComponent).Cells[ColumnIndex, RowIndex] := TranslatedText;
+        Inc(Result);
+      end;
+    end;
+end;
+
 function EditableTextComponent(const AComponent: TComponent): Boolean;
 begin
   Result := ((AComponent is TCustomEdit) and
@@ -99,7 +179,6 @@ function ApplyTextProperty(const AFormIdentity: string;
 var
   PropertyInfo: PPropInfo;
   CurrentText: string;
-  DynamicText: string;
   Key: string;
   SourceText: string;
   TranslatedText: string;
@@ -118,11 +197,10 @@ begin
   begin
     if APack.TryGetSource(Key, SourceText) and
       not SameText(CurrentText, SourceText) and
+      not ContainsStr(CurrentText, TranslatedText) and
       ContainsStr(CurrentText, SourceText) then
       TranslatedText := StringReplace(CurrentText, SourceText,
         TranslatedText, [rfReplaceAll]);
-    if APack.TryTranslateDynamicText(TranslatedText, DynamicText) then
-      TranslatedText := DynamicText;
     if TranslatedText = CurrentText then
       Exit;
     SetStrProp(AComponent, PropertyInfo, TranslatedText);
@@ -204,7 +282,7 @@ end;
 class function TFMXTranslationApplicator.ApplyToForm(
   const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string;
-  const APreserveControlState: Boolean): Integer;
+  const APreserveControlState, AApplyLayout: Boolean): Integer;
 const
   TextProperties: array[0..4] of string = (
     'Caption', 'Text', 'Hint', 'TextPrompt', 'Header');
@@ -247,6 +325,8 @@ var
         Inc(Result, ApplyStringCollection(FormIdentity, AForm, AComponent,
           LocalPropertyName, LocalPropertyName + '.Strings', APack,
           APreserveControlState));
+      Inc(Result, ApplyGridText(AComponent, APack));
+      Inc(Result, ApplyBrowserText(AComponent, APack));
       for ChildIndex := 0 to AComponent.ComponentCount - 1 do
         ApplyComponentTree(AComponent.Components[ChildIndex]);
     finally
@@ -283,7 +363,8 @@ begin
         Inc(Result);
     for ComponentIndex := 0 to AForm.ComponentCount - 1 do
       ApplyComponentTree(AForm.Components[ComponentIndex]);
-    Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
+    if AApplyLayout then
+      Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
   finally
     VisitedComponents.Free;
     if APreserveControlState and (SavedFocusedControl <> nil) then

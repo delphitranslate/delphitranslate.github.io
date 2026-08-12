@@ -64,6 +64,7 @@ type
     FSources: TDictionary<string, string>;
     FSourceStrings: TDictionary<string, string>;
     FSourceTemplates: TDictionary<string, string>;
+    FTranslatedStrings: TDictionary<string, Boolean>;
     FLayoutRules: TObjectList<TRuntimeLayoutRule>;
   public
     constructor Create;
@@ -273,12 +274,14 @@ begin
   FSources := TDictionary<string, string>.Create;
   FSourceStrings := TDictionary<string, string>.Create;
   FSourceTemplates := TDictionary<string, string>.Create;
+  FTranslatedStrings := TDictionary<string, Boolean>.Create;
   FLayoutRules := TObjectList<TRuntimeLayoutRule>.Create(True);
 end;
 
 destructor TRuntimeLanguagePack.Destroy;
 begin
   FLayoutRules.Free;
+  FTranslatedStrings.Free;
   FSourceTemplates.Free;
   FSourceStrings.Free;
   FSources.Free;
@@ -370,8 +373,13 @@ begin
       SourceStringsObject := JsonRoot.GetValue('sourceStrings') as TJSONObject;
       if SourceStringsObject <> nil then
         for JsonPair in SourceStringsObject do
+        begin
           Result.FSourceStrings.AddOrSetValue(JsonPair.JsonString.Value,
             JsonPair.JsonValue.Value);
+          if JsonPair.JsonValue.Value <> '' then
+            Result.FTranslatedStrings.AddOrSetValue(
+              JsonPair.JsonValue.Value, True);
+        end;
       SourceTemplatesObject := JsonRoot.GetValue('sourceTemplates') as TJSONObject;
       if SourceTemplatesObject <> nil then
         for JsonPair in SourceTemplatesObject do
@@ -573,13 +581,22 @@ var
   LongestSource: string;
   SourceTemplate: string;
 begin
+  { Dynamic refresh can see a value translated on an earlier pass.  Treat
+    translated values as terminal so source prefixes such as Event -> Evento
+    cannot grow by one character on every refresh. }
+  if FTranslatedStrings.ContainsKey(ASourceText) then
+  begin
+    ATranslatedText := ASourceText;
+    Exit(False);
+  end;
   if TryTranslateSource(ASourceText, ATranslatedText) then
     Exit(True);
   LongestSource := '';
   for Candidate in FSourceStrings.Keys do
     if (Length(Candidate) >= 4) and
       (Length(Candidate) > Length(LongestSource)) and
-      ContainsStr(ASourceText, Candidate) then
+      ContainsStr(ASourceText, Candidate) and
+      not ContainsStr(ASourceText, FSourceStrings[Candidate]) then
       LongestSource := Candidate;
   if LongestSource <> '' then
   begin

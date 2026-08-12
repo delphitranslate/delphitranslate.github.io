@@ -903,6 +903,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object lblKitPath: TLabel
               Cursor = crHandPoint
+              ShowHint = True
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 252.000000000000000000
@@ -910,15 +911,29 @@ object frmSetupWizard: TfrmSetupWizard
               Size.Height = 30.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 13.000000000000000000
+              TextSettings.Font.Style = [fsUnderline]
               TextSettings.FontColor = xFF006DE5
               Text = 'Component kit path will appear here.'
+              Hint = 'Click to open the generated component kit folder.'
               OnClick = btnOpenKitFolderClick
+            end
+            object lblFallbackCommands: TLabel
+              StyledSettings = []
+              WordWrap = True
+              Position.X = 8.000000000000000000
+              Position.Y = 282.000000000000000000
+              Size.Width = 730.000000000000000000
+              Size.Height = 34.000000000000000000
+              Size.PlatformDefault = False
+              TextSettings.Font.Size = 12.000000000000000000
+              TextSettings.FontColor = xFF365674
+              Text = 'Fallback commands (normally no action is required): use these only if automatic deployment reports a failure. Deploy Build Outputs runs them for build folders that already exist.'
             end
             object memCommands: TMemo
               Position.X = 8.000000000000000000
-              Position.Y = 286.000000000000000000
+              Position.Y = 318.000000000000000000
               Size.Width = 730.000000000000000000
-              Size.Height = 112.000000000000000000
+              Size.Height = 80.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True

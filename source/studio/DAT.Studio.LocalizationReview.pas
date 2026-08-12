@@ -152,6 +152,9 @@ begin
     [FProfile.ProjectName, FCatalog.Locale.LanguageCode]);
   LoadGlossary;
   RunAudit;
+  TLocalizationReviewer.GenerateReviewPackage(FReview, FReviewFileName,
+    FProposalFileName);
+  btnOpenPackage.Enabled := TFile.Exists(FReviewFileName);
 end;
 
 procedure TfrmLocalizationReview.LoadGlossary;
@@ -413,6 +416,7 @@ begin
     'Proposed: ' + Proposal.ProposedValue + sLineBreak +
     'Reason: ' + Proposal.Rationale + sLineBreak +
     'Decision: ' + Proposal.Decision + sLineBreak + sLineBreak +
+    'How to judge it: click Open Visual Review. The left preview shows the translated text in the current designer geometry; the right preview shows this language''s proposed runtime geometry. Green controls have proposed changes.' + sLineBreak + sLineBreak +
     'What happens: Accept stores this checksum-backed rule in layout-proposal.json. The next runtime-pack export embeds accepted safe rules in this language''s JSON pack. The component applies them when this language is selected and restores the original value before switching away. Delphi source and form files are never edited.';
   if SameText(Proposal.Decision, 'accepted') then cboDecision.ItemIndex := 1
   else if SameText(Proposal.Decision, 'rejected') then cboDecision.ItemIndex := 2
@@ -428,6 +432,8 @@ begin
   FReview.Proposals[lstProposals.ItemIndex].Decision :=
     Decisions[EnsureRange(cboDecision.ItemIndex, 0, 3)];
   TLocalizationReviewer.SaveProposal(FReview, FProposalFileName);
+  TLocalizationReviewer.GenerateReviewPackage(FReview, FReviewFileName,
+    FProposalFileName);
   RefreshProposals;
   lblStatus.Text := 'Decision saved. Accepted safe rules will be included in the next runtime-pack export; target source remains unchanged.';
 end;
@@ -448,6 +454,8 @@ begin
       Inc(AcceptedCount);
     end;
   TLocalizationReviewer.SaveProposal(FReview, FProposalFileName);
+  TLocalizationReviewer.GenerateReviewPackage(FReview, FReviewFileName,
+    FProposalFileName);
   RefreshProposals;
   lblStatus.Text := Format(
     '%d safe proposal(s) accepted for the next language-pack export.',
@@ -461,6 +469,8 @@ begin
   for Proposal in FReview.Proposals do
     Proposal.Decision := 'pending';
   TLocalizationReviewer.SaveProposal(FReview, FProposalFileName);
+  TLocalizationReviewer.GenerateReviewPackage(FReview, FReviewFileName,
+    FProposalFileName);
   RefreshProposals;
   lblStatus.Text := 'All layout decisions reset to Pending.';
 end;

@@ -104,6 +104,7 @@ end;
 procedure TDATFMXLanguageManager.RefreshDynamicText;
 var
   Form: TObject;
+  FormIdentity: string;
   Forms: TList<TObject>;
 begin
   if not Initialized or (ActivePack = nil) then
@@ -112,7 +113,12 @@ begin
   try
     CollectOpenManagedObjects(Forms);
     for Form in Forms do
-      ReapplyToManagedObject(Form);
+    begin
+      FormIdentity := ResolveFormIdentity(Form,
+        TCommonCustomForm(Form).Name);
+      TFMXTranslationApplicator.ApplyToForm(TCommonCustomForm(Form),
+        ActivePack, FormIdentity, PreserveControlState, False);
+    end;
   finally
     Forms.Free;
   end;

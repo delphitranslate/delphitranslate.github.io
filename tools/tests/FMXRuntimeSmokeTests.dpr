@@ -45,7 +45,7 @@ const
     '"frmFMXSample.cmbDateRange.Items.Strings.4":"Dieses Jahr",' +
     '"frmFMXSample.memInstructions.Lines.Strings.0":"Erste Zeile",' +
     '"frmFMXSample.memInstructions.Lines.Strings.1":"Zweite Zeile"},' +
-    '"sourceStrings":{"Close":"Schlie' + #$00DF + 'en"},' +
+    '"sourceStrings":{"Close":"Schlie' + #$00DF + 'en","Event":"Evento"},' +
     '"sourceTemplates":{"Uptime: %d years":"Laufzeit: %d Jahre"},' +
     '"sources":{},"layout":[{"formName":"frmFMXSample",' +
     '"componentName":"lblHeading","propertyName":"Width",' +
@@ -58,6 +58,7 @@ end;
 var
   AppliedCount: Integer;
   DynamicLabel: TLabel;
+  EventLabel: TLabel;
   OriginalFontColor: TAlphaColor;
   OriginalHorizontalAlignment: TTextAlign;
   OriginalStyledSettings: TStyledSettings;
@@ -72,6 +73,8 @@ begin
     DynamicLabel.StyledSettings := [TStyledSetting.Family];
     DynamicLabel.TextSettings.FontColor := TAlphaColorRec.White;
     DynamicLabel.TextSettings.HorzAlign := TTextAlign.Trailing;
+    EventLabel := TLabel.Create(frmFMXSample);
+    EventLabel.Text := 'Event';
     OriginalFontColor := DynamicLabel.TextSettings.FontColor;
     OriginalHorizontalAlignment := DynamicLabel.TextSettings.HorzAlign;
     OriginalStyledSettings := DynamicLabel.StyledSettings;
@@ -81,7 +84,7 @@ begin
     try
       AppliedCount := TFMXTranslationApplicator.ApplyToForm(
         frmFMXSample, Pack);
-      Require(AppliedCount = 18, 'Unexpected FMX applied-property count.');
+      Require(AppliedCount = 19, 'Unexpected FMX applied-property count.');
       Require(frmFMXSample.Caption = 'FMX Beispiel',
         'The FMX form caption was not translated.');
       Require(frmFMXSample.lblHeading.Text = 'Kundendaten',
@@ -110,6 +113,17 @@ begin
         'FMX translation changed designer-owned label formatting.');
       Require(TemplateLabel.Text = 'Laufzeit: 2 Jahre',
         'A runtime-created FMX formatted caption was not translated.');
+      Require(EventLabel.Text = 'Evento',
+        'The FMX runtime source string was not translated.');
+      Require(TFMXTranslationApplicator.ApplyToForm(frmFMXSample, Pack,
+        frmFMXSample.Name, True, False) >= 0,
+        'The FMX dynamic-only refresh failed.');
+      TFMXTranslationApplicator.ApplyToForm(frmFMXSample, Pack,
+        frmFMXSample.Name, True, False);
+      Require(EventLabel.Text = 'Evento',
+        'Repeated FMX dynamic refresh mutated an already-translated value.');
+      Require(Round(frmFMXSample.lblHeading.Width) = 360,
+        'A dynamic-only refresh reapplied language layout rules.');
     finally
       Pack.Free;
       frmFMXSample.Free;

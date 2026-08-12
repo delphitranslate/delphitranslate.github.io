@@ -105,6 +105,7 @@ type
     lblFinishText: TLabel;
     memProgress: TMemo;
     lblKitPath: TLabel;
+    lblFallbackCommands: TLabel;
     memCommands: TMemo;
     btnCopyCommands: TButton;
     btnRunDeployment: TButton;
@@ -1339,6 +1340,7 @@ begin
         FProjectProfile, FKitDirectory, ProjectBackupDirectory);
     AddProgress('Project Search Path and automatic post-build deployment configured.');
     lblKitPath.Text := FKitDirectory;
+    lblKitPath.Hint := 'Click to open the generated component kit folder.';
     Report := TStringList.Create;
     try
       Report.Add('DELPHI APP TRANSLATION - SETUP WIZARD COMPLETION REPORT');

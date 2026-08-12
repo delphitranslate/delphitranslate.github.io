@@ -572,6 +572,7 @@ begin
     '  ShowMessage(''Unable to open the selected file.'');' + sLineBreak +
     '  Canvas.FillText(Rect, ''Owner drawn heading'', False, 1, [], Align);' + sLineBreak +
     '  EventColumn.Header := ''Eventoooooooooooooooo'';' + sLineBreak +
+    '  Html.Add(''<thead><tr><th>Time</th><th>Type</th><th>Song/Purpose</th></tr></thead>'');' + sLineBreak +
     'end;' + sLineBreak +
     'end.', TEncoding.UTF8);
   ScanResult := TProjectScanResult.Create;
@@ -599,6 +600,9 @@ begin
       'Suspicious runtime source was not scanned.');
     Require(ScanItem.TextOwnership = tokSuspicious,
       'Repeated-character runtime source was not classified as suspicious.');
+    RequireSourceText(ScanResult, 'Time', stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'Type', stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'Song/Purpose', stkRuntimeAssignment);
     Require(not TranslationEntryEligibleForAutomaticTranslation(nil),
       'A nil entry was incorrectly eligible for automatic translation.');
   finally

@@ -20,7 +20,7 @@ ICON = (
     / "images and icons"
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
-LAST_CHANGED = "August 11, 2026"
+LAST_CHANGED = "August 12, 2026"
 BLUE = "234C80"
 BRIGHT_BLUE = "1974DF"
 ORANGE = "F28A1B"
@@ -261,14 +261,41 @@ def add_cover(document: Document, title: str, subtitle: str) -> None:
     run.font.color.rgb = RGBColor.from_string(GRAY)
 
 
-def add_toc_section(document: Document, guide_title: str) -> None:
+def add_toc_section(document: Document, guide_title: str,
+                    contents: list[tuple[str, int]] | None = None) -> None:
     section = document.add_section(WD_SECTION.NEW_PAGE)
     configure_page(section)
     set_page_number_format(section, "lowerRoman", 1)
     add_header_footer(section, guide_title, True)
     document.add_paragraph("Table of Contents", style="TOC Heading")
     paragraph = document.add_paragraph()
-    add_field(paragraph, 'TOC \\o "1-3" \\h \\z \\u')
+    if contents:
+        begin = OxmlElement("w:fldChar")
+        begin.set(qn("w:fldCharType"), "begin")
+        instruction = OxmlElement("w:instrText")
+        instruction.set(qn("xml:space"), "preserve")
+        instruction.text = 'TOC \\o "1-3" \\h \\z \\u'
+        separate = OxmlElement("w:fldChar")
+        separate.set(qn("w:fldCharType"), "separate")
+        paragraph.add_run()._r.extend([begin, instruction, separate])
+        for index, (heading, page_number) in enumerate(contents):
+            if index:
+                paragraph.add_run().add_break()
+            entry = paragraph.add_run(heading)
+            entry.font.name = "Aptos"
+            entry.font.size = Pt(9)
+            entry.font.color.rgb = RGBColor.from_string(INK)
+            dots = max(4, 72 - len(heading))
+            leader = paragraph.add_run(
+                " " + "." * dots + " " + str(page_number))
+            leader.font.name = "Aptos"
+            leader.font.size = Pt(9)
+            leader.font.color.rgb = RGBColor.from_string(GRAY)
+        end = OxmlElement("w:fldChar")
+        end.set(qn("w:fldCharType"), "end")
+        paragraph.add_run()._r.append(end)
+    else:
+        add_field(paragraph, 'TOC \\o "1-3" \\h \\z \\u')
     content_section = document.add_section(WD_SECTION.NEW_PAGE)
     configure_page(content_section)
     set_page_number_format(content_section, "decimal", 1)
@@ -925,7 +952,19 @@ def build_setup_wizard_guide() -> Path:
         "Setup Wizard Guide",
         "A First-Time User's Path from Delphi Project to Offline Translation",
     )
-    add_toc_section(document, title)
+    add_toc_section(document, title, [
+        ("1. Purpose and Expected Result", 1),
+        ("2. Prepare Before Starting", 1),
+        ("3. Start and Navigate the Setup Wizard", 2),
+        ("4. Complete the Eight Wizard Steps", 3),
+        ("5. Complete the Manual RAD Studio Step", 7),
+        ("6. Build and Deploy the Language Packs", 8),
+        ("7. Verify the Translated Application", 9),
+        ("8. Files Created by the Wizard", 9),
+        ("9. Update, Resume, or Add Another Language", 10),
+        ("10. Troubleshooting", 12),
+        ("11. Where to Learn More", 13),
+    ])
 
     document.add_heading("1. Purpose and Expected Result", level=1)
     add_paragraphs(
@@ -1017,7 +1056,7 @@ def build_setup_wizard_guide() -> Path:
             "Select Browse.",
             "Navigate to the test copy and select its .dproj file.",
             "Confirm the displayed project name, VCL or FireMonkey framework, Windows targets, and form-resource count.",
-            "Confirm the detected Application ID. It is the project filename without .dproj, such as Carillon for Carillon.dproj. Use Copy ID if the value will be needed in RAD Studio.",
+            "Confirm the detected Application ID. It is the project filename without .dproj; for example, MyApplication.dproj produces MyApplication. Use Copy ID if the value will be needed in RAD Studio.",
             "If the project is wrong, select Browse again before continuing.",
             "Select Next.",
         ],
@@ -1125,7 +1164,7 @@ def build_setup_wizard_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "Final processing runs in a fixed order: required ZIP backup, automatic translation of eligible unresolved entries, development-catalog save, structural validation, runtime-pack export, component-kit generation, deployment to existing output folders, backed-up transactional DPROJ configuration, and completion-report creation.",
+            "Final processing runs in a protected single pass: required ZIP backup, automatic translation of eligible unresolved entries, initial catalog save, automatic Localization Review, application of saved terminology/layout decisions, final validation, runtime-pack export, component-kit generation, deployment to existing output folders, backed-up transactional DPROJ configuration, and completion-report creation.",
             "Machine translations are recorded with Google or DeepL provenance. Existing Reviewed, Approved, Excluded, and Obsolete entries are not overwritten. Blocking validation errors stop the sequence; warnings are recorded but do not necessarily prevent export.",
         ],
     )
@@ -1134,11 +1173,11 @@ def build_setup_wizard_guide() -> Path:
         [
             "Watch the timestamped progress log. Do not terminate the Studio or Windows while processing is active.",
             "When processing completes, select the blue component-kit path or Open Kit Folder.",
-            "Keep the Wizard open while completing the RAD Studio steps in Chapter 5; the generated commands and paths remain visible.",
-            "Build the target configurations. The Wizard's post-build step automatically deploys the current JSON packs to the executable's Localization\\Languages folder.",
+            "Read the explanation above Fallback Commands. Normally, no command must be copied. Deploy Build Outputs refreshes existing build folders; the displayed commands are a troubleshooting fallback.",
+            "Build each target configuration you actually intend to ship or test. A Delphi build produces one selected platform/configuration at a time unless you use Project > Build All Projects with the required configurations enabled. The Wizard's post-build step automatically deploys the current JSON packs to that build's executable Localization\\Languages folder.",
             "Use Deploy Build Outputs to refresh detected build folders. For a portable, USB, or custom installation, choose Deploy to App Folder and select the folder containing the exact application EXE. The Wizard verifies the EXE before copying anything.",
             "Use Copy Fallback Commands only for troubleshooting or a deliberately manual deployment.",
-            "Select Finish after reviewing the completion results.",
+            "Select Finish after reviewing the completion results. The Wizard closes and returns to the Studio; continue with the manual RAD Studio steps in Chapter 5.",
         ],
     )
     add_callout(document, "Expected result.", "The progress log ends successfully, the component-kit folder exists, Wizard-Completion-Report.txt records the exact Application ID, Search Path, backups, and deployments, and the DPROJ contains one marked Wizard block.")
@@ -1174,7 +1213,7 @@ def build_setup_wizard_guide() -> Path:
         [
             "Open the target test project and its primary form in the Form Designer.",
             "Place one TDATFMXLanguageManager for an FMX project or one TDATVCLLanguageManager for a VCL project. One manager supervises the application; it is not placed on all forms.",
-            "Set ApplicationId to the exact value shown in Detected Application ID. For example, Carillon.dproj produces Carillon regardless of the containing folder name.",
+            "Set ApplicationId to the exact value shown in Detected Application ID. For example, MyApplication.dproj produces MyApplication regardless of the containing folder name.",
             "Leave LanguagesFolder as Localization\\Languages unless the application has an intentional custom deployment layout.",
             "Set SourceLanguage to en-US when English (United States) is the source.",
             "Place the matching TDAT language combo box. In Object Inspector, set its LanguageManager property to the manager component; do not leave this property blank. Position it where users can select a language. A connected Language menu may replace the combo box, but a visible language choice is required.",
@@ -1236,7 +1275,7 @@ def build_setup_wizard_guide() -> Path:
     add_callout(
         document,
         "Translation length is application-specific.",
-        "A correct translation can be substantially longer than its English source—20 to 50 percent growth is common for short interface phrases, and individual terms can grow more. Test every translated form at the supported window sizes. If text clips, overlaps, or loses alignment, adjust wrapping, AutoSize, margins, layout containers, or control dimensions in the target Form Designer. The language pack deliberately changes text only; it must not guess at or rewrite the application's visual design.",
+        "A correct translation can be substantially longer than its English source—20 to 50 percent growth is common for short interface phrases, and individual terms can grow more. The Review Center proposes conservative language-specific Width, Height, WordWrap, AutoSize, and grid-column rules and shows current and proposed geometry in its Visual Review. Accepted rules are stored in the JSON pack, applied only for that language, and reversed when another language is selected. Complex collisions, graph geometry, and substantial redesigns still require developer review in the target Form Designer.",
     )
 
     document.add_heading("8. Files Created by the Wizard", level=1)
@@ -1627,7 +1666,7 @@ def build_engineering_guide() -> Path:
         document,
         [
             "DAT.Runtime.LanguagePack loads and discovers JSON packs, checks application identity, rejects empty/invalid packs, canonicalizes native language names, de-duplicates exact locale codes, and suppresses a generic locale when a regional variant exists. Runtime schema 2 retains keyed strings and templates while adding source text, source-string, and source-template indexes; schema 1 packs remain readable. DAT.Runtime.Preference reads/writes the selected locale. DAT.Runtime.Manager owns the active pack, discovery, preference, translation lookup, and locale format settings. The source language loads its generated JSON pack when present and falls back to designer text only for older deployments without that pack.",
-            "DAT.Runtime.VCL and DAT.Runtime.FMX traverse existing component trees and supported collection properties. They apply values by stable key to already designer-created controls. The FMX adapter also translates anonymous runtime-created components and recognizes current dynamic text through the source indexes. Missing keys retain source text. The adapters do not create controls or rearrange layouts.",
+            "DAT.Runtime.VCL and DAT.Runtime.FMX traverse existing component trees and supported collection properties. They apply values by stable key to already designer-created controls. The FMX adapter also translates anonymous runtime-created components, grid cell text, and supported browser-generated text through the source indexes. Missing keys retain source text. Accepted JSON layout rules may adjust only the recorded safe properties for the active language; the adapters do not create controls or rewrite Delphi form source.",
         ],
     )
     document.add_heading("11.1 Component manager core", level=2)

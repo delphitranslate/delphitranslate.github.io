@@ -254,6 +254,41 @@ begin
     ContainsText(LowerText, '<td');
 end;
 
+procedure ScanHtmlText(const AStatement: TRuntimeStatement;
+  const AResult: TProjectScanResult; const AFileName, AUnitName: string);
+var
+  CloseAt: Integer;
+  Decoded: string;
+  OpenAt: Integer;
+  Segment: string;
+  StartAt: Integer;
+  TextValue: string;
+begin
+  if not ContainsText(AStatement.Text, '<') or
+    not ExtractLiteralPhrase(AStatement.Text, Decoded) then
+    Exit;
+  StartAt := 1;
+  while StartAt <= Length(Decoded) do
+  begin
+    OpenAt := PosEx('>', Decoded, StartAt);
+    if OpenAt = 0 then
+      Break;
+    CloseAt := PosEx('<', Decoded, OpenAt + 1);
+    if CloseAt = 0 then
+      Break;
+    Segment := Trim(Copy(Decoded, OpenAt + 1, CloseAt - OpenAt - 1));
+    TextValue := StringReplace(Segment, '&nbsp;', ' ', [rfReplaceAll,
+      rfIgnoreCase]);
+    if (TextValue <> '') and (Pos('<', TextValue) = 0) and
+      (Pos('>', TextValue) = 0) and
+      not ContainsText(TextValue, '%s') and
+      not ContainsText(TextValue, '%d') then
+      AddRuntimeItem(AResult, AFileName, AUnitName, 'HtmlText',
+        'BrowserText', TextValue, AStatement.SourceLine, rtrStaticText);
+    StartAt := CloseAt + 1;
+  end;
+end;
+
 function ExtractFormatTemplate(const AExpression: string;
   out ATemplate: string): Boolean;
 var
@@ -399,6 +434,7 @@ begin
     CollectRuntimeStatements(ALines, Statements);
     for Statement in Statements do
     begin
+      ScanHtmlText(Statement, AResult, AFileName, AUnitName);
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'ShowMessage', 'DialogMessage');
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
