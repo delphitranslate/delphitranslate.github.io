@@ -1784,3 +1784,25 @@ sorts only after all width updates are complete. This prevents the Delphi
 `Operation not allowed on sorted list` exception observed during Wizard final
 processing. Foundation regression coverage contains two entries for the same
 control and verifies that the larger envelope value can replace the first.
+
+# Single-Pass Wizard Review and Finalization (2026-08-12)
+
+The Setup Wizard now keeps one protected final-processing session active from
+automatic translation through developer review and definitive output. After
+the development catalog and initial review artifacts are created, the Wizard
+opens the modal Localization Review Center. Back, Cancel, and the setup-step
+rail remain unavailable during this interval; closing the Review Center does
+not cancel processing.
+
+When review closes, the same processing call reloads the saved project
+glossary, applies approved terminology to the in-memory catalog, reapplies
+authoritative terminology, saves the reviewed development catalog, and
+regenerates review/layout artifacts while preserving checksum-backed layout
+decisions. Only then does it run final validation, export the runtime JSON pack,
+generate the component kit, and configure deployment. A second Wizard pass is
+no longer part of the normal workflow.
+
+The completion report records that localization review occurred inside the
+same Wizard processing pass before final export. The completion-page review
+button is retained as a disabled `Review Completed` indicator, preventing a
+post-export review from being mistaken for part of the completed transaction.

@@ -92,7 +92,7 @@ def add_cover(document: Document) -> None:
     purpose.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = purpose.add_run(
         "Every required transition is included: clean test copy, Wizard, "
-        "localization review, second-pass update, Studio verification, RAD "
+        "in-Wizard localization review, automatic finalization, optional Studio verification, RAD "
         "Studio component placement, builds, deployment, and runtime testing."
     )
     set_run_font(run, 10, GRAY, italic=True)
@@ -120,9 +120,9 @@ def add_toc(document: Document) -> None:
         ("2. Exact Product Files and Generated Locations", 2),
         ("3. Prepare a Completely Clean Test", 3),
         ("4. Start the Setup Wizard", 4),
-        ("5. Wizard Pass One - Create the Translation", 4),
-        ("6. Review the First-Pass Translation", 7),
-        ("7. Wizard Pass Two - Apply Saved Review Decisions", 8),
+        ("5. Single Wizard Pass - Create, Review, and Finalize", 4),
+        ("6. Complete the In-Wizard Localization Review", 7),
+        ("7. Automatic Resume - Finalize Reviewed Output", 8),
         ("8. Optional: Return to the Main Translation Studio", 9),
         ("9. Install the Design Package in RAD Studio", 11),
         ("10. Place and Configure the Components", 11),
@@ -276,8 +276,8 @@ def build_document() -> Path:
     document.add_heading("1. Read This Before Starting", level=1)
     add_paragraphs(document, [
         "The Setup Wizard performs the first project scan, automatic provider translation, validation, JSON export, component-kit generation, Search Path configuration, and language-pack deployment configuration. It does not place components on a Delphi form; that remains a normal RAD Studio Form Designer operation.",
-        "The current workflow requires two Wizard passes when layout or project-glossary decisions are made after the first translation. The first pass creates the translated catalog and its review proposals. The developer reviews those proposals. The second pass, Update Existing Translation, applies the saved glossary, embeds accepted layout rules in the runtime JSON, and refreshes the generated component kit.",
-        "After the two Wizard passes, the main Studio may be used to inspect the exact development catalog, make any necessary text correction, perform final validation, export the final runtime pack, and refresh the component kit. RAD Studio is then used to install the design package, place the manager and selector, build the target, and test runtime behavior.",
+        "The current workflow uses one protected Wizard processing pass. It creates the translated development catalog, automatically opens Localization Review, waits while the developer records terminology and layout decisions, and resumes automatically when the Review Center closes. The resumed pass applies those decisions before final validation, runtime JSON export, component-kit generation, Search Path configuration, and deployment configuration.",
+        "After the single Wizard pass, the main Studio may be used for optional detailed inspection or manual correction. RAD Studio is then used to install the design package, place the manager and selector, build the target, and test runtime behavior.",
     ])
     add_info_callout(document, "Do not use an original project.",
         "Create a new disposable test folder from the pristine copy. Keep the pristine folder and the original application untouched. The Wizard creates its own ZIP and DPROJ transaction backups, but those are additional safeguards, not substitutes for the pristine copy.")
@@ -290,8 +290,8 @@ def build_document() -> Path:
     add_checklist(document, [
         "The Wizard completes without an access violation or a stopped-processing message.",
         "The Wizard translates unresolved entries automatically with the selected API provider.",
-        "The first pass produces a development catalog, runtime pack, review package, and component kit.",
-        "The second pass preserves completed work and embeds accepted glossary/layout decisions.",
+        "The protected Wizard pass pauses for Localization Review before its definitive export.",
+        "Closing Localization Review resumes the same Wizard pass and embeds accepted glossary/layout decisions.",
         "The main Studio opens the same catalog, validates it, and exports the final JSON pack.",
         "The target project contains only intentional designer changes plus the marked DPROJ configuration block.",
         "Win32 and Win64 builds receive the correct Localization\\Languages folder.",
@@ -353,7 +353,7 @@ def build_document() -> Path:
         "Do not run a second Studio instance during this test.",
     ])
 
-    document.add_heading("5. Wizard Pass One - Create the Translation", level=1)
+    document.add_heading("5. Single Wizard Pass - Create, Review, and Finalize", level=1)
     document.add_heading("5.1 Step 1 - Welcome", level=2)
     add_steps(document, [
         "Read the safety statement. It explains that final processing creates a backup and writes localization/configuration files but does not rewrite Pascal or form source.",
@@ -420,7 +420,7 @@ def build_document() -> Path:
     add_info_callout(document, "Rescan after source changes.",
         "If you edit or save any target PAS, FMX, DFM, DPR, or DPROJ file after this scan, return to this step and scan again before final processing.")
     add_numbered_steps(document, [
-        "The Localization Review button is available, but the richest terminology suggestions and layout proposals do not exist until translations have been created. For the ordinary first test, continue with Next.",
+        "The Localization Review button is available here, but the richest terminology suggestions and layout proposals do not exist until translations have been created. Continue with Next. The Wizard will open Localization Review automatically during final processing.",
     ], start=6)
 
     document.add_heading("5.6 Step 6 - Delphi Component", level=2)
@@ -443,7 +443,7 @@ def build_document() -> Path:
         "Check Required: the target project is closed in RAD Studio.",
         "Check I reviewed these choices and authorize final processing.",
         "Click Begin Final Processing only after both confirmations are checked.",
-        "After processing begins, do not try to close the Wizard or Studio. Back, Cancel, and the step rail remain disabled until processing succeeds or stops safely.",
+        "After processing begins, do not try to close the Wizard or Studio. Back, Cancel, and the step rail remain disabled. The Wizard will translate, open Localization Review, and automatically resume finalization after Review closes.",
     ])
 
     document.add_heading("5.8 Step 8 - Processing and Completion", level=2)
@@ -452,19 +452,12 @@ def build_document() -> Path:
         "Confirm a timestamped ZIP backup was created.",
         "Confirm unresolved entries were translated by the selected provider or resolved by terminology/translation memory.",
         "Confirm Development catalog saved appears.",
-        "Confirm the progress log lists the localization review, layout proposal, and multilingual layout envelope paths. In File Explorer, open C:\\New Delphi Projects\\Delphi App Translation\\export\\localization-review\\<ApplicationId>\\<language> and verify that localization-review.html, layout-proposal.json, and multilingual-layout-envelope.json exist and are not zero bytes.",
-        "Confirm validation passed. Warnings may remain; blocking errors must not remain.",
-        "Confirm Runtime JSON pack exported appears with a path under the disposable test project's Localization\\Languages folder.",
-        "Confirm Component integration kit generated appears.",
-        "Confirm Project Search Path and automatic post-build deployment configured appears.",
-        "Confirm the footer says Setup Wizard completed successfully. If it says stopped, do not continue to RAD Studio. Copy or photograph the entire progress log and footer message, close the Wizard only after processing has stopped safely, preserve the Wizard ZIP backup and disposable test folder, and send the exact STOPPED text and screenshots to the development team. Resume only after the cause is corrected and new test instructions are provided.",
-        "Click the blue component-kit path or Open Kit Folder. Confirm ComponentSource, Localization, component-integration.json, Deploy-LanguagePacks.ps1, README.txt, and Wizard-Completion-Report.txt exist.",
-        "Leave the Wizard open for the next review step. Do not click Finish yet.",
+        "Confirm the progress log reports that the required in-Wizard localization review is opening. The Translation Studio and Wizard remain protected while the modal Review Center is active.",
     ])
 
-    document.add_heading("6. Review the First-Pass Translation", level=1)
+    document.add_heading("6. Complete the In-Wizard Localization Review", level=1)
     add_steps(document, [
-        "On the Wizard completion page, click Review Localization.",
+        "Wait for the Localization Review Center to open automatically. Do not click Finish and do not start another Wizard.",
         "On Audit & Confidence, read the summary and inspect all High risk findings and representative Warning findings.",
         "Click Generate Review Package, then Open Visual Review. Review the estimated translated forms in the browser. This preview is advisory; it does not alter a Delphi form.",
         "Return to the Localization Review Center.",
@@ -475,33 +468,30 @@ def build_document() -> Path:
         "Open Layout Proposals. Select a proposal and read its form, control, property, current value, proposed value, reason, decision, and What happens explanation.",
         "For the ordinary test, click Accept All Safe Proposals only after understanding that Width, Height, WordWrap, and AutoSize rules will be applied at runtime for this language.",
         "For any proposal that would collide with another control or exceed its parent, choose Manual or Rejected and click Save.",
-        "Click Close to return to the Wizard.",
-        "Click Finish to close Wizard pass one and return to the Studio main form.",
+        "Click Close. This records the end of the review phase and returns control to the protected Wizard processing pass.",
     ])
-    add_info_callout(document, "Why pass two is required.",
-        "The first runtime pack was exported before these review decisions were made. The next Wizard update applies the saved project glossary and embeds accepted safe layout rules into a newly exported runtime pack.")
+    add_info_callout(document, "Do not start a second Wizard pass.",
+        "Closing Localization Review now resumes the original processing pass. The Wizard applies the saved glossary and accepted layout rules before it performs the definitive validation, runtime-pack export, and component-kit generation.")
 
-    document.add_heading("7. Wizard Pass Two - Apply Saved Review Decisions", level=1)
+    document.add_heading("7. Automatic Resume - Finalize Reviewed Output", level=1)
     add_steps(document, [
-        "Click Start Setup Wizard again.",
-        "Click Next on Welcome.",
-        "Browse to the same disposable test project's .dproj.",
-        "Confirm the same Application ID and framework.",
-        "On Languages, select the same source and target language used in pass one.",
-        "Leave Workflow on Automatic. Confirm Existing catalog detected and Update the existing translation is reported.",
-        "Confirm the translation provider and stored key, then click Test Connection again.",
-        "Run Scan Project again. Confirm completed translations are preserved and only actual new or changed source entries are unresolved.",
-        "Read the component step, click Show Design BPL if desired, check the required understanding box, and click Next.",
-        "Close the target project in RAD Studio if it was opened accidentally.",
-        "Check the target-project-closed and authorization boxes, then click Begin Final Processing.",
-        "Confirm the progress reports glossary translations applied when applicable, validation passed, runtime pack exported, component kit generated, deployment configured, and successful completion.",
-        "Click Review Localization only to confirm the saved glossary and layout decisions persisted. Do not create new decisions during this confirmation pass; a new decision would require another export/update.",
-        "Close Localization Review and click Finish.",
+        "After the Review Center closes, do not press anything while the progress log resumes automatically.",
+        "Confirm the log reports Localization review closed and reviewed decisions being applied.",
+        "Confirm Reviewed development catalog saved appears.",
+        "Confirm the progress log lists the final localization review, layout proposal, and multilingual layout envelope paths. In File Explorer, open C:\\New Delphi Projects\\Delphi App Translation\\export\\localization-review\\<ApplicationId>\\<language> and verify that localization-review.html, layout-proposal.json, and multilingual-layout-envelope.json exist and are not zero bytes.",
+        "Confirm validation passed. Warnings may remain; blocking errors must not remain.",
+        "Confirm Runtime JSON pack exported appears with a path under the disposable test project's Localization\\Languages folder.",
+        "Confirm Component integration kit generated appears.",
+        "Confirm Project Search Path and automatic post-build deployment configured appears.",
+        "Confirm the footer says Setup Wizard completed successfully. If it says stopped, do not continue to RAD Studio. Copy or photograph the entire progress log and footer message, close the Wizard only after processing has stopped safely, preserve the Wizard ZIP backup and disposable test folder, and send the exact STOPPED text and screenshots to the development team. Resume only after the cause is corrected and new test instructions are provided.",
+        "Click the blue component-kit path or Open Kit Folder. Confirm ComponentSource, Localization, component-integration.json, Deploy-LanguagePacks.ps1, README.txt, and Wizard-Completion-Report.txt exist.",
+        "Confirm the completion report states that review was completed inside the same Wizard processing pass before final export.",
+        "Click Finish once. The Wizard closes and returns to the Studio main form.",
     ])
 
     document.add_heading("8. Optional: Return to the Main Translation Studio", level=1)
     add_paragraphs(document, [
-        "The two Wizard passes have already translated, validated, exported, and refreshed the project. If pass two completed successfully, validation reported no errors, and no translation, glossary, locale, or layout correction is needed, Section 8 is optional. You may stop using the Translation Studio here and proceed directly to Section 9 for the required RAD Studio installation and component-placement work.",
+        "The single Wizard pass has already translated, reviewed, validated, exported, and refreshed the project. If it completed successfully, validation reported no errors, and no additional translation, glossary, locale, or layout correction is needed, Section 8 is optional. You may stop using the Translation Studio here and proceed directly to Section 9 for the required RAD Studio installation and component-placement work.",
         "Use Section 8 when you want detailed catalog inspection, a manual translation correction, another validation report, or a final runtime-pack and component-kit refresh. Do not start a second translation from scratch. Any correction made here must be saved, validated, exported, and followed by the component-kit refresh in Section 8.4 before continuing to RAD Studio.",
     ])
     document.add_heading("8.1 Open the matching project and catalog", level=2)
@@ -706,7 +696,7 @@ def build_document() -> Path:
         "Start the Setup Wizard.",
         "Select the same project and source language but choose a different target language.",
         "Use Automatic. It should create a new development catalog for that language while preserving catalogs for other languages.",
-        "Complete Wizard pass one, review terminology and layout for that language, and complete Wizard pass two when decisions were saved.",
+        "Complete the single Wizard pass. Review terminology and layout when the Review Center opens automatically, then allow the Wizard to resume finalization.",
         "Perform final Studio validation/export and regenerate the component kit.",
         "Build or deploy the packs to every executable folder.",
         "Run the application. The existing connected selector should discover the new JSON pack automatically; do not add another manager or combo box.",
@@ -716,9 +706,9 @@ def build_document() -> Path:
     document.add_heading("18. Final Completion Checklist", level=1)
     add_checklist(document, [
         "Disposable test folder was copied from pristine and the pristine/original folders remained untouched.",
-        "Wizard pass one completed successfully and translated unresolved entries.",
+        "The single Wizard pass translated unresolved entries and opened Localization Review before final export.",
         "Localization audit, terminology suggestions, glossary, and layout proposals were reviewed.",
-        "Wizard pass two applied saved review decisions.",
+        "The same Wizard pass resumed automatically and applied saved review decisions.",
         "Main Studio opened the matching catalog, rescanned, validated with zero errors, and exported the final runtime pack.",
         "Component kit was regenerated after the final export.",
         "Correct Win32 Release design BPL was installed through Component > Install Packages > Add.",
@@ -737,7 +727,7 @@ def build_document() -> Path:
     add_bullets(document, [
         "Disposable test-folder path and selected .dproj path.",
         "Application ID, framework, source language, target language, and provider.",
-        "Pass-one and pass-two scan totals and unresolved counts.",
+        "Single-pass scan total, unresolved count, and automatic-resume result.",
         "Wizard completion log or the exact STOPPED message.",
         "Validation error/warning/information counts.",
         "Number of glossary terms approved and layout proposals accepted/manual/rejected.",

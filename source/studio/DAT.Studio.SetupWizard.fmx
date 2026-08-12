@@ -862,7 +862,7 @@ object frmSetupWizard: TfrmSetupWizard
               TextSettings.Font.Size = 14.000000000000000000
               TextSettings.Font.StyleExt = {00070000000000000004000000}
               TextSettings.FontColor = xFFB25400
-              Text = 'After Begin Final Processing is clicked, Back, Cancel, and the step rail are disabled until processing succeeds or stops safely.'
+              Text = 'After Begin Final Processing is clicked, Back, Cancel, and the step rail are disabled. The Wizard translates, opens Localization Review, then automatically resumes validation, export, and kit generation.'
             end
           end
           object tabFinish: TTabItem
@@ -889,7 +889,7 @@ object frmSetupWizard: TfrmSetupWizard
               Size.PlatformDefault = False
               TextSettings.Font.Size = 14.000000000000000000
               TextSettings.FontColor = xFF365674
-              Text = 'Final processing is starting...'
+              Text = 'Single-pass final processing is starting...'
             end
             object memProgress: TMemo
               Position.X = 8.000000000000000000
@@ -961,12 +961,13 @@ object frmSetupWizard: TfrmSetupWizard
               OnClick = btnDeployApplicationFolderClick
             end
             object btnFinishLocalizationReview: TButton
+              Enabled = False
               Position.X = 592.000000000000000000
               Position.Y = 410.000000000000000000
               Size.Width = 146.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Review Localization'
+              Text = 'Review Completed'
               OnClick = btnLocalizationReviewClick
             end
           end

@@ -321,7 +321,12 @@ begin
   finally
     ReviewForm.Free;
   end;
-  lblFooterStatus.Text := 'Localization Review closed. Saved glossary terms will be applied during final processing.';
+  if FFinalProcessing then
+    lblFooterStatus.Text :=
+      'Localization Review closed. Automatic validation, export, and kit generation are continuing.'
+  else
+    lblFooterStatus.Text :=
+      'Localization Review closed. Saved glossary terms will be applied during final processing.';
 end;
 
 procedure TfrmSetupWizard.UpdateComponentInstructions;
@@ -1272,6 +1277,33 @@ begin
     TCatalogJson.SaveToFile(FCatalog, FCatalogFileName);
     AddProgress('Development catalog saved.');
     GenerateLocalizationReviewArtifacts;
+    lblFinishText.Text :=
+      'Automatic translation is complete. Review terminology and layout now. ' +
+      'When Localization Review closes, the Wizard will automatically continue ' +
+      'through validation, runtime-pack export, and component-kit generation.';
+    AddProgress('Opening the required in-Wizard localization review. Final processing will resume automatically when it closes.');
+    btnLocalizationReviewClick(Self);
+    AddProgress('Localization review closed. Applying saved review decisions before final export...');
+    Glossary := nil;
+    try
+      if TFile.Exists(StagedGlossaryFileName) then
+        Glossary := TProjectGlossary.LoadFromFile(StagedGlossaryFileName)
+      else if TFile.Exists(ProjectGlossaryFileName) then
+        Glossary := TProjectGlossary.LoadFromFile(ProjectGlossaryFileName);
+      if Glossary <> nil then
+      begin
+        AppliedGlossaryCount := Glossary.ApplyToCatalog(FCatalog);
+        Glossary.SaveToFile(ProjectGlossaryFileName);
+        AddProgress(Format('%d translation(s) applied from the completed in-Wizard review.',
+          [AppliedGlossaryCount]));
+      end;
+    finally
+      Glossary.Free;
+    end;
+    TTerminologyResolver.ApplyAuthoritativeTerms(FCatalog);
+    TCatalogJson.SaveToFile(FCatalog, FCatalogFileName);
+    AddProgress('Reviewed development catalog saved.');
+    GenerateLocalizationReviewArtifacts;
     Validation := TCatalogValidator.Validate(FCatalog);
     try
       if Validation.HasErrors then
@@ -1327,6 +1359,7 @@ begin
       Report.Add('Existing build outputs deployed: ' + DeployedCount.ToString);
       Report.Add('Localization review package: ' +
         TPath.Combine(FReviewOutputDirectory, 'localization-review.html'));
+      Report.Add('Review workflow: completed inside the same Wizard processing pass before final export');
       Report.Add('');
       Report.Add('NEXT MANUAL DELPHI STEP');
       Report.AddStrings(memComponentInstructions.Lines);
@@ -1341,7 +1374,7 @@ begin
     AddProgress('Completion report written. Pascal and form source files remain unchanged.');
     FCompleted := True;
     lblFinishText.Text :=
-      'Automatic processing is complete. Perform the clearly listed Delphi package/component step, then build the target. Language packs deploy automatically after each build.';
+      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation, runtime-pack export, and component-kit generation. Perform the clearly listed Delphi package/component step, then build the target. Language packs deploy automatically after each build.';
     lblFooterStatus.Text := 'Setup Wizard completed successfully.';
   except
     on E: Exception do
