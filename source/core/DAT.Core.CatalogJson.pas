@@ -189,6 +189,9 @@ begin
       EntryObject.AddPair('contextDescription', Entry.ContextDescription);
       EntryObject.AddPair('semanticConcept', Entry.SemanticConcept);
       EntryObject.AddPair('contextConfidence', Entry.ContextConfidence);
+      EntryObject.AddPair('textOwnership',
+        TextOwnershipKindToString(Entry.TextOwnership));
+      EntryObject.AddPair('suspiciousReason', Entry.SuspiciousReason);
       EntryObject.AddPair('status', TranslationStatusToString(Entry.Status));
       EntryObject.AddPair('translationOrigin',
         TranslationOriginToString(Entry.TranslationOrigin));
@@ -303,6 +306,10 @@ begin
               'semanticConcept', '');
             Entry.ContextConfidence := JsonValueText(EntryObject,
               'contextConfidence', '');
+            Entry.TextOwnership := StringToTextOwnershipKind(JsonValueText(
+              EntryObject, 'textOwnership', 'designerAutomatic'));
+            Entry.SuspiciousReason := JsonValueText(EntryObject,
+              'suspiciousReason', '');
             Entry.Status := StringToTranslationStatus(
               JsonValueText(EntryObject, 'status', 'needsTranslation'));
             Entry.TranslationOrigin := StringToTranslationOrigin(
@@ -332,8 +339,8 @@ begin
               'true');
             Result.Entries.Add(Entry);
           end;
-      if Result.SchemaVersion < 5 then
-        Result.SchemaVersion := 5;
+      if Result.SchemaVersion < 6 then
+        Result.SchemaVersion := 6;
     except
       Result.Free;
       raise;

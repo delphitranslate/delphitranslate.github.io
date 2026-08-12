@@ -86,16 +86,16 @@ object frmLocalizationReview: TfrmLocalizationReview
           Position.X = 18.000000000000000000
           Position.Y = 58.000000000000000000
           Size.Width = 1000.000000000000000000
-          Size.Height = 30.000000000000000000
+          Size.Height = 48.000000000000000000
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFF365674
         end
         object memAudit: TMemo
           Position.X = 18.000000000000000000
-          Position.Y = 96.000000000000000000
+          Position.Y = 112.000000000000000000
           Size.Width = 1000.000000000000000000
-          Size.Height = 314.000000000000000000
+          Size.Height = 298.000000000000000000
           Size.PlatformDefault = False
           ReadOnly = True
           ShowScrollBars = True
@@ -269,6 +269,78 @@ object frmLocalizationReview: TfrmLocalizationReview
           OnClick = btnSaveGlossaryClick
         end
       end
+      object tabSuggestions: TTabItem
+        Text = 'Terminology Suggestions'
+        object lblSuggestionsTitle: TLabel
+          StyledSettings = []
+          Position.X = 18.000000000000000000
+          Position.Y = 18.000000000000000000
+          Size.Width = 680.000000000000000000
+          Size.Height = 34.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 20.000000000000000000
+          TextSettings.Font.StyleExt = {00070000000000000004000000}
+          TextSettings.FontColor = xFF163A63
+          Text = 'Catalog-derived terminology suggestions'
+        end
+        object lblSuggestionsText: TLabel
+          StyledSettings = []
+          WordWrap = True
+          Position.X = 18.000000000000000000
+          Position.Y = 54.000000000000000000
+          Size.Width = 1000.000000000000000000
+          Size.Height = 48.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 14.000000000000000000
+          TextSettings.FontColor = xFF365674
+          Text = 'Review where each translation came from before making it authoritative for this project. Provider results are suggestions only and are never promoted automatically.'
+        end
+        object lstSuggestions: TListBox
+          Position.X = 18.000000000000000000
+          Position.Y = 112.000000000000000000
+          Size.Width = 500.000000000000000000
+          Size.Height = 296.000000000000000000
+          Size.PlatformDefault = False
+          OnChange = lstSuggestionsChange
+        end
+        object memSuggestionDetail: TMemo
+          Position.X = 538.000000000000000000
+          Position.Y = 112.000000000000000000
+          Size.Width = 480.000000000000000000
+          Size.Height = 238.000000000000000000
+          Size.PlatformDefault = False
+          ReadOnly = True
+          ShowScrollBars = True
+          WordWrap = True
+        end
+        object btnUseSuggestion: TButton
+          Position.X = 538.000000000000000000
+          Position.Y = 366.000000000000000000
+          Size.Width = 148.000000000000000000
+          Size.Height = 42.000000000000000000
+          Size.PlatformDefault = False
+          Text = 'Approve Selected'
+          OnClick = btnUseSuggestionClick
+        end
+        object btnApproveHighConfidence: TButton
+          Position.X = 698.000000000000000000
+          Position.Y = 366.000000000000000000
+          Size.Width = 192.000000000000000000
+          Size.Height = 42.000000000000000000
+          Size.PlatformDefault = False
+          Text = 'Approve High-confidence All'
+          OnClick = btnApproveHighConfidenceClick
+        end
+        object btnRejectSuggestion: TButton
+          Position.X = 902.000000000000000000
+          Position.Y = 366.000000000000000000
+          Size.Width = 116.000000000000000000
+          Size.Height = 42.000000000000000000
+          Size.PlatformDefault = False
+          Text = 'Reject'
+          OnClick = btnRejectSuggestionClick
+        end
+      end
       object tabProposals: TTabItem
         Text = 'Layout Proposals'
         object lblProposalTitle: TLabel
@@ -307,7 +379,7 @@ object frmLocalizationReview: TfrmLocalizationReview
           Position.X = 578.000000000000000000
           Position.Y = 108.000000000000000000
           Size.Width = 440.000000000000000000
-          Size.Height = 238.000000000000000000
+          Size.Height = 218.000000000000000000
           Size.PlatformDefault = False
           ReadOnly = True
           ShowScrollBars = True
@@ -315,23 +387,35 @@ object frmLocalizationReview: TfrmLocalizationReview
         end
         object cboDecision: TComboBox
           Position.X = 578.000000000000000000
-          Position.Y = 366.000000000000000000
-          Size.Width = 210.000000000000000000
+          Position.Y = 382.000000000000000000
+          Size.Width = 300.000000000000000000
           Size.Height = 42.000000000000000000
           Size.PlatformDefault = False
           Items.Strings = (
-            'Pending'
-            'Accepted'
-            'Rejected'
-            'Manual adjustment')
+            'Pending - decide later'
+            'Accept - save for a future layout pack'
+            'Reject - do not use this proposal'
+            'Manual - developer will adjust the form')
+        end
+        object lblDecisionQuestion: TLabel
+          StyledSettings = []
+          Position.X = 578.000000000000000000
+          Position.Y = 350.000000000000000000
+          Size.Width = 440.000000000000000000
+          Size.Height = 28.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 13.000000000000000000
+          TextSettings.Font.StyleExt = {00070000000000000004000000}
+          TextSettings.FontColor = xFF163A63
+          Text = 'What should the Studio remember for this proposal?'
         end
         object btnSaveDecision: TButton
-          Position.X = 802.000000000000000000
-          Position.Y = 366.000000000000000000
-          Size.Width = 216.000000000000000000
+          Position.X = 890.000000000000000000
+          Position.Y = 382.000000000000000000
+          Size.Width = 128.000000000000000000
           Size.Height = 42.000000000000000000
           Size.PlatformDefault = False
-          Text = 'Save Decision'
+          Text = 'Save'
           OnClick = btnSaveDecisionClick
         end
       end

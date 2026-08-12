@@ -4,6 +4,7 @@ program FoundationSmokeTests;
 
 uses
   System.Classes,
+  System.Generics.Collections,
   System.Hash,
   System.SysUtils,
   System.IOUtils,
@@ -33,6 +34,7 @@ uses
   DAT.Scan.Types in '..\..\source\scan\DAT.Scan.Types.pas',
   DAT.Scan.Rules in '..\..\source\scan\DAT.Scan.Rules.pas',
   DAT.Scan.Context in '..\..\source\scan\DAT.Scan.Context.pas',
+  DAT.Scan.Quality in '..\..\source\scan\DAT.Scan.Quality.pas',
   DAT.Scan.TextCodec in '..\..\source\scan\DAT.Scan.TextCodec.pas',
   DAT.Scan.FormText in '..\..\source\scan\DAT.Scan.FormText.pas',
   DAT.Scan.PascalResources in '..\..\source\scan\DAT.Scan.PascalResources.pas',
@@ -68,6 +70,7 @@ var
   Catalog: TTranslationCatalog;
   Entry, EnvelopeEntry: TTranslationEntry;
   Glossary, LoadedGlossary: TProjectGlossary;
+  Suggestions: TObjectList<TGlossarySuggestion>;
   Term: TProjectGlossaryTerm;
   Review: TLocalizationReview;
   TestDirectory, FormFileName, GlossaryFileName, CatalogFileName: string;
@@ -81,6 +84,7 @@ begin
   Glossary := TProjectGlossary.Create;
   LoadedGlossary := nil;
   Review := nil;
+  Suggestions := nil;
   try
     FormFileName := TPath.Combine(TestDirectory, 'Fixture.fmx');
     TFile.WriteAllText(FormFileName,
@@ -131,6 +135,16 @@ begin
 
     Entry.TranslatedText := 'Una traduccion deliberadamente extensa';
     Entry.TranslationOrigin := torGoogle;
+    Suggestions := TProjectGlossarySuggester.Build(Catalog, Glossary);
+    Require(Suggestions.Count = 0,
+      'An already-approved glossary term was suggested again.');
+    FreeAndNil(Suggestions);
+    Glossary.Terms.Clear;
+    Suggestions := TProjectGlossarySuggester.Build(Catalog, Glossary);
+    Require((Suggestions.Count = 1) and
+      SameText(Suggestions[0].Provenance, 'Google') and
+      not Suggestions[0].CanBulkApprove,
+      'Provider terminology provenance or approval safety is incorrect.');
     Review := TLocalizationReviewer.Analyze(Catalog);
     Require(Review.Controls.Count >= 2,
       'The read-only layout scanner did not inventory the form.');
@@ -162,6 +176,7 @@ begin
       'The multilingual layout envelope was not created.');
   finally
     Review.Free;
+    Suggestions.Free;
     LoadedGlossary.Free;
     Glossary.Free;
     Catalog.Free;
@@ -354,8 +369,8 @@ begin
       '"sourceText":"Message","sourceKind":"Resource string",' +
       '"status":"needsTranslation"}]}');
     try
-      Require(LoadedCatalog.SchemaVersion = 5,
-        'A schema version 1 catalog was not migrated to version 5.');
+      Require(LoadedCatalog.SchemaVersion = 6,
+        'A schema version 1 catalog was not migrated to version 6.');
       Require(LoadedCatalog.Entries[0].RuntimeApplication =
         rakManualTranslateText,
         'Legacy resourcestring runtime mode was not derived.');
@@ -526,6 +541,7 @@ procedure TestExtendedTextScanning;
 var
   FormFileName: string;
   PascalFileName: string;
+  ScanItem: TScanItem;
   ScanResult: TProjectScanResult;
   TempDirectory: string;
 begin
@@ -552,6 +568,10 @@ begin
     '  Column.Header := ''Play Date From'';' + sLineBreak +
     '  RuntimeLabel.Text := ''Play Time'';' + sLineBreak +
     '  DisplayText := Format('' Uptime: %d years %d seconds'', [1, 2]);' + sLineBreak +
+    '  Items.Add(''Close window'');' + sLineBreak +
+    '  ShowMessage(''Unable to open the selected file.'');' + sLineBreak +
+    '  Canvas.FillText(Rect, ''Owner drawn heading'', False, 1, [], Align);' + sLineBreak +
+    '  EventColumn.Header := ''Eventoooooooooooooooo'';' + sLineBreak +
     'end;' + sLineBreak +
     'end.', TEncoding.UTF8);
   ScanResult := TProjectScanResult.Create;
@@ -565,6 +585,22 @@ begin
     RequireSourceText(ScanResult, 'Play Time', stkRuntimeAssignment);
     RequireSourceText(ScanResult, ' Uptime: %d years %d seconds',
       stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'Close window', stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'Unable to open the selected file.',
+      stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'Owner drawn heading',
+      stkRuntimeAssignment);
+    ScanItem := nil;
+    for ScanItem in ScanResult.Items do
+      if ScanItem.SourceText = 'Eventoooooooooooooooo' then
+        Break;
+    Require((ScanItem <> nil) and
+      (ScanItem.SourceText = 'Eventoooooooooooooooo'),
+      'Suspicious runtime source was not scanned.');
+    Require(ScanItem.TextOwnership = tokSuspicious,
+      'Repeated-character runtime source was not classified as suspicious.');
+    Require(not TranslationEntryEligibleForAutomaticTranslation(nil),
+      'A nil entry was incorrectly eligible for automatic translation.');
   finally
     ScanResult.Free;
     TDirectory.Delete(TempDirectory, True);

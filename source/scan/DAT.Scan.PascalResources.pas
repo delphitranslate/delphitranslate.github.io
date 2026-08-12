@@ -22,7 +22,8 @@ uses
   System.SysUtils,
   DAT.Core.Types,
   DAT.Scan.TextCodec,
-  DAT.Scan.Context;
+  DAT.Scan.Context,
+  DAT.Scan.Quality;
 
 type
   TRuntimeStatement = record
@@ -120,6 +121,7 @@ begin
   ScanItem.Kind := stkResourceString;
   ScanItem.RuntimeTextRole := rtrRuntimeTemplate;
   TScanContextAnalyzer.Analyze(ScanItem);
+  TScanQualityAnalyzer.Analyze(ScanItem);
   AResult.Items.Add(ScanItem);
 end;
 
@@ -136,7 +138,105 @@ end;
 function IsRuntimeTextProperty(const APropertyName: string): Boolean;
 begin
   Result := MatchText(APropertyName,
-    ['Text', 'Caption', 'Header', 'Hint', 'TextPrompt']);
+    ['Text', 'Caption', 'Header', 'Hint', 'TextPrompt', 'Title',
+     'Description']);
+end;
+
+function FirstArgument(const AExpression: string): string;
+var
+  Depth: Integer;
+  InString: Boolean;
+  Index: Integer;
+begin
+  Result := Trim(AExpression);
+  Depth := 0;
+  InString := False;
+  for Index := 1 to Length(AExpression) do
+  begin
+    if AExpression[Index] = '''' then
+    begin
+      if InString and (Index < Length(AExpression)) and
+        (AExpression[Index + 1] = '''') then
+        Continue;
+      InString := not InString;
+    end
+    else if not InString then
+      case AExpression[Index] of
+        '(', '[': Inc(Depth);
+        ')', ']': if Depth > 0 then Dec(Depth);
+        ',': if Depth = 0 then Exit(Trim(Copy(AExpression, 1, Index - 1)));
+      end;
+  end;
+end;
+
+function ExtractLiteralPhrase(const AExpression: string;
+  out APhrase: string): Boolean;
+var
+  Decoded: string;
+  EndAt: Integer;
+  Index: Integer;
+  Segment: string;
+  StartAt: Integer;
+begin
+  APhrase := '';
+  Index := 1;
+  while Index <= Length(AExpression) do
+  begin
+    if AExpression[Index] <> '''' then
+    begin
+      Inc(Index);
+      Continue;
+    end;
+    StartAt := Index;
+    Inc(Index);
+    while Index <= Length(AExpression) do
+    begin
+      if AExpression[Index] = '''' then
+      begin
+        if (Index < Length(AExpression)) and (AExpression[Index + 1] = '''') then
+          Inc(Index, 2)
+        else
+          Break;
+      end
+      else
+        Inc(Index);
+    end;
+    EndAt := Index;
+    Segment := Copy(AExpression, StartAt, EndAt - StartAt + 1);
+    if TryDecodeDelphiStringExpression(Segment, Decoded) then
+      APhrase := APhrase + Decoded;
+    Inc(Index);
+  end;
+  APhrase := Trim(APhrase);
+  Result := APhrase <> '';
+end;
+
+procedure AddRuntimeItem(const AResult: TProjectScanResult;
+  const AFileName, AUnitName, ALeftSide, APropertyName, ASourceText: string;
+  const ASourceLine: Integer; const ARuntimeRole: TRuntimeTextRole); forward;
+
+procedure ScanRuntimeCall(const AStatement: TRuntimeStatement;
+  const AResult: TProjectScanResult; const AFileName, AUnitName,
+  ACallName, APropertyName: string);
+var
+  ArgumentText: string;
+  CallAt: Integer;
+  Phrase: string;
+  StartAt: Integer;
+begin
+  CallAt := Pos(LowerCase(ACallName + '('), LowerCase(AStatement.Text));
+  if CallAt = 0 then
+    Exit;
+  StartAt := CallAt + Length(ACallName) + 1;
+  if SameText(APropertyName, 'OwnerDrawText') then
+    ArgumentText := Copy(AStatement.Text, StartAt, MaxInt)
+  else
+    ArgumentText := FirstArgument(Copy(AStatement.Text, StartAt, MaxInt));
+  if TryDecodeDelphiStringExpression(ArgumentText, Phrase) or
+    ExtractLiteralPhrase(ArgumentText, Phrase) then
+    AddRuntimeItem(AResult, AFileName, AUnitName,
+      ACallName, APropertyName, Phrase, AStatement.SourceLine,
+      rtrRuntimeTemplate);
 end;
 
 function IsNonUiAssignment(const ALeftSide, ASourceText: string): Boolean;
@@ -233,6 +333,7 @@ begin
   ScanItem.Kind := stkRuntimeAssignment;
   ScanItem.RuntimeTextRole := ARuntimeRole;
   TScanContextAnalyzer.Analyze(ScanItem);
+  TScanQualityAnalyzer.Analyze(ScanItem);
   AResult.Items.Add(ScanItem);
 end;
 
@@ -298,6 +399,20 @@ begin
     CollectRuntimeStatements(ALines, Statements);
     for Statement in Statements do
     begin
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'ShowMessage', 'DialogMessage');
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'MessageDlg', 'DialogMessage');
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'MessageDialog', 'DialogMessage');
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'Items.Add', 'Items');
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'Items.AddObject', 'Items');
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'FillText', 'OwnerDrawText');
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'TextOut', 'OwnerDrawText');
       AssignAt := Pos(':=', Statement.Text);
       if AssignAt = 0 then
         Continue;
@@ -319,6 +434,14 @@ begin
           if not IsNonUiAssignment(LeftSide, FormatTemplate) then
             AddRuntimeItem(AResult, AFileName, AUnitName, LeftSide,
               PropertyName, FormatTemplate, Statement.SourceLine,
+              rtrRuntimeTemplate);
+        end
+        else if ContainsText(Expression, '+') and
+          ExtractLiteralPhrase(Expression, ValueText) then
+        begin
+          if not IsNonUiAssignment(LeftSide, ValueText) then
+            AddRuntimeItem(AResult, AFileName, AUnitName, LeftSide,
+              PropertyName, ValueText, Statement.SourceLine,
               rtrRuntimeTemplate);
         end;
       end

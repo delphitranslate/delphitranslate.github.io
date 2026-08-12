@@ -4,6 +4,7 @@ interface
 
 uses
   System.Classes,
+  System.Generics.Collections,
   FMX.Controls,
   FMX.Controls.Presentation,
   FMX.Edit,
@@ -30,6 +31,7 @@ type
     tabAudit: TTabItem;
     tabGlossary: TTabItem;
     tabProposals: TTabItem;
+    tabSuggestions: TTabItem;
     lblAuditTitle: TLabel;
     lblAuditSummary: TLabel;
     memAudit: TMemo;
@@ -52,11 +54,19 @@ type
     btnNewTerm: TButton;
     btnDeleteTerm: TButton;
     btnSaveGlossary: TButton;
+    lblSuggestionsTitle: TLabel;
+    lblSuggestionsText: TLabel;
+    lstSuggestions: TListBox;
+    memSuggestionDetail: TMemo;
+    btnUseSuggestion: TButton;
+    btnApproveHighConfidence: TButton;
+    btnRejectSuggestion: TButton;
     lblProposalTitle: TLabel;
     lblProposalText: TLabel;
     lstProposals: TListBox;
     memProposalDetail: TMemo;
     cboDecision: TComboBox;
+    lblDecisionQuestion: TLabel;
     btnSaveDecision: TButton;
     btnClose: TButton;
     lblStatus: TLabel;
@@ -72,6 +82,10 @@ type
     procedure btnSaveDecisionClick(Sender: TObject);
     procedure btnGeneratePackageClick(Sender: TObject);
     procedure btnOpenPackageClick(Sender: TObject);
+    procedure lstSuggestionsChange(Sender: TObject);
+    procedure btnUseSuggestionClick(Sender: TObject);
+    procedure btnApproveHighConfidenceClick(Sender: TObject);
+    procedure btnRejectSuggestionClick(Sender: TObject);
   private
     FProfile: TProjectProfile;
     FCatalog: TTranslationCatalog;
@@ -81,10 +95,13 @@ type
     FGlossaryFileName: string;
     FProposalFileName: string;
     FReviewFileName: string;
+    FGlossarySuggestions: TObjectList<TGlossarySuggestion>;
     procedure LoadGlossary;
     procedure RefreshGlossary;
     procedure RunAudit;
     procedure RefreshProposals;
+    procedure RefreshSuggestions;
+    procedure AddSuggestionToGlossary(const ASuggestion: TGlossarySuggestion);
   public
     procedure Prepare(const AProfile: TProjectProfile;
       const ACatalog: TTranslationCatalog; const AOutputDirectory,
@@ -111,6 +128,7 @@ end;
 procedure TfrmLocalizationReview.FormDestroy(Sender: TObject);
 begin
   FReview.Free;
+  FGlossarySuggestions.Free;
   FGlossary.Free;
 end;
 
@@ -140,6 +158,7 @@ begin
   FGlossary.SourceLanguage := FCatalog.SourceLanguage;
   FGlossary.TargetLanguage := FCatalog.Locale.LanguageCode;
   RefreshGlossary;
+  RefreshSuggestions;
 end;
 
 procedure TfrmLocalizationReview.RefreshGlossary;
@@ -151,6 +170,54 @@ begin
     lstGlossary.Items.Add(Term.SourceText + '  ->  ' + Term.TargetText);
   lblStatus.Text := Format('%d approved project terminology term(s).',
     [FGlossary.Terms.Count]);
+  if FGlossary.Terms.Count = 0 then
+    lblGlossaryText.Text := 'No project-specific terms have been approved yet. This is normal. Built-in UI terminology remains active; catalog-derived candidates appear on the Terminology Suggestions tab.';
+end;
+
+procedure TfrmLocalizationReview.RefreshSuggestions;
+var
+  Suggestion: TGlossarySuggestion;
+begin
+  FreeAndNil(FGlossarySuggestions);
+  FGlossarySuggestions := TProjectGlossarySuggester.Build(FCatalog, FGlossary);
+  lstSuggestions.Clear;
+  for Suggestion in FGlossarySuggestions do
+    lstSuggestions.Items.Add(Format('[%s | %s] %s  ->  %s',
+      [Suggestion.Provenance, Suggestion.Confidence, Suggestion.SourceText,
+       Suggestion.TargetText]));
+  if lstSuggestions.Count > 0 then
+  begin
+    lstSuggestions.ItemIndex := 0;
+    lstSuggestionsChange(lstSuggestions);
+  end
+  else
+    memSuggestionDetail.Lines.Text :=
+      'No new glossary candidates are available. The project glossary and built-in terminology remain active.';
+end;
+
+procedure TfrmLocalizationReview.AddSuggestionToGlossary(
+  const ASuggestion: TGlossarySuggestion);
+var
+  Term: TProjectGlossaryTerm;
+begin
+  if ASuggestion = nil then Exit;
+  Term := TProjectGlossaryTerm.Create;
+  Term.SourceText := ASuggestion.SourceText;
+  Term.TargetText := ASuggestion.TargetText;
+  Term.SemanticConcept := ASuggestion.SemanticConcept;
+  Term.ContextKind := ASuggestion.ContextKind;
+  Term.DeveloperNote := 'Approved from ' + ASuggestion.Provenance +
+    ' in the Localization Review Center.';
+  Term.Approved := True;
+  FGlossary.Terms.Add(Term);
+  if FCatalog.FindEntry(ASuggestion.EntryKey) <> nil then
+  begin
+    FCatalog.FindEntry(ASuggestion.EntryKey).TranslationOrigin := torProjectGlossary;
+    FCatalog.FindEntry(ASuggestion.EntryKey).TranslationConfidence := 'high';
+    FCatalog.FindEntry(ASuggestion.EntryKey).TranslationReviewNote :=
+      'Approved as project terminology in the Localization Review Center.';
+    FCatalog.FindEntry(ASuggestion.EntryKey).Status := tsApproved;
+  end;
 end;
 
 procedure TfrmLocalizationReview.RunAudit;
@@ -183,6 +250,13 @@ begin
     lstProposals.Items.Add(Format('%s.%s %s: %s -> %s [%s]',
       [Proposal.FormName, Proposal.ComponentName, Proposal.PropertyName,
        Proposal.CurrentValue, Proposal.ProposedValue, Proposal.Decision]));
+  if lstProposals.Count > 0 then
+  begin
+    lstProposals.ItemIndex := 0;
+    lstProposalsChange(lstProposals);
+  end
+  else
+    memProposalDetail.Lines.Text := 'No layout proposals were generated for this catalog.';
 end;
 
 procedure TfrmLocalizationReview.btnCloseClick(Sender: TObject);
@@ -239,7 +313,72 @@ end;
 procedure TfrmLocalizationReview.btnSaveGlossaryClick(Sender: TObject);
 begin
   FGlossary.SaveToFile(FGlossaryFileName);
+  RefreshSuggestions;
   lblStatus.Text := 'Project glossary saved: ' + FGlossaryFileName;
+end;
+
+procedure TfrmLocalizationReview.lstSuggestionsChange(Sender: TObject);
+var
+  Suggestion: TGlossarySuggestion;
+begin
+  if (FGlossarySuggestions = nil) or (lstSuggestions.ItemIndex < 0) then Exit;
+  Suggestion := FGlossarySuggestions[lstSuggestions.ItemIndex];
+  memSuggestionDetail.Lines.Text :=
+    'Source term: ' + Suggestion.SourceText + sLineBreak +
+    'Suggested target: ' + Suggestion.TargetText + sLineBreak +
+    'Context: ' + Suggestion.ContextKind + sLineBreak +
+    'Semantic concept: ' + Suggestion.SemanticConcept + sLineBreak +
+    'Provenance: ' + Suggestion.Provenance + sLineBreak +
+    'Confidence: ' + Suggestion.Confidence + sLineBreak +
+    'Why suggested: ' + Suggestion.Reason + sLineBreak + sLineBreak +
+    'Provider output is never promoted automatically. Approve Selected only after review. Approve High-confidence All accepts only human-reviewed or approved terminology.';
+end;
+
+procedure TfrmLocalizationReview.btnUseSuggestionClick(Sender: TObject);
+begin
+  if (FGlossarySuggestions = nil) or (lstSuggestions.ItemIndex < 0) then Exit;
+  AddSuggestionToGlossary(FGlossarySuggestions[lstSuggestions.ItemIndex]);
+  FGlossary.SaveToFile(FGlossaryFileName);
+  RefreshGlossary;
+  RefreshSuggestions;
+  lblStatus.Text := 'Selected terminology approved and saved to the project glossary.';
+end;
+
+procedure TfrmLocalizationReview.btnApproveHighConfidenceClick(Sender: TObject);
+var
+  Index: Integer;
+  Added: Integer;
+begin
+  Added := 0;
+  if FGlossarySuggestions <> nil then
+    for Index := 0 to FGlossarySuggestions.Count - 1 do
+      if FGlossarySuggestions[Index].CanBulkApprove then
+      begin
+        AddSuggestionToGlossary(FGlossarySuggestions[Index]);
+        Inc(Added);
+      end;
+  FGlossary.SaveToFile(FGlossaryFileName);
+  RefreshGlossary;
+  RefreshSuggestions;
+  lblStatus.Text := Format('%d high-confidence terminology term(s) approved and saved.', [Added]);
+end;
+
+procedure TfrmLocalizationReview.btnRejectSuggestionClick(Sender: TObject);
+var
+  SelectedIndex: Integer;
+begin
+  if (FGlossarySuggestions = nil) or (lstSuggestions.ItemIndex < 0) then Exit;
+  SelectedIndex := lstSuggestions.ItemIndex;
+  FGlossarySuggestions.Delete(SelectedIndex);
+  lstSuggestions.Items.Delete(SelectedIndex);
+  if lstSuggestions.Count > 0 then
+  begin
+    lstSuggestions.ItemIndex := 0;
+    lstSuggestionsChange(lstSuggestions);
+  end
+  else
+    memSuggestionDetail.Lines.Text := 'No remaining suggestions in this review session.';
+  lblStatus.Text := 'Suggestion rejected for this review session; no catalog or source file was changed.';
 end;
 
 procedure TfrmLocalizationReview.lstGlossaryChange(Sender: TObject);
@@ -270,7 +409,7 @@ begin
     'Proposed: ' + Proposal.ProposedValue + sLineBreak +
     'Reason: ' + Proposal.Rationale + sLineBreak +
     'Decision: ' + Proposal.Decision + sLineBreak + sLineBreak +
-    'Advisory only: the Studio will not edit the Delphi form.';
+    'What happens: this decision is stored in layout-proposal.json with a source checksum. It remains advisory in Stages 1-3 and does not alter the form or current display. A later layout-pack stage can consume accepted decisions after separate validation.';
   if SameText(Proposal.Decision, 'accepted') then cboDecision.ItemIndex := 1
   else if SameText(Proposal.Decision, 'rejected') then cboDecision.ItemIndex := 2
   else if SameText(Proposal.Decision, 'manual') then cboDecision.ItemIndex := 3
@@ -286,7 +425,7 @@ begin
     Decisions[EnsureRange(cboDecision.ItemIndex, 0, 3)];
   TLocalizationReviewer.SaveProposal(FReview, FProposalFileName);
   RefreshProposals;
-  lblStatus.Text := 'Layout decision saved without modifying target source.';
+  lblStatus.Text := 'Decision saved to layout-proposal.json. It is advisory and does not change the current form display.';
 end;
 
 procedure TfrmLocalizationReview.btnGeneratePackageClick(Sender: TObject);

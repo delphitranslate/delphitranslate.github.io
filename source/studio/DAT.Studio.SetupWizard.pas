@@ -913,7 +913,7 @@ begin
   MissingCount := 0;
   if FCatalog <> nil then
     for Entry in FCatalog.Entries do
-      if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+      if TranslationEntryEligibleForAutomaticTranslation(Entry) and
          not (Entry.Status in [tsExcluded, tsObsolete, tsReviewed,
            tsApproved]) and
          ((Trim(Entry.TranslatedText) = '') or
@@ -1174,7 +1174,7 @@ begin
     TTerminologyResolver.ApplyAuthoritativeTerms(FCatalog);
     MissingCount := 0;
     for Entry in FCatalog.Entries do
-      if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+      if TranslationEntryEligibleForAutomaticTranslation(Entry) and
          not (Entry.Status in [tsExcluded, tsObsolete, tsReviewed,
            tsApproved]) and
          ((Trim(Entry.TranslatedText) = '') or
@@ -1187,7 +1187,7 @@ begin
     for Index := 0 to FCatalog.Entries.Count - 1 do
     begin
       Entry := FCatalog.Entries[Index];
-      if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+      if TranslationEntryEligibleForAutomaticTranslation(Entry) and
          not (Entry.Status in [tsExcluded, tsObsolete, tsReviewed,
            tsApproved]) and
          ((Trim(Entry.TranslatedText) = '') or

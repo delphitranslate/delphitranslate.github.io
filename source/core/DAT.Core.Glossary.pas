@@ -7,6 +7,8 @@ uses
   DAT.Core.Types;
 
 type
+  TProjectGlossary = class;
+
   TProjectGlossaryTerm = class
   private
     FSourceText: string;
@@ -24,6 +26,35 @@ type
     property DeveloperNote: string read FDeveloperNote write FDeveloperNote;
     property CaseSensitive: Boolean read FCaseSensitive write FCaseSensitive;
     property Approved: Boolean read FApproved write FApproved;
+  end;
+
+  TGlossarySuggestion = class
+  private
+    FSourceText: string;
+    FTargetText: string;
+    FSemanticConcept: string;
+    FContextKind: string;
+    FProvenance: string;
+    FConfidence: string;
+    FReason: string;
+    FCanBulkApprove: Boolean;
+    FEntryKey: string;
+  public
+    property SourceText: string read FSourceText write FSourceText;
+    property TargetText: string read FTargetText write FTargetText;
+    property SemanticConcept: string read FSemanticConcept write FSemanticConcept;
+    property ContextKind: string read FContextKind write FContextKind;
+    property Provenance: string read FProvenance write FProvenance;
+    property Confidence: string read FConfidence write FConfidence;
+    property Reason: string read FReason write FReason;
+    property CanBulkApprove: Boolean read FCanBulkApprove write FCanBulkApprove;
+    property EntryKey: string read FEntryKey write FEntryKey;
+  end;
+
+  TProjectGlossarySuggester = class
+  public
+    class function Build(const ACatalog: TTranslationCatalog;
+      const AGlossary: TProjectGlossary): TObjectList<TGlossarySuggestion>; static;
   end;
 
   TProjectGlossary = class
@@ -65,6 +96,90 @@ begin
   Value := AObject.GetValue(AName);
   if Value <> nil then
     Result := Value.Value;
+end;
+
+class function TProjectGlossarySuggester.Build(
+  const ACatalog: TTranslationCatalog;
+  const AGlossary: TProjectGlossary): TObjectList<TGlossarySuggestion>;
+var
+  Candidate: TTranslationEntry;
+  Entry: TTranslationEntry;
+  Existing: TProjectGlossaryTerm;
+  Occurrences: Integer;
+  Suggestion: TGlossarySuggestion;
+  PriorSuggestion: TGlossarySuggestion;
+  AlreadySuggested: Boolean;
+  HasConflict: Boolean;
+begin
+  Result := TObjectList<TGlossarySuggestion>.Create(True);
+  if ACatalog = nil then
+    Exit;
+  for Entry in ACatalog.Entries do
+  begin
+    if (Trim(Entry.SourceText) = '') or (Trim(Entry.TranslatedText) = '') or
+      (Entry.Status in [tsExcluded, tsObsolete, tsError]) then
+      Continue;
+    Existing := nil;
+    if AGlossary <> nil then
+      Existing := AGlossary.FindMatch(Entry);
+    if Existing <> nil then
+      Continue;
+    AlreadySuggested := False;
+    for PriorSuggestion in Result do
+      if SameText(Trim(PriorSuggestion.SourceText), Trim(Entry.SourceText)) and
+        SameText(Trim(PriorSuggestion.TargetText), Trim(Entry.TranslatedText)) then
+      begin
+        AlreadySuggested := True;
+        Break;
+      end;
+    if AlreadySuggested then
+      Continue;
+    Suggestion := TGlossarySuggestion.Create;
+    Suggestion.SourceText := Entry.SourceText;
+    Suggestion.EntryKey := Entry.Key;
+    Suggestion.TargetText := Entry.TranslatedText;
+    Suggestion.SemanticConcept := Entry.SemanticConcept;
+    Suggestion.ContextKind := Entry.ContextKind;
+    Suggestion.Provenance := TranslationOriginDisplayName(
+      Entry.TranslationOrigin);
+    Occurrences := 0;
+    HasConflict := False;
+    for Candidate in ACatalog.Entries do
+      if SameText(Trim(Candidate.SourceText), Trim(Entry.SourceText)) then
+      begin
+        if SameText(Trim(Candidate.TranslatedText), Trim(Entry.TranslatedText)) then
+          Inc(Occurrences)
+        else if Trim(Candidate.TranslatedText) <> '' then
+          HasConflict := True;
+      end;
+    Suggestion.CanBulkApprove :=
+      (Entry.TranslationOrigin in [torHuman, torTerminology,
+        torProjectGlossary]) or (Entry.Status in [tsReviewed, tsApproved]);
+    if HasConflict then
+    begin
+      Suggestion.CanBulkApprove := False;
+      Suggestion.Confidence := 'low';
+      Suggestion.Reason := 'The same source text has differing translations; choose the correct contextual term explicitly.';
+    end
+    else if Suggestion.CanBulkApprove then
+    begin
+      Suggestion.Confidence := 'high';
+      Suggestion.Reason := 'Already verified by a person or approved terminology.';
+    end
+    else if (Occurrences > 1) or (Entry.SemanticConcept <> '') then
+    begin
+      Suggestion.Confidence := 'medium';
+      Suggestion.Reason := Format(
+        'Consistent in %d catalog entries, but provider output still requires explicit review.',
+        [Occurrences]);
+    end
+    else
+    begin
+      Suggestion.Confidence := 'low';
+      Suggestion.Reason := 'Single provider result; review before making it authoritative.';
+    end;
+    Result.Add(Suggestion);
+  end;
 end;
 
 constructor TProjectGlossary.Create;

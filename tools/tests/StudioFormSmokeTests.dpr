@@ -23,14 +23,18 @@ begin
   try
     if ReviewForm.Position <> TFormPosition.ScreenCenter then
       raise Exception.Create('Localization Review is not centered.');
-    if ReviewForm.ReviewTabs.TabCount <> 3 then
-      raise Exception.Create('Localization Review does not have three review areas.');
+    if ReviewForm.ReviewTabs.TabCount <> 4 then
+      raise Exception.Create('Localization Review does not have four review areas.');
     if not Assigned(ReviewForm.btnGeneratePackage.OnClick) or
        not Assigned(ReviewForm.btnSaveGlossary.OnClick) or
-       not Assigned(ReviewForm.btnSaveDecision.OnClick) then
+       not Assigned(ReviewForm.btnSaveDecision.OnClick) or
+       not Assigned(ReviewForm.btnUseSuggestion.OnClick) or
+       not Assigned(ReviewForm.btnApproveHighConfidence.OnClick) or
+       not Assigned(ReviewForm.btnRejectSuggestion.OnClick) then
       raise Exception.Create('A Localization Review action is not designer-wired.');
     if not ReviewForm.memAudit.ReadOnly or
-       not ReviewForm.memProposalDetail.ReadOnly then
+       not ReviewForm.memProposalDetail.ReadOnly or
+       not ReviewForm.memSuggestionDetail.ReadOnly then
       raise Exception.Create('Localization audit output must remain read-only.');
   finally
     ReviewForm.Free;

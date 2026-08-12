@@ -19,6 +19,7 @@ uses
   DAT.Scan.Types in 'source\scan\DAT.Scan.Types.pas',
   DAT.Scan.Rules in 'source\scan\DAT.Scan.Rules.pas',
   DAT.Scan.Context in 'source\scan\DAT.Scan.Context.pas',
+  DAT.Scan.Quality in 'source\scan\DAT.Scan.Quality.pas',
   DAT.Scan.TextCodec in 'source\scan\DAT.Scan.TextCodec.pas',
   DAT.Scan.FormText in 'source\scan\DAT.Scan.FormText.pas',
   DAT.Scan.PascalResources in 'source\scan\DAT.Scan.PascalResources.pas',

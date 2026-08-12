@@ -38,6 +38,7 @@ begin
   SourceText := '';
   for Entry in ACatalog.Entries do
     if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+      (Entry.TextOwnership <> tokSuspicious) and
       not (Entry.Status in [tsExcluded, tsObsolete]) then
       SourceText := SourceText + Entry.Key + '=' + Entry.SourceChecksum + #10;
   Result := LowerCase(THashSHA2.GetHashString(SourceText));
@@ -115,6 +116,7 @@ begin
     try
       for Entry in ACatalog.Entries do
         if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+          (Entry.TextOwnership <> tokSuspicious) and
           not (Entry.Status in [tsExcluded, tsObsolete]) then
         begin
           SourceText := Entry.SourceText;

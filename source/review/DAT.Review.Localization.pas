@@ -17,12 +17,20 @@ type
     FKey: string;
     FMessageText: string;
     FRecommendation: string;
+    FSourceText: string;
+    FTranslatedText: string;
+    FOwnership: string;
+    FProvenance: string;
   public
     property Category: string read FCategory write FCategory;
     property Severity: TLocalizationFindingSeverity read FSeverity write FSeverity;
     property Key: string read FKey write FKey;
     property MessageText: string read FMessageText write FMessageText;
     property Recommendation: string read FRecommendation write FRecommendation;
+    property SourceText: string read FSourceText write FSourceText;
+    property TranslatedText: string read FTranslatedText write FTranslatedText;
+    property Ownership: string read FOwnership write FOwnership;
+    property Provenance: string read FProvenance write FProvenance;
   end;
 
   TLayoutControl = class
@@ -95,6 +103,12 @@ type
     FHighRiskCount: Integer;
     FWarningCount: Integer;
     FLowConfidenceCount: Integer;
+    FDesignerAutomaticCount: Integer;
+    FRuntimeWiredCount: Integer;
+    FRuntimeUnwiredCount: Integer;
+    FApplicationDataCount: Integer;
+    FSuspiciousCount: Integer;
+    FExcludedCount: Integer;
   public
     constructor Create;
     destructor Destroy; override;
@@ -107,6 +121,12 @@ type
     property HighRiskCount: Integer read FHighRiskCount write FHighRiskCount;
     property WarningCount: Integer read FWarningCount write FWarningCount;
     property LowConfidenceCount: Integer read FLowConfidenceCount write FLowConfidenceCount;
+    property DesignerAutomaticCount: Integer read FDesignerAutomaticCount write FDesignerAutomaticCount;
+    property RuntimeWiredCount: Integer read FRuntimeWiredCount write FRuntimeWiredCount;
+    property RuntimeUnwiredCount: Integer read FRuntimeUnwiredCount write FRuntimeUnwiredCount;
+    property ApplicationDataCount: Integer read FApplicationDataCount write FApplicationDataCount;
+    property SuspiciousCount: Integer read FSuspiciousCount write FSuspiciousCount;
+    property ExcludedCount: Integer read FExcludedCount write FExcludedCount;
   end;
 
   TLocalizationReviewer = class
@@ -240,6 +260,17 @@ begin
     AReview.WarningCount := AReview.WarningCount + 1;
 end;
 
+procedure EnrichFinding(const AFinding: TLocalizationFinding;
+  const AEntry: TTranslationEntry);
+begin
+  if (AFinding = nil) or (AEntry = nil) then
+    Exit;
+  AFinding.SourceText := AEntry.SourceText;
+  AFinding.TranslatedText := AEntry.TranslatedText;
+  AFinding.Ownership := TextOwnershipDisplayName(AEntry.TextOwnership);
+  AFinding.Provenance := TranslationOriginDisplayName(AEntry.TranslationOrigin);
+end;
+
 procedure AddProposal(const AReview: TLocalizationReview;
   const AControl: TLayoutControl; const APropertyName, ACurrent,
   AProposed, ARationale: string);
@@ -278,9 +309,13 @@ end;
 function TLocalizationReview.Summary: string;
 begin
   Result := Format('%d controls inspected | %d layout/quality findings | ' +
-    '%d high risk | %d warnings | %d proposals | %d low-confidence translations',
+    '%d high risk | %d warnings | %d proposals | %d low-confidence translations' +
+    sLineBreak + 'Ownership: %d designer automatic | %d runtime wired | ' +
+    '%d runtime not wired | %d application/data | %d suspicious | %d excluded',
     [Controls.Count, Findings.Count, HighRiskCount, WarningCount,
-     Proposals.Count, LowConfidenceCount]);
+     Proposals.Count, LowConfidenceCount, DesignerAutomaticCount,
+     RuntimeWiredCount, RuntimeUnwiredCount, ApplicationDataCount,
+     SuspiciousCount, ExcludedCount]);
 end;
 
 class procedure TLocalizationReviewer.ScanLayout(
@@ -399,20 +434,42 @@ begin
     if Entry.Status in [tsExcluded, tsObsolete] then
       Continue;
     Confidence := LowerCase(Entry.TranslationConfidence);
+    if Entry.SuspiciousReason <> '' then
+    begin
+      AddFinding(AReview, lfsHighRisk, 'Source quality', Entry.Key,
+        Entry.SuspiciousReason,
+        'Correct or explicitly approve the source text before automatic translation.');
+      EnrichFinding(AReview.Findings.Last, Entry);
+      Continue;
+    end;
+    if Entry.TextOwnership = tokRuntimeUnwired then
+    begin
+      AddFinding(AReview, lfsWarning, 'Runtime ownership', Entry.Key,
+        TextOwnershipDisplayName(Entry.TextOwnership),
+        'Call TranslateText or FormatTemplate when the application creates this text.');
+      EnrichFinding(AReview.Findings.Last, Entry);
+    end;
     if (Entry.TranslatedText = '') then
+    begin
       AddFinding(AReview, lfsHighRisk, 'Translation', Entry.Key,
-        'No translated text is available.', 'Translate this entry before release.')
+        'No translated text is available.', 'Translate this entry before release.');
+      EnrichFinding(AReview.Findings.Last, Entry);
+    end
     else if SameText(Trim(Entry.SourceText), Trim(Entry.TranslatedText)) and
       not (Entry.RuntimeTextRole in [rtrIdentifier, rtrDataValue, rtrExcluded]) then
+    begin
       AddFinding(AReview, lfsWarning, 'Translation', Entry.Key,
         'Translation is identical to the source text.',
-        'Confirm that this is a product name, acronym, or deliberate loan word.')
+        'Confirm that this is a product name, acronym, or deliberate loan word.');
+      EnrichFinding(AReview.Findings.Last, Entry);
+    end
     else if (Confidence = '') or MatchText(Confidence, ['low', 'unknown']) then
     begin
       Inc(AReview.FLowConfidenceCount);
       AddFinding(AReview, lfsWarning, 'Confidence', Entry.Key,
         'Translation confidence is not established.',
         'Review this entry with context or add an approved glossary term.');
+      EnrichFinding(AReview.Findings.Last, Entry);
     end;
 
     for Other in ACatalog.Entries do
@@ -425,6 +482,10 @@ begin
           Format('The same source phrase has another translation at %s.',
             [Other.Key]),
           'Confirm whether the contexts differ; otherwise standardize in the project glossary.');
+    if (AReview.Findings.Count > 0) and
+      SameText(AReview.Findings.Last.Key, Entry.Key) and
+      (AReview.Findings.Last.SourceText = '') then
+      EnrichFinding(AReview.Findings.Last, Entry);
   end;
 end;
 
@@ -489,6 +550,8 @@ end;
 
 class function TLocalizationReviewer.Analyze(
   const ACatalog: TTranslationCatalog): TLocalizationReview;
+var
+  Entry: TTranslationEntry;
 begin
   if ACatalog = nil then
     raise EArgumentNilException.Create('A translation catalog is required.');
@@ -496,6 +559,16 @@ begin
   try
     Result.ApplicationId := ACatalog.ApplicationId;
     Result.LanguageCode := ACatalog.Locale.LanguageCode;
+    for Entry in ACatalog.Entries do
+      case Entry.TextOwnership of
+        tokRuntimeWired: Inc(Result.FRuntimeWiredCount);
+        tokRuntimeUnwired: Inc(Result.FRuntimeUnwiredCount);
+        tokApplicationData: Inc(Result.FApplicationDataCount);
+        tokSuspicious: Inc(Result.FSuspiciousCount);
+        tokExcluded: Inc(Result.FExcludedCount);
+      else
+        Inc(Result.FDesignerAutomaticCount);
+      end;
     ScanLayout(ACatalog, Result);
     AnalyzeTranslations(ACatalog, Result);
     AnalyzeLayout(Result);
@@ -679,13 +752,14 @@ begin
       'th,td{padding:9px;border-bottom:1px solid #dbe6f2;text-align:left}.high{color:#b42318;font-weight:700}' +
       '.warn{color:#9a6700;font-weight:700}.canvas{position:relative;background:#eef5fc;border:1px solid #8db4dc;' +
       'min-height:180px;overflow:auto}.ctl{position:absolute;border:1px solid #2878c8;background:#dcecff;' +
+      'details{max-width:520px}summary{cursor:pointer;color:#1673d1}' +
       'overflow:hidden;font-size:11px;padding:2px;box-sizing:border-box}</style></head><body>');
     Html.Add('<h1>Localization Review Package</h1><div class="card"><b>' +
       HtmlEncode(AReview.ApplicationId) + '</b> &mdash; ' +
       HtmlEncode(AReview.LanguageCode) + '<p>' + HtmlEncode(AReview.Summary) +
       '</p><p>This is a read-only, estimated review. It does not alter Delphi forms or source.</p></div>');
     Html.Add('<div class="card"><h2>Translation confidence and disagreements</h2><table>' +
-      '<tr><th>Risk</th><th>Category</th><th>Entry/control</th><th>Finding</th><th>Recommendation</th></tr>');
+      '<tr><th>Risk</th><th>Category</th><th>Entry/control</th><th>Finding</th><th>Complete text and action</th></tr>');
     for Finding in AReview.Findings do
     begin
       if Finding.Severity = lfsHighRisk then Color := 'high'
@@ -694,8 +768,12 @@ begin
       Html.Add('<tr><td class="' + Color + '">' +
         HtmlEncode(LocalizationFindingSeverityText(Finding.Severity)) + '</td><td>' +
         HtmlEncode(Finding.Category) + '</td><td>' + HtmlEncode(Finding.Key) +
-        '</td><td>' + HtmlEncode(Finding.MessageText) + '</td><td>' +
-        HtmlEncode(Finding.Recommendation) + '</td></tr>');
+        '</td><td>' + HtmlEncode(Finding.MessageText) + '</td><td><details><summary>Show complete text and recommendation</summary>' +
+        '<p><b>Source:</b> ' + HtmlEncode(Finding.SourceText) + '</p><p><b>Translation:</b> ' +
+        HtmlEncode(Finding.TranslatedText) + '</p><p><b>Ownership:</b> ' +
+        HtmlEncode(Finding.Ownership) + '</p><p><b>Provenance:</b> ' +
+        HtmlEncode(Finding.Provenance) + '</p><p><b>Recommendation:</b> ' +
+        HtmlEncode(Finding.Recommendation) + '</p></details></td></tr>');
     end;
     Html.Add('</table></div>');
     for FormName in FormNames do

@@ -428,7 +428,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Position.X = 450.000000000000000000
             Position.Y = 24.000000000000000000
             Size.Width = 220.000000000000000000
-            Size.Height = 22.000000000000000000
+            Size.Height = 42.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 13.000000000000000000
             TextSettings.Font.StyleExt = {00070000000000000004000000}
@@ -462,9 +462,9 @@ object frmTranslationStudio: TfrmTranslationStudio
           object lstScanResults: TListBox
             Anchors = [akLeft, akTop, akRight, akBottom]
             Position.X = 450.000000000000000000
-            Position.Y = 126.000000000000000000
+            Position.Y = 146.000000000000000000
             Size.Width = 428.000000000000000000
-            Size.Height = 154.000000000000000000
+            Size.Height = 134.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 1
             ItemHeight = 24.000000000000000000
@@ -473,7 +473,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             DefaultItemStyles.GroupHeaderStyle = ''
             DefaultItemStyles.GroupFooterStyle = ''
             Viewport.Width = 424.000000000000000000
-            Viewport.Height = 150.000000000000000000
+            Viewport.Height = 130.000000000000000000
           end
         end
         object StatusCard: TRectangle

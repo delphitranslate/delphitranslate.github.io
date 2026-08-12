@@ -306,8 +306,8 @@ begin
       Continue;
     end;
     CompareProtectedEntry(OriginalEntry, ExternalEntry, Result.Issues);
-    EntryEligible := RuntimeTextRoleRequiresTranslation(
-      OriginalEntry.RuntimeTextRole) and (OriginalEntry.Status in [
+    EntryEligible := TranslationEntryEligibleForAutomaticTranslation(
+      OriginalEntry) and (OriginalEntry.Status in [
       tsNeedsTranslation, tsAIDraft, tsSourceChanged, tsError]);
     AllowedDataChanged :=
       (OriginalEntry.TranslatedText <> ExternalEntry.TranslatedText) or
@@ -354,7 +354,7 @@ begin
   begin
     OriginalEntry := AOriginal.Entries[Index];
     ExternalEntry := AExternal.Entries[Index];
-    if RuntimeTextRoleRequiresTranslation(OriginalEntry.RuntimeTextRole) and
+    if TranslationEntryEligibleForAutomaticTranslation(OriginalEntry) and
        (OriginalEntry.Status in [
          tsNeedsTranslation, tsAIDraft, tsSourceChanged, tsError]) and
        ((OriginalEntry.TranslatedText <> ExternalEntry.TranslatedText) or

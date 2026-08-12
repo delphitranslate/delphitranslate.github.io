@@ -54,6 +54,15 @@ type
     rtrExcluded
   );
 
+  TTextOwnershipKind = (
+    tokDesignerAutomatic,
+    tokRuntimeWired,
+    tokRuntimeUnwired,
+    tokApplicationData,
+    tokSuspicious,
+    tokExcluded
+  );
+
   TProjectProfile = record
     ProjectFileName: string;
     ProjectName: string;
@@ -114,6 +123,8 @@ type
     FContextDescription: string;
     FSemanticConcept: string;
     FContextConfidence: string;
+    FTextOwnership: TTextOwnershipKind;
+    FSuspiciousReason: string;
   public
     property Key: string read FKey write FKey;
     property SourceText: string read FSourceText write FSourceText;
@@ -147,6 +158,10 @@ type
       write FSemanticConcept;
     property ContextConfidence: string read FContextConfidence
       write FContextConfidence;
+    property TextOwnership: TTextOwnershipKind read FTextOwnership
+      write FTextOwnership;
+    property SuspiciousReason: string read FSuspiciousReason
+      write FSuspiciousReason;
   end;
 
   TTranslationCatalog = class
@@ -192,6 +207,11 @@ function RuntimeTextRoleRequiresTranslation(
   const ARole: TRuntimeTextRole): Boolean;
 function RuntimeTextRoleIsAutomaticallyApplied(
   const ARole: TRuntimeTextRole): Boolean;
+function TextOwnershipKindToString(const AKind: TTextOwnershipKind): string;
+function StringToTextOwnershipKind(const AValue: string): TTextOwnershipKind;
+function TextOwnershipDisplayName(const AKind: TTextOwnershipKind): string;
+function TranslationEntryEligibleForAutomaticTranslation(
+  const AEntry: TTranslationEntry): Boolean;
 function ProjectPlatformsDisplayName(const AProfile: TProjectProfile): string;
 
 implementation
@@ -202,7 +222,7 @@ uses
 constructor TTranslationCatalog.Create;
 begin
   inherited Create;
-  FSchemaVersion := 5;
+  FSchemaVersion := 6;
   FFramework := tfUnknown;
   FLocale := TLocaleProfile.Create;
   FLocale.TextDirection := 'ltr';
@@ -386,7 +406,7 @@ begin
     torImported:
       Result := 'Imported';
     torSuggestion:
-      Result := 'Catalog suggestion';
+      Result := 'Translation memory / catalog suggestion';
     torTerminology:
       Result := 'Approved UI terminology';
     torProjectGlossary:
@@ -495,6 +515,51 @@ function RuntimeTextRoleIsAutomaticallyApplied(
   const ARole: TRuntimeTextRole): Boolean;
 begin
   Result := ARole = rtrStaticText;
+end;
+
+function TextOwnershipKindToString(const AKind: TTextOwnershipKind): string;
+begin
+  case AKind of
+    tokRuntimeWired: Result := 'runtimeWired';
+    tokRuntimeUnwired: Result := 'runtimeUnwired';
+    tokApplicationData: Result := 'applicationData';
+    tokSuspicious: Result := 'suspicious';
+    tokExcluded: Result := 'excluded';
+  else
+    Result := 'designerAutomatic';
+  end;
+end;
+
+function StringToTextOwnershipKind(const AValue: string): TTextOwnershipKind;
+begin
+  if SameText(AValue, 'runtimeWired') then Result := tokRuntimeWired
+  else if SameText(AValue, 'runtimeUnwired') then Result := tokRuntimeUnwired
+  else if SameText(AValue, 'applicationData') then Result := tokApplicationData
+  else if SameText(AValue, 'suspicious') then Result := tokSuspicious
+  else if SameText(AValue, 'excluded') then Result := tokExcluded
+  else Result := tokDesignerAutomatic;
+end;
+
+function TextOwnershipDisplayName(const AKind: TTextOwnershipKind): string;
+begin
+  case AKind of
+    tokRuntimeWired: Result := 'Runtime-generated: translation wiring confirmed';
+    tokRuntimeUnwired: Result := 'Runtime-generated: translation wiring required';
+    tokApplicationData: Result := 'Application or user data';
+    tokSuspicious: Result := 'Suspicious source text: developer review required';
+    tokExcluded: Result := 'Protected or excluded text';
+  else
+    Result := 'Designer text: applied automatically on managed forms';
+  end;
+end;
+
+function TranslationEntryEligibleForAutomaticTranslation(
+  const AEntry: TTranslationEntry): Boolean;
+begin
+  Result := (AEntry <> nil) and
+    RuntimeTextRoleRequiresTranslation(AEntry.RuntimeTextRole) and
+    (AEntry.TextOwnership <> tokSuspicious) and
+    (Trim(AEntry.SuspiciousReason) = '');
 end;
 
 function ProjectPlatformsDisplayName(const AProfile: TProjectProfile): string;

@@ -24,6 +24,7 @@ uses
   System.SysUtils,
   DAT.Scan.Rules,
   DAT.Scan.Context,
+  DAT.Scan.Quality,
   DAT.Scan.TextCodec;
 
 type
@@ -118,6 +119,7 @@ begin
     AContext.ComponentName, AContext.ComponentClassName, APropertyName,
     ASourceText);
   TScanContextAnalyzer.Analyze(ScanItem);
+  TScanQualityAnalyzer.Analyze(ScanItem);
   AResult.Items.Add(ScanItem);
 end;
 

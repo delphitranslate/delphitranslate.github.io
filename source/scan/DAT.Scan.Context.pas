@@ -42,7 +42,8 @@ begin
   AItem.ContextConfidence := 'inferred';
   AItem.SemanticConcept := '';
 
-  if SameText(AItem.PropertyName, 'resourcestring') then
+  if SameText(AItem.PropertyName, 'resourcestring') or
+    ContainsText(AItem.PropertyName, 'DialogMessage') then
     AItem.ContextKind := 'runtime message'
   else if ContainsAny(AItem.ComponentClassName,
     ['button', 'menuitem', 'action']) then

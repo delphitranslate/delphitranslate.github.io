@@ -37,6 +37,8 @@ type
     FContextDescription: string;
     FSemanticConcept: string;
     FContextConfidence: string;
+    FTextOwnership: TTextOwnershipKind;
+    FSuspiciousReason: string;
   public
     property Key: string read FKey write FKey;
     property SourceText: string read FSourceText write FSourceText;
@@ -58,6 +60,10 @@ type
       write FSemanticConcept;
     property ContextConfidence: string read FContextConfidence
       write FContextConfidence;
+    property TextOwnership: TTextOwnershipKind read FTextOwnership
+      write FTextOwnership;
+    property SuspiciousReason: string read FSuspiciousReason
+      write FSuspiciousReason;
   end;
 
   TScanDiagnostic = class

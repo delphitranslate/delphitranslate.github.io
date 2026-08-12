@@ -739,13 +739,30 @@ procedure TfrmTranslationStudio.DisplayScanResult(
 var
   DisplayText: string;
   ScanItem: TScanItem;
+  DesignerCount, RuntimeCount, DataCount, SuspiciousCount, ExcludedCount: Integer;
 begin
+  DesignerCount := 0;
+  RuntimeCount := 0;
+  DataCount := 0;
+  SuspiciousCount := 0;
+  ExcludedCount := 0;
+  for ScanItem in AResult.Items do
+    case ScanItem.TextOwnership of
+      tokRuntimeWired, tokRuntimeUnwired: Inc(RuntimeCount);
+      tokApplicationData: Inc(DataCount);
+      tokSuspicious: Inc(SuspiciousCount);
+      tokExcluded: Inc(ExcludedCount);
+    else
+      Inc(DesignerCount);
+    end;
   lblScanSummaryValue.Text := Format('%d translatable entries in %d ms',
     [AResult.Items.Count, AResult.ElapsedMilliseconds]);
   lblScanBreakdown.Text := Format(
-    '%d form properties  |  %d resourcestrings  |  %d files',
+    '%d form properties | %d resourcestrings | %d files' + sLineBreak +
+    'Ownership: %d designer | %d runtime | %d data | %d suspicious | %d excluded',
     [AResult.CountByKind(stkFormProperty),
-     AResult.CountByKind(stkResourceString), AResult.FilesScanned]);
+     AResult.CountByKind(stkResourceString), AResult.FilesScanned,
+     DesignerCount, RuntimeCount, DataCount, SuspiciousCount, ExcludedCount]);
 
   lstScanResults.BeginUpdate;
   try
@@ -754,8 +771,9 @@ begin
     begin
       DisplayText := ScanItem.SourceText.Replace(#13#10, ' / ')
         .Replace(#13, ' / ').Replace(#10, ' / ');
-      lstScanResults.Items.Add(Format('%s  =  %s',
-        [ScanItem.Key, DisplayText]));
+      lstScanResults.Items.Add(Format('[%s] %s  =  %s',
+        [TextOwnershipDisplayName(ScanItem.TextOwnership), ScanItem.Key,
+         DisplayText]));
     end;
   finally
     lstScanResults.EndUpdate;
@@ -2264,6 +2282,7 @@ var
   Index: Integer;
   MissingCount: Integer;
   ProtectedCount: Integer;
+  SuspiciousCount: Integer;
   Provider: TTranslationProvider;
   ResolvedCount: Integer;
   SourceTexts: TArray<string>;
@@ -2294,14 +2313,20 @@ begin
     TTerminologyResolver.ApplyAuthoritativeTerms(FTranslationCatalog);
     MissingCount := 0;
     ProtectedCount := 0;
+    SuspiciousCount := 0;
     ResolvedCount := 0;
     for Entry in FTranslationCatalog.Entries do
     begin
       if Entry.Status = tsObsolete then
         Continue;
       Inc(ActiveCount);
-      if (Entry.Status = tsExcluded) or
-         not RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) then
+      if Entry.TextOwnership = tokSuspicious then
+      begin
+        Inc(ProtectedCount);
+        Inc(SuspiciousCount);
+      end
+      else if (Entry.Status = tsExcluded) or
+         not TranslationEntryEligibleForAutomaticTranslation(Entry) then
         Inc(ProtectedCount)
       else if not (Entry.Status in [tsReviewed, tsApproved]) and
               ((Trim(Entry.TranslatedText) = '') or
@@ -2319,9 +2344,9 @@ begin
       Exit;
     end;
     if TDialogServiceSync.MessageDialog(Format(
-      'The catalog contains %d active entries: %d require translation, %d are protected or non-translatable, and %d are already resolved.' + sLineBreak + sLineBreak +
+      'The catalog contains %d active entries: %d require translation, %d are protected or non-translatable (%d suspicious source strings require developer review), and %d are already resolved.' + sLineBreak + sLineBreak +
       'Send the %d unresolved source strings to %s? Reviewed and approved entries will remain unchanged. Results are saved automatically and marked Machine translated for review.',
-      [ActiveCount, MissingCount, ProtectedCount, ResolvedCount, MissingCount,
+      [ActiveCount, MissingCount, ProtectedCount, SuspiciousCount, ResolvedCount, MissingCount,
        TranslationProviderDisplayName(Provider)]),
       TMsgDlgType.mtConfirmation,
       [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo],
@@ -2337,7 +2362,7 @@ begin
       Entry := FTranslationCatalog.Entries[Index];
       if not (Entry.Status in [tsExcluded, tsObsolete,
         tsReviewed, tsApproved]) and
-         RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+         TranslationEntryEligibleForAutomaticTranslation(Entry) and
          ((Trim(Entry.TranslatedText) = '') or
           (Entry.Status in [tsNeedsTranslation, tsSourceChanged,
             tsError])) then

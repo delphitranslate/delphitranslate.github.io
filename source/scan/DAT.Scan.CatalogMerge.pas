@@ -52,6 +52,8 @@ begin
   AEntry.ContextDescription := AScanItem.ContextDescription;
   AEntry.SemanticConcept := AScanItem.SemanticConcept;
   AEntry.ContextConfidence := AScanItem.ContextConfidence;
+  AEntry.TextOwnership := AScanItem.TextOwnership;
+  AEntry.SuspiciousReason := AScanItem.SuspiciousReason;
   case AEntry.RuntimeTextRole of
     rtrStaticText:
       begin
@@ -72,6 +74,27 @@ begin
     AEntry.RuntimeApplication := rakNotApplied;
     AEntry.RuntimeWiringConfirmed := True;
   end;
+  if (AScanItem.Kind <> stkFormProperty) and
+    RuntimeTextRoleRequiresTranslation(AEntry.RuntimeTextRole) then
+  begin
+    AEntry.RuntimeApplication := rakManualTranslateText;
+    AEntry.RuntimeWiringConfirmed := False;
+  end;
+  if AScanItem.SuspiciousReason <> '' then
+    AEntry.TextOwnership := tokSuspicious
+  else if AScanItem.Kind <> stkFormProperty then
+  begin
+    if AEntry.RuntimeWiringConfirmed then
+      AEntry.TextOwnership := tokRuntimeWired
+    else
+      AEntry.TextOwnership := tokRuntimeUnwired;
+  end
+  else if AEntry.RuntimeTextRole in [rtrDataValue, rtrIdentifier] then
+    AEntry.TextOwnership := tokApplicationData
+  else if AEntry.RuntimeTextRole = rtrExcluded then
+    AEntry.TextOwnership := tokExcluded
+  else
+    AEntry.TextOwnership := tokDesignerAutomatic;
 end;
 
 class function TScanCatalogMerger.Merge(const AScanResult: TProjectScanResult;

@@ -302,6 +302,15 @@ begin
         not RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) then
         Continue;
 
+      if (Entry.TextOwnership = tokSuspicious) or
+        (Trim(Entry.SuspiciousReason) <> '') then
+      begin
+        AddIssue(Result, vsWarning, 'entry.suspiciousSource', Entry.Key,
+          'Source review required: ' + Entry.SuspiciousReason +
+          ' Automatic provider translation is withheld.');
+        Continue;
+      end;
+
       if Entry.SourceText = '' then
         AddIssue(Result, vsError, 'entry.emptySource', Entry.Key,
           'Source text is empty.');
