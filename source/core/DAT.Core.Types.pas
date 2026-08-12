@@ -35,7 +35,8 @@ type
     torHuman,
     torImported,
     torSuggestion,
-    torTerminology
+    torTerminology,
+    torProjectGlossary
   );
 
   TRuntimeApplicationKind = (
@@ -336,6 +337,8 @@ begin
       Result := 'suggestion';
     torTerminology:
       Result := 'terminology';
+    torProjectGlossary:
+      Result := 'projectGlossary';
   else
     Result := 'unknown';
   end;
@@ -360,6 +363,8 @@ begin
     Result := torSuggestion
   else if SameText(AValue, 'terminology') then
     Result := torTerminology
+  else if SameText(AValue, 'projectGlossary') then
+    Result := torProjectGlossary
   else
     Result := torUnknown;
 end;
@@ -384,6 +389,8 @@ begin
       Result := 'Catalog suggestion';
     torTerminology:
       Result := 'Approved UI terminology';
+    torProjectGlossary:
+      Result := 'Approved project glossary';
   else
     Result := 'Unknown';
   end;

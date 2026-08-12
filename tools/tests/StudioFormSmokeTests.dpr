@@ -11,7 +11,31 @@ uses
   DAT.Studio.MainForm in '..\..\source\studio\DAT.Studio.MainForm.pas'
     {frmTranslationStudio},
   DAT.Studio.SetupWizard in '..\..\source\studio\DAT.Studio.SetupWizard.pas'
-    {frmSetupWizard};
+    {frmSetupWizard},
+  DAT.Studio.LocalizationReview in '..\..\source\studio\DAT.Studio.LocalizationReview.pas'
+    {frmLocalizationReview};
+
+procedure TestLocalizationReview;
+var
+  ReviewForm: TfrmLocalizationReview;
+begin
+  ReviewForm := TfrmLocalizationReview.Create(nil);
+  try
+    if ReviewForm.Position <> TFormPosition.ScreenCenter then
+      raise Exception.Create('Localization Review is not centered.');
+    if ReviewForm.ReviewTabs.TabCount <> 3 then
+      raise Exception.Create('Localization Review does not have three review areas.');
+    if not Assigned(ReviewForm.btnGeneratePackage.OnClick) or
+       not Assigned(ReviewForm.btnSaveGlossary.OnClick) or
+       not Assigned(ReviewForm.btnSaveDecision.OnClick) then
+      raise Exception.Create('A Localization Review action is not designer-wired.');
+    if not ReviewForm.memAudit.ReadOnly or
+       not ReviewForm.memProposalDetail.ReadOnly then
+      raise Exception.Create('Localization audit output must remain read-only.');
+  finally
+    ReviewForm.Free;
+  end;
+end;
 
 procedure TestSetupWizard;
 var
@@ -31,6 +55,13 @@ begin
        not Wizard.edtApplicationId.ReadOnly then
       raise Exception.Create(
         'The detected Application ID is not exposed safely by the Wizard.');
+    if (Wizard.cboWorkflowMode.Items.Count <> 3) or
+       not Assigned(Wizard.cboWorkflowMode.OnChange) then
+      raise Exception.Create('The new/update translation workflow is not available.');
+    if not Assigned(Wizard.btnLocalizationReview.OnClick) then
+      raise Exception.Create('Localization Review is not connected to the Wizard.');
+    if not Assigned(Wizard.btnFinishLocalizationReview.OnClick) then
+      raise Exception.Create('The finished Wizard cannot reopen Localization Review.');
     if Wizard.cboTargetLanguage.Items.Count < 35 then
       raise Exception.Create('The wizard target-language list is incomplete.');
     if not Wizard.edtApiKey.Password then
@@ -64,6 +95,7 @@ end;
 begin
   try
     Application.Initialize;
+    TestLocalizationReview;
     TestSetupWizard;
     frmTranslationStudio := TfrmTranslationStudio.Create(nil);
     try

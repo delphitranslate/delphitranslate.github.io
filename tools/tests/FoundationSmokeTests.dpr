@@ -16,6 +16,8 @@ uses
   DAT.Core.TranslationWorkspace in '..\..\source\core\DAT.Core.TranslationWorkspace.pas',
   DAT.Core.RuntimePack in '..\..\source\core\DAT.Core.RuntimePack.pas',
   DAT.Core.Terminology in '..\..\source\core\DAT.Core.Terminology.pas',
+  DAT.Core.Glossary in '..\..\source\core\DAT.Core.Glossary.pas',
+  DAT.Review.Localization in '..\..\source\review\DAT.Review.Localization.pas',
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
@@ -57,6 +59,105 @@ function TProviderClientAccess.PublicBuildRequestBody(
 begin
   Result := BuildRequestBody(ATexts,
     ASourceLanguage, ATargetLanguage, AContext);
+end;
+
+procedure Require(const ACondition: Boolean; const AMessage: string); forward;
+
+procedure TestLocalizationIntelligence;
+var
+  Catalog: TTranslationCatalog;
+  Entry: TTranslationEntry;
+  Glossary, LoadedGlossary: TProjectGlossary;
+  Term: TProjectGlossaryTerm;
+  Review: TLocalizationReview;
+  TestDirectory, FormFileName, GlossaryFileName, CatalogFileName: string;
+  HtmlFileName, ProposalFileName, EnvelopeFileName: string;
+  CatalogFiles: TArray<string>;
+begin
+  TestDirectory := TPath.Combine(TPath.GetTempPath,
+    'DAT-LocalizationIntelligence-' + TGUID.NewGuid.ToString);
+  TDirectory.CreateDirectory(TestDirectory);
+  Catalog := TTranslationCatalog.Create;
+  Glossary := TProjectGlossary.Create;
+  LoadedGlossary := nil;
+  Review := nil;
+  try
+    FormFileName := TPath.Combine(TestDirectory, 'Fixture.fmx');
+    TFile.WriteAllText(FormFileName,
+      'object frmFixture: TForm' + sLineBreak +
+      '  ClientWidth = 400' + sLineBreak +
+      '  ClientHeight = 220' + sLineBreak +
+      '  object btnClose: TButton' + sLineBreak +
+      '    Position.X = 20' + sLineBreak +
+      '    Position.Y = 20' + sLineBreak +
+      '    Size.Width = 55' + sLineBreak +
+      '    Size.Height = 30' + sLineBreak +
+      '    Text = ''Close''' + sLineBreak +
+      '  end' + sLineBreak +
+      'end', TEncoding.UTF8);
+    Catalog.ApplicationId := 'LocalizationFixture';
+    Catalog.SourceLanguage := 'en-US';
+    Catalog.Locale.LanguageCode := 'es-ES';
+    Entry := TTranslationEntry.Create;
+    Entry.Key := 'frmFixture.btnClose.Text';
+    Entry.FormName := 'frmFixture';
+    Entry.ComponentName := 'btnClose';
+    Entry.ComponentClassName := 'TButton';
+    Entry.PropertyName := 'Text';
+    Entry.SourceText := 'Close';
+    Entry.TranslatedText := 'Una traduccion deliberadamente extensa';
+    Entry.SourceFileName := FormFileName;
+    Entry.Status := tsMachineTranslated;
+    Entry.TranslationOrigin := torGoogle;
+    Entry.TranslationConfidence := 'provider-basic';
+    Catalog.Entries.Add(Entry);
+
+    Glossary.ApplicationId := Catalog.ApplicationId;
+    Glossary.SourceLanguage := Catalog.SourceLanguage;
+    Glossary.TargetLanguage := Catalog.Locale.LanguageCode;
+    Term := TProjectGlossaryTerm.Create;
+    Term.SourceText := 'Close';
+    Term.TargetText := 'Cerrar';
+    Term.Approved := True;
+    Glossary.Terms.Add(Term);
+    GlossaryFileName := TPath.Combine(TestDirectory, 'glossary.json');
+    Glossary.SaveToFile(GlossaryFileName);
+    LoadedGlossary := TProjectGlossary.LoadFromFile(GlossaryFileName);
+    Require(LoadedGlossary.ApplyToCatalog(Catalog) = 1,
+      'The approved project glossary was not applied.');
+    Require((Entry.TranslatedText = 'Cerrar') and
+      (Entry.TranslationOrigin = torProjectGlossary),
+      'Project glossary provenance was not preserved.');
+
+    Entry.TranslatedText := 'Una traduccion deliberadamente extensa';
+    Entry.TranslationOrigin := torGoogle;
+    Review := TLocalizationReviewer.Analyze(Catalog);
+    Require(Review.Controls.Count >= 2,
+      'The read-only layout scanner did not inventory the form.');
+    Require(Review.Proposals.Count > 0,
+      'The layout audit did not propose a correction for obvious overflow.');
+    HtmlFileName := TPath.Combine(TestDirectory, 'review.html');
+    ProposalFileName := TPath.Combine(TestDirectory, 'proposal.json');
+    TLocalizationReviewer.GenerateReviewPackage(Review, HtmlFileName,
+      ProposalFileName);
+    Require(TFile.Exists(HtmlFileName) and TFile.Exists(ProposalFileName),
+      'The visual review package or proposal file was not created.');
+    CatalogFileName := TPath.Combine(TestDirectory, 'catalog.json');
+    TCatalogJson.SaveToFile(Catalog, CatalogFileName);
+    SetLength(CatalogFiles, 1);
+    CatalogFiles[0] := CatalogFileName;
+    EnvelopeFileName := TPath.Combine(TestDirectory, 'envelope.json');
+    TLocalizationReviewer.SaveEnvelope(CatalogFiles, EnvelopeFileName);
+    Require(TFile.Exists(EnvelopeFileName),
+      'The multilingual layout envelope was not created.');
+  finally
+    Review.Free;
+    LoadedGlossary.Free;
+    Glossary.Free;
+    Catalog.Free;
+    if TDirectory.Exists(TestDirectory) then
+      TDirectory.Delete(TestDirectory, True);
+  end;
 end;
 
 function TProviderClientAccess.PublicEndpoint: string;
@@ -2164,6 +2265,7 @@ begin
     TestFMXProjectStartupDefersTranslationToForms;
     TestSecondaryFMXFormStartupWiring;
     TestInPlaceAITranslationWorkflow;
+    TestLocalizationIntelligence;
     Writeln('Foundation, scanner, catalog, runtime, validation, and export tests passed.');
   except
     on E: Exception do

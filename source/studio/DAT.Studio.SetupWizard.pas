@@ -109,6 +109,11 @@ type
     btnRunDeployment: TButton;
     btnOpenKitFolder: TButton;
     btnDeployApplicationFolder: TButton;
+    lblWorkflowMode: TLabel;
+    cboWorkflowMode: TComboBox;
+    lblWorkflowSummary: TLabel;
+    btnLocalizationReview: TButton;
+    btnFinishLocalizationReview: TButton;
     FooterLine: TRectangle;
     btnBack: TButton;
     btnNext: TButton;
@@ -137,6 +142,8 @@ type
     procedure btnRunDeploymentClick(Sender: TObject);
     procedure btnOpenKitFolderClick(Sender: TObject);
     procedure btnDeployApplicationFolderClick(Sender: TObject);
+    procedure cboWorkflowModeChange(Sender: TObject);
+    procedure btnLocalizationReviewClick(Sender: TObject);
   private
     FCurrentStep: Integer;
     FHighestStep: Integer;
@@ -151,6 +158,7 @@ type
     FProjectConfigurationBackupDirectory: string;
     FSessionApiKey: string;
     FLastScanCompletedAt: TDateTime;
+    FReviewOutputDirectory: string;
     procedure SetStep(const AStep: Integer);
     procedure UpdateNavigation;
     procedure UpdateRail;
@@ -170,6 +178,11 @@ type
     function ExistingBuildOutputDirectories: TArray<string>;
     function DeployLanguagePacksToExistingOutputs: Integer;
     function RunDeploymentScript(const AApplicationDirectory: string): Boolean;
+    function ExistingCatalogFileName: string;
+    function EffectiveWorkflowName: string;
+    procedure UpdateWorkflowSummary;
+    function StagedGlossaryFileName: string;
+    procedure GenerateLocalizationReviewArtifacts;
   public
   end;
 
@@ -189,10 +202,12 @@ uses
   FMX.DialogService.Sync,
   FMX.Platform,
   DAT.Core.CatalogJson,
+  DAT.Core.Glossary,
   DAT.Core.ProjectDetection,
   DAT.Core.RuntimePack,
   DAT.Core.Terminology,
   DAT.Core.TranslationWorkspace,
+  DAT.Review.Localization,
   DAT.Integration.ComponentPackage,
   DAT.Integration.Transaction,
   DAT.Provider.Client,
@@ -201,6 +216,7 @@ uses
   DAT.Runtime.LanguagePack,
   DAT.Scan.CatalogMerge,
   DAT.Scan.Project,
+  DAT.Studio.LocalizationReview,
   DAT.Validation.Catalog;
 
 {$R *.fmx}
@@ -218,13 +234,93 @@ begin
   cboTargetLanguage.ItemIndex := 36;
   cboProvider.ItemIndex := 0;
   cboDeepLPlan.ItemIndex := 0;
+  cboWorkflowMode.ItemIndex := 0;
   chkRememberKey.IsChecked := True;
   chkCreateBackup.IsChecked := True;
   chkCreateBackup.Enabled := False;
   chkTargetProjectClosed.IsChecked := False;
   edtApiKey.Password := True;
   ApplyLocaleDefaults;
+  btnLocalizationReview.Enabled := False;
   SetStep(1);
+end;
+
+function TfrmSetupWizard.ExistingCatalogFileName: string;
+begin
+  if FProjectProfile.ProjectFileName = '' then
+    Exit('');
+  Result := TTranslationWorkspace.DevelopmentCatalogFileName(FProjectProfile,
+    SelectedLanguageCode(cboTargetLanguage));
+end;
+
+function TfrmSetupWizard.EffectiveWorkflowName: string;
+begin
+  case cboWorkflowMode.ItemIndex of
+    1: Result := 'Create a new translation';
+    2: Result := 'Update the existing translation';
+  else
+    if (ExistingCatalogFileName <> '') and TFile.Exists(ExistingCatalogFileName) then
+      Result := 'Update the existing translation'
+    else
+      Result := 'Create a new translation';
+  end;
+end;
+
+procedure TfrmSetupWizard.UpdateWorkflowSummary;
+var
+  Existing: Boolean;
+begin
+  Existing := (ExistingCatalogFileName <> '') and
+    TFile.Exists(ExistingCatalogFileName);
+  if FProjectProfile.ProjectFileName = '' then
+    lblWorkflowSummary.Text := 'Select a project and target language to detect existing work.'
+  else if Existing then
+    lblWorkflowSummary.Text := 'Existing catalog detected. ' +
+      EffectiveWorkflowName + ' will preserve reviewed and approved entries.'
+  else
+    lblWorkflowSummary.Text := 'No catalog exists for this language. ' +
+      EffectiveWorkflowName + ' will start a new development catalog.';
+end;
+
+procedure TfrmSetupWizard.cboWorkflowModeChange(Sender: TObject);
+begin
+  UpdateWorkflowSummary;
+end;
+
+function TfrmSetupWizard.StagedGlossaryFileName: string;
+begin
+  if FReviewOutputDirectory = '' then
+    FReviewOutputDirectory := TPath.Combine(FindStudioRoot,
+      TPath.Combine('export\localization-review',
+        TPath.Combine(FProjectProfile.ProjectName,
+          SelectedLanguageCode(cboTargetLanguage))));
+  Result := TPath.Combine(FReviewOutputDirectory, 'project-glossary.json');
+end;
+
+procedure TfrmSetupWizard.btnLocalizationReviewClick(Sender: TObject);
+var
+  ReviewForm: TfrmLocalizationReview;
+  ProjectGlossary: string;
+begin
+  if (FCatalog = nil) or (FScanResult = nil) then
+  begin
+    lblFooterStatus.Text := 'Run the project scan before opening Localization Review.';
+    Exit;
+  end;
+  ForceDirectories(FReviewOutputDirectory);
+  ProjectGlossary := TTranslationWorkspace.GlossaryFileName(FProjectProfile,
+    FCatalog.Locale.LanguageCode);
+  if TFile.Exists(ProjectGlossary) and not TFile.Exists(StagedGlossaryFileName) then
+    TFile.Copy(ProjectGlossary, StagedGlossaryFileName, False);
+  ReviewForm := TfrmLocalizationReview.Create(Self);
+  try
+    ReviewForm.Prepare(FProjectProfile, FCatalog, FReviewOutputDirectory,
+      StagedGlossaryFileName);
+    ReviewForm.ShowModal;
+  finally
+    ReviewForm.Free;
+  end;
+  lblFooterStatus.Text := 'Localization Review closed. Saved glossary terms will be applied during final processing.';
 end;
 
 procedure TfrmSetupWizard.UpdateComponentInstructions;
@@ -429,6 +525,18 @@ begin
       begin
         lblFooterStatus.Text := 'Select a target language before continuing.';
         Exit;
+      end
+      else if (cboWorkflowMode.ItemIndex = 1) and
+        TFile.Exists(ExistingCatalogFileName) then
+      begin
+        lblFooterStatus.Text := 'A catalog already exists. Choose Update Existing Translation or use Complete Reset first.';
+        Exit;
+      end
+      else if (cboWorkflowMode.ItemIndex = 2) and
+        not TFile.Exists(ExistingCatalogFileName) then
+      begin
+        lblFooterStatus.Text := 'No existing catalog was found. Choose Create New Translation or Automatic.';
+        Exit;
       end;
     4:
       if EffectiveApiKey = '' then
@@ -487,9 +595,12 @@ begin
     FLastScanCompletedAt := 0;
     FreeAndNil(FCatalog);
     FCatalogFileName := '';
+    FReviewOutputDirectory := '';
+    btnLocalizationReview.Enabled := False;
     FHighestStep := Min(FHighestStep, 4);
     lblFooterStatus.Text := 'Project identified. No target file was changed.';
     UpdateComponentInstructions;
+    UpdateWorkflowSummary;
     UpdateRail;
   except
     on E: Exception do
@@ -541,9 +652,12 @@ begin
   FLastScanCompletedAt := 0;
   FreeAndNil(FCatalog);
   FCatalogFileName := '';
+  FReviewOutputDirectory := '';
+  btnLocalizationReview.Enabled := False;
   if FHighestStep > 5 then
     FHighestStep := 5;
   UpdateRail;
+  UpdateWorkflowSummary;
 end;
 
 procedure TfrmSetupWizard.cboProviderChange(Sender: TObject);
@@ -695,6 +809,12 @@ begin
       [FScanResult.Items.Count, MergeSummary.NewEntries,
        MergeSummary.ChangedEntries, MergeSummary.UnchangedEntries,
        MergeSummary.ObsoleteEntries]);
+    FReviewOutputDirectory := TPath.Combine(FindStudioRoot,
+      TPath.Combine('export\localization-review',
+        TPath.Combine(FProjectProfile.ProjectName,
+          SelectedLanguageCode(cboTargetLanguage))));
+    btnLocalizationReview.Enabled := True;
+    UpdateWorkflowSummary;
     lblFooterStatus.Text := 'Scan complete. The development catalog is ready.';
   except
     on E: Exception do
@@ -783,6 +903,7 @@ begin
     'Framework: ' + TargetFrameworkToString(FProjectProfile.Framework) + sLineBreak +
     'Target language: ' + edtNativeName.Text + ' (' +
       SelectedLanguageCode(cboTargetLanguage) + ')' + sLineBreak +
+    'Workflow: ' + EffectiveWorkflowName + sLineBreak +
     'Provider: ' + TranslationProviderDisplayName(SelectedProvider) + sLineBreak +
     Format('Scanned entries: %d', [FScanResult.Items.Count]) + sLineBreak +
     Format('Unresolved entries to translate: %d', [MissingCount]) + sLineBreak +
@@ -795,6 +916,38 @@ begin
     'RAD Studio: target project must be closed before final processing.' +
       sLineBreak +
     'Backup: required ZIP plus verified DPROJ transaction backup.';
+end;
+
+procedure TfrmSetupWizard.GenerateLocalizationReviewArtifacts;
+var
+  CatalogFiles: TArray<string>;
+  EnvelopeFileName: string;
+  HtmlFileName: string;
+  ProposalFileName: string;
+  Review: TLocalizationReview;
+begin
+  ForceDirectories(FReviewOutputDirectory);
+  HtmlFileName := TPath.Combine(FReviewOutputDirectory,
+    'localization-review.html');
+  ProposalFileName := TPath.Combine(FReviewOutputDirectory,
+    'layout-proposal.json');
+  EnvelopeFileName := TPath.Combine(FReviewOutputDirectory,
+    'multilingual-layout-envelope.json');
+  Review := TLocalizationReviewer.Analyze(FCatalog);
+  try
+    TLocalizationReviewer.GenerateReviewPackage(Review, HtmlFileName,
+      ProposalFileName);
+    CatalogFiles := TDirectory.GetFiles(
+      TTranslationWorkspace.DevelopmentDirectory(FProjectProfile),
+      '*.translation-project.json', TSearchOption.soTopDirectoryOnly);
+    TLocalizationReviewer.SaveEnvelope(CatalogFiles, EnvelopeFileName);
+    AddProgress('Localization audit: ' + Review.Summary);
+    AddProgress('Visual review package: ' + HtmlFileName);
+    AddProgress('Persistent layout proposals: ' + ProposalFileName);
+    AddProgress('Multilingual layout envelope: ' + EnvelopeFileName);
+  finally
+    Review.Free;
+  end;
 end;
 
 procedure TfrmSetupWizard.AddProgress(const AText: string);
@@ -938,6 +1091,9 @@ var
   ProviderCount: Integer;
   ResolvedText: string;
   Validation: TCatalogValidationResult;
+  Glossary: TProjectGlossary;
+  AppliedGlossaryCount: Integer;
+  ProjectGlossaryFileName: string;
 begin
   FFinalProcessing := True;
   btnBack.Enabled := False;
@@ -974,6 +1130,24 @@ begin
       Plan := dpPro
     else
       Plan := dpFree;
+    Glossary := nil;
+    ProjectGlossaryFileName := TTranslationWorkspace.GlossaryFileName(
+      FProjectProfile, FCatalog.Locale.LanguageCode);
+    try
+      if TFile.Exists(StagedGlossaryFileName) then
+        Glossary := TProjectGlossary.LoadFromFile(StagedGlossaryFileName)
+      else if TFile.Exists(ProjectGlossaryFileName) then
+        Glossary := TProjectGlossary.LoadFromFile(ProjectGlossaryFileName);
+      if Glossary <> nil then
+      begin
+        AppliedGlossaryCount := Glossary.ApplyToCatalog(FCatalog);
+        Glossary.SaveToFile(ProjectGlossaryFileName);
+        AddProgress(Format('%d translation(s) applied from the approved project glossary.',
+          [AppliedGlossaryCount]));
+      end;
+    finally
+      Glossary.Free;
+    end;
     TTerminologyResolver.ApplyAuthoritativeTerms(FCatalog);
     MissingCount := 0;
     for Entry in FCatalog.Entries do
@@ -1074,6 +1248,7 @@ begin
 
     TCatalogJson.SaveToFile(FCatalog, FCatalogFileName);
     AddProgress('Development catalog saved.');
+    GenerateLocalizationReviewArtifacts;
     Validation := TCatalogValidator.Validate(FCatalog);
     try
       if Validation.HasErrors then
@@ -1115,6 +1290,7 @@ begin
       Report.Add('Project: ' + FProjectProfile.ProjectFileName);
       Report.Add('Language: ' + FCatalog.Locale.NativeLanguageName + ' (' +
         FCatalog.Locale.LanguageCode + ')');
+      Report.Add('Workflow: ' + EffectiveWorkflowName);
       Report.Add('Development catalog: ' + FCatalogFileName);
       Report.Add('Runtime pack: ' + RuntimePackFileName);
       Report.Add('Component kit: ' + FKitDirectory);
@@ -1125,6 +1301,8 @@ begin
       Report.Add('ComponentSource Search Path: ' +
         TPath.Combine(FKitDirectory, 'ComponentSource'));
       Report.Add('Existing build outputs deployed: ' + DeployedCount.ToString);
+      Report.Add('Localization review package: ' +
+        TPath.Combine(FReviewOutputDirectory, 'localization-review.html'));
       Report.Add('');
       Report.Add('NEXT MANUAL DELPHI STEP');
       Report.AddStrings(memComponentInstructions.Lines);

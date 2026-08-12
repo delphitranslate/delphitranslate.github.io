@@ -1733,3 +1733,38 @@ Copy ID action. A visible language choice is required: the supplied language
 combo box is the default, while a connected Language menu is the supported
 alternative. Calling the selector simply optional is prohibited because it
 would leave ordinary users unable to change languages.
+
+# Localization Intelligence and Iterative Update Workflow (2026-08-11)
+
+The Setup Wizard now distinguishes **Create New Translation** from **Update
+Existing Translation**, with **Automatic (Recommended)** selecting the safe
+choice from the detected project/language catalog. Update mode preserves
+reviewed, approved, and otherwise resolved entries while scanning and
+translating only new or source-changed work.
+
+The designer-authored FMX Localization Review Center adds seven coordinated
+capabilities without automatically rewriting target forms or Pascal source:
+
+1. explicit existing-translation update workflow;
+2. read-only DFM/FMX layout inventory and overflow/overlap estimates;
+3. approved project glossary overrides with semantic concepts;
+4. confidence, untranslated-text, and disagreement findings;
+5. self-contained HTML visual-review packages for fluent reviewers;
+6. a common multilingual estimated-width envelope across project catalogs;
+7. checksum-backed layout proposals with pending, accepted, rejected, and
+   manual decisions.
+
+Review packages and layout decisions are stored below the Studio's
+`export\localization-review` directory. Layout results are advisory estimates;
+they are intentionally separated from runtime language packs. Project glossary
+terms are staged outside the target before authorization, applied ahead of
+built-in terminology and provider translation, and persisted under the target's
+`Localization\Glossaries` directory only during authorized final processing.
+
+## Documentation backlog
+
+Formal User Guide, Setup Wizard Guide, Engineering Guide, and test-guide
+revisions are intentionally deferred until the localization-intelligence and
+iterative-update workflows complete acceptance testing. Do not regenerate the
+DOCX/PDF guides before that checkpoint. Provide current, chat-based test
+instructions on request in the meantime.

@@ -44,7 +44,8 @@ begin
   if ACatalog = nil then
     Exit;
   for Entry in ACatalog.Entries do
-    if not (Entry.Status in [tsExcluded, tsObsolete, tsReviewed,
+    if (Entry.TranslationOrigin <> torProjectGlossary) and
+      not (Entry.Status in [tsExcluded, tsObsolete, tsReviewed,
       tsApproved, tsEdited]) and
       ((Entry.TranslationOrigin in [torUnknown, torGoogle, torDeepL,
         torSuggestion, torTerminology]) or

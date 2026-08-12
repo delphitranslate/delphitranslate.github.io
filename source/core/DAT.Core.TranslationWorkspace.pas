@@ -19,6 +19,10 @@ type
       const ALanguageCode: string): string; static;
     class function RuntimePackFileName(const AProfile: TProjectProfile;
       const ALanguageCode: string): string; static;
+    class function GlossariesDirectory(
+      const AProfile: TProjectProfile): string; static;
+    class function GlossaryFileName(const AProfile: TProjectProfile;
+      const ALanguageCode: string): string; static;
   end;
 
 implementation
@@ -60,6 +64,20 @@ class function TTranslationWorkspace.LanguagesDirectory(
   const AProfile: TProjectProfile): string;
 begin
   Result := TPath.Combine(RootDirectory(AProfile), 'Languages');
+end;
+
+class function TTranslationWorkspace.GlossariesDirectory(
+  const AProfile: TProjectProfile): string;
+begin
+  Result := TPath.Combine(RootDirectory(AProfile), 'Glossaries');
+end;
+
+class function TTranslationWorkspace.GlossaryFileName(
+  const AProfile: TProjectProfile; const ALanguageCode: string): string;
+begin
+  Result := TPath.Combine(GlossariesDirectory(AProfile),
+    SafeFilePart(AProfile.ProjectName) + '.' +
+    SafeFilePart(ALanguageCode) + '.glossary.json');
 end;
 
 class function TTranslationWorkspace.DevelopmentCatalogFileName(

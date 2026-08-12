@@ -269,12 +269,19 @@
             <FormType>fmx</FormType>
             <DesignClass>TForm</DesignClass>
         </DCCReference>
+        <DCCReference Include="source\studio\DAT.Studio.LocalizationReview.pas">
+            <Form>frmLocalizationReview</Form>
+            <FormType>fmx</FormType>
+            <DesignClass>TForm</DesignClass>
+        </DCCReference>
         <DCCReference Include="source\core\DAT.Core.Types.pas"/>
         <DCCReference Include="source\core\DAT.Core.ProjectDetection.pas"/>
         <DCCReference Include="source\core\DAT.Core.CatalogJson.pas"/>
         <DCCReference Include="source\core\DAT.Core.TranslationWorkspace.pas"/>
         <DCCReference Include="source\core\DAT.Core.RuntimePack.pas"/>
         <DCCReference Include="source\core\DAT.Core.Terminology.pas"/>
+        <DCCReference Include="source\core\DAT.Core.Glossary.pas"/>
+        <DCCReference Include="source\review\DAT.Review.Localization.pas"/>
         <DCCReference Include="source\scan\DAT.Scan.Types.pas"/>
         <DCCReference Include="source\scan\DAT.Scan.Rules.pas"/>
         <DCCReference Include="source\scan\DAT.Scan.Context.pas"/>

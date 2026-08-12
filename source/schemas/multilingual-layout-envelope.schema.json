@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tmartindub.github.io/delphi-app-translation/schemas/multilingual-layout-envelope.schema.json",
+  "title": "Delphi App Translation multilingual layout envelope",
+  "type": "object",
+  "required": ["schemaVersion", "purpose", "languages", "advisoryOnly", "controls"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "purpose": { "const": "Common multilingual layout envelope" },
+    "languages": { "type": "string" },
+    "advisoryOnly": { "const": true },
+    "controls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["controlKey", "minimumEstimatedWidth", "decision"],
+        "properties": {
+          "controlKey": { "type": "string", "minLength": 1 },
+          "minimumEstimatedWidth": { "type": "number", "minimum": 0 },
+          "decision": { "enum": ["pending", "accepted", "rejected", "manual"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

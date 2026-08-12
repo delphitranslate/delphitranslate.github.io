@@ -15,6 +15,7 @@ $SourceSearchPath = @(
     '..\..\source\integration'
     '..\..\source\provider'
     '..\..\source\validation'
+    '..\..\source\review'
 ) -join ';'
 
 $BackgroundJobCommand = 'Start' + '-Job'
