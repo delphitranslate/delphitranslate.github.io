@@ -93,6 +93,7 @@ type
     memComponentInstructions: TMemo;
     btnShowDesignBPL: TButton;
     chkUnderstandManualStep: TCheckBox;
+    lblManualConfirmationRequired: TLabel;
     lblReviewTitle: TLabel;
     lblReviewText: TLabel;
     memReview: TMemo;
@@ -341,6 +342,9 @@ begin
     SelectorClass := 'TDATFMXLanguageComboBox';
   end;
   memComponentInstructions.Lines.Text :=
+    'These instructions were generated for the selected project:' +
+      sLineBreak + FProjectProfile.ProjectFileName + sLineBreak +
+    'Detected Application ID: "' + ApplicationId + '"' + sLineBreak +
     'After final processing:' + sLineBreak +
     '1. The target project must remain closed during final processing. Then start RAD Studio without opening the target form.' + sLineBreak +
     '2. Choose Component > Install Packages, then click Add.' + sLineBreak +
@@ -348,15 +352,17 @@ begin
     '4. Confirm the DAT package is checked, then click OK.' + sLineBreak +
     '5. Open the target project and its primary form.' + sLineBreak +
     '6. Place one ' + ManagerClass + ' on the primary form.' + sLineBreak +
-    '7. Set ApplicationId to "' + ApplicationId + '". Leave ' +
-      'LanguagesFolder as "Localization\Languages".' + sLineBreak +
+    '7. Set ApplicationId to the detected value shown above: "' +
+      ApplicationId + '". This value comes from the selected .dproj file. ' +
+      'Leave LanguagesFolder as "Localization\Languages".' + sLineBreak +
     '8. Place one ' + SelectorClass + '. In Object Inspector, set its ' +
       'LanguageManager property to the manager; do not leave it blank. A ' +
       'visible selector is required unless you provide an ' +
       'equivalent connected Language menu.' + sLineBreak +
     '9. Save the form and build Win32 and Win64 as required.' + sLineBreak +
     '10. For a portable or USB copy, click Deploy to App Folder and select ' +
-      'the folder containing ' + ApplicationId + '.exe.' + sLineBreak +
+      'the folder containing the selected application executable (detected ' +
+      'name: ' + ApplicationId + '.exe).' + sLineBreak +
     'The Wizard configures the ComponentSource Search Path for all build ' +
       'configurations and adds automatic post-build language-pack deployment.';
 end;
@@ -555,6 +561,9 @@ begin
       begin
         lblFooterStatus.Text :=
           'Confirm that you understand the remaining manual RAD Studio phase.';
+        TDialogServiceSync.ShowMessage(
+          'Before continuing, check "Required: I understand the remaining manual RAD Studio phase."');
+        chkUnderstandManualStep.SetFocus;
         Exit;
       end;
     7:
@@ -874,6 +883,20 @@ end;
 
 procedure TfrmSetupWizard.chkUnderstandManualStepChange(Sender: TObject);
 begin
+  if chkUnderstandManualStep.IsChecked then
+  begin
+    chkUnderstandManualStep.TextSettings.FontColor := $FF245587;
+    lblManualConfirmationRequired.Text :=
+      'Confirmed. Click Next to review and authorize final processing.';
+    lblManualConfirmationRequired.TextSettings.FontColor := $FF245587;
+  end
+  else
+  begin
+    chkUnderstandManualStep.TextSettings.FontColor := $FFB25400;
+    lblManualConfirmationRequired.Text :=
+      'Required before continuing: check the confirmation box above.';
+    lblManualConfirmationRequired.TextSettings.FontColor := $FFB25400;
+  end;
   UpdateNavigation;
 end;
 

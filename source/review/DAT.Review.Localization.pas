@@ -595,7 +595,9 @@ begin
   EnvelopeValues := TStringList.Create;
   Languages := TStringList.Create;
   try
-    EnvelopeValues.Sorted := True;
+    { Values are updated while catalogs are merged. TStringList prohibits
+      ValueFromIndex changes while Sorted=True, so sort only after merging. }
+    EnvelopeValues.Sorted := False;
     EnvelopeValues.Duplicates := dupIgnore;
     EnvelopeValues.NameValueSeparator := '=';
     for FileName in ACatalogFiles do
@@ -620,6 +622,7 @@ begin
           Catalog.Free;
         end;
       end;
+    EnvelopeValues.Sort;
     Root := TJSONObject.Create;
     try
       Root.AddPair('schemaVersion', TJSONNumber.Create(1));

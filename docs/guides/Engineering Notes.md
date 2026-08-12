@@ -1768,3 +1768,19 @@ revisions are intentionally deferred until the localization-intelligence and
 iterative-update workflows complete acceptance testing. Do not regenerate the
 DOCX/PDF guides before that checkpoint. Provide current, chat-based test
 instructions on request in the meantime.
+
+## Wizard acceptance corrections (2026-08-11)
+
+Manual component instructions now state explicitly that the displayed project
+path, Application ID, and executable name are detected from the project the
+developer selected; example or private project names are not embedded in the
+instructions. The manual RAD Studio phase explains the boundary between Wizard
+automation and the approved Delphi designer workflow. Its required confirmation
+uses an orange notice and displays a modal explanation if Next is selected
+without confirmation.
+
+Multilingual envelope generation now merges values in an unsorted list and
+sorts only after all width updates are complete. This prevents the Delphi
+`Operation not allowed on sorted list` exception observed during Wizard final
+processing. Foundation regression coverage contains two entries for the same
+control and verifies that the larger envelope value can replace the first.

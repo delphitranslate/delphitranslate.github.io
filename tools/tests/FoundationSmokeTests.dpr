@@ -66,7 +66,7 @@ procedure Require(const ACondition: Boolean; const AMessage: string); forward;
 procedure TestLocalizationIntelligence;
 var
   Catalog: TTranslationCatalog;
-  Entry: TTranslationEntry;
+  Entry, EnvelopeEntry: TTranslationEntry;
   Glossary, LoadedGlossary: TProjectGlossary;
   Term: TProjectGlossaryTerm;
   Review: TLocalizationReview;
@@ -143,6 +143,16 @@ begin
     Require(TFile.Exists(HtmlFileName) and TFile.Exists(ProposalFileName),
       'The visual review package or proposal file was not created.');
     CatalogFileName := TPath.Combine(TestDirectory, 'catalog.json');
+    EnvelopeEntry := TTranslationEntry.Create;
+    EnvelopeEntry.Key := 'frmFixture.btnClose.TextPrompt';
+    EnvelopeEntry.FormName := 'frmFixture';
+    EnvelopeEntry.ComponentName := 'btnClose';
+    EnvelopeEntry.PropertyName := 'TextPrompt';
+    EnvelopeEntry.SourceText := 'Close the current window';
+    EnvelopeEntry.TranslatedText :=
+      'Cerrar la ventana de la aplicacion que se encuentra actualmente abierta';
+    EnvelopeEntry.Status := tsMachineTranslated;
+    Catalog.Entries.Add(EnvelopeEntry);
     TCatalogJson.SaveToFile(Catalog, CatalogFileName);
     SetLength(CatalogFiles, 1);
     CatalogFiles[0] := CatalogFileName;

@@ -60,6 +60,9 @@ begin
       raise Exception.Create('The new/update translation workflow is not available.');
     if not Assigned(Wizard.btnLocalizationReview.OnClick) then
       raise Exception.Create('Localization Review is not connected to the Wizard.');
+    if (Pos('Required:', Wizard.chkUnderstandManualStep.Text) <> 1) or
+       (Wizard.lblManualConfirmationRequired.Text = '') then
+      raise Exception.Create('The required manual-phase confirmation is not explained.');
     if not Assigned(Wizard.btnFinishLocalizationReview.OnClick) then
       raise Exception.Create('The finished Wizard cannot reopen Localization Review.');
     if Wizard.cboTargetLanguage.Items.Count < 35 then

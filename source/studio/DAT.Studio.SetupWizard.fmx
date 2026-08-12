@@ -720,7 +720,7 @@ object frmSetupWizard: TfrmSetupWizard
               TextSettings.Font.Size = 24.000000000000000000
               TextSettings.Font.StyleExt = {00070000000000000004000000}
               TextSettings.FontColor = xFF163A63
-              Text = 'Understand the manual RAD Studio phase'
+              Text = 'One manual RAD Studio phase remains'
             end
             object lblComponentText: TLabel
               StyledSettings = []
@@ -728,17 +728,17 @@ object frmSetupWizard: TfrmSetupWizard
               Position.X = 8.000000000000000000
               Position.Y = 58.000000000000000000
               Size.Width = 730.000000000000000000
-              Size.Height = 52.000000000000000000
+              Size.Height = 68.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
               TextSettings.FontColor = xFF365674
-              Text = 'RAD Studio must register the design package and place the two components through its approved designer workflow. The Wizard handles Search Paths and language-pack deployment automatically.'
+              Text = 'The Wizard automates the catalog, language pack, Search Path, and deployment. After final processing, RAD Studio must register the design package, and you must place and connect the two components on the primary form. Follow the project-specific steps below.'
             end
             object memComponentInstructions: TMemo
               Position.X = 8.000000000000000000
-              Position.Y = 120.000000000000000000
+              Position.Y = 136.000000000000000000
               Size.Width = 730.000000000000000000
-              Size.Height = 220.000000000000000000
+              Size.Height = 198.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True
@@ -765,13 +765,28 @@ object frmSetupWizard: TfrmSetupWizard
               OnClick = btnShowDesignBPLClick
             end
             object chkUnderstandManualStep: TCheckBox
+              StyledSettings = []
               Position.X = 220.000000000000000000
               Position.Y = 352.000000000000000000
               Size.Width = 518.000000000000000000
               Size.Height = 46.000000000000000000
               Size.PlatformDefault = False
-              Text = 'I understand the remaining manual RAD Studio phase'
+              TextSettings.FontColor = xFFB25400
+              Text = 'Required: I understand the remaining manual RAD Studio phase'
               OnChange = chkUnderstandManualStepChange
+            end
+            object lblManualConfirmationRequired: TLabel
+              StyledSettings = []
+              WordWrap = True
+              Position.X = 220.000000000000000000
+              Position.Y = 402.000000000000000000
+              Size.Width = 518.000000000000000000
+              Size.Height = 42.000000000000000000
+              Size.PlatformDefault = False
+              TextSettings.Font.Size = 13.000000000000000000
+              TextSettings.Font.StyleExt = {00070000000000000004000000}
+              TextSettings.FontColor = xFFB25400
+              Text = 'Required before continuing: check the confirmation box above.'
             end
           end
           object tabReview: TTabItem
