@@ -1,0 +1,689 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from docx import Document
+from docx.enum.section import WD_SECTION
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Inches, Pt, RGBColor
+
+from build_guides import (
+    BLUE,
+    GRAY,
+    INK,
+    ORANGE,
+    PALE_BLUE,
+    add_bullets,
+    add_callout,
+    add_field,
+    add_header_footer,
+    add_paragraphs,
+    add_steps,
+    configure_page,
+    finish_document,
+    set_cell_shading,
+    set_page_number_format,
+    set_table_geometry,
+    setup_styles,
+)
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+GUIDES_DIR = PROJECT_ROOT / "docs" / "guides"
+DOCX_PATH = GUIDES_DIR / (
+    "Delphi App Translation Studio Wizard-to-Runtime Complete Procedure.docx"
+)
+ICON = (
+    PROJECT_ROOT
+    / "images and icons"
+    / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
+)
+LAST_CHANGED = "August 12, 2026"
+
+
+def set_run_font(run, size=11, color=INK, bold=False, italic=False):
+    run.font.name = "Calibri"
+    run._element.get_or_add_rPr().rFonts.set(qn("w:ascii"), "Calibri")
+    run._element.get_or_add_rPr().rFonts.set(qn("w:hAnsi"), "Calibri")
+    run.font.size = Pt(size)
+    run.font.color.rgb = RGBColor.from_string(color)
+    run.bold = bold
+    run.italic = italic
+
+
+def add_cover(document: Document) -> None:
+    section = document.sections[0]
+    configure_page(section)
+    add_header_footer(section, "", False)
+    document.add_paragraph("")
+    document.add_paragraph("")
+    logo = document.add_paragraph()
+    logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    if ICON.exists():
+        logo.add_run().add_picture(str(ICON), width=Inches(1.45))
+    title = document.add_paragraph(style="Title")
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title.add_run("Wizard-to-Runtime\nComplete Procedure")
+    subtitle = document.add_paragraph(style="Subtitle")
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle.add_run("Delphi App Translation Studio")
+    accent = document.add_table(rows=1, cols=2)
+    accent.alignment = WD_TABLE_ALIGNMENT.CENTER
+    set_table_geometry(accent, [4680, 4680], indent=0)
+    set_cell_shading(accent.cell(0, 0), BLUE)
+    set_cell_shading(accent.cell(0, 1), ORANGE)
+    for cell in accent.rows[0].cells:
+        cell.height = Inches(0.08)
+    document.add_paragraph("")
+    meta = document.add_paragraph()
+    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = meta.add_run(
+        "Current pre-release test workflow\n"
+        f"Last changed: {LAST_CHANGED}\n"
+        "Windows - Delphi VCL and FireMonkey - Win32 and Win64\n"
+        "Printable, start-to-finish operator procedure"
+    )
+    set_run_font(run, 11, GRAY)
+    purpose = document.add_paragraph()
+    purpose.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = purpose.add_run(
+        "Every required transition is included: clean test copy, Wizard, "
+        "localization review, second-pass update, Studio verification, RAD "
+        "Studio component placement, builds, deployment, and runtime testing."
+    )
+    set_run_font(run, 10, GRAY, italic=True)
+
+
+def add_toc(document: Document) -> None:
+    toc_section = document.add_section(WD_SECTION.NEW_PAGE)
+    configure_page(toc_section)
+    set_page_number_format(toc_section, "lowerRoman", 1)
+    add_header_footer(toc_section, "Wizard-to-Runtime Complete Procedure", True)
+    document.add_paragraph("Table of Contents", style="TOC Heading")
+    toc = document.add_paragraph()
+    toc.paragraph_format.space_after = Pt(0)
+    begin = OxmlElement("w:fldChar")
+    begin.set(qn("w:fldCharType"), "begin")
+    instruction = OxmlElement("w:instrText")
+    instruction.set(qn("xml:space"), "preserve")
+    instruction.text = 'TOC \\o "1-3" \\h \\z \\u'
+    separate = OxmlElement("w:fldChar")
+    separate.set(qn("w:fldCharType"), "separate")
+    field_run = toc.add_run()
+    field_run._r.extend([begin, instruction, separate])
+    contents = [
+        ("1. Read This Before Starting", 1),
+        ("2. Exact Product Files and Generated Locations", 2),
+        ("3. Prepare a Completely Clean Test", 2),
+        ("4. Start the Setup Wizard", 3),
+        ("5. Wizard Pass One - Create the Translation", 4),
+        ("6. Review the First-Pass Translation", 7),
+        ("7. Wizard Pass Two - Apply Saved Review Decisions", 7),
+        ("8. Return to the Main Translation Studio", 8),
+        ("9. Install the Design Package in RAD Studio", 10),
+        ("10. Place and Configure the Components", 10),
+        ("11. Verify Search Path and Build Configuration", 11),
+        ("12. Build Win32 and Win64", 11),
+        ("13. Runtime Test - First Launch and Switching", 12),
+        ("14. Runtime Layout and Content Acceptance", 13),
+        ("15. Diagnose Missing, Random, or Runaway Text", 13),
+        ("16. Procedure After Later UI Changes", 14),
+        ("17. Adding More Languages", 15),
+        ("18. Final Completion Checklist", 15),
+        ("19. What to Send Back After Testing", 16),
+        ("20. Important Stop Conditions", 16),
+    ]
+    for index, (heading, page_number) in enumerate(contents):
+        if index:
+            toc.add_run().add_break()
+        entry = toc.add_run(heading)
+        set_run_font(entry, 9.2, INK)
+        dots = max(4, 73 - len(heading))
+        leader = toc.add_run(" " + "." * dots + " " + str(page_number))
+        set_run_font(leader, 9.2, GRAY)
+    end = OxmlElement("w:fldChar")
+    end.set(qn("w:fldCharType"), "end")
+    toc.add_run()._r.append(end)
+    content_section = document.add_section(WD_SECTION.NEW_PAGE)
+    configure_page(content_section)
+    set_page_number_format(content_section, "decimal", 1)
+    add_header_footer(content_section, "Wizard-to-Runtime Complete Procedure", True)
+
+
+def add_matrix(document, headers, rows, widths, font_size=9.0):
+    if sum(widths) != 9360:
+        raise ValueError("Table widths must total 9360 DXA")
+    table = document.add_table(rows=1, cols=len(headers))
+    table.style = "Table Grid"
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    repeat = OxmlElement("w:tblHeader")
+    repeat.set(qn("w:val"), "true")
+    table.rows[0]._tr.get_or_add_trPr().append(repeat)
+    for index, text in enumerate(headers):
+        cell = table.rows[0].cells[index]
+        cell.text = text
+        set_cell_shading(cell, BLUE)
+        cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+        for run in cell.paragraphs[0].runs:
+            set_run_font(run, font_size, "FFFFFF", bold=True)
+    for row_index, values in enumerate(rows):
+        cells = table.add_row().cells
+        cannot_split = OxmlElement("w:cantSplit")
+        table.rows[-1]._tr.get_or_add_trPr().append(cannot_split)
+        for index, value in enumerate(values):
+            cells[index].text = value
+            cells[index].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+            if row_index % 2:
+                set_cell_shading(cells[index], "F6F9FC")
+            for paragraph in cells[index].paragraphs:
+                paragraph.paragraph_format.space_after = Pt(2)
+                paragraph.paragraph_format.line_spacing = 1.05
+                for run in paragraph.runs:
+                    set_run_font(run, font_size, INK)
+    set_table_geometry(table, widths)
+    document.add_paragraph("")
+
+
+def add_code(document, lines):
+    for line in lines:
+        paragraph = document.add_paragraph(style="Code Block")
+        paragraph.add_run(line)
+
+
+def add_checklist(document, items):
+    for item in items:
+        paragraph = document.add_paragraph()
+        paragraph.paragraph_format.left_indent = Inches(0.15)
+        paragraph.paragraph_format.first_line_indent = Inches(-0.15)
+        paragraph.add_run("[  ] ").bold = True
+        paragraph.add_run(item)
+
+
+def build_document() -> Path:
+    document = Document()
+    setup_styles(document)
+    add_cover(document)
+    add_toc(document)
+
+    document.add_heading("1. Read This Before Starting", level=1)
+    add_paragraphs(document, [
+        "This procedure tests the current pre-release workflow exactly as it exists. The Setup Wizard performs the first project scan, automatic provider translation, validation, JSON export, component-kit generation, Search Path configuration, and language-pack deployment configuration. It does not place components on a Delphi form; that remains a normal RAD Studio Form Designer operation.",
+        "The current workflow requires two Wizard passes when layout or project-glossary decisions are made after the first translation. The first pass creates the translated catalog and its review proposals. The developer reviews those proposals. The second pass, Update Existing Translation, applies the saved glossary, embeds accepted layout rules in the runtime JSON, and refreshes the generated component kit. This guide never hides that second pass.",
+        "After the Wizard passes, the main Studio is used to inspect the exact development catalog, make any necessary text correction, perform final validation, export the final runtime pack, and refresh the component kit. RAD Studio is then used to install the design package, place the manager and selector, build the target, and test runtime behavior.",
+    ])
+    add_callout(document, "Do not use an original project.",
+        "Create a new disposable test folder from the pristine copy. Keep the pristine folder and the original application untouched. The Wizard creates its own ZIP and DPROJ transaction backups, but those are additional safeguards, not substitutes for the pristine copy.")
+    add_callout(document, "Current automatic-layout boundary.",
+        "The runtime can apply accepted, checksum-backed Width, Height, WordWrap, and AutoSize rules from a language pack. It does not automatically move neighboring controls, redesign a form, change fonts, or guarantee that a wider control will not overlap another control. Any proposal left Pending, Rejected, or Manual is not applied automatically.")
+    add_callout(document, "Current glossary boundary.",
+        "An empty Project Glossary is normal before terms are approved. Built-in computer-interface terminology still operates. Catalog-derived suggestions appear after translations exist; only approved project terms become authoritative for that project and language.")
+
+    document.add_heading("1.1 What this test should prove", level=2)
+    add_checklist(document, [
+        "The Wizard completes without an access violation or a stopped-processing message.",
+        "The Wizard translates unresolved entries automatically with the selected API provider.",
+        "The first pass produces a development catalog, runtime pack, review package, and component kit.",
+        "The second pass preserves completed work and embeds accepted glossary/layout decisions.",
+        "The main Studio opens the same catalog, validates it, and exports the final JSON pack.",
+        "The target project contains only intentional designer changes plus the marked DPROJ configuration block.",
+        "Win32 and Win64 builds receive the correct Localization\\Languages folder.",
+        "The target starts in the expected language, switches immediately, restores layout on switching back, and remembers the user's choice after restart.",
+        "Dynamic application text does not produce runaway text such as repeated o characters.",
+    ])
+
+    document.add_heading("2. Exact Product Files and Generated Locations", level=1)
+    add_matrix(document, ["Purpose", "Path or pattern"], [
+        ["Recommended Studio build", r"C:\New Delphi Projects\Delphi App Translation\bin\Win32\Debug\DelphiAppTranslationStudio.exe"],
+        ["Win64 Studio build", r"C:\New Delphi Projects\Delphi App Translation\bin\Win64\Debug\DelphiAppTranslationStudio.exe"],
+        ["FMX design package", r"C:\New Delphi Projects\Delphi App Translation\bin\packages\Win32\Release\DATLanguageManagerFMXDesign.bpl"],
+        ["VCL design package", r"C:\New Delphi Projects\Delphi App Translation\bin\packages\Win32\Release\DATLanguageManagerVCLDesign.bpl"],
+        ["Development catalog", r"<Test Project>\Localization\Development\<ApplicationId>.<language>.translation-project.json"],
+        ["Project glossary", r"<Test Project>\Localization\Glossaries\<ApplicationId>.<language>.glossary.json"],
+        ["Runtime language pack", r"<Test Project>\Localization\Languages\<language>.json"],
+        ["Component kit", r"C:\New Delphi Projects\Delphi App Translation\export\component-integration\<ApplicationId>"],
+        ["Localization review", r"C:\New Delphi Projects\Delphi App Translation\export\localization-review\<ApplicationId>\<language>"],
+        ["Saved language preference", r"%LOCALAPPDATA%\<ApplicationId>\language.ini"],
+        ["Wizard safety backup", r"%USERPROFILE%\Documents\Delphi App Translation Backups\<ApplicationId>\<timestamp>.zip"],
+    ], [2550, 6810], 8.8)
+    add_callout(document, "Application ID means project name, not folder name.",
+        "For C:\\...\\Carillon.dproj the detected ApplicationId is Carillon. Always use the exact Application ID displayed by the Wizard; do not type the full path and do not include .dproj or .exe.")
+
+    document.add_heading("3. Prepare a Completely Clean Test", level=1)
+    add_steps(document, [
+        "Close the target application executable if it is running.",
+        "Close the target project in RAD Studio. Saving is allowed before closing, but do not leave unsaved form changes.",
+        "Locate the pristine project folder. Confirm that it is the known-good unlocalized source.",
+        "Create a new sibling test folder by copying the entire pristine folder. Use a clear name such as <Application Name> - Translation Test.",
+        "Do not copy an earlier test folder. Earlier Localization folders, DPROJ Search Paths, components, and language preference files would invalidate the test.",
+        "Open the new test folder in File Explorer. Confirm the expected .dproj or .dpr file is present.",
+        "If the pristine copy contains old bin or dcu output folders, remove those only from the new disposable test copy or use Delphi Clean before the baseline build. Never clean the pristine source as part of this test.",
+        "Open the new test project's .dproj in RAD Studio, perform a baseline Win32 Debug build, and run it once in its original language.",
+        "Open every important form or page and confirm that the pristine application itself does not already contain mixed-language or runaway dynamic text.",
+        "Close the baseline executable. Choose File > Close All in RAD Studio so the target project is closed before Wizard final processing.",
+    ])
+    add_callout(document, "No Git requirement.",
+        "Git is useful evidence but is not required. A pristine copy plus a fresh disposable test copy is an accepted safety baseline. If Git is available, record git status --short now; it should be empty.")
+
+    document.add_heading("3.1 Clear a previous saved-language preference", level=2)
+    add_paragraphs(document, [
+        "A new project folder does not clear the per-user language preference because that file lives under Local AppData. If the same ApplicationId was tested previously, the new executable may immediately restore Spanish or another language even though the project folder is new.",
+    ])
+    add_steps(document, [
+        "Press Windows+R.",
+        "Enter %LOCALAPPDATA% and press Enter.",
+        "Open the folder whose name exactly matches the Wizard's Application ID, if it exists.",
+        "If language.ini exists, rename it to language.ini.pretest. Do not rename unrelated application settings.",
+        "If the Application ID folder does not exist, no preference cleanup is required.",
+    ])
+
+    document.add_heading("4. Start the Setup Wizard", level=1)
+    add_steps(document, [
+        r"Run C:\New Delphi Projects\Delphi App Translation\bin\Win32\Debug\DelphiAppTranslationStudio.exe.",
+        "Wait for the Delphi App Translation Studio main form to appear.",
+        "Click Start Setup Wizard on the Project page. Do not click Open Project for this initial path.",
+        "Confirm the dimmed Studio background is blocked by the modal Translation Setup Wizard.",
+        "Do not run a second Studio instance during this test.",
+    ])
+
+    document.add_heading("5. Wizard Pass One - Create the Translation", level=1)
+    document.add_heading("5.1 Step 1 - Welcome", level=2)
+    add_steps(document, [
+        "Read the safety statement. It explains that final processing creates a backup and writes localization/configuration files but does not rewrite Pascal or form source.",
+        "Click Next.",
+    ])
+
+    document.add_heading("5.2 Step 2 - Delphi Project", level=2)
+    add_steps(document, [
+        "Click Browse.",
+        "Navigate to the new disposable test folder, not the pristine folder and not the original project folder.",
+        "Select the target .dproj. Use the .dpr only when no .dproj exists.",
+        "Confirm the displayed project path is the disposable test folder.",
+        "Confirm the detected framework is FireMonkey or VCL as expected.",
+        "Confirm Win32 and/or Win64 platforms and the form-resource count are plausible.",
+        "Write down the detected Application ID. You will use this exact value in the Object Inspector later.",
+        "Leave the workflow on Automatic. For a new folder it should report Create a new translation.",
+        "Click Next.",
+    ])
+
+    document.add_heading("5.3 Step 3 - Languages", level=2)
+    add_steps(document, [
+        "Set Source language to the language in which the Delphi application was authored, normally English (United States) [en-US].",
+        "Select exactly one Target language for this pass, for example Spanish (Spain) [es-ES].",
+        "Confirm Native language name is correct and uses proper characters, for example Español.",
+        "Confirm Direction is Left-to-right unless the language requires right-to-left text.",
+        "Review the date, time, decimal, thousands, and currency values. These locale settings are stored in the JSON pack; correct only values you deliberately want the target application to use.",
+        "Confirm Automatic still reports Create a new translation, then click Next.",
+    ])
+    add_callout(document, "One target language per Wizard run.",
+        "To deliver 15 languages, repeat the create/update workflow for each target language. The runtime selector later lists the source-language pack and every valid target-language JSON pack deployed beside that executable.")
+
+    document.add_heading("5.4 Step 4 - Translation Service", level=2)
+    add_steps(document, [
+        "Choose Google Cloud Translation or DeepL.",
+        "For DeepL, choose API Free or API Pro to match the account. Google does not use the DeepL plan field.",
+        "If the provider key is already stored in Windows Credential Manager, leave the API key field blank and verify that the status reports a stored key.",
+        "Otherwise paste the API key into the masked field.",
+        "Leave Remember securely on this computer checked to store the key in Windows Credential Manager. Uncheck it only for a session-only key.",
+        "Click Save / Replace Key when a new key was entered.",
+        "Click Test Connection.",
+        "Do not continue until the status explicitly reports that the connection test passed.",
+        "Click Next.",
+    ])
+    add_callout(document, "The target application remains offline.",
+        "Only the developer's Studio uses the provider and API key. The deployed target application reads local JSON packs and does not need the Internet or the API key.")
+
+    document.add_heading("5.5 Step 5 - Scan Project", level=2)
+    add_steps(document, [
+        "Click Scan Project.",
+        "Wait for Scan complete. Do not click Next while the scan is running.",
+        "Record the total translatable entries and the new/changed/unchanged/obsolete counts.",
+        "Scroll through representative items. Confirm form text and resourcestring entries belong to the selected project.",
+        "Look specifically for suspicious repeated characters, data values, paths, filenames, URLs, IDs, or logging output. These should be protected or reviewed rather than translated as normal interface text.",
+        "If you edit or save any target PAS, FMX, DFM, DPR, or DPROJ file after this scan, return to this step and scan again before final processing.",
+        "The Localization Review button is available, but the richest terminology suggestions and layout proposals do not exist until translations have been created. For the ordinary first test, continue with Next.",
+    ])
+
+    document.add_heading("5.6 Step 6 - Delphi Component", level=2)
+    add_steps(document, [
+        "Read the project-specific instructions from top to bottom.",
+        "Confirm the instructions show the correct target project path and exact Application ID.",
+        "Click Show Design BPL. File Explorer should select DATLanguageManagerFMXDesign.bpl for an FMX target or DATLanguageManagerVCLDesign.bpl for a VCL target under bin\\packages\\Win32\\Release.",
+        "Do not use Delphi's Install Component wizard. Do not select a .dpk. The later approved procedure is Component > Install Packages > Add and selection of the compiled design BPL.",
+        "Return to the Wizard.",
+        "Check Required: I understand the remaining manual RAD Studio phase.",
+        "Confirm the orange reminder changes to a confirmation message.",
+        "Click Next.",
+    ])
+
+    document.add_heading("5.7 Step 7 - Review and Authorize", level=2)
+    add_steps(document, [
+        "Read the project, Application ID, framework, target language, workflow, provider, scan count, unresolved count, integration method, deployment statement, and backup statement.",
+        "Confirm the required backup box is checked. It is intentionally mandatory.",
+        "Confirm RAD Studio has no target project open. If it does, close the project now and return to the Wizard.",
+        "Check Required: the target project is closed in RAD Studio.",
+        "Check I reviewed these choices and authorize final processing.",
+        "Click Begin Final Processing only after both confirmations are checked.",
+        "After processing begins, do not try to close the Wizard or Studio. Back, Cancel, and the step rail remain disabled until processing succeeds or stops safely.",
+    ])
+
+    document.add_heading("5.8 Step 8 - Processing and Completion", level=2)
+    add_steps(document, [
+        "Watch the progress log until it stops changing.",
+        "Confirm a timestamped ZIP backup was created.",
+        "Confirm unresolved entries were translated by the selected provider or resolved by terminology/translation memory.",
+        "Confirm Development catalog saved appears.",
+        "Confirm localization review, layout proposal, and multilingual layout envelope paths were generated.",
+        "Confirm validation passed. Warnings may remain; blocking errors must not remain.",
+        "Confirm Runtime JSON pack exported appears with a path under the disposable test project's Localization\\Languages folder.",
+        "Confirm Component integration kit generated appears.",
+        "Confirm Project Search Path and automatic post-build deployment configured appears.",
+        "Confirm the footer says Setup Wizard completed successfully. If it says stopped, do not continue to RAD Studio; record the complete STOPPED line and stop this test.",
+        "Click the blue component-kit path or Open Kit Folder. Confirm ComponentSource, Localization, component-integration.json, Deploy-LanguagePacks.ps1, README.txt, and Wizard-Completion-Report.txt exist.",
+        "Leave the Wizard open for the next review step. Do not click Finish yet.",
+    ])
+
+    document.add_heading("6. Review the First-Pass Translation", level=1)
+    add_steps(document, [
+        "On the Wizard completion page, click Review Localization.",
+        "On Audit & Confidence, read the summary and inspect all High risk findings and representative Warning findings.",
+        "Click Generate Review Package, then Open Visual Review. Review the estimated translated forms in the browser. This preview is advisory; it does not alter a Delphi form.",
+        "Return to the Localization Review Center.",
+        "Open Terminology Suggestions. Select suggestions and read Source term, Suggested target, Context, Semantic concept, Provenance, Confidence, and Why suggested.",
+        "Use Approve Selected only for a term you understand and want enforced for this project and language.",
+        "Use Approve High-confidence All only after inspecting the proposed group. Provider output is not promoted automatically merely because it exists.",
+        "Open Project Glossary. Confirm approved terms now appear. If a required term is absent, click New, enter Source term and Preferred translation, optionally enter Semantic concept and Developer note, leave Approved terminology checked, click Add / Update Term, and click Save Project Glossary.",
+        "Open Layout Proposals. Select a proposal and read its form, control, property, current value, proposed value, reason, decision, and What happens explanation.",
+        "For the ordinary test, click Accept All Safe Proposals only after understanding that Width, Height, WordWrap, and AutoSize rules will be applied at runtime for this language.",
+        "For any proposal that would collide with another control or exceed its parent, choose Manual or Rejected and click Save.",
+        "Click Close to return to the Wizard.",
+        "Click Finish to close Wizard pass one and return to the Studio main form.",
+    ])
+    add_callout(document, "Why pass two is required.",
+        "The first runtime pack was exported before these review decisions were made. The next Wizard update applies the saved project glossary and embeds accepted safe layout rules into a newly exported runtime pack.")
+
+    document.add_heading("7. Wizard Pass Two - Apply Saved Review Decisions", level=1)
+    add_steps(document, [
+        "Click Start Setup Wizard again.",
+        "Click Next on Welcome.",
+        "Browse to the same disposable test project's .dproj.",
+        "Confirm the same Application ID and framework.",
+        "On Languages, select the same source and target language used in pass one.",
+        "Leave Workflow on Automatic. Confirm Existing catalog detected and Update the existing translation is reported.",
+        "Confirm the translation provider and stored key, then click Test Connection again.",
+        "Run Scan Project again. Confirm completed translations are preserved and only actual new or changed source entries are unresolved.",
+        "Read the component step, click Show Design BPL if desired, check the required understanding box, and click Next.",
+        "Close the target project in RAD Studio if it was opened accidentally.",
+        "Check the target-project-closed and authorization boxes, then click Begin Final Processing.",
+        "Confirm the progress reports glossary translations applied when applicable, validation passed, runtime pack exported, component kit generated, deployment configured, and successful completion.",
+        "Click Review Localization only to confirm the saved glossary and layout decisions persisted. Do not create new decisions during this confirmation pass; a new decision would require another export/update.",
+        "Close Localization Review and click Finish.",
+    ])
+
+    document.add_heading("8. Return to the Main Translation Studio", level=1)
+    add_paragraphs(document, [
+        "The Wizard has already translated and exported the project. The main Studio is now used for final inspection, corrections, validation, and a final export. Do not start a second translation from scratch.",
+    ])
+    document.add_heading("8.1 Open the matching project and catalog", level=2)
+    add_steps(document, [
+        "On the Studio left rail, click 1 Project.",
+        "Click Open Project and select the same disposable test .dproj.",
+        "Click 3 Translate.",
+        "Click Open.",
+        "Open the development catalog from <Test Project>\\Localization\\Development. Its name is <ApplicationId>.<language>.translation-project.json.",
+        "Confirm the target language, native language name, locale formats, entry count, translated count, status, and origin fields are populated.",
+        "Click 2 Scan, then click Scan Project. This proves that the catalog still matches the saved Delphi sources.",
+        "Return to 3 Translate. Confirm reviewed/approved translations and existing provider results were preserved.",
+    ])
+
+    document.add_heading("8.2 Inspect and correct translations", level=2)
+    add_steps(document, [
+        "Select entries with short or ambiguous interface text, unknown context, provider-basic confidence, or suspicious ownership.",
+        "Read Source text, the context hint, runtime role, origin, and Translated text.",
+        "Correct an inaccurate translation in Translated text and click Apply Translation. This changes the development JSON catalog, not Delphi source.",
+        "Use Mark Reviewed only after a human has actually reviewed that entry. Use Approve only after it is already Reviewed.",
+        "Review All and Approve All are catalog-wide decisions. Do not use them merely to remove warnings; use them only when one qualified review decision truly applies to the entire displayed group.",
+        "Click Save after completing edits. Confirm Development catalog saved.",
+        "Click Translate Automatically only if the readiness line or confirmation dialog reports unresolved entries. The command sends only eligible unresolved entries; reviewed and approved entries remain unchanged.",
+    ])
+
+    document.add_heading("8.3 Validate and export the final runtime pack", level=2)
+    add_steps(document, [
+        "Click 4 Validation.",
+        "Click Run Validation.",
+        "If errors are reported, double-click each error, correct the referenced translation or setting, save, and run validation again. Do not export with errors.",
+        "Warnings do not block export. Review warnings about identical source/translation, placeholders, accelerator counts, runtime Translate calls, and suspicious text; document why any accepted warning is safe.",
+        "When the summary reports 0 errors, click 5 Export.",
+        "Click Export Runtime Pack.",
+        "Confirm the runtime entry count and click the blue output path.",
+        "In File Explorer, confirm the final <language>.json exists under the disposable test project's Localization\\Languages folder.",
+        "Open the JSON in a text-safe viewer. Confirm schemaVersion is 3 and confirm a layout array is present when safe layout proposals were accepted.",
+    ])
+
+    document.add_heading("8.4 Refresh the component kit after the final export", level=2)
+    add_steps(document, [
+        "Click 6 Integration.",
+        "Confirm Integration method is Component Integration (Recommended).",
+        "Click Build Integration Plan.",
+        "Confirm the target framework, translated pack count, generated English pack statement, manager class, and selector class are correct.",
+        "Click Generate Component Kit.",
+        "Click Open Kit Folder and confirm the kit was refreshed. This step is important because the kit must contain the same final runtime JSON pack that you just exported.",
+        "Click Show Design BPL and leave File Explorer open with the exact Win32 Release design BPL selected.",
+    ])
+
+    document.add_heading("9. Install the Design Package in RAD Studio", level=1)
+    add_callout(document, "Manual installation is intentional.",
+        "The product does not automatically register a design-time BPL. Manual installation through RAD Studio's approved package dialog avoids changing the IDE behind the developer's back.")
+    add_steps(document, [
+        "Start RAD Studio without opening the target project or target form.",
+        "Choose Component > Install Packages.",
+        "If DAT Language Manager FireMonkey design-time package or the VCL equivalent is already listed and checked, do not add a duplicate. Click OK and continue to the next section.",
+        "Otherwise click Add.",
+        "Browse to the exact BPL selected by Show Design BPL: DATLanguageManagerFMXDesign.bpl for FMX or DATLanguageManagerVCLDesign.bpl for VCL.",
+        "Select the .bpl and click Open. Do not choose a .dpk and do not use Component > Install Component.",
+        "Confirm the DAT design-time package appears in the Design packages list and is checked.",
+        "Click OK.",
+        "Create or open a harmless blank form if necessary and confirm the Tool Palette contains DAT Localization with both the language manager and language combo box.",
+    ])
+
+    document.add_heading("10. Place and Configure the Components", level=1)
+    add_steps(document, [
+        "Open the disposable target project's .dproj in RAD Studio.",
+        "Open the primary form in the Form Designer. If Delphi opened it automatically, simply confirm that the primary form is the active designer.",
+        "From DAT Localization, place one TDATFMXLanguageManager for FMX or TDATVCLLanguageManager for VCL on the primary form.",
+        "Select the manager in the Object Inspector.",
+        "Set ApplicationId to the exact value displayed by the Wizard.",
+        "Leave LanguagesFolder as Localization\\Languages.",
+        "Set SourceLanguage to the source language code used by the Wizard, normally en-US.",
+        "For a clean first-launch test, set AutoLoadPreferred to False. This forces the source language initially. After first-launch behavior passes, set it back to True to test saved-user preference behavior.",
+        "Leave AutoTranslateOwner, AutoTranslateNewForms, ReapplyOpenForms, and PreserveControlState enabled unless this test intentionally exercises another setting.",
+        "Place one TDATFMXLanguageComboBox or TDATVCLLanguageComboBox on the visible primary form. The selector is required unless the application supplies a connected Language menu.",
+        "Select the combo box. In the Object Inspector, set LanguageManager to the manager component you just placed. Do not leave it blank.",
+        "Position and size the combo box where it is visible and does not cover existing controls. Add a normal designer-authored label such as Language: if the application needs one.",
+        "Choose File > Save All. This save is essential; it writes the two designer components and their properties to the form resource and updates the project metadata as required by Delphi.",
+    ])
+    add_callout(document, "One manager, not one per form.",
+        "Place the manager on the primary form only. It observes and translates other open or newly created forms. Ordinary secondary forms do not need another manager component.")
+
+    document.add_heading("11. Verify Search Path and Build Configuration", level=1)
+    add_steps(document, [
+        "Choose Project > Options.",
+        "Select Building > Delphi Compiler > Search path.",
+        "Inspect Value from All configurations. It should contain the generated kit's ComponentSource folder under C:\\New Delphi Projects\\Delphi App Translation\\export\\component-integration\\<ApplicationId>\\ComponentSource.",
+        "Use the Target selector to inspect Debug/Release and Windows 32-bit/64-bit as applicable. The Wizard-created DPROJ block is intended to cover all configurations and platforms.",
+        "If the path is absent, stop. Do not manually invent a different path during this acceptance test; record the missing configuration because the Wizard was supposed to add it.",
+        "Click Cancel in Project Options when no manual change is necessary.",
+    ])
+
+    document.add_heading("12. Build Win32 and Win64", level=1)
+    add_steps(document, [
+        "Select Win32 and Debug in Project Manager, then choose Project > Build <ApplicationId>.",
+        "Confirm the build completes with zero fatal errors.",
+        "Locate the Win32 Debug executable using Project > Options > Building > Delphi Compiler > Output directory if the project uses a nonstandard path.",
+        "Beside the executable, confirm Localization\\Languages exists and contains en-US.json plus the target-language JSON file.",
+        "Repeat for Win64 Debug.",
+        "If release testing is required, repeat for Win32 Release and Win64 Release.",
+        "After every build, verify the executable's own folder contains Localization\\Languages. The project-root Localization folder alone is not sufficient for runtime discovery.",
+    ])
+    add_callout(document, "The .rsm file is normal.",
+        "A Delphi build may create both <ApplicationId>.exe and <ApplicationId>.rsm. The .exe is the application. The .rsm contains debug symbol information and is not a language pack.")
+
+    document.add_heading("12.1 Manual deployment fallback", level=2)
+    add_paragraphs(document, [
+        "Use this only if automatic post-build deployment did not create the language folder. Substitute the actual kit and executable folder paths shown by the Wizard. The command explicitly uses ExecutionPolicy Bypass.",
+    ])
+    add_code(document, [
+        '& "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "C:\\New Delphi Projects\\Delphi App Translation\\export\\component-integration\\<ApplicationId>\\Deploy-LanguagePacks.ps1" -ApplicationDirectory "<Folder containing ApplicationId.exe>"',
+    ])
+    add_paragraphs(document, [
+        "A successful command reports Language packs deployed to <application folder>\\Localization\\Languages. The PowerShell process should exit when the command finishes.",
+    ])
+
+    document.add_heading("12.2 Portable or USB executable", level=2)
+    add_steps(document, [
+        "Copy or build the final executable into the desired portable folder or USB drive.",
+        "Run the fallback deployment command above with -ApplicationDirectory set to the full folder containing the executable, including the drive letter such as F:\\Carillon Portable.",
+        "Confirm <Portable Folder>\\Localization\\Languages contains en-US.json and every target-language JSON file.",
+        "Keep the manager's LanguagesFolder property relative as Localization\\Languages. Do not put F: or another drive letter in the component property.",
+    ])
+
+    document.add_heading("13. Runtime Test - First Launch and Switching", level=1)
+    add_steps(document, [
+        "Confirm the target application is closed.",
+        "Confirm AutoLoadPreferred is False for this first-launch test, or confirm the prior language.ini was renamed as described in Section 3.1.",
+        "Run the Win32 Debug executable directly from its output folder.",
+        "Confirm the application initially displays its source language and the selector shows the source language.",
+        "Open the selector. Confirm it contains the source language plus one item for every deployed valid target pack. Fifteen target packs should produce sixteen choices when the source pack is included.",
+        "Select the target language.",
+        "Confirm visible designer text changes immediately without restarting the application.",
+        "Open each secondary form and visit each page or tab. Confirm forms created after the selection also appear in the active language.",
+        "Return to the primary form and select the source language.",
+        "Confirm source text and original layout values are restored.",
+        "Repeat source-to-target-to-source switching at least ten times. Confirm controls do not grow cumulatively and the application does not lose dates, selections, focus, connection state, or editable values.",
+        "Close the executable.",
+        "Set AutoLoadPreferred back to True in the Object Inspector, Save All, and rebuild the configuration.",
+        "Run the rebuilt executable, select the target language, close it, and run it again.",
+        "Confirm it restores the user's last selected language. This is expected saved-preference behavior, not corruption of the source application.",
+        "Repeat representative switching and restart checks with Win64 Debug and required Release builds.",
+    ])
+
+    document.add_heading("14. Runtime Layout and Content Acceptance", level=1)
+    document.add_heading("14.1 What accepted layout rules should do", level=2)
+    add_checklist(document, [
+        "Accepted Width or Height rules apply only when their target language is active.",
+        "Accepted WordWrap or AutoSize rules apply only to the identified control and language.",
+        "Switching away restores the original property value before another language is applied.",
+        "Repeated language changes do not compound Width or Height.",
+        "No target PAS, FMX, DFM, DPR, or DPROJ form layout is rewritten by a runtime layout rule.",
+    ])
+    document.add_heading("14.2 What still requires human inspection", level=2)
+    add_checklist(document, [
+        "A wider translated control does not overlap its neighbor or leave its parent container.",
+        "Wrapped labels have enough height and remain aligned with related controls.",
+        "Buttons, tabs, menu items, column headers, charts, grids, and status areas remain readable.",
+        "Dynamic text produced by application code uses Translate or FormatTemplate where required.",
+        "The translation is correct in application context, not merely a valid dictionary translation.",
+        "Form titles, secondary forms, help text, and runtime status messages have each been considered separately.",
+    ])
+
+    document.add_heading("15. Diagnose Missing, Random, or Runaway Text", level=1)
+    add_steps(document, [
+        "Record the form, page, control, active language, exact displayed text, and a screenshot.",
+        "Switch to the source language. Determine whether the same bad text exists in the pristine baseline application.",
+        "If the problem exists in the pristine baseline, classify it as a target-application defect rather than a translation defect.",
+        "If the source language is correct but the target language is wrong, search the development catalog for the control key or source text.",
+        "If the entry exists, inspect its source ownership, runtime role, context, translation, and status. Correct the translation or runtime classification as appropriate.",
+        "If the entry does not exist, save all target files, close the target project, reopen it in the Studio, scan again, and record whether the scan count increases.",
+        "For runtime-generated text, verify that the target application uses the manager's Translate or FormatTemplate API with the catalog key. Static form scanning cannot translate arbitrary text assembled later by application code.",
+        "For repeated o characters or other actively growing output, stop the executable. Record whether the source-language run also reproduces it. A JSON translation pack supplies a fixed string; unbounded growth usually indicates an application timer, refresh, append, or data-writing loop and must be isolated separately.",
+        "After any catalog correction, Save, Run Validation, Export Runtime Pack, regenerate the component kit, rebuild/deploy, and retest.",
+    ])
+
+    document.add_heading("16. Procedure After Later UI Changes", level=1)
+    add_callout(document, "Batch changes when practical.",
+        "Add or revise labels, buttons, menus, headings, hints, and resourcestrings in one saved batch when possible. This reduces repeated scans and provider calls, but the same procedure works for one change.")
+    add_steps(document, [
+        "In RAD Studio, make the designer or source changes in the target application.",
+        "Choose File > Save All.",
+        "Close the running target executable.",
+        "Close the target project in RAD Studio before any Wizard final-processing pass.",
+        "Open the project in the Translation Studio.",
+        "Open the existing development catalog before scanning.",
+        "Run Scan Project.",
+        "Confirm new entries are New, revised source text is Source Changed, unchanged completed translations remain preserved, and removed items become Obsolete.",
+        "Run Translate Automatically. Confirm only eligible unresolved/new/changed entries are offered to the provider.",
+        "Review the new translation and any new terminology/layout proposal.",
+        "Save the catalog, run validation, and resolve all errors.",
+        "Export Runtime Pack.",
+        "Regenerate the Component Kit so its Localization folder contains the final pack.",
+        "Build the target; confirm post-build deployment refreshes Localization\\Languages beside the executable.",
+        "Run the target and retest the changed form in the source and target language.",
+    ])
+
+    document.add_heading("17. Adding More Languages", level=1)
+    add_steps(document, [
+        "Keep the same disposable or approved working project and its existing manager/selector components.",
+        "Start the Setup Wizard.",
+        "Select the same project and source language but choose a different target language.",
+        "Use Automatic. It should create a new development catalog for that language while preserving catalogs for other languages.",
+        "Complete Wizard pass one, review terminology and layout for that language, and complete Wizard pass two when decisions were saved.",
+        "Perform final Studio validation/export and regenerate the component kit.",
+        "Build or deploy the packs to every executable folder.",
+        "Run the application. The existing connected selector should discover the new JSON pack automatically; do not add another manager or combo box.",
+        "Test translation, layout, source restoration, and preference behavior separately for the new language.",
+    ])
+
+    document.add_heading("18. Final Completion Checklist", level=1)
+    add_checklist(document, [
+        "Disposable test folder was copied from pristine and the pristine/original folders remained untouched.",
+        "Wizard pass one completed successfully and translated unresolved entries.",
+        "Localization audit, terminology suggestions, glossary, and layout proposals were reviewed.",
+        "Wizard pass two applied saved review decisions.",
+        "Main Studio opened the matching catalog, rescanned, validated with zero errors, and exported the final runtime pack.",
+        "Component kit was regenerated after the final export.",
+        "Correct Win32 Release design BPL was installed through Component > Install Packages > Add.",
+        "One manager and one connected visible selector were placed and saved on the primary form.",
+        "ApplicationId, LanguagesFolder, SourceLanguage, and LanguageManager properties were verified in Object Inspector.",
+        "Search Path contains the generated ComponentSource folder for all required configurations/platforms.",
+        "Win32 and Win64 builds completed.",
+        "Each executable folder contains Localization\\Languages with en-US.json and all target packs.",
+        "First launch used the source language under the controlled test condition.",
+        "Immediate switching, secondary forms, source restoration, repeated switching, and restart preference passed.",
+        "Accepted safe layout rules worked without cumulative growth or unacceptable overlap.",
+        "No missing/random translation or runaway dynamic-text defect remains unexplained.",
+    ])
+
+    document.add_heading("19. What to Send Back After Testing", level=1)
+    add_bullets(document, [
+        "Disposable test-folder path and selected .dproj path.",
+        "Application ID, framework, source language, target language, and provider.",
+        "Pass-one and pass-two scan totals and unresolved counts.",
+        "Wizard completion log or the exact STOPPED message.",
+        "Validation error/warning/information counts.",
+        "Number of glossary terms approved and layout proposals accepted/manual/rejected.",
+        "Whether the final runtime JSON has schemaVersion 3 and a layout array.",
+        "Win32/Win64 build results and exact executable/output folders.",
+        "Contents of each executable's Localization\\Languages folder.",
+        "First-launch language, selector choices, restart language, and ten-cycle switching result.",
+        "Screenshots and exact control/form names for every untranslated, mistranslated, truncated, overlapping, or runaway item.",
+    ])
+
+    document.add_heading("20. Important Stop Conditions", level=1)
+    add_bullets(document, [
+        "Stop if the selected project path is the pristine or original application.",
+        "Stop if Wizard final processing reports STOPPED or validation reports blocking errors.",
+        "Stop if the design package fails to load; do not remove unrelated Delphi packages.",
+        "Stop if the Wizard Search Path is absent rather than masking the defect with an unrelated global path.",
+        "Stop if runtime packs beside the executable do not match the Application ID or selected language.",
+        "Stop a target executable that generates unbounded repeated text; preserve evidence before restarting.",
+        "Do not distribute or publish this pre-release test output as a production localization solution.",
+    ])
+
+    finish_document(document, DOCX_PATH)
+    return DOCX_PATH
+
+
+if __name__ == "__main__":
+    print(build_document())
