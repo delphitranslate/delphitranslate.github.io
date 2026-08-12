@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 
+from PIL import Image, ImageDraw
 from docx import Document
 from docx.enum.section import WD_SECTION
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
@@ -17,7 +19,6 @@ from build_guides import (
     ORANGE,
     PALE_BLUE,
     add_bullets,
-    add_callout,
     add_field,
     add_header_footer,
     add_paragraphs,
@@ -117,24 +118,24 @@ def add_toc(document: Document) -> None:
     contents = [
         ("1. Read This Before Starting", 1),
         ("2. Exact Product Files and Generated Locations", 2),
-        ("3. Prepare a Completely Clean Test", 2),
-        ("4. Start the Setup Wizard", 3),
+        ("3. Prepare a Completely Clean Test", 3),
+        ("4. Start the Setup Wizard", 4),
         ("5. Wizard Pass One - Create the Translation", 4),
         ("6. Review the First-Pass Translation", 7),
-        ("7. Wizard Pass Two - Apply Saved Review Decisions", 7),
-        ("8. Return to the Main Translation Studio", 8),
-        ("9. Install the Design Package in RAD Studio", 10),
-        ("10. Place and Configure the Components", 10),
-        ("11. Verify Search Path and Build Configuration", 11),
-        ("12. Build Win32 and Win64", 11),
-        ("13. Runtime Test - First Launch and Switching", 12),
-        ("14. Runtime Layout and Content Acceptance", 13),
-        ("15. Diagnose Missing, Random, or Runaway Text", 13),
-        ("16. Procedure After Later UI Changes", 14),
-        ("17. Adding More Languages", 15),
-        ("18. Final Completion Checklist", 15),
-        ("19. What to Send Back After Testing", 16),
-        ("20. Important Stop Conditions", 16),
+        ("7. Wizard Pass Two - Apply Saved Review Decisions", 8),
+        ("8. Optional: Return to the Main Translation Studio", 9),
+        ("9. Install the Design Package in RAD Studio", 11),
+        ("10. Place and Configure the Components", 11),
+        ("11. Verify Search Path and Build Configuration", 12),
+        ("12. Build Win32 and Win64", 13),
+        ("13. Runtime Test - First Launch and Switching", 13),
+        ("14. Runtime Layout and Content Acceptance", 14),
+        ("15. Diagnose Missing, Random, or Runaway Text", 15),
+        ("16. Procedure After Later UI Changes", 15),
+        ("17. Adding More Languages", 16),
+        ("18. Final Completion Checklist", 16),
+        ("19. What to Send Back After Testing", 17),
+        ("20. Important Stop Conditions", 17),
     ]
     for index, (heading, page_number) in enumerate(contents):
         if index:
@@ -193,6 +194,70 @@ def add_code(document, lines):
         paragraph.add_run(line)
 
 
+def make_information_icon() -> BytesIO:
+    """Return an original orange information icon for shaded guide notes."""
+    image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((8, 8, 248, 248), fill=(242, 138, 27, 255))
+    draw.ellipse((34, 34, 222, 222), fill=(255, 255, 255, 255))
+    draw.ellipse((106, 60, 150, 104), fill=(0, 0, 0, 255))
+    draw.rounded_rectangle((108, 116, 148, 200), radius=10,
+                           fill=(0, 0, 0, 255))
+    stream = BytesIO()
+    image.save(stream, format="PNG")
+    stream.seek(0)
+    return stream
+
+
+def add_info_callout(document, title, body):
+    table = document.add_table(rows=1, cols=2)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    set_table_geometry(table, [760, 8600])
+    icon_cell, text_cell = table.rows[0].cells
+    for cell in (icon_cell, text_cell):
+        set_cell_shading(cell, PALE_BLUE)
+        cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    icon_paragraph = icon_cell.paragraphs[0]
+    icon_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    icon_paragraph.add_run().add_picture(make_information_icon(),
+                                         width=Inches(0.38))
+    paragraph = text_cell.paragraphs[0]
+    paragraph.paragraph_format.space_after = Pt(0)
+    title_run = paragraph.add_run(title + " ")
+    set_run_font(title_run, 10, INK, bold=True)
+    body_run = paragraph.add_run(body)
+    set_run_font(body_run, 10, INK)
+    document.add_paragraph("")
+
+
+def add_numbered_steps(document, items, start=1):
+    """Add a numbered list that can resume after an intervening callout."""
+    numbering = document.part.numbering_part.element
+    style_num_id = int(document.styles["List Number"].element.pPr.numPr.numId.val)
+    base_number = numbering.xpath(f'./w:num[@w:numId="{style_num_id}"]')[0]
+    abstract_num_id = base_number.find(qn("w:abstractNumId")).get(qn("w:val"))
+    num_ids = [int(element.get(qn("w:numId")))
+               for element in numbering.findall(qn("w:num"))]
+    num_id = max(num_ids, default=0) + 1
+    num = OxmlElement("w:num")
+    num.set(qn("w:numId"), str(num_id))
+    abstract = OxmlElement("w:abstractNumId")
+    abstract.set(qn("w:val"), abstract_num_id)
+    num.append(abstract)
+    level_override = OxmlElement("w:lvlOverride")
+    level_override.set(qn("w:ilvl"), "0")
+    start_override = OxmlElement("w:startOverride")
+    start_override.set(qn("w:val"), str(start))
+    level_override.append(start_override)
+    num.append(level_override)
+    numbering.append(num)
+    for item in items:
+        paragraph = document.add_paragraph(item, style="List Number")
+        num_properties = paragraph._p.get_or_add_pPr().get_or_add_numPr()
+        num_properties.get_or_add_ilvl().val = 0
+        num_properties.get_or_add_numId().val = num_id
+
+
 def add_checklist(document, items):
     for item in items:
         paragraph = document.add_paragraph()
@@ -210,15 +275,15 @@ def build_document() -> Path:
 
     document.add_heading("1. Read This Before Starting", level=1)
     add_paragraphs(document, [
-        "This procedure tests the current pre-release workflow exactly as it exists. The Setup Wizard performs the first project scan, automatic provider translation, validation, JSON export, component-kit generation, Search Path configuration, and language-pack deployment configuration. It does not place components on a Delphi form; that remains a normal RAD Studio Form Designer operation.",
-        "The current workflow requires two Wizard passes when layout or project-glossary decisions are made after the first translation. The first pass creates the translated catalog and its review proposals. The developer reviews those proposals. The second pass, Update Existing Translation, applies the saved glossary, embeds accepted layout rules in the runtime JSON, and refreshes the generated component kit. This guide never hides that second pass.",
-        "After the Wizard passes, the main Studio is used to inspect the exact development catalog, make any necessary text correction, perform final validation, export the final runtime pack, and refresh the component kit. RAD Studio is then used to install the design package, place the manager and selector, build the target, and test runtime behavior.",
+        "The Setup Wizard performs the first project scan, automatic provider translation, validation, JSON export, component-kit generation, Search Path configuration, and language-pack deployment configuration. It does not place components on a Delphi form; that remains a normal RAD Studio Form Designer operation.",
+        "The current workflow requires two Wizard passes when layout or project-glossary decisions are made after the first translation. The first pass creates the translated catalog and its review proposals. The developer reviews those proposals. The second pass, Update Existing Translation, applies the saved glossary, embeds accepted layout rules in the runtime JSON, and refreshes the generated component kit.",
+        "After the two Wizard passes, the main Studio may be used to inspect the exact development catalog, make any necessary text correction, perform final validation, export the final runtime pack, and refresh the component kit. RAD Studio is then used to install the design package, place the manager and selector, build the target, and test runtime behavior.",
     ])
-    add_callout(document, "Do not use an original project.",
+    add_info_callout(document, "Do not use an original project.",
         "Create a new disposable test folder from the pristine copy. Keep the pristine folder and the original application untouched. The Wizard creates its own ZIP and DPROJ transaction backups, but those are additional safeguards, not substitutes for the pristine copy.")
-    add_callout(document, "Current automatic-layout boundary.",
+    add_info_callout(document, "Current automatic-layout boundary.",
         "The runtime can apply accepted, checksum-backed Width, Height, WordWrap, and AutoSize rules from a language pack. It does not automatically move neighboring controls, redesign a form, change fonts, or guarantee that a wider control will not overlap another control. Any proposal left Pending, Rejected, or Manual is not applied automatically.")
-    add_callout(document, "Current glossary boundary.",
+    add_info_callout(document, "Current glossary boundary.",
         "An empty Project Glossary is normal before terms are approved. Built-in computer-interface terminology still operates. Catalog-derived suggestions appear after translations exist; only approved project terms become authoritative for that project and language.")
 
     document.add_heading("1.1 What this test should prove", level=2)
@@ -231,7 +296,7 @@ def build_document() -> Path:
         "The target project contains only intentional designer changes plus the marked DPROJ configuration block.",
         "Win32 and Win64 builds receive the correct Localization\\Languages folder.",
         "The target starts in the expected language, switches immediately, restores layout on switching back, and remembers the user's choice after restart.",
-        "Dynamic application text does not produce runaway text such as repeated o characters.",
+        "Dynamic application text does not produce repeated characters.",
     ])
 
     document.add_heading("2. Exact Product Files and Generated Locations", level=1)
@@ -248,8 +313,8 @@ def build_document() -> Path:
         ["Saved language preference", r"%LOCALAPPDATA%\<ApplicationId>\language.ini"],
         ["Wizard safety backup", r"%USERPROFILE%\Documents\Delphi App Translation Backups\<ApplicationId>\<timestamp>.zip"],
     ], [2550, 6810], 8.8)
-    add_callout(document, "Application ID means project name, not folder name.",
-        "For C:\\...\\Carillon.dproj the detected ApplicationId is Carillon. Always use the exact Application ID displayed by the Wizard; do not type the full path and do not include .dproj or .exe.")
+    add_info_callout(document, "Application ID means project name, not folder name.",
+        "For C:\\...\\ExampleApp.dproj the detected ApplicationId is ExampleApp. Always use the exact Application ID displayed by the Wizard; do not type the full path and do not include .dproj or .exe.")
 
     document.add_heading("3. Prepare a Completely Clean Test", level=1)
     add_steps(document, [
@@ -264,10 +329,10 @@ def build_document() -> Path:
         "Open every important form or page and confirm that the pristine application itself does not already contain mixed-language or runaway dynamic text.",
         "Close the baseline executable. Choose File > Close All in RAD Studio so the target project is closed before Wizard final processing.",
     ])
-    add_callout(document, "No Git requirement.",
+    add_info_callout(document, "No Git requirement.",
         "Git is useful evidence but is not required. A pristine copy plus a fresh disposable test copy is an accepted safety baseline. If Git is available, record git status --short now; it should be empty.")
 
-    document.add_heading("3.1 Clear a previous saved-language preference", level=2)
+    document.add_heading("3.1 Important: Clear a Previous Saved-Language Preference", level=2)
     add_paragraphs(document, [
         "A new project folder does not clear the per-user language preference because that file lives under Local AppData. If the same ApplicationId was tested previously, the new executable may immediately restore Spanish or another language even though the project folder is new.",
     ])
@@ -317,34 +382,46 @@ def build_document() -> Path:
         "Review the date, time, decimal, thousands, and currency values. These locale settings are stored in the JSON pack; correct only values you deliberately want the target application to use.",
         "Confirm Automatic still reports Create a new translation, then click Next.",
     ])
-    add_callout(document, "One target language per Wizard run.",
-        "To deliver 15 languages, repeat the create/update workflow for each target language. The runtime selector later lists the source-language pack and every valid target-language JSON pack deployed beside that executable.")
+    add_info_callout(document, "One target language per Wizard run.",
+        "To add more languages, repeat the create/update workflow for each target language. The runtime selector later lists the source-language pack and every valid target-language JSON pack deployed beside that executable.")
 
     document.add_heading("5.4 Step 4 - Translation Service", level=2)
     add_steps(document, [
         "Choose Google Cloud Translation or DeepL.",
         "For DeepL, choose API Free or API Pro to match the account. Google does not use the DeepL plan field.",
         "If the provider key is already stored in Windows Credential Manager, leave the API key field blank and verify that the status reports a stored key.",
-        "Otherwise paste the API key into the masked field.",
+        "If no key is stored, paste the API key into the masked field.",
         "Leave Remember securely on this computer checked to store the key in Windows Credential Manager. Uncheck it only for a session-only key.",
         "Click Save / Replace Key when a new key was entered.",
         "Click Test Connection.",
         "Do not continue until the status explicitly reports that the connection test passed.",
         "Click Next.",
     ])
-    add_callout(document, "The target application remains offline.",
+    add_info_callout(document, "The target application remains offline.",
         "Only the developer's Studio uses the provider and API key. The deployed target application reads local JSON packs and does not need the Internet or the API key.")
 
     document.add_heading("5.5 Step 5 - Scan Project", level=2)
-    add_steps(document, [
+    add_numbered_steps(document, [
         "Click Scan Project.",
         "Wait for Scan complete. Do not click Next while the scan is running.",
         "Record the total translatable entries and the new/changed/unchanged/obsolete counts.",
         "Scroll through representative items. Confirm form text and resourcestring entries belong to the selected project.",
         "Look specifically for suspicious repeated characters, data values, paths, filenames, URLs, IDs, or logging output. These should be protected or reviewed rather than translated as normal interface text.",
-        "If you edit or save any target PAS, FMX, DFM, DPR, or DPROJ file after this scan, return to this step and scan again before final processing.",
-        "The Localization Review button is available, but the richest terminology suggestions and layout proposals do not exist until translations have been created. For the ordinary first test, continue with Next.",
     ])
+    add_matrix(document, ["Record", "Value observed", "Notes"], [
+        ["Scan date and time", "", ""],
+        ["Disposable test-project path", "", ""],
+        ["Application ID", "", ""],
+        ["Source and target languages", "", ""],
+        ["Total translatable entries", "", ""],
+        ["New / changed / unchanged / obsolete", "", ""],
+        ["Suspicious or excluded text noted", "", ""],
+    ], [3150, 2450, 3760], 8.6)
+    add_info_callout(document, "Rescan after source changes.",
+        "If you edit or save any target PAS, FMX, DFM, DPR, or DPROJ file after this scan, return to this step and scan again before final processing.")
+    add_numbered_steps(document, [
+        "The Localization Review button is available, but the richest terminology suggestions and layout proposals do not exist until translations have been created. For the ordinary first test, continue with Next.",
+    ], start=6)
 
     document.add_heading("5.6 Step 6 - Delphi Component", level=2)
     add_steps(document, [
@@ -352,7 +429,7 @@ def build_document() -> Path:
         "Confirm the instructions show the correct target project path and exact Application ID.",
         "Click Show Design BPL. File Explorer should select DATLanguageManagerFMXDesign.bpl for an FMX target or DATLanguageManagerVCLDesign.bpl for a VCL target under bin\\packages\\Win32\\Release.",
         "Do not use Delphi's Install Component wizard. Do not select a .dpk. The later approved procedure is Component > Install Packages > Add and selection of the compiled design BPL.",
-        "Return to the Wizard.",
+        "Close File Explorer and return to the Setup Wizard.",
         "Check Required: I understand the remaining manual RAD Studio phase.",
         "Confirm the orange reminder changes to a confirmation message.",
         "Click Next.",
@@ -375,12 +452,12 @@ def build_document() -> Path:
         "Confirm a timestamped ZIP backup was created.",
         "Confirm unresolved entries were translated by the selected provider or resolved by terminology/translation memory.",
         "Confirm Development catalog saved appears.",
-        "Confirm localization review, layout proposal, and multilingual layout envelope paths were generated.",
+        "Confirm the progress log lists the localization review, layout proposal, and multilingual layout envelope paths. In File Explorer, open C:\\New Delphi Projects\\Delphi App Translation\\export\\localization-review\\<ApplicationId>\\<language> and verify that localization-review.html, layout-proposal.json, and multilingual-layout-envelope.json exist and are not zero bytes.",
         "Confirm validation passed. Warnings may remain; blocking errors must not remain.",
         "Confirm Runtime JSON pack exported appears with a path under the disposable test project's Localization\\Languages folder.",
         "Confirm Component integration kit generated appears.",
         "Confirm Project Search Path and automatic post-build deployment configured appears.",
-        "Confirm the footer says Setup Wizard completed successfully. If it says stopped, do not continue to RAD Studio; record the complete STOPPED line and stop this test.",
+        "Confirm the footer says Setup Wizard completed successfully. If it says stopped, do not continue to RAD Studio. Copy or photograph the entire progress log and footer message, close the Wizard only after processing has stopped safely, preserve the Wizard ZIP backup and disposable test folder, and send the exact STOPPED text and screenshots to the development team. Resume only after the cause is corrected and new test instructions are provided.",
         "Click the blue component-kit path or Open Kit Folder. Confirm ComponentSource, Localization, component-integration.json, Deploy-LanguagePacks.ps1, README.txt, and Wizard-Completion-Report.txt exist.",
         "Leave the Wizard open for the next review step. Do not click Finish yet.",
     ])
@@ -401,7 +478,7 @@ def build_document() -> Path:
         "Click Close to return to the Wizard.",
         "Click Finish to close Wizard pass one and return to the Studio main form.",
     ])
-    add_callout(document, "Why pass two is required.",
+    add_info_callout(document, "Why pass two is required.",
         "The first runtime pack was exported before these review decisions were made. The next Wizard update applies the saved project glossary and embeds accepted safe layout rules into a newly exported runtime pack.")
 
     document.add_heading("7. Wizard Pass Two - Apply Saved Review Decisions", level=1)
@@ -422,9 +499,10 @@ def build_document() -> Path:
         "Close Localization Review and click Finish.",
     ])
 
-    document.add_heading("8. Return to the Main Translation Studio", level=1)
+    document.add_heading("8. Optional: Return to the Main Translation Studio", level=1)
     add_paragraphs(document, [
-        "The Wizard has already translated and exported the project. The main Studio is now used for final inspection, corrections, validation, and a final export. Do not start a second translation from scratch.",
+        "The two Wizard passes have already translated, validated, exported, and refreshed the project. If pass two completed successfully, validation reported no errors, and no translation, glossary, locale, or layout correction is needed, Section 8 is optional. You may stop using the Translation Studio here and proceed directly to Section 9 for the required RAD Studio installation and component-placement work.",
+        "Use Section 8 when you want detailed catalog inspection, a manual translation correction, another validation report, or a final runtime-pack and component-kit refresh. Do not start a second translation from scratch. Any correction made here must be saved, validated, exported, and followed by the component-kit refresh in Section 8.4 before continuing to RAD Studio.",
     ])
     document.add_heading("8.1 Open the matching project and catalog", level=2)
     add_steps(document, [
@@ -474,7 +552,7 @@ def build_document() -> Path:
     ])
 
     document.add_heading("9. Install the Design Package in RAD Studio", level=1)
-    add_callout(document, "Manual installation is intentional.",
+    add_info_callout(document, "Manual installation is intentional.",
         "The product does not automatically register a design-time BPL. Manual installation through RAD Studio's approved package dialog avoids changing the IDE behind the developer's back.")
     add_steps(document, [
         "Start RAD Studio without opening the target project or target form.",
@@ -504,7 +582,7 @@ def build_document() -> Path:
         "Position and size the combo box where it is visible and does not cover existing controls. Add a normal designer-authored label such as Language: if the application needs one.",
         "Choose File > Save All. This save is essential; it writes the two designer components and their properties to the form resource and updates the project metadata as required by Delphi.",
     ])
-    add_callout(document, "One manager, not one per form.",
+    add_info_callout(document, "One manager, not one per form.",
         "Place the manager on the primary form only. It observes and translates other open or newly created forms. Ordinary secondary forms do not need another manager component.")
 
     document.add_heading("11. Verify Search Path and Build Configuration", level=1)
@@ -527,7 +605,7 @@ def build_document() -> Path:
         "If release testing is required, repeat for Win32 Release and Win64 Release.",
         "After every build, verify the executable's own folder contains Localization\\Languages. The project-root Localization folder alone is not sufficient for runtime discovery.",
     ])
-    add_callout(document, "The .rsm file is normal.",
+    add_info_callout(document, "The .rsm file is normal.",
         "A Delphi build may create both <ApplicationId>.exe and <ApplicationId>.rsm. The .exe is the application. The .rsm contains debug symbol information and is not a language pack.")
 
     document.add_heading("12.1 Manual deployment fallback", level=2)
@@ -544,7 +622,7 @@ def build_document() -> Path:
     document.add_heading("12.2 Portable or USB executable", level=2)
     add_steps(document, [
         "Copy or build the final executable into the desired portable folder or USB drive.",
-        "Run the fallback deployment command above with -ApplicationDirectory set to the full folder containing the executable, including the drive letter such as F:\\Carillon Portable.",
+        "Run the fallback deployment command above with -ApplicationDirectory set to the full folder containing the executable, including the drive letter such as F:\\PortableApp.",
         "Confirm <Portable Folder>\\Localization\\Languages contains en-US.json and every target-language JSON file.",
         "Keep the manager's LanguagesFolder property relative as Localization\\Languages. Do not put F: or another drive letter in the component property.",
     ])
@@ -602,7 +680,7 @@ def build_document() -> Path:
     ])
 
     document.add_heading("16. Procedure After Later UI Changes", level=1)
-    add_callout(document, "Batch changes when practical.",
+    add_info_callout(document, "Batch changes when practical.",
         "Add or revise labels, buttons, menus, headings, hints, and resourcestrings in one saved batch when possible. This reduces repeated scans and provider calls, but the same procedure works for one change.")
     add_steps(document, [
         "In RAD Studio, make the designer or source changes in the target application.",
