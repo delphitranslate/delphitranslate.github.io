@@ -2498,7 +2498,12 @@ begin
 
     RuntimeFileName := TTranslationWorkspace.RuntimePackFileName(
       FProjectProfile, FTranslationCatalog.Locale.LanguageCode);
-    TRuntimePackBuilder.ExportToFile(FTranslationCatalog, RuntimeFileName);
+    TRuntimePackBuilder.ExportToFile(FTranslationCatalog, RuntimeFileName,
+      TPath.Combine(FindStudioProjectRoot,
+        TPath.Combine('export\localization-review',
+          TPath.Combine(FProjectProfile.ProjectName,
+            TPath.Combine(FTranslationCatalog.Locale.LanguageCode,
+              'layout-proposal.json')))));
     lblExportPathValue.Text := RuntimeFileName;
     RuntimeEntryCount := 0;
     for Entry in FTranslationCatalog.Entries do

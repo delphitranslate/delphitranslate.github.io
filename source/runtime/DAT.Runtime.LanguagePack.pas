@@ -30,6 +30,23 @@ type
     property CurrencySymbol: string read FCurrencySymbol write FCurrencySymbol;
   end;
 
+  TRuntimeLayoutRule = class
+  private
+    FFormName: string;
+    FComponentName: string;
+    FPropertyName: string;
+    FOriginalValue: string;
+    FTranslatedValue: string;
+    FSourceChecksum: string;
+  public
+    property FormName: string read FFormName write FFormName;
+    property ComponentName: string read FComponentName write FComponentName;
+    property PropertyName: string read FPropertyName write FPropertyName;
+    property OriginalValue: string read FOriginalValue write FOriginalValue;
+    property TranslatedValue: string read FTranslatedValue write FTranslatedValue;
+    property SourceChecksum: string read FSourceChecksum write FSourceChecksum;
+  end;
+
   TRuntimeLanguagePack = class
   private
     FSchemaVersion: Integer;
@@ -47,6 +64,7 @@ type
     FSources: TDictionary<string, string>;
     FSourceStrings: TDictionary<string, string>;
     FSourceTemplates: TDictionary<string, string>;
+    FLayoutRules: TObjectList<TRuntimeLayoutRule>;
   public
     constructor Create;
     destructor Destroy; override;
@@ -81,6 +99,7 @@ type
     property Sources: TDictionary<string, string> read FSources;
     property SourceStrings: TDictionary<string, string> read FSourceStrings;
     property SourceTemplates: TDictionary<string, string> read FSourceTemplates;
+    property LayoutRules: TObjectList<TRuntimeLayoutRule> read FLayoutRules;
   end;
 
   TLanguagePackDescriptor = class
@@ -254,10 +273,12 @@ begin
   FSources := TDictionary<string, string>.Create;
   FSourceStrings := TDictionary<string, string>.Create;
   FSourceTemplates := TDictionary<string, string>.Create;
+  FLayoutRules := TObjectList<TRuntimeLayoutRule>.Create(True);
 end;
 
 destructor TRuntimeLanguagePack.Destroy;
 begin
+  FLayoutRules.Free;
   FSourceTemplates.Free;
   FSourceStrings.Free;
   FSources.Free;
@@ -271,6 +292,10 @@ class function TRuntimeLanguagePack.LoadFromJson(
   const AJsonText: string): TRuntimeLanguagePack;
 var
   JsonPair: TJSONPair;
+  LayoutArray: TJSONArray;
+  LayoutItem: TJSONValue;
+  LayoutObject: TJSONObject;
+  LayoutRule: TRuntimeLayoutRule;
   JsonRoot: TJSONObject;
   JsonValue: TJSONValue;
   LanguageObject: TJSONObject;
@@ -294,7 +319,7 @@ begin
     Result := TRuntimeLanguagePack.Create;
     try
       Result.FSchemaVersion := JsonRoot.GetValue<Integer>('schemaVersion', 0);
-      if not (Result.FSchemaVersion in [1, 2]) then
+      if not (Result.FSchemaVersion in [1, 2, 3]) then
         raise ELanguagePackError.CreateFmt(
           'Runtime language-pack schema %d is not supported.',
           [Result.FSchemaVersion]);
@@ -352,6 +377,26 @@ begin
         for JsonPair in SourceTemplatesObject do
           Result.FSourceTemplates.AddOrSetValue(JsonPair.JsonString.Value,
             JsonPair.JsonValue.Value);
+      LayoutArray := JsonRoot.GetValue('layout') as TJSONArray;
+      if LayoutArray <> nil then
+        for LayoutItem in LayoutArray do
+          if LayoutItem is TJSONObject then
+          begin
+            LayoutObject := TJSONObject(LayoutItem);
+            LayoutRule := TRuntimeLayoutRule.Create;
+            LayoutRule.FormName := JsonString(LayoutObject, 'formName', True);
+            LayoutRule.ComponentName := JsonString(LayoutObject,
+              'componentName', True);
+            LayoutRule.PropertyName := JsonString(LayoutObject,
+              'propertyName', True);
+            LayoutRule.OriginalValue := JsonString(LayoutObject,
+              'originalValue', True);
+            LayoutRule.TranslatedValue := JsonString(LayoutObject,
+              'translatedValue', True);
+            LayoutRule.SourceChecksum := JsonString(LayoutObject,
+              'sourceChecksum', True);
+            Result.FLayoutRules.Add(LayoutRule);
+          end;
     except
       Result.Free;
       raise;

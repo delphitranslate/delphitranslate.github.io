@@ -14,9 +14,13 @@ type
     class function SourceCatalogChecksum(
       const ACatalog: TTranslationCatalog): string; static;
   public
-    class function Serialize(const ACatalog: TTranslationCatalog): string; static;
+    class function Serialize(const ACatalog: TTranslationCatalog): string; overload; static;
+    class function Serialize(const ACatalog: TTranslationCatalog;
+      const ALayoutProposalFileName: string): string; overload; static;
     class procedure ExportToFile(const ACatalog: TTranslationCatalog;
-      const AFileName: string); static;
+      const AFileName: string); overload; static;
+    class procedure ExportToFile(const ACatalog: TTranslationCatalog;
+      const AFileName, ALayoutProposalFileName: string); overload; static;
   end;
 
 implementation
@@ -46,6 +50,13 @@ end;
 
 class function TRuntimePackBuilder.Serialize(
   const ACatalog: TTranslationCatalog): string;
+begin
+  Result := Serialize(ACatalog, '');
+end;
+
+class function TRuntimePackBuilder.Serialize(
+  const ACatalog: TTranslationCatalog;
+  const ALayoutProposalFileName: string): string;
 var
   Entry: TTranslationEntry;
   LanguageObject: TJSONObject;
@@ -61,6 +72,16 @@ var
   ExistingText: string;
   SourceText: string;
   ValidationResult: TCatalogValidationResult;
+  LayoutRootValue: TJSONValue;
+  LayoutRoot: TJSONObject;
+  LayoutItems: TJSONArray;
+  LayoutItemValue: TJSONValue;
+  LayoutItem: TJSONObject;
+  LayoutArray: TJSONArray;
+  RuntimeLayoutItem: TJSONObject;
+  ProposalApplicationId: string;
+  ProposalLanguageCode: string;
+  PropertyName: string;
 begin
   ValidationResult := TCatalogValidator.Validate(ACatalog);
   try
@@ -74,7 +95,7 @@ begin
 
   Root := TJSONObject.Create;
   try
-    Root.AddPair('schemaVersion', TJSONNumber.Create(2));
+    Root.AddPair('schemaVersion', TJSONNumber.Create(3));
     Root.AddPair('applicationId', ACatalog.ApplicationId);
     Root.AddPair('applicationVersion', ACatalog.ApplicationVersion);
     Root.AddPair('framework', TargetFrameworkToString(ACatalog.Framework));
@@ -166,6 +187,65 @@ begin
     Root.AddPair('sourceTemplates', SourceTemplatesObject);
     Root.AddPair('sources', SourcesObject);
 
+    LayoutArray := TJSONArray.Create;
+    if (Trim(ALayoutProposalFileName) <> '') and
+      TFile.Exists(ALayoutProposalFileName) then
+    begin
+      LayoutRootValue := TJSONObject.ParseJSONValue(
+        TFile.ReadAllText(ALayoutProposalFileName, TEncoding.UTF8));
+      try
+        if not (LayoutRootValue is TJSONObject) then
+          raise ERuntimePackError.Create(
+            'The layout proposal file root must be a JSON object.');
+        LayoutRoot := TJSONObject(LayoutRootValue);
+        ProposalApplicationId := LayoutRoot.GetValue<string>(
+          'applicationId', '');
+        ProposalLanguageCode := LayoutRoot.GetValue<string>(
+          'languageCode', '');
+        if not SameText(ProposalApplicationId, ACatalog.ApplicationId) then
+          raise ERuntimePackError.Create(
+            'The layout proposal belongs to a different application.');
+        if not SameText(ProposalLanguageCode,
+          ACatalog.Locale.LanguageCode) then
+          raise ERuntimePackError.Create(
+            'The layout proposal belongs to a different language.');
+        LayoutItems := LayoutRoot.GetValue('proposals') as TJSONArray;
+        if LayoutItems <> nil then
+          for LayoutItemValue in LayoutItems do
+            if LayoutItemValue is TJSONObject then
+            begin
+              LayoutItem := TJSONObject(LayoutItemValue);
+              if not SameText(LayoutItem.GetValue<string>(
+                'decision', 'pending'), 'accepted') then
+                Continue;
+              PropertyName := LayoutItem.GetValue<string>('propertyName', '');
+              if not (SameText(PropertyName, 'Width') or
+                SameText(PropertyName, 'Height') or
+                SameText(PropertyName, 'WordWrap') or
+                SameText(PropertyName, 'AutoSize')) then
+                Continue;
+              if Trim(LayoutItem.GetValue<string>('sourceChecksum', '')) = '' then
+                Continue;
+              RuntimeLayoutItem := TJSONObject.Create;
+              RuntimeLayoutItem.AddPair('formName',
+                LayoutItem.GetValue<string>('formName', ''));
+              RuntimeLayoutItem.AddPair('componentName',
+                LayoutItem.GetValue<string>('componentName', ''));
+              RuntimeLayoutItem.AddPair('propertyName', PropertyName);
+              RuntimeLayoutItem.AddPair('originalValue',
+                LayoutItem.GetValue<string>('currentValue', ''));
+              RuntimeLayoutItem.AddPair('translatedValue',
+                LayoutItem.GetValue<string>('proposedValue', ''));
+              RuntimeLayoutItem.AddPair('sourceChecksum',
+                LayoutItem.GetValue<string>('sourceChecksum', ''));
+              LayoutArray.AddElement(RuntimeLayoutItem);
+            end;
+      finally
+        LayoutRootValue.Free;
+      end;
+    end;
+    Root.AddPair('layout', LayoutArray);
+
     Result := Root.ToJSON;
   finally
     Root.Free;
@@ -174,13 +254,21 @@ end;
 
 class procedure TRuntimePackBuilder.ExportToFile(
   const ACatalog: TTranslationCatalog; const AFileName: string);
+begin
+  ExportToFile(ACatalog, AFileName, '');
+end;
+
+class procedure TRuntimePackBuilder.ExportToFile(
+  const ACatalog: TTranslationCatalog; const AFileName,
+  ALayoutProposalFileName: string);
 var
   DirectoryName: string;
 begin
   DirectoryName := TPath.GetDirectoryName(AFileName);
   if DirectoryName <> '' then
     TDirectory.CreateDirectory(DirectoryName);
-  TFile.WriteAllText(AFileName, Serialize(ACatalog), TEncoding.UTF8);
+  TFile.WriteAllText(AFileName,
+    Serialize(ACatalog, ALayoutProposalFileName), TEncoding.UTF8);
 end;
 
 end.

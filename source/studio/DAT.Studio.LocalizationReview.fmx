@@ -418,6 +418,24 @@ object frmLocalizationReview: TfrmLocalizationReview
           Text = 'Save'
           OnClick = btnSaveDecisionClick
         end
+        object btnAcceptSafeAll: TButton
+          Position.X = 18.000000000000000000
+          Position.Y = 424.000000000000000000
+          Size.Width = 190.000000000000000000
+          Size.Height = 42.000000000000000000
+          Size.PlatformDefault = False
+          Text = 'Accept All Safe Proposals'
+          OnClick = btnAcceptSafeAllClick
+        end
+        object btnResetPending: TButton
+          Position.X = 220.000000000000000000
+          Position.Y = 424.000000000000000000
+          Size.Width = 160.000000000000000000
+          Size.Height = 42.000000000000000000
+          Size.PlatformDefault = False
+          Text = 'Reset All to Pending'
+          OnClick = btnResetPendingClick
+        end
       end
     end
     object lblStatus: TLabel

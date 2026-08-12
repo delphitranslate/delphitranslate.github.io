@@ -105,6 +105,9 @@ type
     function ApplyLanguagePack(const AManagedObject: TObject;
       const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; virtual; abstract;
+    function RestoreLanguageLayout(const AManagedObject: TObject;
+      const APack: TRuntimeLanguagePack;
+      const AFormIdentity: string): Integer; virtual; abstract;
     procedure CollectOpenManagedObjects(
       const AObjects: TList<TObject>); virtual; abstract;
     procedure NotifyMissingTranslation(const AFormIdentity, AKey,
@@ -607,8 +610,13 @@ var
   CandidateLanguage: string;
   LoadedLanguage: Boolean;
   OldLanguage: string;
+  ManagedObject: TObject;
+  ManagedObjects: TList<TObject>;
+  FormIdentity: string;
+  InstanceName: string;
 begin
   Result := False;
+  ManagedObjects := nil;
   CheckMainThread;
   if not FInitialized then
     if not Initialize then
@@ -630,6 +638,19 @@ begin
   FSelectingLanguage := True;
   try
     try
+      if FRuntime.ActivePack <> nil then
+      begin
+        ManagedObjects := TList<TObject>.Create;
+        CollectOpenManagedObjects(ManagedObjects);
+        for ManagedObject in ManagedObjects do
+        begin
+          InstanceName := ManagedObjectInstanceName(ManagedObject);
+          FormIdentity := ResolveFormIdentity(ManagedObject, InstanceName);
+          if not IsExcluded(ManagedObject, FormIdentity, InstanceName) then
+            RestoreLanguageLayout(ManagedObject, FRuntime.ActivePack,
+              FormIdentity);
+        end;
+      end;
       LoadedLanguage := FRuntime.LoadLanguage(CandidateLanguage);
       if not LoadedLanguage then
       begin
@@ -640,7 +661,20 @@ begin
               LoadedLanguage := FRuntime.LoadLanguage(CandidateLanguage);
             end;
           mpKeepCurrentLanguage:
-            Exit(False);
+            begin
+              if ManagedObjects <> nil then
+                for ManagedObject in ManagedObjects do
+                begin
+                  InstanceName := ManagedObjectInstanceName(ManagedObject);
+                  FormIdentity := ResolveFormIdentity(ManagedObject,
+                    InstanceName);
+                  if not IsExcluded(ManagedObject, FormIdentity,
+                    InstanceName) then
+                    ApplyLanguagePack(ManagedObject, FRuntime.ActivePack,
+                      FormIdentity);
+                end;
+              Exit(False);
+            end;
           mpRaiseError:
             raise EDATLanguageManagerError.CreateFmt(
               'Language pack "%s" was not found.', [CandidateLanguage]);
@@ -661,10 +695,13 @@ begin
       Result := True;
     except
       on E: Exception do
+      begin
         if not HandleFailure('SelectLanguage(' + CandidateLanguage + ')', E) then
           raise;
+      end;
     end;
   finally
+    ManagedObjects.Free;
     FSelectingLanguage := False;
   end;
 end;

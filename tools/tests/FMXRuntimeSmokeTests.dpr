@@ -23,7 +23,7 @@ end;
 function TestPack: TRuntimeLanguagePack;
 const
   JsonText =
-    '{"schemaVersion":2,"applicationId":"SampleFMXApp",' +
+    '{"schemaVersion":3,"applicationId":"SampleFMXApp",' +
     '"applicationVersion":"1.0","framework":"FireMonkey",' +
     '"sourceLanguage":"en-US","sourceCatalogChecksum":"test",' +
     '"language":{"code":"de-DE","nativeName":"Deutsch","direction":"ltr"},' +
@@ -47,7 +47,10 @@ const
     '"frmFMXSample.memInstructions.Lines.Strings.1":"Zweite Zeile"},' +
     '"sourceStrings":{"Close":"Schlie' + #$00DF + 'en"},' +
     '"sourceTemplates":{"Uptime: %d years":"Laufzeit: %d Jahre"},' +
-    '"sources":{}}';
+    '"sources":{},"layout":[{"formName":"frmFMXSample",' +
+    '"componentName":"lblHeading","propertyName":"Width",' +
+    '"originalValue":"360","translatedValue":"480",' +
+    '"sourceChecksum":"layout-test"}]}';
 begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
@@ -78,11 +81,18 @@ begin
     try
       AppliedCount := TFMXTranslationApplicator.ApplyToForm(
         frmFMXSample, Pack);
-      Require(AppliedCount = 17, 'Unexpected FMX applied-property count.');
+      Require(AppliedCount = 18, 'Unexpected FMX applied-property count.');
       Require(frmFMXSample.Caption = 'FMX Beispiel',
         'The FMX form caption was not translated.');
       Require(frmFMXSample.lblHeading.Text = 'Kundendaten',
         'The FMX label was not translated.');
+      Require(Round(frmFMXSample.lblHeading.Width) = 480,
+        'The FMX translated-language layout rule was not applied.');
+      Require(TFMXTranslationApplicator.ApplyLayoutToForm(frmFMXSample,
+        Pack, 'frmFMXSample', False) = 1,
+        'The FMX source-layout restore rule was not applied.');
+      Require(Round(frmFMXSample.lblHeading.Width) = 360,
+        'The FMX source layout was not restored.');
       Require(frmFMXSample.mnuLanguage.Text = 'Sprache',
         'The FMX menu was not translated.');
       Require(frmFMXSample.cmbDateRange.ItemIndex = 2,

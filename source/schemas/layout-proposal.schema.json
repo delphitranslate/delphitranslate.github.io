@@ -1,14 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://tmartindub.github.io/delphi-app-translation/schemas/layout-proposal.schema.json",
-  "title": "Delphi App Translation advisory layout proposal",
+  "title": "Delphi App Translation runtime layout proposal",
   "type": "object",
   "required": ["schemaVersion", "applicationId", "languageCode", "advisoryOnly", "targetSourceModified", "proposals"],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "enum": [1, 2] },
     "applicationId": { "type": "string" },
     "languageCode": { "type": "string" },
-    "advisoryOnly": { "const": true },
+    "advisoryOnly": { "type": "boolean" },
+    "runtimeApplication": { "type": "string" },
+    "acceptedSafeCount": { "type": "integer", "minimum": 0 },
     "targetSourceModified": { "const": false },
     "proposals": {
       "type": "array",
@@ -24,6 +26,7 @@
           "rationale": { "type": "string" },
           "decision": { "enum": ["pending", "accepted", "rejected", "manual"] },
           "sourceChecksum": { "type": "string", "minLength": 1 }
+          ,"runtimeEligible": { "type": "boolean" }
         },
         "additionalProperties": false
       }

@@ -1284,7 +1284,8 @@ begin
     end;
     RuntimePackFileName := TTranslationWorkspace.RuntimePackFileName(
       FProjectProfile, FCatalog.Locale.LanguageCode);
-    TRuntimePackBuilder.ExportToFile(FCatalog, RuntimePackFileName);
+    TRuntimePackBuilder.ExportToFile(FCatalog, RuntimePackFileName,
+      TPath.Combine(FReviewOutputDirectory, 'layout-proposal.json'));
     AddProgress('Runtime JSON pack exported: ' + RuntimePackFileName);
     FKitDirectory := TComponentIntegrationPackageGenerator.Generate(
       FProjectProfile, TPath.Combine(FindStudioRoot,

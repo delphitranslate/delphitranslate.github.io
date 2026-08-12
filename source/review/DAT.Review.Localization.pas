@@ -623,16 +623,20 @@ var
   Root, Item: TJSONObject;
   Items: TJSONArray;
   Proposal: TLayoutProposal;
+  AcceptedSafeCount: Integer;
 begin
   if AReview = nil then Exit;
   Root := TJSONObject.Create;
   try
-    Root.AddPair('schemaVersion', TJSONNumber.Create(1));
+    Root.AddPair('schemaVersion', TJSONNumber.Create(2));
     Root.AddPair('applicationId', AReview.ApplicationId);
     Root.AddPair('languageCode', AReview.LanguageCode);
-    Root.AddPair('advisoryOnly', TJSONBool.Create(True));
+    Root.AddPair('advisoryOnly', TJSONBool.Create(False));
     Root.AddPair('targetSourceModified', TJSONBool.Create(False));
+    Root.AddPair('runtimeApplication',
+      'accepted safe rules are embedded in the language runtime pack');
     Items := TJSONArray.Create;
+    AcceptedSafeCount := 0;
     for Proposal in AReview.Proposals do
     begin
       Item := TJSONObject.Create;
@@ -644,8 +648,20 @@ begin
       Item.AddPair('rationale', Proposal.Rationale);
       Item.AddPair('decision', Proposal.Decision);
       Item.AddPair('sourceChecksum', Proposal.SourceChecksum);
+      if SameText(Proposal.Decision, 'accepted') and
+        (SameText(Proposal.PropertyName, 'Width') or
+         SameText(Proposal.PropertyName, 'Height') or
+         SameText(Proposal.PropertyName, 'WordWrap') or
+         SameText(Proposal.PropertyName, 'AutoSize')) then
+      begin
+        Item.AddPair('runtimeEligible', TJSONBool.Create(True));
+        Inc(AcceptedSafeCount);
+      end
+      else
+        Item.AddPair('runtimeEligible', TJSONBool.Create(False));
       Items.AddElement(Item);
     end;
+    Root.AddPair('acceptedSafeCount', TJSONNumber.Create(AcceptedSafeCount));
     Root.AddPair('proposals', Items);
     ForceDirectories(TPath.GetDirectoryName(AFileName));
     TFile.WriteAllText(AFileName, Root.Format(2), TEncoding.UTF8);

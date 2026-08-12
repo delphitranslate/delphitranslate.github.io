@@ -41,6 +41,9 @@ type
     function ApplyLanguagePack(const AManagedObject: TObject;
       const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; override;
+    function RestoreLanguageLayout(const AManagedObject: TObject;
+      const APack: TRuntimeLanguagePack;
+      const AFormIdentity: string): Integer; override;
     procedure CollectOpenManagedObjects(
       const AObjects: TList<TObject>); override;
   public
@@ -147,6 +150,13 @@ begin
     AFormIdentity + '.Text', ManagedForm.DisplayText);
   ManagedForm.ApplyCount := ManagedForm.ApplyCount + 1;
   Result := 1;
+end;
+
+function TMockLanguageManager.RestoreLanguageLayout(
+  const AManagedObject: TObject; const APack: TRuntimeLanguagePack;
+  const AFormIdentity: string): Integer;
+begin
+  Result := 0;
 end;
 
 procedure TMockLanguageManager.CollectOpenManagedObjects(

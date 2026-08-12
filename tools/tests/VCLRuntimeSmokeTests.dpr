@@ -19,7 +19,7 @@ end;
 function TestPack: TRuntimeLanguagePack;
 const
   JsonText =
-    '{"schemaVersion":1,"applicationId":"SampleVCLApp",' +
+    '{"schemaVersion":3,"applicationId":"SampleVCLApp",' +
     '"applicationVersion":"1.0","framework":"VCL",' +
     '"sourceLanguage":"en-US","sourceCatalogChecksum":"test",' +
     '"language":{"code":"de-DE","nativeName":"Deutsch","direction":"ltr"},' +
@@ -35,7 +35,11 @@ const
     '"frmVCLSample.cmbDateRange.Items.Strings.3":"Letzte 90 Tage",' +
     '"frmVCLSample.cmbDateRange.Items.Strings.4":"Dieses Jahr",' +
     '"frmVCLSample.memInstructions.Lines.Strings.0":"Erste Zeile",' +
-    '"frmVCLSample.memInstructions.Lines.Strings.1":"Zweite Zeile"}}';
+    '"frmVCLSample.memInstructions.Lines.Strings.1":"Zweite Zeile"},' +
+    '"layout":[{"formName":"frmVCLSample",' +
+    '"componentName":"lblHeading","propertyName":"Width",' +
+    '"originalValue":"227","translatedValue":"327",' +
+    '"sourceChecksum":"layout-test"}]}';
 begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
@@ -51,11 +55,18 @@ begin
     try
       AppliedCount := TVCLTranslationApplicator.ApplyToForm(
         frmVCLSample, Pack);
-      Require(AppliedCount = 10, 'Unexpected VCL applied-property count.');
+      Require(AppliedCount = 11, 'Unexpected VCL applied-property count.');
       Require(frmVCLSample.Caption = 'VCL Beispiel',
         'The VCL form caption was not translated.');
       Require(frmVCLSample.lblHeading.Caption = 'Kundendaten',
         'The VCL label was not translated.');
+      Require(frmVCLSample.lblHeading.Width = 327,
+        'The VCL translated-language layout rule was not applied.');
+      Require(TVCLTranslationApplicator.ApplyLayoutToForm(frmVCLSample,
+        Pack, 'frmVCLSample', False) = 1,
+        'The VCL source-layout restore rule was not applied.');
+      Require(frmVCLSample.lblHeading.Width = 227,
+        'The VCL source layout was not restored.');
       Require(frmVCLSample.mnuLanguage.Caption = 'Sprache',
         'The VCL menu was not translated.');
       Require(frmVCLSample.cmbDateRange.ItemIndex = 2,

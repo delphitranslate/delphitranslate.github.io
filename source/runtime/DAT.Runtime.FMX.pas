@@ -14,6 +14,9 @@ type
     class function ApplyToForm(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const APreserveControlState: Boolean = True): Integer; overload; static;
+    class function ApplyLayoutToForm(const AForm: TCommonCustomForm;
+      const APack: TRuntimeLanguagePack; const AFormIdentity: string;
+      const AUseTranslatedValues: Boolean): Integer; static;
   end;
 
 implementation
@@ -28,6 +31,48 @@ uses
   FMX.Edit,
   FMX.Memo,
   FMX.Types;
+
+function TrySetLayoutProperty(const AComponent: TComponent;
+  const APropertyName, AValue: string): Boolean;
+var
+  FloatValue: Extended;
+  IntegerValue: Int64;
+  OrdinalValue: NativeInt;
+  PropertyInfo: PPropInfo;
+begin
+  Result := False;
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName);
+  if PropertyInfo = nil then
+    Exit;
+  if PropertyInfo.PropType^.Kind = tkFloat then
+  begin
+    if not TryStrToFloat(AValue, FloatValue, TFormatSettings.Invariant) or
+      (FloatValue < 0) or (FloatValue > 100000) then
+      Exit;
+    SetFloatProp(AComponent, PropertyInfo, FloatValue);
+    Exit(True);
+  end;
+  if PropertyInfo.PropType^.Kind in [tkInteger, tkInt64] then
+  begin
+    if not TryStrToInt64(AValue, IntegerValue) or
+      (IntegerValue < 0) or (IntegerValue > 100000) then
+      Exit;
+    OrdinalValue := IntegerValue;
+    SetOrdProp(AComponent, PropertyInfo, OrdinalValue);
+    Exit(True);
+  end;
+  if PropertyInfo.PropType^.Kind = tkEnumeration then
+  begin
+    if SameText(AValue, 'True') then
+      OrdinalValue := 1
+    else if SameText(AValue, 'False') then
+      OrdinalValue := 0
+    else
+      Exit;
+    SetOrdProp(AComponent, PropertyInfo, OrdinalValue);
+    Exit(True);
+  end;
+end;
 
 function EditableTextComponent(const AComponent: TComponent): Boolean;
 begin
@@ -238,10 +283,44 @@ begin
         Inc(Result);
     for ComponentIndex := 0 to AForm.ComponentCount - 1 do
       ApplyComponentTree(AForm.Components[ComponentIndex]);
+    Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
   finally
     VisitedComponents.Free;
     if APreserveControlState and (SavedFocusedControl <> nil) then
       AForm.Focused := SavedFocusedControl;
+  end;
+end;
+
+class function TFMXTranslationApplicator.ApplyLayoutToForm(
+  const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack;
+  const AFormIdentity: string;
+  const AUseTranslatedValues: Boolean): Integer;
+var
+  Component: TComponent;
+  Rule: TRuntimeLayoutRule;
+  Value: string;
+begin
+  Result := 0;
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  for Rule in APack.LayoutRules do
+  begin
+    if not SameText(Rule.FormName, AFormIdentity) then
+      Continue;
+    if SameText(Rule.ComponentName, AFormIdentity) or
+      SameText(Rule.ComponentName, AForm.Name) or
+      (Trim(Rule.ComponentName) = '') then
+      Component := AForm
+    else
+      Component := AForm.FindComponent(Rule.ComponentName);
+    if Component = nil then
+      Continue;
+    if AUseTranslatedValues then
+      Value := Rule.TranslatedValue
+    else
+      Value := Rule.OriginalValue;
+    if TrySetLayoutProperty(Component, Rule.PropertyName, Value) then
+      Inc(Result);
   end;
 end;
 

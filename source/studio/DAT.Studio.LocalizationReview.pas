@@ -68,6 +68,8 @@ type
     cboDecision: TComboBox;
     lblDecisionQuestion: TLabel;
     btnSaveDecision: TButton;
+    btnAcceptSafeAll: TButton;
+    btnResetPending: TButton;
     btnClose: TButton;
     lblStatus: TLabel;
     procedure FormCreate(Sender: TObject);
@@ -86,6 +88,8 @@ type
     procedure btnUseSuggestionClick(Sender: TObject);
     procedure btnApproveHighConfidenceClick(Sender: TObject);
     procedure btnRejectSuggestionClick(Sender: TObject);
+    procedure btnAcceptSafeAllClick(Sender: TObject);
+    procedure btnResetPendingClick(Sender: TObject);
   private
     FProfile: TProjectProfile;
     FCatalog: TTranslationCatalog;
@@ -409,7 +413,7 @@ begin
     'Proposed: ' + Proposal.ProposedValue + sLineBreak +
     'Reason: ' + Proposal.Rationale + sLineBreak +
     'Decision: ' + Proposal.Decision + sLineBreak + sLineBreak +
-    'What happens: this decision is stored in layout-proposal.json with a source checksum. It remains advisory in Stages 1-3 and does not alter the form or current display. A later layout-pack stage can consume accepted decisions after separate validation.';
+    'What happens: Accept stores this checksum-backed rule in layout-proposal.json. The next runtime-pack export embeds accepted safe rules in this language''s JSON pack. The component applies them when this language is selected and restores the original value before switching away. Delphi source and form files are never edited.';
   if SameText(Proposal.Decision, 'accepted') then cboDecision.ItemIndex := 1
   else if SameText(Proposal.Decision, 'rejected') then cboDecision.ItemIndex := 2
   else if SameText(Proposal.Decision, 'manual') then cboDecision.ItemIndex := 3
@@ -425,7 +429,40 @@ begin
     Decisions[EnsureRange(cboDecision.ItemIndex, 0, 3)];
   TLocalizationReviewer.SaveProposal(FReview, FProposalFileName);
   RefreshProposals;
-  lblStatus.Text := 'Decision saved to layout-proposal.json. It is advisory and does not change the current form display.';
+  lblStatus.Text := 'Decision saved. Accepted safe rules will be included in the next runtime-pack export; target source remains unchanged.';
+end;
+
+procedure TfrmLocalizationReview.btnAcceptSafeAllClick(Sender: TObject);
+var
+  Proposal: TLayoutProposal;
+  AcceptedCount: Integer;
+begin
+  AcceptedCount := 0;
+  for Proposal in FReview.Proposals do
+    if SameText(Proposal.PropertyName, 'Width') or
+      SameText(Proposal.PropertyName, 'Height') or
+      SameText(Proposal.PropertyName, 'WordWrap') or
+      SameText(Proposal.PropertyName, 'AutoSize') then
+    begin
+      Proposal.Decision := 'accepted';
+      Inc(AcceptedCount);
+    end;
+  TLocalizationReviewer.SaveProposal(FReview, FProposalFileName);
+  RefreshProposals;
+  lblStatus.Text := Format(
+    '%d safe proposal(s) accepted for the next language-pack export.',
+    [AcceptedCount]);
+end;
+
+procedure TfrmLocalizationReview.btnResetPendingClick(Sender: TObject);
+var
+  Proposal: TLayoutProposal;
+begin
+  for Proposal in FReview.Proposals do
+    Proposal.Decision := 'pending';
+  TLocalizationReviewer.SaveProposal(FReview, FProposalFileName);
+  RefreshProposals;
+  lblStatus.Text := 'All layout decisions reset to Pending.';
 end;
 
 procedure TfrmLocalizationReview.btnGeneratePackageClick(Sender: TObject);
