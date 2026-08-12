@@ -133,9 +133,9 @@ def add_toc(document: Document) -> None:
         ("15. Diagnose Missing, Random, or Runaway Text", 15),
         ("16. Procedure After Later UI Changes", 15),
         ("17. Adding More Languages", 16),
-        ("18. Final Completion Checklist", 16),
-        ("19. What to Send Back After Testing", 17),
-        ("20. Important Stop Conditions", 17),
+        ("18. Final Completion Checklist", 17),
+        ("19. What to Send Back After Testing", 18),
+        ("20. Important Stop Conditions", 18),
     ]
     for index, (heading, page_number) in enumerate(contents):
         if index:
@@ -691,16 +691,23 @@ def build_document() -> Path:
     ])
 
     document.add_heading("17. Adding More Languages", level=1)
+    add_paragraphs(document, [
+        "Use this procedure when the application already has working localization and you want to add one new target language. Do not recreate the project from its pristine copy, remove existing language packs, reinstall the design package, or place additional localization components. One Wizard run adds one target language while preserving the languages already present.",
+    ])
     add_steps(document, [
-        "Keep the same disposable or approved working project and its existing manager/selector components.",
-        "Start the Setup Wizard.",
-        "Select the same project and source language but choose a different target language.",
-        "Use Automatic. It should create a new development catalog for that language while preserving catalogs for other languages.",
-        "Complete the single Wizard pass. Review terminology and layout when the Review Center opens automatically, then allow the Wizard to resume finalization.",
-        "Perform final Studio validation/export and regenerate the component kit.",
-        "Build or deploy the packs to every executable folder.",
-        "Run the application. The existing connected selector should discover the new JSON pack automatically; do not add another manager or combo box.",
-        "Test translation, layout, source restoration, and preference behavior separately for the new language.",
+        "Open the existing approved working project in the Translation Studio. Keep its current Localization folder, language packs, project glossary, language manager, and connected selector intact.",
+        "Start the Setup Wizard and select the same project file used for the existing translation. Confirm that the detected Application ID exactly matches the ApplicationId already assigned to the language manager.",
+        "Choose the same source language used by the existing packs. In Target language, choose only the new language being added.",
+        "Leave Workflow set to Automatic (Recommended). Because this target language does not yet have a development catalog, the Wizard should report that it will create a new translation. Existing catalogs and runtime packs for other languages remain unchanged.",
+        "Confirm the translation provider and test its connection. Scan the project and review the scan total before continuing.",
+        "Complete the component-information and authorization steps, then click Begin Final Processing.",
+        "When Localization Review opens automatically, review terminology and layout proposals for the new language. Save the desired decisions and click Close.",
+        "Wait while the same Wizard pass resumes automatically. Confirm that final validation passes, the new runtime JSON pack is exported, the component kit is refreshed, deployment is configured, and the footer reports successful completion.",
+        "Click Finish. A separate Studio validation/export or second Wizard pass is not required when this single-pass completion succeeds. Use the main Studio only if a manual correction or detailed inspection is needed.",
+        "Do not reinstall the design package and do not place another manager or selector. The components already in the target application serve every language pack that shares the same Application ID.",
+        "Build the required Win32 and Win64 configurations, or use the Wizard deployment control for a portable/external application folder. Confirm the new language JSON file appears beside every executable under Localization\\Languages together with the existing packs.",
+        "Run the application. Open the existing language selector and confirm the new language appears alongside the source language and all earlier target languages.",
+        "Select the new language and test its translation, layout, secondary forms, source-language restoration, repeated switching, and saved preference independently. Then verify that previously installed languages still work.",
     ])
 
     document.add_heading("18. Final Completion Checklist", level=1)
@@ -709,8 +716,8 @@ def build_document() -> Path:
         "The single Wizard pass translated unresolved entries and opened Localization Review before final export.",
         "Localization audit, terminology suggestions, glossary, and layout proposals were reviewed.",
         "The same Wizard pass resumed automatically and applied saved review decisions.",
-        "Main Studio opened the matching catalog, rescanned, validated with zero errors, and exported the final runtime pack.",
-        "Component kit was regenerated after the final export.",
+        "If an optional Main Studio correction was made, the matching catalog was saved, validated with zero errors, exported, and followed by a component-kit refresh.",
+        "If no optional Studio correction was needed, the single-pass Wizard's final runtime pack and refreshed component kit were used unchanged.",
         "Correct Win32 Release design BPL was installed through Component > Install Packages > Add.",
         "One manager and one connected visible selector were placed and saved on the primary form.",
         "ApplicationId, LanguagesFolder, SourceLanguage, and LanguageManager properties were verified in Object Inspector.",
