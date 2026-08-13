@@ -311,25 +311,31 @@ uses
 procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var
   SetupWizard: TfrmSetupWizard;
+  WizardResult: TModalResult;
 begin
-  FIntroScreen := False;
-  IntroCard.Visible := False;
   rectWizardBackdrop.Visible := True;
   rectWizardBackdrop.BringToFront;
   rectWizardBackdrop.Repaint;
   Application.ProcessMessages;
   SetupWizard := TfrmSetupWizard.Create(Self);
   try
-    SetupWizard.ShowModal;
-    lblStatus.Text :=
-      'Setup Wizard closed. Advanced Studio pages remain available.';
+    WizardResult := SetupWizard.ShowModal;
   finally
     SetupWizard.Free;
     rectWizardBackdrop.Visible := False;
-    ProjectCard.Visible := True;
-    ProjectDetailsCard.Visible := True;
-    SetWorkflowStep(1);
   end;
+  if WizardResult = mrCancel then
+  begin
+    FIntroScreen := True;
+    lblStatus.Text := 'Setup Wizard canceled. Choose a workflow to continue.';
+  end
+  else
+  begin
+    FIntroScreen := False;
+    lblStatus.Text :=
+      'Setup Wizard closed. Advanced Studio pages remain available.';
+  end;
+  SetWorkflowStep(1);
 end;
 
 procedure TfrmTranslationStudio.FormCreate(Sender: TObject);
@@ -349,9 +355,6 @@ end;
 procedure TfrmTranslationStudio.btnIntroMaintenanceClick(Sender: TObject);
 begin
   FIntroScreen := False;
-  IntroCard.Visible := False;
-  ProjectCard.Visible := True;
-  ProjectDetailsCard.Visible := True;
   lblStatus.Text :=
     'Maintenance Studio selected. Open a project to continue.';
   SetWorkflowStep(1);
@@ -1144,6 +1147,7 @@ const
 begin
   if FIntroScreen then
   begin
+    NavigationCard.Visible := False;
     IntroCard.Visible := True;
     ProjectCard.Visible := False;
     ProjectDetailsCard.Visible := False;
@@ -1156,6 +1160,7 @@ begin
     lblStatus.Text := 'Choose Setup Wizard for a new project or Maintenance Studio for existing work.';
     Exit;
   end;
+  NavigationCard.Visible := True;
   IntroCard.Visible := False;
   NavigationSelection.Visible := True;
   lblNavigationProject.TextSettings.FontColor := InactiveColor;

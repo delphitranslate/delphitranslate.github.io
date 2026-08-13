@@ -515,7 +515,7 @@ def build_user_guide() -> Path:
             "To use an existing build, run DelphiAppTranslationStudio.exe from bin\\Win32\\Release or bin\\Win64\\Release. Debug builds are intended for diagnosis.",
             "To compile from source, open DelphiAppTranslationStudio.dproj in RAD Studio, select Win32 or Win64 and Debug or Release, then choose Project > Build DelphiAppTranslationStudio.",
             "Confirm that the build writes the executable under bin\\<Platform>\\<Configuration> and compiler units under dcu\\<Platform>\\<Configuration>.",
-            "Start the executable and confirm that Delphi App Translation Studio opens maximized. The Project page offers Start Setup Wizard for first-time use and Open Project for the manual workflow.",
+            "Start the executable and confirm that Delphi App Translation Studio opens maximized on its landing screen. The landing screen offers Run Setup Wizard for first-time use and Open Maintenance Studio for the manual workflow; the maintenance workflow rail is hidden until that choice is made.",
         ],
     )
 
@@ -1073,7 +1073,7 @@ def build_setup_wizard_guide() -> Path:
             ["Next", "Validates the current step and moves forward only when required information is present."],
             ["Back", "Returns to the previous step before final processing."],
             ["Left step rail", "Selects a step already reached. Future steps remain unavailable, preventing required work from being skipped."],
-            ["Cancel", "Closes the Wizard before final processing. The target project remains unchanged; a deliberately saved provider credential may remain in Windows Credential Manager."],
+            ["Cancel", "Closes the Wizard before final processing and returns to the Studio landing screen. The target project remains unchanged; a deliberately saved provider credential may remain in Windows Credential Manager."],
             ["Begin Final Processing", "Starts the controlled translation/export sequence. Back, Cancel, the left rail, and window closing are disabled until the sequence completes or stops safely."],
             ["Finish", "Becomes available only after final processing succeeds."],
         ],
@@ -1081,7 +1081,7 @@ def build_setup_wizard_guide() -> Path:
     add_callout(
         document,
         "Cancel boundary.",
-        "Cancel is safe through the Review and Authorize page, before Begin Final Processing is selected. During final processing the Wizard cannot be closed. If a failure occurs after the controlled DPROJ update, the transaction restores the prior project configuration automatically. Pascal and form source are not rewritten.",
+        "Cancel is safe through the Review and Authorize page, before Begin Final Processing is selected. Cancel returns to the landing screen, where the developer may start the Wizard again or select Maintenance Studio. During final processing the Wizard cannot be closed. If a failure occurs after the controlled DPROJ update, the transaction restores the prior project configuration automatically. Pascal and form source are not rewritten.",
     )
 
     document.add_heading("4. Complete the Nine Wizard Steps", level=1)
