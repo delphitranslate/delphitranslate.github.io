@@ -6,7 +6,7 @@
 > **Alpha release - for controlled technical evaluation only.**
 >
 > Due to the ongoing development, there is no guarantee that this software always function
-> or provide any usable results yet. Therefore, users who download this software will be
+> or provide any usable results at ths time. Therefore, users who download this software will be
 > using it at their own risk.
 >
 > When this software finally provides consistent results, it will be upgraded to a
@@ -17,6 +17,9 @@
 > version-controlled or independently backed-up copy of every Delphi project.
 > Verify every generated catalog, language pack, component setting, and
 > translated runtime screen before wider use.
+>
+> Comments about this alpha software are welcome and should be sent to:
+> churchesite@gmail.com  
 
 ## What it is
 
