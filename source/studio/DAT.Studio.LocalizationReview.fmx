@@ -301,6 +301,7 @@ object frmLocalizationReview: TfrmLocalizationReview
           Size.Width = 500.000000000000000000
           Size.Height = 296.000000000000000000
           Size.PlatformDefault = False
+          ItemHeight = 28.000000000000000000
           OnChange = lstSuggestionsChange
         end
         object memSuggestionDetail: TMemo

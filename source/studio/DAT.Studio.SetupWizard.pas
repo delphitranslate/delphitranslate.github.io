@@ -203,6 +203,7 @@ type
     function ExistingBuildOutputDirectories: TArray<string>;
     function DeployLanguagePacksToExistingOutputs: Integer;
     function DeployLanguagePacksToConfiguredDestinations: Integer;
+    function DeployLanguagePacksDirect(const AApplicationDirectory: string): Boolean;
     function RunDeploymentScript(const AApplicationDirectory: string;
       const ASkipConfiguredDestinations: Boolean = True): Boolean;
     function ExistingCatalogFileName: string;
@@ -1344,13 +1345,50 @@ begin
     if not TDirectory.Exists(ApplicationDirectory) then
       raise Exception.Create('Deployment destination is unavailable: ' +
         ApplicationDirectory);
-    if not RunDeploymentScript(ApplicationDirectory, True) then
+    if not DeployLanguagePacksDirect(ApplicationDirectory) then
       raise Exception.Create('Language-pack deployment failed for configured destination ' +
-        ApplicationDirectory);
+        ApplicationDirectory + '. The drive may still be waking or may be read-only.');
     Inc(Result);
     AddProgress('Language packs deployed to configured destination ' +
       ApplicationDirectory);
   end;
+end;
+
+function TfrmSetupWizard.DeployLanguagePacksDirect(
+  const AApplicationDirectory: string): Boolean;
+const
+  RetryCount = 5;
+  RetryDelayMilliseconds = 1000;
+var
+  DestinationDirectory: string;
+  FileName: string;
+  SourceDirectory: string;
+  Attempt: Integer;
+begin
+  Result := False;
+  SourceDirectory := TPath.Combine(FKitDirectory, 'Localization\Languages');
+  DestinationDirectory := TPath.Combine(AApplicationDirectory,
+    'Localization\Languages');
+  for Attempt := 1 to RetryCount do
+    try
+      TDirectory.CreateDirectory(DestinationDirectory);
+      for FileName in TDirectory.GetFiles(SourceDirectory, '*.json') do
+        TFile.Copy(FileName, TPath.Combine(DestinationDirectory,
+          TPath.GetFileName(FileName)), True);
+      Result := True;
+      Exit;
+    except
+      on E: Exception do
+      begin
+        if Attempt = RetryCount then
+          raise Exception.CreateFmt(
+            'Unable to write language packs to %s after %d attempts: %s',
+            [DestinationDirectory, RetryCount, E.Message]);
+        AddProgress(Format('Destination is not ready; retrying %s (%d/%d)...',
+          [AApplicationDirectory, Attempt, RetryCount]));
+        Sleep(RetryDelayMilliseconds);
+      end;
+    end;
 end;
 
 procedure TfrmSetupWizard.ExecuteFinalProcessing;
