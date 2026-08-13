@@ -124,6 +124,14 @@ type
     lblWorkflowSummary: TLabel;
     btnLocalizationReview: TButton;
     btnFinishLocalizationReview: TButton;
+    BuildChoiceCard: TRectangle;
+    lblBuildChoiceTitle: TLabel;
+    lblBuildChoiceText: TLabel;
+    chkBuildNow: TCheckBox;
+    cboBuildPlatform: TComboBox;
+    cboBuildConfiguration: TComboBox;
+    btnBuildNow: TButton;
+    lblBuildStatus: TLabel;
     FooterLine: TRectangle;
     btnBack: TButton;
     btnNext: TButton;
@@ -157,6 +165,8 @@ type
     procedure lstDeploymentDestinationsChange(Sender: TObject);
     procedure cboWorkflowModeChange(Sender: TObject);
     procedure btnLocalizationReviewClick(Sender: TObject);
+    procedure btnBuildNowClick(Sender: TObject);
+    procedure chkBuildNowChange(Sender: TObject);
   private
     FCurrentStep: Integer;
     FHighestStep: Integer;
@@ -172,6 +182,7 @@ type
     FSessionApiKey: string;
     FLastScanCompletedAt: TDateTime;
     FReviewOutputDirectory: string;
+    procedure UpdateBuildChoice;
     procedure SetStep(const AStep: Integer);
     procedure UpdateNavigation;
     procedure UpdateRail;
@@ -236,7 +247,8 @@ uses
   DAT.Scan.CatalogMerge,
   DAT.Scan.Project,
   DAT.Studio.LocalizationReview,
-  DAT.Validation.Catalog;
+  DAT.Validation.Catalog,
+  DAT.Integration.BuildDeploy;
 
 {$R *.fmx}
 
@@ -261,8 +273,70 @@ begin
   edtApiKey.Password := True;
   ApplyLocaleDefaults;
   btnLocalizationReview.Enabled := False;
+  chkBuildNow.IsChecked := False;
+  cboBuildPlatform.ItemIndex := 2;
+  cboBuildConfiguration.ItemIndex := 2;
+  UpdateBuildChoice;
   UpdateDeploymentSummary;
   SetStep(1);
+end;
+
+procedure TfrmSetupWizard.UpdateBuildChoice;
+begin
+  BuildChoiceCard.Visible := FCompleted;
+  btnBuildNow.Enabled := chkBuildNow.IsChecked and
+    (FProjectProfile.ProjectFileName <> '') and FCompleted;
+  cboBuildPlatform.Enabled := chkBuildNow.IsChecked;
+  cboBuildConfiguration.Enabled := chkBuildNow.IsChecked;
+end;
+
+procedure TfrmSetupWizard.chkBuildNowChange(Sender: TObject);
+begin
+  UpdateBuildChoice;
+end;
+
+procedure TfrmSetupWizard.btnBuildNowClick(Sender: TObject);
+var
+  Configurations: TArray<string>;
+  Platforms: TArray<string>;
+  Configuration: string;
+  Platform: string;
+begin
+  if not FCompleted then
+    Exit;
+  btnBuildNow.Enabled := False;
+  lblBuildStatus.Text := 'Building selected targets. Please wait...';
+  Application.ProcessMessages;
+  try
+    if cboBuildPlatform.ItemIndex = 0 then
+      Platforms := ['Win32']
+    else if cboBuildPlatform.ItemIndex = 1 then
+      Platforms := ['Win64']
+    else
+      Platforms := ['Win32', 'Win64'];
+    if cboBuildConfiguration.ItemIndex = 0 then
+      Configurations := ['Debug']
+    else if cboBuildConfiguration.ItemIndex = 1 then
+      Configurations := ['Release']
+    else
+      Configurations := ['Debug', 'Release'];
+    for Platform in Platforms do
+      for Configuration in Configurations do
+      begin
+        AddProgress(Format('Building %s %s...', [Platform, Configuration]));
+        AddProgress(TTargetBuildDeployer.BuildAndDeploy(
+          FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+          Platform, Configuration, FKitDirectory));
+      end;
+    lblBuildStatus.Text := 'Build and deployment completed for every selected target.';
+  except
+    on E: Exception do
+    begin
+      lblBuildStatus.Text := 'Build stopped: ' + E.Message;
+      AddProgress('BUILD STOPPED: ' + E.Message);
+    end;
+  end;
+  UpdateBuildChoice;
 end;
 
 function TfrmSetupWizard.ExistingCatalogFileName: string;
@@ -1564,6 +1638,7 @@ begin
     end;
     AddProgress('Completion report written. Pascal and form source files remain unchanged.');
     FCompleted := True;
+    UpdateBuildChoice;
     lblFinishText.Text :=
       'Single-pass automatic processing is complete. Translation review decisions were applied before final validation, runtime-pack export, and component-kit generation. Existing build outputs and every available application destination were deployed automatically. Perform the clearly listed Delphi package/component step, then build the target. Future builds redeploy automatically.';
     lblFooterStatus.Text := 'Setup Wizard completed successfully.';
@@ -1594,6 +1669,7 @@ begin
   FFinalProcessing := False;
   btnCancel.Enabled := not FCompleted;
   btnFinish.Enabled := FCompleted;
+  UpdateBuildChoice;
   UpdateRail;
 end;
 

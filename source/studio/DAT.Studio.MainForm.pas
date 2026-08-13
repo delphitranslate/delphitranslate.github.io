@@ -46,6 +46,11 @@ type
     lblNavigationIntegration: TLabel;
     lblNavigationSettings: TLabel;
     ContentLayout: TLayout;
+    IntroCard: TRectangle;
+    lblIntroTitle: TLabel;
+    lblIntroText: TLabel;
+    btnIntroRunWizard: TButton;
+    btnIntroMaintenance: TButton;
     ProjectCard: TRectangle;
     lblProjectCardTitle: TLabel;
     lblProjectCardDescription: TLabel;
@@ -173,6 +178,7 @@ type
     rectWizardBackdrop: TRectangle;
     procedure btnOpenProjectClick(Sender: TObject);
     procedure btnGuidedSetupClick(Sender: TObject);
+    procedure btnIntroMaintenanceClick(Sender: TObject);
     procedure btnScanProjectClick(Sender: TObject);
     procedure lblNavigationProjectClick(Sender: TObject);
     procedure lblNavigationScanClick(Sender: TObject);
@@ -229,6 +235,7 @@ type
     FProviderSettings: TProviderSettings;
     FSessionApiKeys: array[TTranslationProvider] of string;
     FUpdatingEntryControls: Boolean;
+    FIntroScreen: Boolean;
     FLastScanCompletedAt: TDateTime;
     procedure ClearProjectSummary;
     procedure ClearScanSummary;
@@ -305,6 +312,8 @@ procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var
   SetupWizard: TfrmSetupWizard;
 begin
+  FIntroScreen := False;
+  IntroCard.Visible := False;
   rectWizardBackdrop.Visible := True;
   rectWizardBackdrop.BringToFront;
   rectWizardBackdrop.Repaint;
@@ -317,11 +326,15 @@ begin
   finally
     SetupWizard.Free;
     rectWizardBackdrop.Visible := False;
+    ProjectCard.Visible := True;
+    ProjectDetailsCard.Visible := True;
+    SetWorkflowStep(1);
   end;
 end;
 
 procedure TfrmTranslationStudio.FormCreate(Sender: TObject);
 begin
+  FIntroScreen := True;
   ApplyStudioTranslation(Self);
   SelectLanguageCode(cboSourceLanguage, 'en-US');
   cboTextDirection.ItemIndex := 0;
@@ -330,6 +343,17 @@ begin
   cboIntegrationMode.ItemIndex := 0;
   UpdateIntegrationModeUI;
   LoadProviderSettings;
+  SetWorkflowStep(1);
+end;
+
+procedure TfrmTranslationStudio.btnIntroMaintenanceClick(Sender: TObject);
+begin
+  FIntroScreen := False;
+  IntroCard.Visible := False;
+  ProjectCard.Visible := True;
+  ProjectDetailsCard.Visible := True;
+  lblStatus.Text :=
+    'Maintenance Studio selected. Open a project to continue.';
   SetWorkflowStep(1);
 end;
 
@@ -1118,6 +1142,22 @@ const
   InactiveColor: TAlphaColor = $FFD7E8FF;
   ActiveColor: TAlphaColor = $FFFFFFFF;
 begin
+  if FIntroScreen then
+  begin
+    IntroCard.Visible := True;
+    ProjectCard.Visible := False;
+    ProjectDetailsCard.Visible := False;
+    LanguagePageCard.Visible := False;
+    ValidationPageCard.Visible := False;
+    ExportPageCard.Visible := False;
+    IntegrationPageCard.Visible := False;
+    SettingsPageCard.Visible := False;
+    NavigationSelection.Visible := False;
+    lblStatus.Text := 'Choose Setup Wizard for a new project or Maintenance Studio for existing work.';
+    Exit;
+  end;
+  IntroCard.Visible := False;
+  NavigationSelection.Visible := True;
   lblNavigationProject.TextSettings.FontColor := InactiveColor;
   lblNavigationScan.TextSettings.FontColor := InactiveColor;
   lblNavigationLanguages.TextSettings.FontColor := InactiveColor;

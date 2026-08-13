@@ -429,6 +429,7 @@ def build_user_guide() -> Path:
             "For the shortest first-time path, use the separate Delphi App Translation Studio Setup Wizard Guide. The Wizard Guide leads one project from preparation through translation, component setup, deployment, and final verification. This User Guide remains the authoritative reference for the Studio's full seven-page workflow, catalog editing, providers, validation, export, integration, troubleshooting, security, and file locations.",
             "Delphi App Translation Studio is an offline-first Windows developer tool for adding localization to existing Delphi VCL and FireMonkey applications. It scans designer-authored forms and Delphi resourcestring declarations, stores the results in an editable development catalog, automatically translates unresolved text through Google Cloud Translation or DeepL, validates translation safety, and exports compact JSON language packs for the target application.",
             "The Studio itself is built with FireMonkey, but it works with both VCL and FMX target projects. The supported build targets are Windows Win32 and Win64. macOS, iOS, Android, Linux, C++Builder, and runtime cloud translation are outside the product scope.",
+            "When the Studio starts, its landing screen offers two deliberate paths: Run Setup Wizard for a new localization setup, or Open Maintenance Studio for an existing catalog, language pack, validation, export, or integration task. This keeps first-time users out of a page whose purpose is not yet clear.",
         ],
     )
     add_callout(
@@ -480,7 +481,7 @@ def build_user_guide() -> Path:
         [
             "The published source is currently built and release-tested with RAD Studio 13 Florence. The code is intended for modern Delphi VCL and FMX Windows projects; an older RAD Studio release may require source or package adjustments and should be treated as unverified until it passes the included build and smoke tests.",
             "No Git installation is required to use the Studio. Git is one convenient safety check for developers who already use it; a verified folder copy or other normal backup system is equally acceptable.",
-            "Build products are placed under bin\\<Platform>\\<Configuration>. Compiler units are placed under dcu. The project deliberately does not target mobile or macOS platforms.",
+            "Build products are placed under bin\\<Platform>\\<Configuration>. Compiler units are placed under dcu. The project deliberately does not target mobile or macOS platforms. After final Wizard processing, the Finish page can build and deploy selected Win32/Win64 Debug/Release combinations automatically; leave the option clear when you want to build manually.",
         ],
     )
     add_table(
@@ -500,8 +501,9 @@ def build_user_guide() -> Path:
         document,
         ["Path", "Choose it when", "Where to begin"],
         [
-            ["Setup Wizard - recommended", "This is the first project, or the developer wants the Studio to lead and verify the sequence.", "Select Start Setup Wizard and follow the separate Setup Wizard Guide."],
-            ["Manual Studio workflow", "The developer understands catalogs and wants direct access to individual Project, Scan, Translate, Validation, Export, Integration, and Provider Settings pages.", "Continue with Chapter 3 of this User Guide."],
+            ["Setup Wizard - recommended", "This is the first project, or the developer wants the Studio to lead and verify the sequence.", "Select Run Setup Wizard on the landing screen and follow the separate Setup Wizard Guide."],
+            ["Maintenance Studio", "The project is already integrated, or the developer needs direct catalog, validation, export, provider, or integration maintenance.", "Select Open Maintenance Studio on the landing screen, then choose the required page."],
+            ["Manual Studio workflow", "The developer understands catalogs and wants direct access to individual Project, Scan, Translate, Validation, Export, Integration, and Provider Settings pages.", "Open Maintenance Studio and continue with Chapter 3 of this User Guide."],
             ["Automatic Source Integration - advanced", "The component approach is unsuitable and the developer explicitly accepts reviewed source edits.", "Read Chapter 11.3 and use only a protected project copy."],
         ],
     )
@@ -974,7 +976,7 @@ def build_setup_wizard_guide() -> Path:
         document,
         [
             "The Setup Wizard is the recommended way to localize a Delphi application for the first time. It presents one decision at a time, verifies prerequisites before allowing the next step, and records the files and commands needed to finish the integration.",
-            "At completion, the developer has a saved development catalog, compact JSON runtime language packs, a component integration kit, a required safety backup, and automatic build deployment. Pascal, DFM, FMX, and DPR files remain untouched. The Wizard adds one clearly marked, backed-up block to the DPROJ for the ComponentSource Search Path and post-build language-pack deployment.",
+            "At completion, the developer has a saved development catalog, compact JSON runtime language packs, a component integration kit, a required safety backup, and automatic build deployment. Pascal, DFM, FMX, and DPR files remain untouched. The Wizard adds one clearly marked, backed-up block to the DPROJ for the ComponentSource Search Path and post-build language-pack deployment. The Finish page also offers an optional build-and-deploy action so the selected Win32/Win64 Debug/Release outputs can be produced without leaving the Wizard.",
             "Before opening the Wizard, RAD Studio must install the design package through its normal Install Packages dialog. The developer then places and configures the language manager and visible selector, adds any supporting labels or other localization UI, and saves those changes. The Wizard consequently scans the completed interface once instead of requiring a scan, a component-related UI change, and a second scan.",
         ],
     )
@@ -1060,7 +1062,7 @@ def build_setup_wizard_guide() -> Path:
         document,
         [
             "Run DelphiAppTranslationStudio.exe from the selected Win32 or Win64 Debug or Release folder.",
-            "On the Project page, select Start Setup Wizard. The separate Open Project button begins the advanced manual workflow and is not required for this guide.",
+            "On the landing screen, select Run Setup Wizard. The separate Open Maintenance Studio path begins the advanced manual workflow and is not required for this guide.",
             "Read the Welcome page, especially the orange safety notice, then select Next.",
         ],
     )
@@ -1248,6 +1250,8 @@ def build_setup_wizard_guide() -> Path:
             "Build each target configuration you actually intend to ship or test. A Delphi build produces one selected platform/configuration at a time unless you use Project > Build All Projects with the required configurations enabled. The Wizard's post-build step automatically deploys the current JSON packs to that build's executable Localization\\Languages folder.",
             "Use Redeploy Build Outputs only to repeat deployment after an unusual manual change. Use Deploy New App Folder only for a new or temporary folder that was not entered on Step 3. The Wizard verifies the EXE before copying anything.",
             "Use Copy Fallback Commands only for troubleshooting or a deliberately manual deployment.",
+            "In the Build the application now? card, optionally select Build now, choose Win32 only, Win64 only, or Win32 and Win64, choose Debug only, Release only, or Debug and Release, and select Build and Deploy Selected Targets. The progress message reports each target and deployment result. Leave Build now clear if you want to finish without compiling.",
+            "If a selected build fails, correct the Delphi project or environment, run the Wizard again, and repeat the build choice. A failed build does not invalidate the already-created catalog, pack, backup, or kit.",
             "Select Finish after reviewing the completion results. The Wizard closes and returns to the Studio; continue with the verification steps in Chapter 5.",
         ],
     )
@@ -1305,7 +1309,7 @@ def build_setup_wizard_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "The JSON packs must be beside each executable under Localization\\Languages. The Wizard configures a post-build event that uses Delphi's active DCC_ExeOutput value, so Debug, Release, Win32, Win64, and intentional custom output paths are handled by the build that produced the executable.",
+            "The JSON packs must be beside each executable under Localization\\Languages. The Wizard configures a post-build event that uses Delphi's active DCC_ExeOutput value, so Debug, Release, Win32, Win64, and intentional custom output paths are handled by the build that produced the executable. If the Finish-page build action was used, this deployment has already occurred for each successful selected target.",
         ],
     )
     add_steps(

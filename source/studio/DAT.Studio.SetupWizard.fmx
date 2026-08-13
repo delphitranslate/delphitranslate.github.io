@@ -1066,6 +1066,87 @@ object frmSetupWizard: TfrmSetupWizard
               Text = 'Review Completed'
               OnClick = btnLocalizationReviewClick
             end
+            object BuildChoiceCard: TRectangle
+              Position.X = 754.000000000000000000
+              Position.Y = 8.000000000000000000
+              Size.Width = 350.000000000000000000
+              Size.Height = 442.000000000000000000
+              Size.PlatformDefault = False
+              Fill.Color = xFFEAF3FF
+              Stroke.Color = xFFB7D5F5
+              XRadius = 14.000000000000000000
+              YRadius = 14.000000000000000000
+              object lblBuildChoiceTitle: TLabel
+                StyledSettings = []
+                Position.X = 18.000000000000000000
+                Position.Y = 18.000000000000000000
+                Size.Width = 310.000000000000000000
+                Size.Height = 34.000000000000000000
+                Size.PlatformDefault = False
+                TextSettings.Font.Size = 18.000000000000000000
+                TextSettings.Font.StyleExt = {00070000000000000004000000}
+                TextSettings.FontColor = xFF163A63
+                Text = 'Build the application now?'
+              end
+              object lblBuildChoiceText: TLabel
+                StyledSettings = []
+                WordWrap = True
+                Position.X = 18.000000000000000000
+                Position.Y = 62.000000000000000000
+                Size.Width = 310.000000000000000000
+                Size.Height = 72.000000000000000000
+                Size.PlatformDefault = False
+                TextSettings.Font.Size = 13.000000000000000000
+                TextSettings.FontColor = xFF365674
+                Text = 'The Wizard is complete. Select targets below to compile and deploy the JSON language packs automatically.'
+              end
+              object chkBuildNow: TCheckBox
+                Position.X = 18.000000000000000000
+                Position.Y = 150.000000000000000000
+                Size.Width = 300.000000000000000000
+                Size.Height = 28.000000000000000000
+                Size.PlatformDefault = False
+                Text = 'Build and deploy now'
+                OnChange = chkBuildNowChange
+              end
+              object cboBuildPlatform: TComboBox
+                Position.X = 18.000000000000000000
+                Position.Y = 198.000000000000000000
+                Size.Width = 310.000000000000000000
+                Size.Height = 36.000000000000000000
+                Size.PlatformDefault = False
+                Items.Strings = ('Win32 only' 'Win64 only' 'Win32 and Win64')
+              end
+              object cboBuildConfiguration: TComboBox
+                Position.X = 18.000000000000000000
+                Position.Y = 248.000000000000000000
+                Size.Width = 310.000000000000000000
+                Size.Height = 36.000000000000000000
+                Size.PlatformDefault = False
+                Items.Strings = ('Debug only' 'Release only' 'Debug and Release')
+              end
+              object btnBuildNow: TButton
+                Position.X = 18.000000000000000000
+                Position.Y = 304.000000000000000000
+                Size.Width = 310.000000000000000000
+                Size.Height = 46.000000000000000000
+                Size.PlatformDefault = False
+                Text = 'Build and Deploy Selected Targets'
+                OnClick = btnBuildNowClick
+              end
+              object lblBuildStatus: TLabel
+                StyledSettings = []
+                WordWrap = True
+                Position.X = 18.000000000000000000
+                Position.Y = 362.000000000000000000
+                Size.Width = 310.000000000000000000
+                Size.Height = 58.000000000000000000
+                Size.PlatformDefault = False
+                TextSettings.Font.Size = 12.000000000000000000
+                TextSettings.FontColor = xFF365674
+                Text = 'Build is optional. Leave the box clear to finish without compiling.'
+              end
+            end
           end
         end
       end
