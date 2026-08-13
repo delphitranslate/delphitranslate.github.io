@@ -442,6 +442,8 @@ begin
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'MessageDialog', 'DialogMessage');
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'ShowScheduleDialog', 'DialogTitle');
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'Items.Add', 'Items');
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'Items.AddObject', 'Items');
