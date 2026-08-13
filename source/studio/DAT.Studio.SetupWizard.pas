@@ -331,13 +331,18 @@ begin
         AddProgress(TTargetBuildDeployer.BuildAndDeploy(
           FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
           Platform, Configuration, FKitDirectory));
-        if chkReplaceDeployedExecutable.IsChecked then
-          for ApplicationDirectory in lstDeploymentDestinations.Items do
-            if TDirectory.Exists(ApplicationDirectory) then
+        for ApplicationDirectory in lstDeploymentDestinations.Items do
+          if TDirectory.Exists(ApplicationDirectory) then
+            try
               AddProgress(TTargetBuildDeployer.DeployBuildOutput(
                 FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
                 Platform, Configuration, ApplicationDirectory, FKitDirectory,
-                True));
+                chkReplaceDeployedExecutable.IsChecked));
+            except
+              on E: EInOutError do
+                AddProgress('Executable not replaced in ' +
+                  ApplicationDirectory + ': ' + E.Message);
+            end;
       end;
     lblBuildStatus.Text := 'Build and deployment completed for every selected target.';
   except
@@ -1329,25 +1334,31 @@ end;
 function TfrmSetupWizard.DeployLanguagePacksToConfiguredDestinations: Integer;
 var
   ApplicationDirectory: string;
+  Configuration: string;
+  Platform: string;
+  ProjectDirectory: string;
+  SourceExecutable: string;
 begin
   Result := 0;
+  ProjectDirectory := TPath.GetDirectoryName(FProjectProfile.ProjectFileName);
   for ApplicationDirectory in lstDeploymentDestinations.Items do
   begin
-    if not TDirectory.Exists(ApplicationDirectory) then
-      try
-        TDirectory.CreateDirectory(ApplicationDirectory);
-      except
-        on E: Exception do
-          raise Exception.CreateFmt(
-            'Deployment destination is unavailable or not writable: %s (%s)',
-            [ApplicationDirectory, E.Message]);
-      end;
-    if not TDirectory.Exists(ApplicationDirectory) then
-      raise Exception.Create('Deployment destination is unavailable: ' +
-        ApplicationDirectory);
     if not DeployLanguagePacksDirect(ApplicationDirectory) then
       raise Exception.Create('Language-pack deployment failed for configured destination ' +
         ApplicationDirectory + '. The drive may still be waking or may be read-only.');
+    if chkReplaceDeployedExecutable.IsChecked then
+      for Platform in ['Win32', 'Win64'] do
+        for Configuration in ['Debug', 'Release'] do
+        begin
+          SourceExecutable := TPath.Combine(ProjectDirectory,
+            TPath.Combine('bin', TPath.Combine(Platform,
+            TPath.Combine(Configuration, FProjectProfile.ProjectName + '.exe'))));
+          if TFile.Exists(SourceExecutable) then
+            AddProgress(TTargetBuildDeployer.DeployBuildOutput(
+              FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+              Platform, Configuration, ApplicationDirectory, FKitDirectory,
+              True));
+        end;
     Inc(Result);
     AddProgress('Language packs deployed to configured destination ' +
       ApplicationDirectory);
@@ -1357,8 +1368,8 @@ end;
 function TfrmSetupWizard.DeployLanguagePacksDirect(
   const AApplicationDirectory: string): Boolean;
 const
-  RetryCount = 5;
-  RetryDelayMilliseconds = 1000;
+  RetryCount = 15;
+  RetryDelayMilliseconds = 2000;
 var
   DestinationDirectory: string;
   FileName: string;
@@ -1371,6 +1382,9 @@ begin
     'Localization\Languages');
   for Attempt := 1 to RetryCount do
     try
+      { A removable drive may be mounted but not yet ready when the Wizard
+        reaches deployment. Create the root and destination on every retry. }
+      TDirectory.CreateDirectory(AApplicationDirectory);
       TDirectory.CreateDirectory(DestinationDirectory);
       for FileName in TDirectory.GetFiles(SourceDirectory, '*.json') do
         TFile.Copy(FileName, TPath.Combine(DestinationDirectory,

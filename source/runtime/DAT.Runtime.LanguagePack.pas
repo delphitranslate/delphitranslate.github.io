@@ -590,6 +590,41 @@ var
   Candidate: string;
   LongestSource: string;
   SourceTemplate: string;
+  Replacement: string;
+
+  function IsWordCharacter(const AValue: Char): Boolean;
+  begin
+    Result := CharInSet(AValue, ['A'..'Z', 'a'..'z', '0'..'9', '_']) or
+      (Ord(AValue) > 127);
+  end;
+
+  function ReplaceWholeTerm(const AText, ASource, AReplacement: string): string;
+  var
+    At: Integer;
+    BeforeIsWord: Boolean;
+    AfterIsWord: Boolean;
+    SearchFrom: Integer;
+  begin
+    Result := AText;
+    SearchFrom := 1;
+    while SearchFrom <= Length(Result) do
+    begin
+      At := PosEx(ASource, Result, SearchFrom);
+      if At = 0 then
+        Break;
+      BeforeIsWord := (At > 1) and IsWordCharacter(Result[At - 1]);
+      AfterIsWord := (At + Length(ASource) <= Length(Result)) and
+        IsWordCharacter(Result[At + Length(ASource)]);
+      if not BeforeIsWord and not AfterIsWord then
+      begin
+        Delete(Result, At, Length(ASource));
+        Insert(AReplacement, Result, At);
+        SearchFrom := At + Length(AReplacement);
+      end
+      else
+        SearchFrom := At + Length(ASource);
+    end;
+  end;
 begin
   { Dynamic refresh can see a value translated on an earlier pass.  Treat
     translated values as terminal so source prefixes such as Event -> Evento
@@ -601,6 +636,15 @@ begin
   end;
   if TryTranslateSource(ASourceText, ATranslatedText) then
     Exit(True);
+  { Runtime templates are exact or format-aware UI strings. Resolve them
+    before looking for shorter terms inside the text; otherwise a term such
+    as Schedule can corrupt Scheduled or a longer dialog title. }
+  for SourceTemplate in FSourceTemplates.Keys do
+    if SameText(ASourceText, SourceTemplate) then
+    begin
+      ATranslatedText := FSourceTemplates[SourceTemplate];
+      Exit(ATranslatedText <> ASourceText);
+    end;
   LongestSource := '';
   for Candidate in FSourceStrings.Keys do
     if (Length(Candidate) >= 4) and
@@ -610,8 +654,9 @@ begin
       LongestSource := Candidate;
   if LongestSource <> '' then
   begin
-    ATranslatedText := StringReplace(ASourceText, LongestSource,
-      FSourceStrings[LongestSource], [rfReplaceAll]);
+    Replacement := FSourceStrings[LongestSource];
+    ATranslatedText := ReplaceWholeTerm(ASourceText, LongestSource,
+      Replacement);
     Exit(ATranslatedText <> ASourceText);
   end;
   for SourceTemplate in FSourceTemplates.Keys do

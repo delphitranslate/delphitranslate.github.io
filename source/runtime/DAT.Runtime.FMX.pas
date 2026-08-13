@@ -197,6 +197,16 @@ begin
         Pairs.Add(JavaScriptString(Candidate) + ',' +
           JavaScriptString(TranslatedText));
     end;
+    for Candidate in APack.SourceTemplates.Keys do
+    begin
+      TranslatedText := APack.SourceTemplates[Candidate];
+      { Format strings belong to code, not browser text nodes. }
+      if (Pos('%', Candidate) = 0) and (Pos('%', TranslatedText) = 0) and
+        (Trim(Candidate) <> '') and (Trim(TranslatedText) <> '') and
+        not SameText(Candidate, TranslatedText) then
+        Pairs.Add(JavaScriptString(Candidate) + ',' +
+          JavaScriptString(TranslatedText));
+    end;
     if Pairs.Count = 0 then
       Exit;
     Script.Append('(function(){const p=[');
@@ -207,8 +217,16 @@ begin
       Script.Append('[').Append(Candidate).Append(']');
     end;
     Script.Append('];function a(){if(!document.body)return;const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){let v=n.nodeValue;for(const q of p){if(v.trim()===q[0]){const l=v.match(/^\\s*/)[0],r=v.match(/\\s*$/)[0];v=l+q[1]+r;break;}if(v.indexOf(q[0])>=0&&v.indexOf(q[1])<0)v=v.split(q[0]).join(q[1]);}if(n.nodeValue!==v)n.nodeValue=v;}}a();})();');
-    TCustomWebBrowser(AComponent).EvaluateJavaScript(Script.ToString);
-    Result := Pairs.Count;
+    try
+      TCustomWebBrowser(AComponent).EvaluateJavaScript(Script.ToString);
+      Result := Pairs.Count;
+    except
+      { A browser may still be loading when a newly-created dynamic dialog is
+        first shown. Translation must never turn that platform race into a
+        repeated application error dialog; the next explicit language pass
+        can retry once the document is ready. }
+      Result := 0;
+    end;
   finally
     Script.Free;
     Pairs.Free;
