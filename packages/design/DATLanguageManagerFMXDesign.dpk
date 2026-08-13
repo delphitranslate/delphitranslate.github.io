@@ -7,16 +7,11 @@ package DATLanguageManagerFMXDesign;
 requires
   rtl,
   fmx,
-  designide;
+  designide,
+  DATLanguageManagerCoreRuntime,
+  DATLanguageManagerFMXRuntime;
 
 contains
-  DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
-  DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
-  DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
-  DAT.Runtime.FMX in '..\..\source\runtime\DAT.Runtime.FMX.pas',
-  DAT.Components.Core in '..\..\source\components\DAT.Components.Core.pas',
-  DAT.Components.FMX in '..\..\source\components\DAT.Components.FMX.pas',
-  DAT.Components.FMX.LanguageSelector in '..\..\source\components\DAT.Components.FMX.LanguageSelector.pas',
   DAT.Design.FMX.Register in '..\..\source\design\DAT.Design.FMX.Register.pas';
 
 end.
