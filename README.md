@@ -5,6 +5,13 @@
 > [!CAUTION]
 > **Alpha release - for controlled technical evaluation only.**
 >
+> Due to the ongoing development, there is no guarantee that this software always function
+> or provide any usable results yet. Therefore, users who download this software will be
+> using it at their own risk.
+>
+> When this software finally provides consistent results, it will be upgraded to a
+> Beta testing status.
+>
 > This is actively changing pre-release software. There is no supported
 > installer, stable binary distribution, or 1.0 release. Use a disposable,
 > version-controlled or independently backed-up copy of every Delphi project.
