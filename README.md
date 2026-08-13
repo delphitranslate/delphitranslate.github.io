@@ -13,15 +13,23 @@
 
 ## What it is
 
-Delphi App Translation Studio is a Windows desktop localization tool for
-Delphi VCL and FireMonkey applications. It scans saved designer-authored forms
-and selected Delphi resources, creates an editable JSON development catalog,
-translates eligible interface text through Google Cloud Translation or DeepL,
-validates the result, and exports offline JSON language packs.
+Delphi App Translation Studio helps a developer use a Delphi application in
+the language they know best. For example, a developer who receives an English
+business application but works in Greek can scan the application, create a
+Greek language pack, and run the application with its labels, buttons, menus,
+headings, dates, times, and other supported interface text in Greek. The same
+process can create Spanish, French, German, or other language packs, so the
+application can be adapted for the developer's own language or for the people
+who use it.
 
-The developer's Studio computer needs Internet access only while calling the
-selected translation provider. A completed target application reads local
-language packs and does not need Internet access or an API key at runtime.
+The Studio is a Windows desktop tool for Delphi VCL and FireMonkey
+applications. It scans saved designer-authored forms and selected Delphi
+resources, creates an editable JSON catalog, translates eligible interface
+text through Google Cloud Translation or DeepL, validates the result, and
+exports offline JSON language packs. The developer's Studio computer needs
+Internet access only while calling the selected provider. After deployment,
+the target application reads its local language packs and does not need
+Internet access or an API key at runtime.
 
 ## Alpha scope
 
