@@ -31,6 +31,7 @@ type
   TObjectContext = record
     ComponentName: string;
     ComponentClassName: string;
+    FontColor: string;
   end;
 
 function StartsObjectDeclaration(const ALine: string): Boolean;
@@ -62,6 +63,7 @@ begin
     ColonPosition - 1));
   AContext.ComponentClassName := Trim(Copy(DeclarationText,
     ColonPosition + 1, MaxInt));
+  AContext.FontColor := '';
   Result := (AContext.ComponentName <> '') and
     (AContext.ComponentClassName <> '');
 end;
@@ -197,6 +199,20 @@ begin
       PropertyName := Trim(Copy(TrimmedLine, 1, EqualsPosition - 1));
       Expression := Trim(Copy(TrimmedLine, EqualsPosition + 1, MaxInt));
       Context := ContextStack[ContextStack.Count - 1];
+      if SameText(PropertyName, 'TextSettings.FontColor') or
+        SameText(PropertyName, 'Font.Color') then
+      begin
+        if TryDecodeDelphiStringExpression(Expression, ValueText) then
+          Context.FontColor := ValueText
+        else
+          Context.FontColor := Expression;
+        ContextStack[ContextStack.Count - 1] := Context;
+        for var ExistingItem in AResult.Items do
+          if SameText(ExistingItem.SourceFileName, AFileName) and
+            SameText(ExistingItem.FormName, FormName) and
+            SameText(ExistingItem.ComponentName, Context.ComponentName) then
+            ExistingItem.FontColor := Context.FontColor;
+      end;
       IsRootObject := ContextStack.Count = 1;
       if not TScanRuleSet.IsTranslatableProperty(AFramework,
         Context.ComponentClassName, PropertyName, IsRootObject) then

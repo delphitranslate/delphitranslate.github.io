@@ -189,6 +189,7 @@ begin
       EntryObject.AddPair('contextDescription', Entry.ContextDescription);
       EntryObject.AddPair('semanticConcept', Entry.SemanticConcept);
       EntryObject.AddPair('contextConfidence', Entry.ContextConfidence);
+      EntryObject.AddPair('fontColor', Entry.FontColor);
       EntryObject.AddPair('textOwnership',
         TextOwnershipKindToString(Entry.TextOwnership));
       EntryObject.AddPair('suspiciousReason', Entry.SuspiciousReason);
@@ -306,6 +307,7 @@ begin
               'semanticConcept', '');
             Entry.ContextConfidence := JsonValueText(EntryObject,
               'contextConfidence', '');
+            Entry.FontColor := JsonValueText(EntryObject, 'fontColor', '');
             Entry.TextOwnership := StringToTextOwnershipKind(JsonValueText(
               EntryObject, 'textOwnership', 'designerAutomatic'));
             Entry.SuspiciousReason := JsonValueText(EntryObject,

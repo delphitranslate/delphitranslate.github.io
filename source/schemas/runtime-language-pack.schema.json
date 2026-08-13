@@ -142,6 +142,14 @@
         },
         "additionalProperties": false
       }
+    },
+    "fontColors": {
+      "type": "object",
+      "description": "Optional designer-authored FMX font colors keyed by form and component name.",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   }
 }

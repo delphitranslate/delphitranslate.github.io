@@ -66,6 +66,7 @@ type
     FSourceTemplates: TDictionary<string, string>;
     FTranslatedStrings: TDictionary<string, Boolean>;
     FLayoutRules: TObjectList<TRuntimeLayoutRule>;
+    FFontColors: TDictionary<string, string>;
   public
     constructor Create;
     destructor Destroy; override;
@@ -101,6 +102,7 @@ type
     property SourceStrings: TDictionary<string, string> read FSourceStrings;
     property SourceTemplates: TDictionary<string, string> read FSourceTemplates;
     property LayoutRules: TObjectList<TRuntimeLayoutRule> read FLayoutRules;
+    property FontColors: TDictionary<string, string> read FFontColors;
   end;
 
   TLanguagePackDescriptor = class
@@ -276,11 +278,13 @@ begin
   FSourceTemplates := TDictionary<string, string>.Create;
   FTranslatedStrings := TDictionary<string, Boolean>.Create;
   FLayoutRules := TObjectList<TRuntimeLayoutRule>.Create(True);
+  FFontColors := TDictionary<string, string>.Create;
 end;
 
 destructor TRuntimeLanguagePack.Destroy;
 begin
   FLayoutRules.Free;
+  FFontColors.Free;
   FTranslatedStrings.Free;
   FSourceTemplates.Free;
   FSourceStrings.Free;
@@ -308,6 +312,7 @@ var
   SourceStringsObject: TJSONObject;
   SourceTemplatesObject: TJSONObject;
   TemplatesObject: TJSONObject;
+  FontColorsObject: TJSONObject;
 begin
   JsonValue := TJSONObject.ParseJSONValue(AJsonText);
   if not (JsonValue is TJSONObject) then
@@ -405,6 +410,11 @@ begin
               'sourceChecksum', True);
             Result.FLayoutRules.Add(LayoutRule);
           end;
+      FontColorsObject := JsonRoot.GetValue('fontColors') as TJSONObject;
+      if FontColorsObject <> nil then
+        for JsonPair in FontColorsObject do
+          Result.FFontColors.AddOrSetValue(JsonPair.JsonString.Value,
+            JsonPair.JsonValue.Value);
     except
       Result.Free;
       raise;

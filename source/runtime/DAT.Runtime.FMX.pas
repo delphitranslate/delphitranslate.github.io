@@ -30,11 +30,96 @@ uses
   System.StrUtils,
   System.TypInfo,
   FMX.Controls,
+  System.UITypes,
   FMX.Edit,
   FMX.Grid,
   FMX.Memo,
   FMX.Types,
   FMX.WebBrowser;
+
+function ApplyFontColorsToForm(const AForm: TCommonCustomForm;
+  const APack: TRuntimeLanguagePack; const AFormIdentity: string): Integer;
+var
+  Component: TComponent;
+  ColorText: string;
+  ComponentKey: string;
+  ComponentName: string;
+  ParsedColor: TAlphaColor;
+
+  function FindOwnedComponent(const ARoot: TComponent;
+    const AName: string): TComponent;
+  var
+    Index: Integer;
+  begin
+    Result := nil;
+    if ARoot = nil then
+      Exit;
+    if SameText(ARoot.Name, AName) then
+      Exit(ARoot);
+    for Index := 0 to ARoot.ComponentCount - 1 do
+    begin
+      Result := FindOwnedComponent(ARoot.Components[Index], AName);
+      if Result <> nil then
+        Exit;
+    end;
+  end;
+
+  function TryParseColor(const AValue: string; out AColor: TAlphaColor): Boolean;
+  var
+    HexValue: string;
+    NumberValue: UInt64;
+  begin
+    HexValue := Trim(AValue);
+    if SameText(HexValue, 'claWhite') then
+      AColor := TAlphaColorRec.White
+    else if SameText(HexValue, 'claBlack') then
+      AColor := TAlphaColorRec.Black
+    else if SameText(HexValue, 'claRed') then
+      AColor := TAlphaColorRec.Red
+    else if SameText(HexValue, 'claGreen') then
+      AColor := TAlphaColorRec.Green
+    else if SameText(HexValue, 'claBlue') then
+      AColor := TAlphaColorRec.Blue
+    else
+    begin
+      if StartsText('x', HexValue) then
+        Delete(HexValue, 1, 1);
+      if StartsText('$', HexValue) then
+        Delete(HexValue, 1, 1);
+      Result := TryStrToUInt64('$' + HexValue, NumberValue) and
+        (Length(HexValue) <= 8);
+      if Result then
+        AColor := TAlphaColor(NumberValue)
+      else
+        Exit(False);
+    end;
+    Result := True;
+  end;
+begin
+  Result := 0;
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  for ComponentKey in APack.FontColors.Keys do
+  begin
+    if not StartsText(AFormIdentity + '.', ComponentKey) then
+      Continue;
+    ComponentName := Copy(ComponentKey, Length(AFormIdentity) + 2, MaxInt);
+    Component := FindOwnedComponent(AForm, ComponentName);
+    if not (Component is TTextControl) then
+      Continue;
+    ColorText := APack.FontColors[ComponentKey];
+    try
+      if not TryParseColor(ColorText, ParsedColor) then
+        Continue;
+      TTextControl(Component).StyledSettings :=
+        TTextControl(Component).StyledSettings - [TStyledSetting.FontColor];
+      TTextControl(Component).TextSettings.FontColor := ParsedColor;
+      Inc(Result);
+    except
+      // Optional styling metadata must never block translation.
+    end;
+  end;
+end;
 
 function TrySetLayoutProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
@@ -365,6 +450,7 @@ begin
       ApplyComponentTree(AForm.Components[ComponentIndex]);
     if AApplyLayout then
       Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
+    Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
   finally
     VisitedComponents.Free;
     if APreserveControlState and (SavedFocusedControl <> nil) then

@@ -52,6 +52,7 @@ begin
   AEntry.ContextDescription := AScanItem.ContextDescription;
   AEntry.SemanticConcept := AScanItem.SemanticConcept;
   AEntry.ContextConfidence := AScanItem.ContextConfidence;
+  AEntry.FontColor := AScanItem.FontColor;
   AEntry.TextOwnership := AScanItem.TextOwnership;
   AEntry.SuspiciousReason := AScanItem.SuspiciousReason;
   case AEntry.RuntimeTextRole of

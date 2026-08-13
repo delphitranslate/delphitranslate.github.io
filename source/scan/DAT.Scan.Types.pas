@@ -37,6 +37,7 @@ type
     FContextDescription: string;
     FSemanticConcept: string;
     FContextConfidence: string;
+    FFontColor: string;
     FTextOwnership: TTextOwnershipKind;
     FSuspiciousReason: string;
   public
@@ -60,6 +61,7 @@ type
       write FSemanticConcept;
     property ContextConfidence: string read FContextConfidence
       write FContextConfidence;
+    property FontColor: string read FFontColor write FFontColor;
     property TextOwnership: TTextOwnershipKind read FTextOwnership
       write FTextOwnership;
     property SuspiciousReason: string read FSuspiciousReason

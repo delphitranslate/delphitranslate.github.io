@@ -82,6 +82,8 @@ var
   ProposalApplicationId: string;
   ProposalLanguageCode: string;
   PropertyName: string;
+  FontColorsObject: TJSONObject;
+  FontColorKey: string;
 begin
   ValidationResult := TCatalogValidator.Validate(ACatalog);
   try
@@ -245,6 +247,17 @@ begin
       end;
     end;
     Root.AddPair('layout', LayoutArray);
+
+    FontColorsObject := TJSONObject.Create;
+    for Entry in ACatalog.Entries do
+      if (Trim(Entry.FontColor) <> '') and
+        (Trim(Entry.ComponentName) <> '') then
+      begin
+        FontColorKey := Entry.FormName + '.' + Entry.ComponentName;
+        if FontColorsObject.GetValue(FontColorKey) = nil then
+          FontColorsObject.AddPair(FontColorKey, Entry.FontColor);
+      end;
+    Root.AddPair('fontColors', FontColorsObject);
 
     Result := Root.ToJSON;
   finally
