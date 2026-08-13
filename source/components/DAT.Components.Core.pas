@@ -61,6 +61,7 @@ type
     FGeneration: Cardinal;
     FInitialized: Boolean;
     FInitializing: Boolean;
+    FDestroying: Boolean;
     FSelectingLanguage: Boolean;
     FApplying: Boolean;
     FEnableDiagnostics: Boolean;
@@ -224,7 +225,7 @@ begin
   { Notifications can be delivered while owned components are being torn
     down. Mark the manager as destroying before releasing collections so a
     late opRemove notification cannot dereference freed state. }
-  FInitializing := True;
+  FDestroying := True;
   FApplying := False;
   FSelectingLanguage := False;
   FAppliedGenerations.Clear;
@@ -494,10 +495,9 @@ end;
 procedure TDATCustomLanguageManager.Notification(AComponent: TComponent;
   Operation: TOperation);
 begin
-  if csDestroying in ComponentState then
-    Exit;
   inherited Notification(AComponent, Operation);
-  if (Operation = opRemove) and (FAppliedGenerations <> nil) then
+  if (Operation = opRemove) and not FDestroying and
+    (FAppliedGenerations <> nil) then
     FAppliedGenerations.Remove(AComponent);
 end;
 

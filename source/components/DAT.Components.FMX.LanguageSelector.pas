@@ -76,10 +76,9 @@ end;
 procedure TDATFMXLanguageComboBox.Notification(AComponent: TComponent;
   Operation: TOperation);
 begin
-  if csDestroying in ComponentState then
-    Exit;
   inherited Notification(AComponent, Operation);
-  if (Operation = opRemove) and (AComponent = FLanguageManager) then
+  if (Operation = opRemove) and not (csDestroying in ComponentState) and
+    (AComponent = FLanguageManager) then
     FLanguageManager := nil;
 end;
 

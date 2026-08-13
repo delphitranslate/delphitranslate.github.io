@@ -71,8 +71,14 @@ end;
 
 destructor TDATFMXLanguageManager.Destroy;
 begin
-  FDynamicTimer.Free;
   UnsubscribeFromLifecycle;
+  if FDynamicTimer <> nil then
+  begin
+    FDynamicTimer.Enabled := False;
+    FDynamicTimer.OnTimer := nil;
+  end;
+  FDynamicTimer.Free;
+  FDynamicTimer := nil;
   inherited Destroy;
 end;
 
