@@ -128,7 +128,7 @@ object frmSetupWizard: TfrmSetupWizard
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFF7894B3
-          Text = '3   Languages'
+          Text = '3   Deployment'
           OnClick = railStepClick
         end
         object railStep4: TLabel
@@ -142,7 +142,7 @@ object frmSetupWizard: TfrmSetupWizard
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFF7894B3
-          Text = '4   Translation Service'
+          Text = '4   Languages'
           OnClick = railStepClick
         end
         object railStep5: TLabel
@@ -156,7 +156,7 @@ object frmSetupWizard: TfrmSetupWizard
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFF7894B3
-          Text = '5   Scan Project'
+          Text = '5   Translation Service'
           OnClick = railStepClick
         end
         object railStep6: TLabel
@@ -170,7 +170,7 @@ object frmSetupWizard: TfrmSetupWizard
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFF7894B3
-          Text = '6   Delphi Component'
+          Text = '6   Scan Project'
           OnClick = railStepClick
         end
         object railStep7: TLabel
@@ -184,7 +184,7 @@ object frmSetupWizard: TfrmSetupWizard
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFF7894B3
-          Text = '7   Review & Authorize'
+          Text = '7   Delphi Component'
           OnClick = railStepClick
         end
         object railStep8: TLabel
@@ -198,7 +198,21 @@ object frmSetupWizard: TfrmSetupWizard
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFF7894B3
-          Text = '8   Process & Finish'
+          Text = '8   Review & Authorize'
+          OnClick = railStepClick
+        end
+        object railStep9: TLabel
+          Tag = 9
+          Cursor = crHandPoint
+          StyledSettings = []
+          Position.X = 22.000000000000000000
+          Position.Y = 452.000000000000000000
+          Size.Width = 200.000000000000000000
+          Size.Height = 40.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 14.000000000000000000
+          TextSettings.FontColor = xFF7894B3
+          Text = '9   Process & Finish'
           OnClick = railStepClick
         end
       end
@@ -390,6 +404,73 @@ object frmSetupWizard: TfrmSetupWizard
               Size.PlatformDefault = False
               Text = 'Copy ID'
               OnClick = btnCopyApplicationIdClick
+            end
+          end
+          object tabDeployment: TTabItem
+            Text = 'Deployment'
+            object lblDeploymentTitle: TLabel
+              StyledSettings = []
+              Position.X = 8.000000000000000000
+              Position.Y = 8.000000000000000000
+              Size.Width = 700.000000000000000000
+              Size.Height = 42.000000000000000000
+              Size.PlatformDefault = False
+              TextSettings.Font.Size = 24.000000000000000000
+              TextSettings.Font.StyleExt = {00070000000000000004000000}
+              TextSettings.FontColor = xFF163A63
+              Text = 'Choose application destinations'
+            end
+            object lblDeploymentText: TLabel
+              StyledSettings = []
+              WordWrap = True
+              Position.X = 8.000000000000000000
+              Position.Y = 60.000000000000000000
+              Size.Width = 730.000000000000000000
+              Size.Height = 82.000000000000000000
+              Size.PlatformDefault = False
+              TextSettings.Font.Size = 15.000000000000000000
+              TextSettings.FontColor = xFF365674
+              Text = 'Build-output folders are detected automatically. Add any separate installed, portable, network, or USB application folders here. Final processing and future builds will deploy the JSON language packs to every available destination. This step is optional.'
+            end
+            object lstDeploymentDestinations: TListBox
+              Position.X = 8.000000000000000000
+              Position.Y = 154.000000000000000000
+              Size.Width = 730.000000000000000000
+              Size.Height = 184.000000000000000000
+              Size.PlatformDefault = False
+              ShowCheckboxes = False
+              TabOrder = 0
+              OnChange = lstDeploymentDestinationsChange
+            end
+            object btnAddDeploymentDestination: TButton
+              Position.X = 8.000000000000000000
+              Position.Y = 352.000000000000000000
+              Size.Width = 210.000000000000000000
+              Size.Height = 42.000000000000000000
+              Size.PlatformDefault = False
+              Text = 'Add Application Folder...'
+              OnClick = btnAddDeploymentDestinationClick
+            end
+            object btnRemoveDeploymentDestination: TButton
+              Position.X = 232.000000000000000000
+              Position.Y = 352.000000000000000000
+              Size.Width = 180.000000000000000000
+              Size.Height = 42.000000000000000000
+              Size.PlatformDefault = False
+              Text = 'Remove Selected'
+              OnClick = btnRemoveDeploymentDestinationClick
+            end
+            object lblDeploymentSummary: TLabel
+              StyledSettings = []
+              WordWrap = True
+              Position.X = 8.000000000000000000
+              Position.Y = 406.000000000000000000
+              Size.Width = 730.000000000000000000
+              Size.Height = 54.000000000000000000
+              Size.PlatformDefault = False
+              TextSettings.Font.Size = 13.000000000000000000
+              TextSettings.FontColor = xFF365674
+              Text = 'Select a Delphi project first. Build outputs require no entry here.'
             end
           end
           object tabLanguages: TTabItem
@@ -927,7 +1008,7 @@ object frmSetupWizard: TfrmSetupWizard
               Size.PlatformDefault = False
               TextSettings.Font.Size = 12.000000000000000000
               TextSettings.FontColor = xFF365674
-              Text = 'Fallback commands (normally no action is required): use these only if automatic deployment reports a failure. Deploy Build Outputs runs them for build folders that already exist.'
+              Text = 'Repeat and troubleshooting deployment (normally no action is required): final processing and future builds already deploy to detected outputs and the application destinations entered in Step 3.'
             end
             object memCommands: TMemo
               Position.X = 8.000000000000000000
@@ -963,7 +1044,7 @@ object frmSetupWizard: TfrmSetupWizard
               Size.Width = 136.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Deploy Build Outputs'
+              Text = 'Redeploy Build Outputs'
               OnClick = btnRunDeploymentClick
             end
             object btnDeployApplicationFolder: TButton
@@ -972,7 +1053,7 @@ object frmSetupWizard: TfrmSetupWizard
               Size.Width = 136.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Deploy to App Folder...'
+              Text = 'Deploy New App Folder...'
               OnClick = btnDeployApplicationFolderClick
             end
             object btnFinishLocalizationReview: TButton

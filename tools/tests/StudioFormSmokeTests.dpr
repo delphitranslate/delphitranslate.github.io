@@ -51,8 +51,8 @@ begin
       raise Exception.Create('The Setup Wizard is not borderless.');
     if Wizard.Position <> TFormPosition.ScreenCenter then
       raise Exception.Create('The Setup Wizard is not centered.');
-    if Wizard.WizardTabs.TabCount <> 8 then
-      raise Exception.Create('The Setup Wizard does not have eight steps.');
+    if Wizard.WizardTabs.TabCount <> 9 then
+      raise Exception.Create('The Setup Wizard does not have nine steps.');
     if not Assigned(Wizard.dlgOpenProject) then
       raise Exception.Create('The Setup Wizard project dialog is missing.');
     if not Assigned(Wizard.btnCopyApplicationId.OnClick) or
@@ -78,6 +78,11 @@ begin
        not Assigned(Wizard.btnTestConnection.OnClick) or
        not Assigned(Wizard.btnRunDeployment.OnClick) then
       raise Exception.Create('A primary wizard action is not designer-wired.');
+    if not Assigned(Wizard.btnAddDeploymentDestination.OnClick) or
+       not Assigned(Wizard.btnRemoveDeploymentDestination.OnClick) or
+       not Assigned(Wizard.lstDeploymentDestinations.OnChange) then
+      raise Exception.Create(
+        'The Wizard deployment-destination controls are not designer-wired.');
     if Wizard.chkCreateBackup.Enabled or
        not Wizard.chkCreateBackup.IsChecked then
       raise Exception.Create(

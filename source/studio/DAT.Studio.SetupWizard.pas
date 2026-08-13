@@ -39,16 +39,24 @@ type
     railStep6: TLabel;
     railStep7: TLabel;
     railStep8: TLabel;
+    railStep9: TLabel;
     ContentCard: TRectangle;
     WizardTabs: TTabControl;
     tabWelcome: TTabItem;
     tabProject: TTabItem;
+    tabDeployment: TTabItem;
     tabLanguages: TTabItem;
     tabProvider: TTabItem;
     tabScan: TTabItem;
     tabComponent: TTabItem;
     tabReview: TTabItem;
     tabFinish: TTabItem;
+    lblDeploymentTitle: TLabel;
+    lblDeploymentText: TLabel;
+    lstDeploymentDestinations: TListBox;
+    btnAddDeploymentDestination: TButton;
+    btnRemoveDeploymentDestination: TButton;
+    lblDeploymentSummary: TLabel;
     lblWelcomeTitle: TLabel;
     lblWelcomeText: TLabel;
     WelcomeNotice: TRectangle;
@@ -144,6 +152,9 @@ type
     procedure btnRunDeploymentClick(Sender: TObject);
     procedure btnOpenKitFolderClick(Sender: TObject);
     procedure btnDeployApplicationFolderClick(Sender: TObject);
+    procedure btnAddDeploymentDestinationClick(Sender: TObject);
+    procedure btnRemoveDeploymentDestinationClick(Sender: TObject);
+    procedure lstDeploymentDestinationsChange(Sender: TObject);
     procedure cboWorkflowModeChange(Sender: TObject);
     procedure btnLocalizationReviewClick(Sender: TObject);
   private
@@ -179,12 +190,17 @@ type
     procedure UpdateComponentInstructions;
     function ExistingBuildOutputDirectories: TArray<string>;
     function DeployLanguagePacksToExistingOutputs: Integer;
-    function RunDeploymentScript(const AApplicationDirectory: string): Boolean;
+    function DeployLanguagePacksToConfiguredDestinations: Integer;
+    function RunDeploymentScript(const AApplicationDirectory: string;
+      const ASkipConfiguredDestinations: Boolean = True): Boolean;
     function ExistingCatalogFileName: string;
     function EffectiveWorkflowName: string;
     procedure UpdateWorkflowSummary;
     function StagedGlossaryFileName: string;
     procedure GenerateLocalizationReviewArtifacts;
+    procedure LoadDeploymentDestinations;
+    procedure SaveDeploymentDestinations;
+    procedure UpdateDeploymentSummary;
   public
   end;
 
@@ -192,6 +208,7 @@ implementation
 
 uses
   System.IOUtils,
+  System.JSON,
   System.Math,
   System.RegularExpressions,
   System.Rtti,
@@ -224,7 +241,7 @@ uses
 {$R *.fmx}
 
 const
-  StepCount = 8;
+  StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
 
@@ -244,6 +261,7 @@ begin
   edtApiKey.Password := True;
   ApplyLocaleDefaults;
   btnLocalizationReview.Enabled := False;
+  UpdateDeploymentSummary;
   SetStep(1);
 end;
 
@@ -366,11 +384,135 @@ begin
       'visible selector is required unless you provide an ' +
       'equivalent connected Language menu.' + sLineBreak +
     '9. Save the form and build Win32 and Win64 as required.' + sLineBreak +
-    '10. For a portable or USB copy, click Deploy to App Folder and select ' +
-      'the folder containing the selected application executable (detected ' +
-      'name: ' + ApplicationId + '.exe).' + sLineBreak +
+    '10. Build-output folders and every available application destination ' +
+      'entered on the Deployment page receive the current JSON packs ' +
+      'automatically. Use Deploy New App Folder only for a new or temporary ' +
+      'destination that was not entered earlier.' + sLineBreak +
     'The Wizard configures the ComponentSource Search Path for all build ' +
       'configurations and adds automatic post-build language-pack deployment.';
+end;
+
+procedure TfrmSetupWizard.UpdateDeploymentSummary;
+begin
+  btnRemoveDeploymentDestination.Enabled :=
+    lstDeploymentDestinations.ItemIndex >= 0;
+  if FProjectProfile.ProjectFileName = '' then
+    lblDeploymentSummary.Text :=
+      'Select a Delphi project first. Build outputs require no entry here.'
+  else if lstDeploymentDestinations.Items.Count = 0 then
+    lblDeploymentSummary.Text :=
+      'No separate destinations are configured. Detected Win32 and Win64 build outputs will still deploy automatically.'
+  else
+    lblDeploymentSummary.Text := Format(
+      '%d separate application destination(s) will be remembered and deployed automatically when available. Detected build outputs are included separately.',
+      [lstDeploymentDestinations.Items.Count]);
+end;
+
+procedure TfrmSetupWizard.LoadDeploymentDestinations;
+var
+  ArrayValue: TJSONValue;
+  Destinations: TJSONArray;
+  FileName: string;
+  JsonValue: TJSONValue;
+  Root: TJSONObject;
+begin
+  lstDeploymentDestinations.Items.Clear;
+  if FProjectProfile.ProjectFileName = '' then
+  begin
+    UpdateDeploymentSummary;
+    Exit;
+  end;
+  FileName := TTranslationWorkspace.DeploymentDestinationsFileName(
+    FProjectProfile);
+  if not TFile.Exists(FileName) then
+  begin
+    UpdateDeploymentSummary;
+    Exit;
+  end;
+  JsonValue := TJSONObject.ParseJSONValue(
+    TFile.ReadAllText(FileName, TEncoding.UTF8));
+  try
+    if not (JsonValue is TJSONObject) then
+      raise EConvertError.Create('The saved deployment destinations file is invalid.');
+    Root := TJSONObject(JsonValue);
+    Destinations := Root.GetValue('destinations') as TJSONArray;
+    if Destinations <> nil then
+      for ArrayValue in Destinations do
+        if (Trim(ArrayValue.Value) <> '') and
+          (lstDeploymentDestinations.Items.IndexOf(ArrayValue.Value) < 0) then
+          lstDeploymentDestinations.Items.Add(ArrayValue.Value);
+  finally
+    JsonValue.Free;
+  end;
+  UpdateDeploymentSummary;
+end;
+
+procedure TfrmSetupWizard.SaveDeploymentDestinations;
+var
+  Destination: string;
+  Destinations: TJSONArray;
+  FileName: string;
+  Root: TJSONObject;
+begin
+  FileName := TTranslationWorkspace.DeploymentDestinationsFileName(
+    FProjectProfile);
+  ForceDirectories(TPath.GetDirectoryName(FileName));
+  Root := TJSONObject.Create;
+  try
+    Root.AddPair('schemaVersion', TJSONNumber.Create(1));
+    Root.AddPair('applicationId', FProjectProfile.ProjectName);
+    Destinations := TJSONArray.Create;
+    for Destination in lstDeploymentDestinations.Items do
+      Destinations.Add(Destination);
+    Root.AddPair('destinations', Destinations);
+    TFile.WriteAllText(FileName, Root.Format(2), TEncoding.UTF8);
+  finally
+    Root.Free;
+  end;
+end;
+
+procedure TfrmSetupWizard.btnAddDeploymentDestinationClick(Sender: TObject);
+var
+  ApplicationDirectory: string;
+begin
+  if FProjectProfile.ProjectFileName = '' then
+  begin
+    lblFooterStatus.Text := 'Select a Delphi project before adding destinations.';
+    Exit;
+  end;
+  ApplicationDirectory := '';
+  if not SelectDirectory(
+    'Select an installed, portable, network, or USB application folder',
+    '', ApplicationDirectory) then
+    Exit;
+  ApplicationDirectory := TPath.GetFullPath(ApplicationDirectory);
+  if lstDeploymentDestinations.Items.IndexOf(ApplicationDirectory) < 0 then
+    lstDeploymentDestinations.Items.Add(ApplicationDirectory);
+  lstDeploymentDestinations.ItemIndex :=
+    lstDeploymentDestinations.Items.IndexOf(ApplicationDirectory);
+  lblFooterStatus.Text :=
+    'Destination staged. It will be saved only during authorized final processing.';
+  UpdateDeploymentSummary;
+end;
+
+procedure TfrmSetupWizard.btnRemoveDeploymentDestinationClick(
+  Sender: TObject);
+begin
+  if lstDeploymentDestinations.ItemIndex < 0 then
+  begin
+    lblFooterStatus.Text := 'Select a destination to remove.';
+    Exit;
+  end;
+  lstDeploymentDestinations.Items.Delete(
+    lstDeploymentDestinations.ItemIndex);
+  lblFooterStatus.Text :=
+    'Destination removal staged. It will be saved only during authorized final processing.';
+  UpdateDeploymentSummary;
+end;
+
+procedure TfrmSetupWizard.lstDeploymentDestinationsChange(Sender: TObject);
+begin
+  UpdateDeploymentSummary;
 end;
 
 procedure TfrmSetupWizard.FormDestroy(Sender: TObject);
@@ -435,7 +577,7 @@ begin
     Exit;
   FCurrentStep := AStep;
   WizardTabs.TabIndex := AStep - 1;
-  if FCurrentStep = 7 then
+  if FCurrentStep = 8 then
     BuildReview;
   UpdateRail;
   UpdateNavigation;
@@ -448,7 +590,7 @@ begin
   btnNext.Visible := FCurrentStep < StepCount;
   btnFinish.Visible := FCurrentStep = StepCount;
   btnFinish.Enabled := FCompleted;
-  if FCurrentStep = 7 then
+  if FCurrentStep = 8 then
   begin
     btnNext.Text := 'Begin Final Processing';
     btnNext.Enabled := chkTargetProjectClosed.IsChecked and
@@ -511,10 +653,10 @@ procedure TfrmSetupWizard.btnNextClick(Sender: TObject);
 begin
   if not ValidateCurrentStep then
     Exit;
-  if FCurrentStep = 7 then
+  if FCurrentStep = 8 then
   begin
-    FHighestStep := 8;
-    SetStep(8);
+    FHighestStep := 9;
+    SetStep(9);
     ExecuteFinalProcessing;
     Exit;
   end;
@@ -532,7 +674,7 @@ begin
         lblFooterStatus.Text := 'Select a Delphi project before continuing.';
         Exit;
       end;
-    3:
+    4:
       if SelectedLanguageCode(cboTargetLanguage) = '' then
       begin
         lblFooterStatus.Text := 'Select a target language before continuing.';
@@ -550,19 +692,19 @@ begin
         lblFooterStatus.Text := 'No existing catalog was found. Choose Create New Translation or Automatic.';
         Exit;
       end;
-    4:
+    5:
       if EffectiveApiKey = '' then
       begin
         lblFooterStatus.Text := 'Save or enter an API key before continuing.';
         Exit;
       end;
-    5:
+    6:
       if (FScanResult = nil) or (FCatalog = nil) then
       begin
         lblFooterStatus.Text := 'Run the project scan before continuing.';
         Exit;
       end;
-    6:
+    7:
       if not chkUnderstandManualStep.IsChecked then
       begin
         lblFooterStatus.Text :=
@@ -572,7 +714,7 @@ begin
         chkUnderstandManualStep.SetFocus;
         Exit;
       end;
-    7:
+    8:
       if not chkTargetProjectClosed.IsChecked then
       begin
         lblFooterStatus.Text :=
@@ -599,6 +741,7 @@ begin
       raise Exception.Create('The project framework could not be identified.');
     edtProjectFile.Text := FProjectProfile.ProjectFileName;
     edtApplicationId.Text := FProjectProfile.ProjectName;
+    LoadDeploymentDestinations;
     chkTargetProjectClosed.IsChecked := False;
     chkAuthorizeFinal.IsChecked := False;
     lblProjectSummary.Text := Format('%s  |  %s  |  %s  |  %d form resources',
@@ -612,7 +755,7 @@ begin
     FCatalogFileName := '';
     FReviewOutputDirectory := '';
     btnLocalizationReview.Enabled := False;
-    FHighestStep := Min(FHighestStep, 4);
+    FHighestStep := Min(FHighestStep, 5);
     lblFooterStatus.Text := 'Project identified. No target file was changed.';
     UpdateComponentInstructions;
     UpdateWorkflowSummary;
@@ -669,8 +812,8 @@ begin
   FCatalogFileName := '';
   FReviewOutputDirectory := '';
   btnLocalizationReview.Enabled := False;
-  if FHighestStep > 5 then
-    FHighestStep := 5;
+  if FHighestStep > 6 then
+    FHighestStep := 6;
   UpdateRail;
   UpdateWorkflowSummary;
 end;
@@ -942,6 +1085,8 @@ begin
       sLineBreak +
     'Deployment: automatic after every future build; deploy now to existing outputs.' +
       sLineBreak +
+    Format('Separate application destinations: %d (automatically deployed when available).',
+      [lstDeploymentDestinations.Items.Count]) + sLineBreak +
     'RAD Studio: target project must be closed before final processing.' +
       sLineBreak +
     'Backup: required ZIP plus verified DPROJ transaction backup.';
@@ -1098,6 +1243,26 @@ begin
   end;
 end;
 
+function TfrmSetupWizard.DeployLanguagePacksToConfiguredDestinations: Integer;
+var
+  ApplicationDirectory: string;
+begin
+  Result := 0;
+  for ApplicationDirectory in lstDeploymentDestinations.Items do
+    if TDirectory.Exists(ApplicationDirectory) then
+    begin
+      if not RunDeploymentScript(ApplicationDirectory, True) then
+        raise Exception.Create('Deployment failed for configured destination ' +
+          ApplicationDirectory);
+      Inc(Result);
+      AddProgress('Language packs deployed to configured destination ' +
+        ApplicationDirectory);
+    end
+    else
+      AddProgress('Configured destination is currently unavailable and was skipped: ' +
+        ApplicationDirectory);
+end;
+
 procedure TfrmSetupWizard.ExecuteFinalProcessing;
 var
   ApiKey: string;
@@ -1112,6 +1277,7 @@ var
   Provider: TTranslationProvider;
   Report: TStringList;
   DeployedCount: Integer;
+  ConfiguredDestinationCount: Integer;
   ProjectBackupDirectory: string;
   RuntimePackFileName: string;
   SourceTexts: TArray<string>;
@@ -1320,6 +1486,9 @@ begin
     TRuntimePackBuilder.ExportToFile(FCatalog, RuntimePackFileName,
       TPath.Combine(FReviewOutputDirectory, 'layout-proposal.json'));
     AddProgress('Runtime JSON pack exported: ' + RuntimePackFileName);
+    SaveDeploymentDestinations;
+    AddProgress(Format('%d separate application destination(s) saved.',
+      [lstDeploymentDestinations.Items.Count]));
     FKitDirectory := TComponentIntegrationPackageGenerator.Generate(
       FProjectProfile, TPath.Combine(FindStudioRoot,
         'export\component-integration'),
@@ -1333,6 +1502,15 @@ begin
     else
       AddProgress(Format('Automatic deployment completed for %d existing build output(s).',
         [DeployedCount]));
+    ConfiguredDestinationCount :=
+      DeployLanguagePacksToConfiguredDestinations;
+    if lstDeploymentDestinations.Items.Count = 0 then
+      AddProgress('No separate application destinations were configured.')
+    else
+      AddProgress(Format(
+        'Automatic deployment completed for %d of %d configured application destination(s).',
+        [ConfiguredDestinationCount,
+         lstDeploymentDestinations.Items.Count]));
     ProjectBackupDirectory := ChangeFileExt(FBackupFileName, '') +
       '-project-configuration';
     FProjectConfigurationBackupDirectory :=
@@ -1359,6 +1537,10 @@ begin
       Report.Add('ComponentSource Search Path: ' +
         TPath.Combine(FKitDirectory, 'ComponentSource'));
       Report.Add('Existing build outputs deployed: ' + DeployedCount.ToString);
+      Report.Add('Configured application destinations: ' +
+        lstDeploymentDestinations.Items.Count.ToString);
+      Report.Add('Available configured destinations deployed: ' +
+        ConfiguredDestinationCount.ToString);
       Report.Add('Localization review package: ' +
         TPath.Combine(FReviewOutputDirectory, 'localization-review.html'));
       Report.Add('Review workflow: completed inside the same Wizard processing pass before final export');
@@ -1376,7 +1558,7 @@ begin
     AddProgress('Completion report written. Pascal and form source files remain unchanged.');
     FCompleted := True;
     lblFinishText.Text :=
-      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation, runtime-pack export, and component-kit generation. Perform the clearly listed Delphi package/component step, then build the target. Language packs deploy automatically after each build.';
+      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation, runtime-pack export, and component-kit generation. Existing build outputs and every available application destination were deployed automatically. Perform the clearly listed Delphi package/component step, then build the target. Future builds redeploy automatically.';
     lblFooterStatus.Text := 'Setup Wizard completed successfully.';
   except
     on E: Exception do
@@ -1427,7 +1609,8 @@ begin
 end;
 
 function TfrmSetupWizard.RunDeploymentScript(
-  const AApplicationDirectory: string): Boolean;
+  const AApplicationDirectory: string;
+  const ASkipConfiguredDestinations: Boolean): Boolean;
 var
   ExitCode: Cardinal;
   Parameters: string;
@@ -1447,6 +1630,8 @@ begin
     [TPath.Combine(FKitDirectory, 'Deploy-LanguagePacks.ps1'),
      AApplicationDirectory,
      TPath.GetDirectoryName(FProjectProfile.ProjectFileName)]);
+  if ASkipConfiguredDestinations then
+    Parameters := Parameters + ' -SkipConfiguredDestinations';
   ShellInfo.lpParameters := PChar(Parameters);
   ShellInfo.nShow := SW_HIDE;
   if not ShellExecuteEx(@ShellInfo) then

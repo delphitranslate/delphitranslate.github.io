@@ -1300,6 +1300,13 @@ begin
     ComponentOutputDirectory, 'Deploy-LanguagePacks.ps1')),
     '$ProjectDirectory'),
     'The deployment script cannot resolve relative Delphi output paths.');
+  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
+    ComponentOutputDirectory, 'Deploy-LanguagePacks.ps1')),
+    'deployment-destinations.json') and
+    ContainsText(TFile.ReadAllText(TPath.Combine(
+      ComponentOutputDirectory, 'Deploy-LanguagePacks.ps1')),
+      'SkipConfiguredDestinations'),
+    'The deployment script cannot deploy remembered application destinations.');
   ProjectText := TFile.ReadAllText(Profile.ProjectFileName, TEncoding.UTF8);
   ConfiguredProjectText :=
     TComponentIntegrationPackageGenerator.BuildConfiguredProjectText(

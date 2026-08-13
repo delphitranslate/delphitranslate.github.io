@@ -23,6 +23,10 @@ type
       const AProfile: TProjectProfile): string; static;
     class function GlossaryFileName(const AProfile: TProjectProfile;
       const ALanguageCode: string): string; static;
+    class function DeploymentDirectory(
+      const AProfile: TProjectProfile): string; static;
+    class function DeploymentDestinationsFileName(
+      const AProfile: TProjectProfile): string; static;
   end;
 
 implementation
@@ -78,6 +82,19 @@ begin
   Result := TPath.Combine(GlossariesDirectory(AProfile),
     SafeFilePart(AProfile.ProjectName) + '.' +
     SafeFilePart(ALanguageCode) + '.glossary.json');
+end;
+
+class function TTranslationWorkspace.DeploymentDirectory(
+  const AProfile: TProjectProfile): string;
+begin
+  Result := TPath.Combine(RootDirectory(AProfile), 'Deployment');
+end;
+
+class function TTranslationWorkspace.DeploymentDestinationsFileName(
+  const AProfile: TProjectProfile): string;
+begin
+  Result := TPath.Combine(DeploymentDirectory(AProfile),
+    'deployment-destinations.json');
 end;
 
 class function TTranslationWorkspace.DevelopmentCatalogFileName(

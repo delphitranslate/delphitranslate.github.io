@@ -373,7 +373,21 @@ def build_document() -> Path:
         "Click Next.",
     ])
 
-    document.add_heading("5.3 Step 3 - Languages", level=2)
+    document.add_heading("5.3 Step 3 - Deployment Destinations", level=2)
+    add_paragraphs(document, [
+        "The Wizard detects ordinary Win32 and Win64 build-output folders automatically. Use this page only for separate installed, portable, network, or USB application folders. The choices remain staged until authorized final processing.",
+    ])
+    add_steps(document, [
+        "Leave the list empty when only normal Delphi build-output folders are needed.",
+        "For each separate application copy, click Add Application Folder and select the full folder containing—or intended to contain—the executable. Include the correct drive letter for USB or other non-C drives.",
+        "Do not select the Localization or Languages subfolder.",
+        "Remove any obsolete or incorrect destination before continuing.",
+        "Click Next. Cancel remains safe because the staged destinations are not saved until authorized final processing.",
+    ])
+    add_info_callout(document, "Automatic deployment.",
+        "Final processing deploys immediately to every configured destination that is currently available. Future builds retry the remembered destinations automatically. An unplugged drive is skipped with a warning and does not fail the build.")
+
+    document.add_heading("5.4 Step 4 - Languages", level=2)
     add_steps(document, [
         "Set Source language to the language in which the Delphi application was authored, normally English (United States) [en-US].",
         "Select exactly one Target language for this pass, for example Spanish (Spain) [es-ES].",
@@ -385,7 +399,7 @@ def build_document() -> Path:
     add_info_callout(document, "One target language per Wizard run.",
         "To add more languages, repeat the create/update workflow for each target language. The runtime selector later lists the source-language pack and every valid target-language JSON pack deployed beside that executable.")
 
-    document.add_heading("5.4 Step 4 - Translation Service", level=2)
+    document.add_heading("5.5 Step 5 - Translation Service", level=2)
     add_steps(document, [
         "Choose Google Cloud Translation or DeepL.",
         "For DeepL, choose API Free or API Pro to match the account. Google does not use the DeepL plan field.",
@@ -400,7 +414,7 @@ def build_document() -> Path:
     add_info_callout(document, "The target application remains offline.",
         "Only the developer's Studio uses the provider and API key. The deployed target application reads local JSON packs and does not need the Internet or the API key.")
 
-    document.add_heading("5.5 Step 5 - Scan Project", level=2)
+    document.add_heading("5.6 Step 6 - Scan Project", level=2)
     add_numbered_steps(document, [
         "Click Scan Project.",
         "Wait for Scan complete. Do not click Next while the scan is running.",
@@ -423,7 +437,7 @@ def build_document() -> Path:
         "The Localization Review button is available here, but the richest terminology suggestions and layout proposals do not exist until translations have been created. Continue with Next. The Wizard will open Localization Review automatically during final processing.",
     ], start=6)
 
-    document.add_heading("5.6 Step 6 - Delphi Component", level=2)
+    document.add_heading("5.7 Step 7 - Delphi Component", level=2)
     add_steps(document, [
         "Read the project-specific instructions from top to bottom.",
         "Confirm the instructions show the correct target project path and exact Application ID.",
@@ -435,7 +449,7 @@ def build_document() -> Path:
         "Click Next.",
     ])
 
-    document.add_heading("5.7 Step 7 - Review and Authorize", level=2)
+    document.add_heading("5.8 Step 8 - Review and Authorize", level=2)
     add_steps(document, [
         "Read the project, Application ID, framework, target language, workflow, provider, scan count, unresolved count, integration method, deployment statement, and backup statement.",
         "Confirm the required backup box is checked. It is intentionally mandatory.",
@@ -446,12 +460,13 @@ def build_document() -> Path:
         "After processing begins, do not try to close the Wizard or Studio. Back, Cancel, and the step rail remain disabled. The Wizard will translate, open Localization Review, and automatically resume finalization after Review closes.",
     ])
 
-    document.add_heading("5.8 Step 8 - Processing and Completion", level=2)
+    document.add_heading("5.9 Step 9 - Processing and Completion", level=2)
     add_steps(document, [
         "Watch the progress log until it stops changing.",
         "Confirm a timestamped ZIP backup was created.",
         "Confirm unresolved entries were translated by the selected provider or resolved by terminology/translation memory.",
         "Confirm Development catalog saved appears.",
+        "Confirm the log reports the number of separate application destinations saved, and confirms deployment to each destination currently available.",
         "Confirm the progress log reports that the required in-Wizard localization review is opening. The Translation Studio and Wizard remain protected while the modal Review Center is active.",
     ])
 
@@ -485,7 +500,7 @@ def build_document() -> Path:
         "Confirm Project Search Path and automatic post-build deployment configured appears.",
         "Confirm the footer says Setup Wizard completed successfully. If it says stopped, do not continue to RAD Studio. Copy or photograph the entire progress log and footer message, close the Wizard only after processing has stopped safely, preserve the Wizard ZIP backup and disposable test folder, and send the exact STOPPED text and screenshots to the development team. Resume only after the cause is corrected and new test instructions are provided.",
         "Click the underlined blue component-kit path or Open Kit Folder. Confirm ComponentSource, Localization, component-integration.json, Deploy-LanguagePacks.ps1, README.txt, and Wizard-Completion-Report.txt exist.",
-        "Read the explanation above Fallback Commands. No command must be copied during a normal successful run. Deploy Build Outputs executes the commands for build-output folders that already exist; the displayed commands are a troubleshooting fallback only.",
+        "Read the repeat/troubleshooting explanation. No command or deployment button is required during a normal successful run. Final processing has already deployed detected build outputs and every available application destination entered earlier.",
         "Confirm the completion report states that review was completed inside the same Wizard processing pass before final export.",
         "Click Finish once. The Wizard closes and returns to the Studio main form.",
     ])
@@ -612,9 +627,10 @@ def build_document() -> Path:
 
     document.add_heading("12.2 Portable or USB executable", level=2)
     add_steps(document, [
-        "Copy or build the final executable into the desired portable folder or USB drive.",
-        "Run the fallback deployment command above with -ApplicationDirectory set to the full folder containing the executable, including the drive letter such as F:\\PortableApp.",
+        "Before final processing, enter the desired portable folder or USB drive on the Wizard's Deployment Destinations page, including the drive letter such as F:\\PortableApp.",
+        "Copy or build the final executable into that configured folder. Final processing and future builds deploy its packs automatically whenever the destination is available.",
         "Confirm <Portable Folder>\\Localization\\Languages contains en-US.json and every target-language JSON file.",
+        "Use Deploy New App Folder or the fallback command only for a new, temporary, or troubleshooting destination that was not configured earlier.",
         "Keep the manager's LanguagesFolder property relative as Localization\\Languages. Do not put F: or another drive letter in the component property.",
     ])
 
@@ -708,7 +724,7 @@ def build_document() -> Path:
         "Wait while the same Wizard pass resumes automatically. Confirm that final validation passes, the new runtime JSON pack is exported, the component kit is refreshed, deployment is configured, and the footer reports successful completion.",
         "Click Finish. A separate Studio validation/export or second Wizard pass is not required when this single-pass completion succeeds. Use the main Studio only if a manual correction or detailed inspection is needed.",
         "Do not reinstall the design package and do not place another manager or selector. The components already in the target application serve every language pack that shares the same Application ID.",
-        "Build the required Win32 and Win64 configurations, or use the Wizard deployment control for a portable/external application folder. Confirm the new language JSON file appears beside every executable under Localization\\Languages together with the existing packs.",
+        "Build the required Win32 and Win64 configurations. Confirm the new language JSON file appears under Localization\\Languages beside each executable and in every available application destination configured on the Wizard Deployment page.",
         "Run the application. Open the existing language selector and confirm the new language appears alongside the source language and all earlier target languages.",
         "Select the new language and test its translation, layout, secondary forms, source-language restoration, repeated switching, and saved preference independently. Then verify that previously installed languages still work.",
     ])

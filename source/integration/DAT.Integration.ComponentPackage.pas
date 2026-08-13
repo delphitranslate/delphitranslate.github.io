@@ -312,11 +312,11 @@ begin
       'script remains the manual fallback.' + sLineBreak +
     '13. Build and test Win32 and Win64. Changing the selector applies the ' +
       'language immediately and saves the preference.' + sLineBreak +
-    '14. For a portable or USB installation, use Deploy to App Folder in the ' +
-      'Wizard and select the folder containing ' + AProfile.ProjectName +
-      '.exe. The component property stays relative as Localization\Languages; ' +
-      'the physical destination includes the drive, for example ' +
-      'F:\Localization\Languages.' + sLineBreak + sLineBreak +
+    '14. For a portable, network, or USB installation, enter its full ' +
+      'application folder on the Wizard Deployment page. Final processing ' +
+      'and future builds deploy it automatically whenever the destination ' +
+      'is available. The component property stays relative as ' +
+      'Localization\Languages.' + sLineBreak + sLineBreak +
     'Ordinary forms need no component. For inherited or unusually renamed ' +
       'forms, configure FormIdentityMappings on the manager using ' +
       'FormClass=ScannerFormRoot entries.' + sLineBreak + sLineBreak +
@@ -336,6 +336,7 @@ var
   JsonObject: TJSONObject;
   JsonRoot: TJSONObject;
   JsonForms: TJSONArray;
+  DeploymentDestinationsFileName: string;
   Languages: TObjectList<TLanguagePackDescriptor>;
   LanguagesDirectory: string;
   ManagerClass: string;
@@ -465,10 +466,17 @@ begin
     JsonRoot.Free;
   end;
 
+  DeploymentDestinationsFileName :=
+    TTranslationWorkspace.DeploymentDestinationsFileName(AProfile);
+  if TFile.Exists(DeploymentDestinationsFileName) then
+    TFile.Copy(DeploymentDestinationsFileName,
+      TPath.Combine(Result, 'deployment-destinations.json'), True);
+
   DeploymentScript :=
     'param(' + sLineBreak +
     '  [Parameter(Mandatory=$true)][string]$ApplicationDirectory,' + sLineBreak +
-    '  [string]$ProjectDirectory = '''')' +
+    '  [string]$ProjectDirectory = '''',' + sLineBreak +
+    '  [switch]$SkipConfiguredDestinations)' +
     sLineBreak + '$ErrorActionPreference = ''Stop''' + sLineBreak +
     'if (-not [System.IO.Path]::IsPathRooted($ApplicationDirectory)) {' +
       sLineBreak +
@@ -481,14 +489,45 @@ begin
     '$ApplicationDirectory = [System.IO.Path]::GetFullPath($ApplicationDirectory)' +
       sLineBreak +
     '$source = Join-Path $PSScriptRoot ''Localization\Languages''' +
-    sLineBreak +
-    '$destination = Join-Path $ApplicationDirectory ''Localization\Languages''' +
-    sLineBreak +
-    'New-Item -ItemType Directory -Path $destination -Force | Out-Null' +
-    sLineBreak +
-    'Copy-Item -Path (Join-Path $source ''*.json'') -Destination $destination -Force' +
-    sLineBreak +
-    'Write-Output "Language packs deployed to $destination"' + sLineBreak;
+      sLineBreak +
+    'function Deploy-LanguagePacks([string]$TargetDirectory) {' +
+      sLineBreak +
+    '  $resolvedTarget = [System.IO.Path]::GetFullPath($TargetDirectory)' +
+      sLineBreak +
+    '  $destination = Join-Path $resolvedTarget ''Localization\Languages''' +
+      sLineBreak +
+    '  New-Item -ItemType Directory -Path $destination -Force | Out-Null' +
+      sLineBreak +
+    '  Copy-Item -Path (Join-Path $source ''*.json'') -Destination $destination -Force' +
+      sLineBreak +
+    '  Write-Output "Language packs deployed to $destination"' +
+      sLineBreak +
+    '}' + sLineBreak +
+    'Deploy-LanguagePacks $ApplicationDirectory' + sLineBreak +
+    'if (-not $SkipConfiguredDestinations) {' + sLineBreak +
+    '  $settingsFile = Join-Path $PSScriptRoot ''deployment-destinations.json''' +
+      sLineBreak +
+    '  if (Test-Path -LiteralPath $settingsFile -PathType Leaf) {' +
+      sLineBreak +
+    '    $settings = Get-Content -LiteralPath $settingsFile -Raw | ConvertFrom-Json' +
+      sLineBreak +
+    '    foreach ($configuredDestination in @($settings.destinations)) {' +
+      sLineBreak +
+    '      if ([string]::IsNullOrWhiteSpace([string]$configuredDestination)) { continue }' +
+      sLineBreak +
+    '      if (Test-Path -LiteralPath $configuredDestination -PathType Container) {' +
+      sLineBreak +
+    '        if ([System.IO.Path]::GetFullPath($configuredDestination) -ne $ApplicationDirectory) {' +
+      sLineBreak +
+    '          Deploy-LanguagePacks $configuredDestination' + sLineBreak +
+    '        }' + sLineBreak +
+    '      } else {' + sLineBreak +
+    '        Write-Warning "Configured application folder is unavailable; deployment skipped: $configuredDestination"' +
+      sLineBreak +
+    '      }' + sLineBreak +
+    '    }' + sLineBreak +
+    '  }' + sLineBreak +
+    '}' + sLineBreak;
   TFile.WriteAllText(TPath.Combine(Result, 'Deploy-LanguagePacks.ps1'),
     DeploymentScript, TEncoding.UTF8);
 end;

@@ -956,14 +956,14 @@ def build_setup_wizard_guide() -> Path:
         ("1. Purpose and Expected Result", 1),
         ("2. Prepare Before Starting", 1),
         ("3. Start and Navigate the Setup Wizard", 2),
-        ("4. Complete the Eight Wizard Steps", 3),
-        ("5. Complete the Manual RAD Studio Step", 7),
-        ("6. Build and Deploy the Language Packs", 8),
-        ("7. Verify the Translated Application", 9),
-        ("8. Files Created by the Wizard", 9),
-        ("9. Update, Resume, or Add Another Language", 10),
-        ("10. Troubleshooting", 12),
-        ("11. Where to Learn More", 13),
+        ("4. Complete the Nine Wizard Steps", 3),
+        ("5. Complete the Manual RAD Studio Step", 8),
+        ("6. Build and Deploy the Language Packs", 9),
+        ("7. Verify the Translated Application", 10),
+        ("8. Files Created by the Wizard", 10),
+        ("9. Update, Resume, or Add Another Language", 11),
+        ("10. Troubleshooting", 13),
+        ("11. Where to Learn More", 14),
     ])
 
     document.add_heading("1. Purpose and Expected Result", level=1)
@@ -1031,7 +1031,7 @@ def build_setup_wizard_guide() -> Path:
         "Cancel is safe through the Review and Authorize page, before Begin Final Processing is selected. During final processing the Wizard cannot be closed. If a failure occurs after the controlled DPROJ update, the transaction restores the prior project configuration automatically. Pascal and form source are not rewritten.",
     )
 
-    document.add_heading("4. Complete the Eight Wizard Steps", level=1)
+    document.add_heading("4. Complete the Nine Wizard Steps", level=1)
 
     document.add_heading("4.1 Step 1 - Welcome", level=2)
     add_paragraphs(
@@ -1063,7 +1063,26 @@ def build_setup_wizard_guide() -> Path:
     )
     add_callout(document, "Expected result.", "The footer reports that the project was identified and no target file was changed. The exact Application ID is displayed explicitly rather than inferred from the folder name.")
 
-    document.add_heading("4.3 Step 3 - Languages", level=2)
+    document.add_heading("4.3 Step 3 - Deployment Destinations", level=2)
+    add_paragraphs(
+        document,
+        [
+            "The Wizard detects normal Win32 and Win64 build-output folders automatically. This page is for additional installed, portable, network, or USB folders that contain—or will contain—the application executable. Entries are staged until authorized final processing, so Cancel still leaves the project and Studio-owned deployment settings unchanged.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Leave the list empty when the application will run only from normal Delphi build-output folders.",
+            "For a separate application copy, select Add Application Folder and choose the full folder, including its drive letter. Select the folder containing the executable, not the Localization or Languages subfolder.",
+            "Repeat Add Application Folder for every installed, portable, network, or USB destination that should receive language packs automatically.",
+            "Use Remove Selected to remove an obsolete or incorrect destination before final processing.",
+            "Read the summary, then select Next.",
+        ],
+    )
+    add_callout(document, "Expected result.", "Final processing deploys immediately to every configured destination that is currently available. The choices are saved as Studio-owned JSON and included in the component kit. Future Delphi builds retry them automatically; an unplugged or unavailable drive is skipped with a warning and does not fail the build.")
+
+    document.add_heading("4.4 Step 4 - Languages", level=2)
     add_paragraphs(
         document,
         [
@@ -1081,7 +1100,7 @@ def build_setup_wizard_guide() -> Path:
     )
     add_callout(document, "Expected result.", "A locale such as es-ES is selected. Choosing a different target language invalidates downstream scan/catalog state so the wrong language cannot be exported accidentally.")
 
-    document.add_heading("4.4 Step 4 - Translation Service", level=2)
+    document.add_heading("4.5 Step 5 - Translation Service", level=2)
     add_paragraphs(
         document,
         [
@@ -1101,7 +1120,7 @@ def build_setup_wizard_guide() -> Path:
     )
     add_callout(document, "Expected result.", "The provider connection succeeds using one small test translation. No target application text has been sent yet.")
 
-    document.add_heading("4.5 Step 5 - Scan Project", level=2)
+    document.add_heading("4.6 Step 6 - Scan Project", level=2)
     add_paragraphs(
         document,
         [
@@ -1121,7 +1140,7 @@ def build_setup_wizard_guide() -> Path:
     )
     add_callout(document, "Expected result.", "The footer reports that the development catalog is ready. The scan itself remains read-only with respect to the target project.")
 
-    document.add_heading("4.6 Step 6 - Delphi Component", level=2)
+    document.add_heading("4.7 Step 7 - Delphi Component", level=2)
     add_paragraphs(
         document,
         [
@@ -1131,7 +1150,7 @@ def build_setup_wizard_guide() -> Path:
     add_steps(
         document,
         [
-            "Read all eight instructions shown on the page.",
+            "Read every project-specific instruction shown on the page.",
             "Optionally select Show Design BPL now to confirm that the exact verified VCL or FMX Win32 Release design package exists. File Explorer selects the file; the Wizard does not install it.",
             "Select I understand this manual RAD Studio step.",
             "Select Next.",
@@ -1139,7 +1158,7 @@ def build_setup_wizard_guide() -> Path:
     )
     add_callout(document, "Expected result.", "The Wizard records that the manual step is understood; no BPL registry entry and no target-form component has been created yet.")
 
-    document.add_heading("4.7 Step 7 - Review and Authorize", level=2)
+    document.add_heading("4.8 Step 8 - Review and Authorize", level=2)
     add_paragraphs(
         document,
         [
@@ -1160,11 +1179,11 @@ def build_setup_wizard_guide() -> Path:
     )
     add_callout(document, "Expected result.", "The Wizard moves to Process and Finish, disables cancellation and navigation, and begins the logged operation sequence.")
 
-    document.add_heading("4.8 Step 8 - Process and Finish", level=2)
+    document.add_heading("4.9 Step 9 - Process and Finish", level=2)
     add_paragraphs(
         document,
         [
-            "Final processing runs in a protected single pass: required ZIP backup, automatic translation of eligible unresolved entries, initial catalog save, automatic Localization Review, application of saved terminology/layout decisions, final validation, runtime-pack export, component-kit generation, deployment to existing output folders, backed-up transactional DPROJ configuration, and completion-report creation.",
+            "Final processing runs in a protected single pass: required ZIP backup, automatic translation of eligible unresolved entries, initial catalog save, automatic Localization Review, application of saved terminology/layout decisions, final validation, runtime-pack export, component-kit generation, deployment to existing output folders and every available configured application destination, backed-up transactional DPROJ configuration, and completion-report creation.",
             "Machine translations are recorded with Google or DeepL provenance. Existing Reviewed, Approved, Excluded, and Obsolete entries are not overwritten. Blocking validation errors stop the sequence; warnings are recorded but do not necessarily prevent export.",
         ],
     )
@@ -1173,9 +1192,9 @@ def build_setup_wizard_guide() -> Path:
         [
             "Watch the timestamped progress log. Do not terminate the Studio or Windows while processing is active.",
             "When processing completes, select the blue component-kit path or Open Kit Folder.",
-            "Read the explanation above Fallback Commands. Normally, no command must be copied. Deploy Build Outputs refreshes existing build folders; the displayed commands are a troubleshooting fallback.",
+            "Read the repeat/troubleshooting explanation. Normally, neither deployment button must be clicked: final processing has already deployed detected outputs and configured application destinations.",
             "Build each target configuration you actually intend to ship or test. A Delphi build produces one selected platform/configuration at a time unless you use Project > Build All Projects with the required configurations enabled. The Wizard's post-build step automatically deploys the current JSON packs to that build's executable Localization\\Languages folder.",
-            "Use Deploy Build Outputs to refresh detected build folders. For a portable, USB, or custom installation, choose Deploy to App Folder and select the folder containing the exact application EXE. The Wizard verifies the EXE before copying anything.",
+            "Use Redeploy Build Outputs only to repeat deployment after an unusual manual change. Use Deploy New App Folder only for a new or temporary folder that was not entered on Step 3. The Wizard verifies the EXE before copying anything.",
             "Use Copy Fallback Commands only for troubleshooting or a deliberately manual deployment.",
             "Select Finish after reviewing the completion results. The Wizard closes and returns to the Studio; continue with the manual RAD Studio steps in Chapter 5.",
         ],
@@ -1248,8 +1267,8 @@ def build_setup_wizard_guide() -> Path:
             "Build each target platform/configuration that will be tested or released.",
             "Confirm each successful build reports language-pack deployment in its build output. The command runs PowerShell with -NoProfile -ExecutionPolicy Bypass.",
             "For each executable, verify that Localization\\Languages contains the English source pack and the translated target pack.",
-            "If an already-built output needs refreshing, select Deploy Build Outputs. Copy Fallback Commands remains available for troubleshooting.",
-            "For a portable or USB copy, select Deploy to App Folder and choose the folder containing <ProjectName>.exe. The LanguagesFolder component property remains the relative value Localization\\Languages, while the physical destination includes the drive, for example F:\\Localization\\Languages.",
+            "If an already-built output needs refreshing, select Redeploy Build Outputs. Copy Fallback Commands remains available for troubleshooting.",
+            "For a portable or USB copy, enter its full application folder on Step 3 so final processing and future builds deploy it automatically. Deploy New App Folder remains available for a new or temporary destination. The LanguagesFolder component property remains the relative value Localization\\Languages, while the physical destination includes the drive.",
         ],
     )
     add_callout(
@@ -1314,7 +1333,7 @@ def build_setup_wizard_guide() -> Path:
             "Continue to final processing. Automatic translation sends only eligible new, changed, or otherwise unresolved entries. Matching Reviewed and Approved translations are preserved.",
             "If any target DFM/FMX or Pascal file is saved after the scan, final processing stops instead of exporting stale results. Return to Scan Project and scan again.",
             "The already installed design package, manager, selector, and configured search path normally remain in place. Review the Delphi Component step and acknowledge the existing setup; do not add duplicate components.",
-            "Let final processing validate the catalog, export fresh JSON, regenerate the kit, and deploy to known build outputs. Use Deploy to App Folder again for a portable or USB copy.",
+            "Let final processing validate the catalog, export fresh JSON, regenerate the kit, and deploy to known build outputs and every available configured application destination.",
             "Rebuild the target because its UI/source changed. Test every affected form in the source and target languages, including text wrapping, alignment, control state, and language persistence.",
         ],
     )
@@ -1348,7 +1367,7 @@ def build_setup_wizard_guide() -> Path:
             ["Scan returns zero", "The wrong project was selected or the forms are not readable text resources.", "Verify the project path and convert binary DFM resources through Delphi."],
             ["Unresolved count is lower than scan count", "Some entries are dynamic, excluded, obsolete, protected, or already translated.", "This is normally correct; review classifications in the full Studio when needed."],
             ["Package or DAT Localization is unavailable", "The design package is not built, installed, or enabled in this RAD Studio installation.", "Build the package set if needed, then use Component > Install Packages > Add with the exact Win32 Release design BPL."],
-            ["Packs are absent after a build", "The marked DPROJ settings are missing, the kit moved, or the post-build command failed.", "Inspect the build output, verify the kit path, and use Deploy Build Outputs, Deploy to App Folder, or the documented manual fallback."],
+            ["Packs are absent after a build", "The marked DPROJ settings are missing, the kit moved, the destination was unavailable, or the post-build command failed.", "Inspect the build output and configured destination, verify the kit path, then use Redeploy Build Outputs, Deploy New App Folder, or the documented manual fallback."],
             ["Selector is empty", "Packs are missing, invalid, or have a different applicationId.", "Check Localization\\Languages beside the running executable and verify ApplicationId."],
             ["Some text remains English", "The text may be dynamic, excluded, added after the scan, or not wired as a resourcestring.", "Rescan and translate new entries; use the full Studio to inspect runtime classifications and manual wiring warnings."],
             ["A newly added label is missing from the scan", "The form was not saved, the wrong project/catalog is open, or the new property is not an eligible text property.", "Choose File > Save All in Delphi, confirm the same .dproj and target language, then rescan and inspect the entry classification."],
@@ -1547,7 +1566,7 @@ def build_engineering_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "DAT.Studio.SetupWizard is a separate, designer-authored FMX modal form opened by Start Setup Wizard. It is borderless, fixed-size, centered, and deliberately omits menu and system controls. Its eight hidden TabControl pages, left navigation rail, footer controls, labels, dialogs, check boxes, memos, and layout geometry are all persisted in DAT.Studio.SetupWizard.fmx and remain editable in the Form Designer. A designer-authored modal backdrop dims and blocks the Studio while the Wizard is open so the two blue interfaces remain visually distinct.",
+            "DAT.Studio.SetupWizard is a separate, designer-authored FMX modal form opened by Start Setup Wizard. It is borderless, fixed-size, centered, and deliberately omits menu and system controls. Its nine hidden TabControl pages, including the Deployment Destinations page, left navigation rail, footer controls, labels, dialogs, lists, check boxes, memos, and layout geometry are all persisted in DAT.Studio.SetupWizard.fmx and remain editable in the Form Designer. A designer-authored modal backdrop dims and blocks the Studio while the Wizard is open so the two blue interfaces remain visually distinct.",
             "The Wizard owns isolated project-profile, scan-result, catalog, provider-key, backup, and component-kit state. Steps already reached may be revisited; future steps remain disabled. Changing the project or target language invalidates downstream scan/catalog state. Before final processing, the target project is read only except for an explicitly saved provider credential outside the project. During final processing, navigation and closing are disabled.",
             "Final processing requires confirmation that the target project is closed, creates a timestamped ZIP, translates eligible unresolved entries, saves the development catalog, validates, exports the runtime JSON pack, generates the component kit, deploys packs to existing outputs, and transactionally inserts marked Search Path and PostBuildEvent properties inside Delphi's native Base compiler property group. Base inheritance covers Debug/Release and Win32/Win64. The Wizard never edits target Pascal, form, or DPR files and never writes RAD Studio's package registry.",
         ],
