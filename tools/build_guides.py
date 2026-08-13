@@ -349,6 +349,9 @@ def add_callout(document: Document, title: str, text: str) -> None:
     table = document.add_table(rows=1, cols=1)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     set_table_geometry(table, [9360])
+    row_properties = table.rows[0]._tr.get_or_add_trPr()
+    cannot_split = OxmlElement("w:cantSplit")
+    row_properties.append(cannot_split)
     cell = table.cell(0, 0)
     set_cell_shading(cell, PALE_BLUE)
     cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
@@ -954,16 +957,16 @@ def build_setup_wizard_guide() -> Path:
     )
     add_toc_section(document, title, [
         ("1. Purpose and Expected Result", 1),
-        ("2. Prepare Before Starting", 1),
-        ("3. Start and Navigate the Setup Wizard", 2),
-        ("4. Complete the Nine Wizard Steps", 3),
-        ("5. Complete the Manual RAD Studio Step", 8),
-        ("6. Build and Deploy the Language Packs", 9),
+        ("2. Complete the RAD Studio Preparation Before Starting", 1),
+        ("3. Start and Navigate the Setup Wizard", 3),
+        ("4. Complete the Nine Wizard Steps", 4),
+        ("5. Verify the RAD Studio Component Setup", 9),
+        ("6. Build and Deploy the Language Packs", 10),
         ("7. Verify the Translated Application", 10),
-        ("8. Files Created by the Wizard", 10),
-        ("9. Update, Resume, or Add Another Language", 11),
+        ("8. Files Created by the Wizard", 11),
+        ("9. Update, Resume, or Add Another Language", 12),
         ("10. Troubleshooting", 13),
-        ("11. Where to Learn More", 14),
+        ("11. Where to Learn More", 15),
     ])
 
     document.add_heading("1. Purpose and Expected Result", level=1)
@@ -972,7 +975,7 @@ def build_setup_wizard_guide() -> Path:
         [
             "The Setup Wizard is the recommended way to localize a Delphi application for the first time. It presents one decision at a time, verifies prerequisites before allowing the next step, and records the files and commands needed to finish the integration.",
             "At completion, the developer has a saved development catalog, compact JSON runtime language packs, a component integration kit, a required safety backup, and automatic build deployment. Pascal, DFM, FMX, and DPR files remain untouched. The Wizard adds one clearly marked, backed-up block to the DPROJ for the ComponentSource Search Path and post-build language-pack deployment.",
-            "The Wizard cannot perform Delphi's design-time work on the developer's behalf. RAD Studio must install the design package through its normal Install Packages dialog, and the developer must place and configure the language manager and visible selector on the target application's primary form. These visible IDE changes are deliberate safeguards.",
+            "Before opening the Wizard, RAD Studio must install the design package through its normal Install Packages dialog. The developer then places and configures the language manager and visible selector, adds any supporting labels or other localization UI, and saves those changes. The Wizard consequently scans the completed interface once instead of requiring a scan, a component-related UI change, and a second scan.",
         ],
     )
     add_callout(
@@ -981,7 +984,7 @@ def build_setup_wizard_guide() -> Path:
         "Google Cloud Translation or DeepL is contacted only by the Translation Studio on the developer's computer. The finished application reads local JSON files and requires no Internet connection, provider account, or API key.",
     )
 
-    document.add_heading("2. Prepare Before Starting", level=1)
+    document.add_heading("2. Complete the RAD Studio Preparation Before Starting", level=1)
     add_table(
         document,
         ["Requirement", "What to prepare", "Why it matters"],
@@ -990,7 +993,7 @@ def build_setup_wizard_guide() -> Path:
             ["Safe working copy", "Use a clearly named test copy and confirm it builds before localization.", "The original application remains available even if the evaluation is abandoned."],
             ["Backup method", "Git is optional. A verified folder copy, archive, or normal backup system is sufficient.", "The Wizard does not assume every Delphi developer uses Git."],
             ["Translation provider", "A working Google Cloud Translation Basic v2 or DeepL API key.", "Automatic translation cannot run without provider authentication."],
-            ["RAD Studio", "The current release is verified with RAD Studio 13 Florence.", "RAD Studio performs the approved design-package and component-placement steps."],
+            ["RAD Studio", "The current release is verified with RAD Studio 13 Florence.", "Install the matching design package and finish the component-related UI before opening the Wizard."],
             ["Healthy target build", "Build at least one intended Windows configuration successfully.", "A localization test should not begin with unrelated compiler or form-streaming failures."],
         ],
     )
@@ -999,9 +1002,57 @@ def build_setup_wizard_guide() -> Path:
         [
             "Close the target application if it is running.",
             "Create the pristine or otherwise protected copy, then create a separate test copy for the Wizard.",
-            "Open the test copy in RAD Studio, build it, run it briefly, then close RAD Studio or close the project before starting the Wizard.",
+            "Open the untouched test copy in RAD Studio, build it, and run it briefly to confirm that it is healthy before localization changes begin.",
+        ],
+    )
+
+    document.add_heading("2.1 Install the Localization Components", level=2)
+    add_paragraphs(
+        document,
+        [
+            "Complete this normally one-time RAD Studio installation before opening the Wizard. If DAT Localization is already visible in the Tool Palette for the target framework, do not reinstall it; continue with Section 2.2.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Close the target project while changing installed packages.",
+            "In RAD Studio choose Component > Install Packages. Do not choose Component > Install Component.",
+            "Select Add. From the Translation Studio installation, open bin\\packages\\Win32\\Release and select DATLanguageManagerFMXDesign.bpl for a FireMonkey project or DATLanguageManagerVCLDesign.bpl for a VCL project.",
+            "Confirm that the matching DAT Language Manager design-time package is listed and checked, then select OK.",
+            "Open a matching FMX or VCL form and confirm that DAT Localization appears in the Tool Palette with the language manager and language combo-box components.",
+        ],
+    )
+    add_callout(
+        document,
+        "Install the compiled design package.",
+        "Install the stable Win32 Release design-time BPL. Do not select a .dpk source file, do not copy BPLs into Delphi folders, and do not install a package from a generated per-project kit.",
+    )
+
+    document.add_heading("2.2 Complete and Save the Localization UI", level=2)
+    add_paragraphs(
+        document,
+        [
+            "Finish every interface change caused by adding language selection before the Wizard performs its scan. Text added here, including a Language: label, is then included in the first scan and does not require an immediate rescan.",
+        ],
+    )
+    add_steps(
+        document,
+        [
+            "Open the target test project and its primary form in the Form Designer.",
+            "Place one TDATFMXLanguageManager for an FMX project or one TDATVCLLanguageManager for a VCL project. One manager supervises the application; do not place one on every form.",
+            "Place the matching TDAT language combo box. In Object Inspector, set its LanguageManager property to the manager component; do not leave this property blank.",
+            "Set ApplicationId to the project filename without .dproj. For example, MyApplication.dproj uses MyApplication. Leave LanguagesFolder as Localization\\Languages and set SourceLanguage to the application's source locale, such as en-US.",
+            "Add any visible supporting interface, such as a Language: label or a designer-authored language menu. Complete its wording, placement, size, font, color, alignment, and related layout changes now.",
+            "Choose File > Save All. The Wizard reads saved DFM/FMX and Pascal files; it cannot scan an unsaved Form Designer buffer.",
+            "Close the target project before opening the Translation Studio. Do not worry if the newly added component units cannot compile yet: final Wizard processing configures the generated ComponentSource Search Path before the localized build.",
             "Have the provider API key available. Do not paste it into source code, JSON files, email, screenshots, or issue reports.",
         ],
+    )
+    add_callout(
+        document,
+        "Why these steps come first.",
+        "The first Wizard scan now sees the manager, selector, Language: label, and every related saved UI change. Ordinarily, only one scan is needed for initial setup. Any later source-text or Form Designer change must still be saved and rescanned before export.",
     )
 
     document.add_heading("3. Start and Navigate the Setup Wizard", level=1)
@@ -1144,19 +1195,20 @@ def build_setup_wizard_guide() -> Path:
     add_paragraphs(
         document,
         [
-            "This page explains the remaining manual RAD Studio phase that cannot safely be performed by the Wizard. The design-time BPL makes the manager and selector available on the DAT Localization Tool Palette page. Installing it is normally a one-time operation for the current RAD Studio installation; placing and arranging components remains designer-owned work.",
+            "This page restates the component requirements completed before the Wizard was opened and provides the exact project-specific values for verification. No additional component or label should normally be required now.",
         ],
     )
     add_steps(
         document,
         [
-            "Read every project-specific instruction shown on the page.",
-            "Optionally select Show Design BPL now to confirm that the exact verified VCL or FMX Win32 Release design package exists. File Explorer selects the file; the Wizard does not install it.",
-            "Select I understand this manual RAD Studio step.",
+            "Read every project-specific instruction shown on the page and compare it with the component setup already saved in RAD Studio.",
+            "Confirm that the displayed ApplicationId matches the value assigned to the manager. The project filename without .dproj is the controlling value.",
+            "Use Show Design BPL only if the DAT Localization components were not installed during Section 2.1 or the package location must be verified. File Explorer selects the package; the Wizard does not install it.",
+            "Select I understand this manual RAD Studio step to confirm that the pre-Wizard component setup has been completed and will be verified after final processing.",
             "Select Next.",
         ],
     )
-    add_callout(document, "Expected result.", "The Wizard records that the manual step is understood; no BPL registry entry and no target-form component has been created yet.")
+    add_callout(document, "Expected result.", "The Wizard records the acknowledgement. It does not modify the package registry or the target form; those designer-owned changes were already completed and saved before the scan.")
 
     document.add_heading("4.8 Step 8 - Review and Authorize", level=2)
     add_paragraphs(
@@ -1196,47 +1248,42 @@ def build_setup_wizard_guide() -> Path:
             "Build each target configuration you actually intend to ship or test. A Delphi build produces one selected platform/configuration at a time unless you use Project > Build All Projects with the required configurations enabled. The Wizard's post-build step automatically deploys the current JSON packs to that build's executable Localization\\Languages folder.",
             "Use Redeploy Build Outputs only to repeat deployment after an unusual manual change. Use Deploy New App Folder only for a new or temporary folder that was not entered on Step 3. The Wizard verifies the EXE before copying anything.",
             "Use Copy Fallback Commands only for troubleshooting or a deliberately manual deployment.",
-            "Select Finish after reviewing the completion results. The Wizard closes and returns to the Studio; continue with the manual RAD Studio steps in Chapter 5.",
+            "Select Finish after reviewing the completion results. The Wizard closes and returns to the Studio; continue with the verification steps in Chapter 5.",
         ],
     )
     add_callout(document, "Expected result.", "The progress log ends successfully, the component-kit folder exists, Wizard-Completion-Report.txt records the exact Application ID, Search Path, backups, and deployments, and the DPROJ contains one marked Wizard block.")
 
-    document.add_heading("5. Complete the Manual RAD Studio Step", level=1)
+    document.add_heading("5. Verify the RAD Studio Component Setup", level=1)
     add_paragraphs(
         document,
         [
-            "The Wizard creates files but deliberately does not alter RAD Studio's package registry or place components on forms. Complete these steps after final processing. If DAT Localization is already visible in the Tool Palette, do not reinstall the package; proceed to component placement.",
+            "The package and component-related UI were completed before the Wizard so the first scan included all visible text. After final processing, reopen the target project and verify the saved component properties and the Search Path added by the Wizard. Do not place duplicate components.",
         ],
     )
-    document.add_heading("5.1 Install the Design Package", level=2)
+    document.add_heading("5.1 Verify the Design Package", level=2)
     add_steps(
         document,
         [
-            "Start RAD Studio without opening the target form. If the target project opens automatically, close the project before changing installed packages.",
-            "In the Wizard select Show Design BPL, or browse to the exact path recorded in the completion report.",
-            "In RAD Studio choose Component > Install Packages.",
-            "Select Add, choose DATLanguageManagerFMXDesign.bpl for an FMX target or DATLanguageManagerVCLDesign.bpl for a VCL target, and select Open.",
-            "Confirm that the DAT Language Manager design-time package appears in the package list and is checked, then select OK.",
-            "Open any matching VCL or FMX form and confirm that the DAT Localization Tool Palette page contains the language manager and language combo-box components.",
+            "Start RAD Studio and confirm that the matching DAT Language Manager design-time package remains enabled under Component > Install Packages.",
+            "Open the target project and its primary form. Confirm that DAT Localization remains visible in the Tool Palette and that Delphi loads the saved form without a missing-class error.",
+            "If the package is unexpectedly absent, close the project and repeat Section 2.1 using the stable Win32 Release design BPL. Do not ignore a missing component class while opening the form.",
         ],
     )
     add_callout(
         document,
-        "Use the correct Delphi command.",
-        "Do not use Component > Install Component, do not select a .dpk, and do not install a BPL from a generated per-project kit. Install the stable Win32 Release design BPL selected by the Wizard.",
+        "No reinstall is normally needed.",
+        "A successfully installed DAT package remains registered for the current RAD Studio installation. Repeat package installation only when it is missing or disabled.",
     )
 
-    document.add_heading("5.2 Place and Configure the Components", level=2)
+    document.add_heading("5.2 Verify the Saved Components", level=2)
     add_steps(
         document,
         [
-            "Open the target test project and its primary form in the Form Designer.",
-            "Place one TDATFMXLanguageManager for an FMX project or one TDATVCLLanguageManager for a VCL project. One manager supervises the application; it is not placed on all forms.",
-            "Set ApplicationId to the exact value shown in Detected Application ID. For example, MyApplication.dproj produces MyApplication regardless of the containing folder name.",
-            "Leave LanguagesFolder as Localization\\Languages unless the application has an intentional custom deployment layout.",
-            "Set SourceLanguage to en-US when English (United States) is the source.",
-            "Place the matching TDAT language combo box. In Object Inspector, set its LanguageManager property to the manager component; do not leave this property blank. Position it where users can select a language. A connected Language menu may replace the combo box, but a visible language choice is required.",
-            "Save the form and project. Delphi makes the normal visible form-resource, Pascal-field, and uses-clause changes. The Wizard has already configured the DPROJ Search Path and post-build deployment.",
+            "Confirm that the primary form contains exactly one DAT language manager and the intended visible selector.",
+            "Confirm that ApplicationId exactly matches the Wizard's detected value, LanguagesFolder is Localization\\Languages unless intentionally customized, and SourceLanguage matches the authored source locale.",
+            "Confirm that the selector's LanguageManager property references the manager and that every supporting label, menu item, or other language-selection UI is present and correctly positioned.",
+            "If any visible text or Form Designer layout must be changed now, choose File > Save All and run the Wizard scan again before relying on the runtime pack. A post-scan UI change cannot be added safely to the existing export without rescanning.",
+            "If verification requires no UI or source-text change, continue directly to Search Path verification and the localized build.",
         ],
     )
 
