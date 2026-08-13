@@ -5,11 +5,21 @@
 > [!CAUTION]
 > **Alpha release - for controlled technical evaluation only.**
 >
+> Due to the ongoing development, there is no guarantee that this software always function
+> or provide any usable results at ths time. Therefore, users who download this software will be
+> using it at their own risk.
+>
+> When this software finally provides consistent results, it will be upgraded to a
+> Beta testing status.
+>
 > This is actively changing pre-release software. There is no supported
 > installer, stable binary distribution, or 1.0 release. Use a disposable,
 > version-controlled or independently backed-up copy of every Delphi project.
 > Verify every generated catalog, language pack, component setting, and
 > translated runtime screen before wider use.
+>
+> Comments about this alpha software are welcome and should be sent to:
+> churchesite@gmail.com  
 
 ## What it is
 
