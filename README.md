@@ -4,6 +4,7 @@
 
 > [!CAUTION]
 > **Pre-release development project - not ready for production use.**
+> **It is being modified daily for now, working out bugs.**
 >
 > This repository contains actively changing source code and engineering
 > material. There is no supported installer, stable binary release, or version
