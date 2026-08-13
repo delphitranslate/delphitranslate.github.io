@@ -746,7 +746,7 @@ object frmSetupWizard: TfrmSetupWizard
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
               TextSettings.FontColor = xFF365674
-              Text = 'The scan reads form resources and resourcestring declarations. Existing translations are preserved.'
+              Text = 'Scans forms and resourcestrings while preserving existing translations. Continue after scanning; Localization Review opens automatically after translation.'
             end
             object btnRunScan: TButton
               Position.X = 574.000000000000000000
@@ -780,12 +780,12 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = False
             end
             object btnLocalizationReview: TButton
-              Position.X = 510.000000000000000000
+              Position.X = 480.000000000000000000
               Position.Y = 394.000000000000000000
-              Size.Width = 228.000000000000000000
+              Size.Width = 258.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Localization Review...'
+              Text = 'Review Opens After Translation'
               OnClick = btnLocalizationReviewClick
             end
           end

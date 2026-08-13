@@ -116,6 +116,7 @@ implementation
 
 uses
   System.IOUtils,
+  System.StrUtils,
   System.SysUtils,
   Winapi.ShellAPI,
   Winapi.Windows,
@@ -250,6 +251,8 @@ end;
 
 procedure TfrmLocalizationReview.RefreshProposals;
 var
+  Entry: TTranslationEntry;
+  HasTranslatedFormText: Boolean;
   Proposal: TLayoutProposal;
 begin
   lstProposals.Clear;
@@ -263,7 +266,23 @@ begin
     lstProposalsChange(lstProposals);
   end
   else
-    memProposalDetail.Lines.Text := 'No layout proposals were generated for this catalog.';
+  begin
+    HasTranslatedFormText := False;
+    for Entry in FCatalog.Entries do
+      if (Trim(Entry.TranslatedText) <> '') and
+         MatchText(LowerCase(TPath.GetExtension(Entry.SourceFileName)),
+           ['.fmx', '.dfm']) then
+      begin
+        HasTranslatedFormText := True;
+        Break;
+      end;
+    if HasTranslatedFormText then
+      memProposalDetail.Lines.Text :=
+        'No layout adjustment is proposed. The analyzer found no translated control that requires a supported runtime Width, Height, WordWrap, or AutoSize change.'
+    else
+      memProposalDetail.Lines.Text :=
+        'Layout analysis requires translated form text. Close this window and continue the Setup Wizard. After automatic translation, the Wizard reopens Localization Review and generates the applicable layout proposals.';
+  end;
 end;
 
 procedure TfrmLocalizationReview.btnCloseClick(Sender: TObject);

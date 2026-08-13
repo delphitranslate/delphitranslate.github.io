@@ -327,6 +327,12 @@ begin
     lblFooterStatus.Text := 'Run the project scan before opening Localization Review.';
     Exit;
   end;
+  if not FFinalProcessing then
+  begin
+    lblFooterStatus.Text :=
+      'Continue through Review & Authorize. Localization Review opens automatically after translation, when translated text is available for layout analysis.';
+    Exit;
+  end;
   ForceDirectories(FReviewOutputDirectory);
   ProjectGlossary := TTranslationWorkspace.GlossaryFileName(FProjectProfile,
     FCatalog.Locale.LanguageCode);
@@ -971,9 +977,10 @@ begin
       TPath.Combine('export\localization-review',
         TPath.Combine(FProjectProfile.ProjectName,
           SelectedLanguageCode(cboTargetLanguage))));
-    btnLocalizationReview.Enabled := True;
+    btnLocalizationReview.Enabled := False;
     UpdateWorkflowSummary;
-    lblFooterStatus.Text := 'Scan complete. The development catalog is ready.';
+    lblFooterStatus.Text :=
+      'Scan complete. Continue through Review & Authorize; automatic translation and Localization Review occur during final processing.';
   except
     on E: Exception do
       lblFooterStatus.Text := 'Scan failed: ' + E.Message;

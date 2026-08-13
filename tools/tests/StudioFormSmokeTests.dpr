@@ -64,6 +64,11 @@ begin
       raise Exception.Create('The new/update translation workflow is not available.');
     if not Assigned(Wizard.btnLocalizationReview.OnClick) then
       raise Exception.Create('Localization Review is not connected to the Wizard.');
+    if Wizard.btnLocalizationReview.Enabled or
+       (Wizard.btnLocalizationReview.Text <>
+        'Review Opens After Translation') then
+      raise Exception.Create(
+        'Localization Review is available before translated text exists.');
     if (Pos('Required:', Wizard.chkUnderstandManualStep.Text) <> 1) or
        (Wizard.lblManualConfirmationRequired.Text = '') then
       raise Exception.Create('The required manual-phase confirmation is not explained.');

@@ -434,7 +434,7 @@ def build_document() -> Path:
     add_info_callout(document, "Rescan after source changes.",
         "If you edit or save any target PAS, FMX, DFM, DPR, or DPROJ file after this scan, return to this step and scan again before final processing.")
     add_numbered_steps(document, [
-        "The Localization Review button is available here, but the richest terminology suggestions and layout proposals do not exist until translations have been created. Continue with Next. The Wizard will open Localization Review automatically during final processing.",
+        "Localization Review is intentionally unavailable at this point because layout analysis requires translated text. Continue with Next. During final processing, the Wizard translates the unresolved entries and then opens Localization Review automatically with terminology suggestions and applicable layout proposals.",
     ], start=6)
 
     document.add_heading("5.7 Step 7 - Delphi Component", level=2)
