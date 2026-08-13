@@ -7,6 +7,9 @@ type
   public
     class function BuildAndDeploy(const AProjectFileName, AProjectName,
       APlatform, AConfiguration, APackageDirectory: string): string; static;
+    class function DeployBuildOutput(const AProjectFileName, AProjectName,
+      APlatform, AConfiguration, ADestinationDirectory,
+      APackageDirectory: string; AReplaceExecutable: Boolean): string; static;
   end;
 
 implementation
@@ -119,6 +122,52 @@ begin
         TPath.GetFileName(LanguagePackFileName)), True);
   Result := Format('%s %s built. Language packs deployed to %s.',
     [APlatform, AConfiguration, DestinationLanguageDirectory]);
+end;
+
+class function TTargetBuildDeployer.DeployBuildOutput(
+  const AProjectFileName, AProjectName, APlatform, AConfiguration,
+  ADestinationDirectory, APackageDirectory: string;
+  AReplaceExecutable: Boolean): string;
+var
+  DestinationExecutable: string;
+  DestinationLanguageDirectory: string;
+  LanguagePackFileName: string;
+  ProjectDirectory: string;
+  SourceExecutable: string;
+  SourceLanguageDirectory: string;
+begin
+  if not TFile.Exists(AProjectFileName) then
+    raise EFileNotFoundException.CreateFmt(
+      'The target project was not found: %s', [AProjectFileName]);
+  if not TDirectory.Exists(ADestinationDirectory) then
+    TDirectory.CreateDirectory(ADestinationDirectory);
+  ProjectDirectory := TPath.GetDirectoryName(AProjectFileName);
+  SourceExecutable := TPath.Combine(ProjectDirectory,
+    TPath.Combine('bin', TPath.Combine(APlatform,
+      TPath.Combine(AConfiguration, AProjectName + '.exe'))));
+  if not TFile.Exists(SourceExecutable) then
+    raise EFileNotFoundException.CreateFmt(
+      'The built executable was not found: %s', [SourceExecutable]);
+  DestinationExecutable := TPath.Combine(ADestinationDirectory,
+    AProjectName + '.exe');
+  if TFile.Exists(DestinationExecutable) and not AReplaceExecutable then
+    raise EInOutError.CreateFmt(
+      'The destination already contains %s. Enable the explicit replace/create authorization before deploying the executable.',
+      [DestinationExecutable]);
+  TFile.Copy(SourceExecutable, DestinationExecutable, True);
+  SourceLanguageDirectory := TPath.Combine(APackageDirectory,
+    'Localization\Languages');
+  DestinationLanguageDirectory := TPath.Combine(ADestinationDirectory,
+    'Localization\Languages');
+  TDirectory.CreateDirectory(DestinationLanguageDirectory);
+  for LanguagePackFileName in TDirectory.GetFiles(
+    SourceLanguageDirectory, '*.json') do
+    TFile.Copy(LanguagePackFileName,
+      TPath.Combine(DestinationLanguageDirectory,
+        TPath.GetFileName(LanguagePackFileName)), True);
+  Result := Format('%s copied to %s. Language packs deployed to %s.',
+    [AProjectName + '.exe', DestinationExecutable,
+     DestinationLanguageDirectory]);
 end;
 
 end.

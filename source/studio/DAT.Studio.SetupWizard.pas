@@ -57,6 +57,7 @@ type
     btnAddDeploymentDestination: TButton;
     btnRemoveDeploymentDestination: TButton;
     lblDeploymentSummary: TLabel;
+    chkReplaceDeployedExecutable: TCheckBox;
     lblWelcomeTitle: TLabel;
     lblWelcomeText: TLabel;
     WelcomeNotice: TRectangle;
@@ -274,6 +275,7 @@ begin
   ApplyLocaleDefaults;
   btnLocalizationReview.Enabled := False;
   chkBuildNow.IsChecked := False;
+  chkReplaceDeployedExecutable.IsChecked := False;
   cboBuildPlatform.ItemIndex := 2;
   cboBuildConfiguration.ItemIndex := 2;
   UpdateBuildChoice;
@@ -301,6 +303,7 @@ var
   Platforms: TArray<string>;
   Configuration: string;
   Platform: string;
+  ApplicationDirectory: string;
 begin
   if not FCompleted then
     Exit;
@@ -327,6 +330,13 @@ begin
         AddProgress(TTargetBuildDeployer.BuildAndDeploy(
           FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
           Platform, Configuration, FKitDirectory));
+        if chkReplaceDeployedExecutable.IsChecked then
+          for ApplicationDirectory in lstDeploymentDestinations.Items do
+            if TDirectory.Exists(ApplicationDirectory) then
+              AddProgress(TTargetBuildDeployer.DeployBuildOutput(
+                FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+                Platform, Configuration, ApplicationDirectory, FKitDirectory,
+                True));
       end;
     lblBuildStatus.Text := 'Build and deployment completed for every selected target.';
   except
@@ -449,25 +459,18 @@ begin
     'These instructions were generated for the selected project:' +
       sLineBreak + FProjectProfile.ProjectFileName + sLineBreak +
     'Detected Application ID: "' + ApplicationId + '"' + sLineBreak +
-    'After final processing:' + sLineBreak +
-    '1. The target project must remain closed during final processing. Then start RAD Studio without opening the target form.' + sLineBreak +
-    '2. Choose Component > Install Packages, then click Add.' + sLineBreak +
-    '3. Select the exact design BPL shown by this Wizard.' + sLineBreak +
-    '4. Confirm the DAT package is checked, then click OK.' + sLineBreak +
-    '5. Open the target project and its primary form.' + sLineBreak +
-    '6. Place one ' + ManagerClass + ' on the primary form.' + sLineBreak +
-    '7. Set ApplicationId to the detected value shown above: "' +
+    'Before the Wizard:' + sLineBreak +
+    '1. Install the matching DAT design package in RAD Studio.' + sLineBreak +
+    '2. Place one ' + ManagerClass + ' and one ' + SelectorClass +
+      ' on the primary form, connect the selector to the manager, and Save All.' + sLineBreak +
+    '3. Add any supporting Language label or menu and complete its layout.' + sLineBreak +
+    'The Wizard verifies and preserves this setup:' + sLineBreak +
+    '4. ApplicationId must be "' +
       ApplicationId + '". This value comes from the selected .dproj file. ' +
       'Leave LanguagesFolder as "Localization\Languages".' + sLineBreak +
-    '8. Place one ' + SelectorClass + '. In Object Inspector, set its ' +
-      'LanguageManager property to the manager; do not leave it blank. A ' +
-      'visible selector is required unless you provide an ' +
-      'equivalent connected Language menu.' + sLineBreak +
-    '9. Save the form and build Win32 and Win64 as required.' + sLineBreak +
-    '10. Build-output folders and every available application destination ' +
+    '5. Build-output folders and every available application destination ' +
       'entered on the Deployment page receive the current JSON packs ' +
-      'automatically. Use Deploy New App Folder only for a new or temporary ' +
-      'destination that was not entered earlier.' + sLineBreak +
+      'automatically.' + sLineBreak +
     'The Wizard configures the ComponentSource Search Path for all build ' +
       'configurations and adds automatic post-build language-pack deployment.';
 end;
@@ -486,6 +489,12 @@ begin
     lblDeploymentSummary.Text := Format(
       '%d separate application destination(s) will be remembered and deployed automatically when available. Detected build outputs are included separately.',
       [lstDeploymentDestinations.Items.Count]);
+  if chkReplaceDeployedExecutable.IsChecked then
+    lblDeploymentSummary.Text := lblDeploymentSummary.Text +
+      ' Executable create/replace is authorized.'
+  else
+    lblDeploymentSummary.Text := lblDeploymentSummary.Text +
+      ' JSON packs only; the deployed executable will not be replaced.';
 end;
 
 procedure TfrmSetupWizard.LoadDeploymentDestinations;
@@ -785,15 +794,7 @@ begin
         Exit;
       end;
     7:
-      if not chkUnderstandManualStep.IsChecked then
-      begin
-        lblFooterStatus.Text :=
-          'Confirm that you understand the remaining manual RAD Studio phase.';
-        TDialogServiceSync.ShowMessage(
-          'Before continuing, check "Required: I understand the remaining manual RAD Studio phase."');
-        chkUnderstandManualStep.SetFocus;
-        Exit;
-      end;
+      ;
     8:
       if not chkTargetProjectClosed.IsChecked then
       begin
@@ -1330,18 +1331,26 @@ var
 begin
   Result := 0;
   for ApplicationDirectory in lstDeploymentDestinations.Items do
-    if TDirectory.Exists(ApplicationDirectory) then
-    begin
-      if not RunDeploymentScript(ApplicationDirectory, True) then
-        raise Exception.Create('Deployment failed for configured destination ' +
-          ApplicationDirectory);
-      Inc(Result);
-      AddProgress('Language packs deployed to configured destination ' +
+  begin
+    if not TDirectory.Exists(ApplicationDirectory) then
+      try
+        TDirectory.CreateDirectory(ApplicationDirectory);
+      except
+        on E: Exception do
+          raise Exception.CreateFmt(
+            'Deployment destination is unavailable or not writable: %s (%s)',
+            [ApplicationDirectory, E.Message]);
+      end;
+    if not TDirectory.Exists(ApplicationDirectory) then
+      raise Exception.Create('Deployment destination is unavailable: ' +
         ApplicationDirectory);
-    end
-    else
-      AddProgress('Configured destination is currently unavailable and was skipped: ' +
+    if not RunDeploymentScript(ApplicationDirectory, True) then
+      raise Exception.Create('Language-pack deployment failed for configured destination ' +
         ApplicationDirectory);
+    Inc(Result);
+    AddProgress('Language packs deployed to configured destination ' +
+      ApplicationDirectory);
+  end;
 end;
 
 procedure TfrmSetupWizard.ExecuteFinalProcessing;
@@ -1771,7 +1780,11 @@ end;
 procedure TfrmSetupWizard.btnDeployApplicationFolderClick(Sender: TObject);
 var
   ApplicationDirectory: string;
-  ExecutableFileName: string;
+  Configuration: string;
+  Platform: string;
+  ProjectDirectory: string;
+  SourceExecutable: string;
+  DeployedExecutable: Boolean;
 begin
   if FKitDirectory = '' then
   begin
@@ -1780,24 +1793,38 @@ begin
   end;
   ApplicationDirectory := '';
   if not SelectDirectory(
-    'Select the folder containing ' + FProjectProfile.ProjectName + '.exe',
+    'Select or create the application deployment folder',
     '', ApplicationDirectory) then
     Exit;
-  ExecutableFileName := TPath.Combine(ApplicationDirectory,
-    FProjectProfile.ProjectName + '.exe');
-  if not TFile.Exists(ExecutableFileName) then
-  begin
-    lblFooterStatus.Text := Format(
-      'Select the folder containing %s. Nothing was copied.',
-      [FProjectProfile.ProjectName + '.exe']);
-    Exit;
-  end;
   btnDeployApplicationFolder.Enabled := False;
   try
-    if not RunDeploymentScript(ApplicationDirectory) then
-      raise Exception.Create('Language-pack deployment failed.');
-    lblFooterStatus.Text := 'Language packs deployed to ' +
-      TPath.Combine(ApplicationDirectory, 'Localization\Languages');
+    DeployedExecutable := False;
+    ProjectDirectory := TPath.GetDirectoryName(FProjectProfile.ProjectFileName);
+    if chkReplaceDeployedExecutable.IsChecked then
+      for Platform in ['Win32', 'Win64'] do
+        for Configuration in ['Debug', 'Release'] do
+        begin
+          SourceExecutable := TPath.Combine(ProjectDirectory,
+            TPath.Combine('bin', TPath.Combine(Platform,
+            TPath.Combine(Configuration, FProjectProfile.ProjectName + '.exe'))));
+          if TFile.Exists(SourceExecutable) then
+          begin
+            lblFooterStatus.Text := TTargetBuildDeployer.DeployBuildOutput(
+              FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+              Platform, Configuration, ApplicationDirectory, FKitDirectory,
+              True);
+            DeployedExecutable := True;
+            Break;
+          end;
+        end;
+    if not DeployedExecutable then
+    begin
+      if not RunDeploymentScript(ApplicationDirectory) then
+        raise Exception.Create('Language-pack deployment failed.');
+      lblFooterStatus.Text := 'Language packs deployed to ' +
+        TPath.Combine(ApplicationDirectory, 'Localization\Languages') +
+        '. No built executable was selected for deployment.';
+    end;
   except
     on E: Exception do
       lblFooterStatus.Text := E.Message;

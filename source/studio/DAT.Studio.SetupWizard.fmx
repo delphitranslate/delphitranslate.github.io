@@ -472,6 +472,16 @@ object frmSetupWizard: TfrmSetupWizard
               TextSettings.FontColor = xFF365674
               Text = 'Select a Delphi project first. Build outputs require no entry here.'
             end
+            object chkReplaceDeployedExecutable: TCheckBox
+              StyledSettings = []
+              Position.X = 8.000000000000000000
+              Position.Y = 468.000000000000000000
+              Size.Width = 730.000000000000000000
+              Size.Height = 44.000000000000000000
+              Size.PlatformDefault = False
+              TextSettings.FontColor = xFFB25400
+              Text = 'Authorize creating or replacing the deployed application EXE in these folders'
+            end
           end
           object tabLanguages: TTabItem
             Text = 'Languages'
@@ -801,7 +811,7 @@ object frmSetupWizard: TfrmSetupWizard
               TextSettings.Font.Size = 24.000000000000000000
               TextSettings.Font.StyleExt = {00070000000000000004000000}
               TextSettings.FontColor = xFF163A63
-              Text = 'One manual RAD Studio phase remains'
+              Text = 'Confirm the prepared Delphi component setup'
             end
             object lblComponentText: TLabel
               StyledSettings = []
@@ -813,7 +823,7 @@ object frmSetupWizard: TfrmSetupWizard
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
               TextSettings.FontColor = xFF365674
-              Text = 'The Wizard automates the catalog, language pack, Search Path, and deployment. After final processing, RAD Studio must register the design package, and you must place and connect the two components on the primary form. Follow the project-specific steps below.'
+              Text = 'Install and place the components before opening the Wizard. This page confirms the saved manager, selector, supporting UI, ApplicationId, and LanguagesFolder values that the Wizard will scan and preserve.'
             end
             object memComponentInstructions: TMemo
               Position.X = 8.000000000000000000
@@ -825,18 +835,11 @@ object frmSetupWizard: TfrmSetupWizard
               ShowScrollBars = True
               WordWrap = True
               Lines.Strings = (
-                'After final processing:'
-                '1. Start RAD Studio without opening the target form.'
-                '2. Choose Component > Install Packages, then click Add.'
-                '3. Select the exact design BPL shown by this wizard.'
-                '4. Confirm the DAT package is checked, then click OK.'
-                '5. Open the target project and its primary form.'
-                '6. Place the DAT language manager and required visible language selector.'
-                '7. Use the exact Application ID detected by this Wizard.'
-                '8. Save the form and build Win32 and Win64 as required.'
-                'The Wizard configures Search Paths and language-pack deployment automatically.')
+                'Before the Wizard: install the matching design package, place one language manager and one connected selector, add supporting language UI, set the properties, and choose File > Save All.'
+                'The Wizard verifies the saved setup, configures the ComponentSource Search Path, deploys JSON packs, and can build selected targets on the final page.')
             end
             object btnShowDesignBPL: TButton
+              Visible = False
               Position.X = 8.000000000000000000
               Position.Y = 354.000000000000000000
               Size.Width = 190.000000000000000000
@@ -846,6 +849,7 @@ object frmSetupWizard: TfrmSetupWizard
               OnClick = btnShowDesignBPLClick
             end
             object chkUnderstandManualStep: TCheckBox
+              Visible = False
               StyledSettings = []
               Position.X = 220.000000000000000000
               Position.Y = 352.000000000000000000
@@ -853,10 +857,11 @@ object frmSetupWizard: TfrmSetupWizard
               Size.Height = 46.000000000000000000
               Size.PlatformDefault = False
               TextSettings.FontColor = xFFB25400
-              Text = 'Required: I understand the remaining manual RAD Studio phase'
+              Text = 'Required: I understand the component setup is already complete'
               OnChange = chkUnderstandManualStepChange
             end
             object lblManualConfirmationRequired: TLabel
+              Visible = False
               StyledSettings = []
               WordWrap = True
               Position.X = 220.000000000000000000
@@ -867,7 +872,7 @@ object frmSetupWizard: TfrmSetupWizard
               TextSettings.Font.Size = 13.000000000000000000
               TextSettings.Font.StyleExt = {00070000000000000004000000}
               TextSettings.FontColor = xFFB25400
-              Text = 'Required before continuing: check the confirmation box above.'
+              Text = 'Required before continuing: confirm the prepared component setup above.'
             end
           end
           object tabReview: TTabItem
