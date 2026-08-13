@@ -1,192 +1,145 @@
 # Delphi App Translation Studio
 
-![CAUTION - Pre-release development project; not ready for production use](images%20and%20icons/README-Caution-Banner.svg)
+![ALPHA RELEASE - controlled technical evaluation](images%20and%20icons/README-Caution-Banner.svg)
 
 > [!CAUTION]
-> **Pre-release development project - not ready for production use.**
-> **It is being modified daily for now, working out bugs.**
+> **Alpha release - for controlled technical evaluation only.**
 >
-> This repository contains actively changing source code and engineering
-> material. There is no supported installer, stable binary release, or version
-> 1.0 package. Do not run the Studio against the only copy of an important
-> Delphi project. Evaluate it with a clean, version-controlled test copy and
-> verify every result before considering wider use.
+> This is actively changing pre-release software. There is no supported
+> installer, stable binary distribution, or 1.0 release. Use a disposable,
+> version-controlled or independently backed-up copy of every Delphi project.
+> Verify every generated catalog, language pack, component setting, and
+> translated runtime screen before wider use.
 
-## Release status
+## What it is
 
-The project is currently undergoing controlled acceptance testing. A public
-GitHub repository does **not** mean that the software has been released.
+Delphi App Translation Studio is a Windows desktop localization tool for
+Delphi VCL and FireMonkey applications. It scans saved designer-authored forms
+and selected Delphi resources, creates an editable JSON development catalog,
+translates eligible interface text through Google Cloud Translation or DeepL,
+validates the result, and exports offline JSON language packs.
 
-- No GitHub Release should be treated as available unless it is explicitly
-  published and identified as supported.
-- The current `main` branch is a development branch and may change without
-  backward-compatibility guarantees.
-- Existing guides are engineering snapshots and may temporarily lag the latest
-  accepted workflow.
-- The source has been validated with Delphi 13 / RAD Studio 13 Florence.
-  Compatibility with Delphi 12, 12.1, and Community Edition has not yet been
-  confirmed.
-- A formal open-source license has not yet been selected. Until a license is
-  added, the public source is viewable but should not be assumed to grant
-  redistribution or modification rights.
+The developer's Studio computer needs Internet access only while calling the
+selected translation provider. A completed target application reads local
+language packs and does not need Internet access or an API key at runtime.
 
-## What the project is intended to do
+## Alpha scope
 
-Delphi App Translation Studio is a Windows desktop localization workspace for
-Delphi VCL and FireMonkey applications. It scans designer-authored forms and
-selected Delphi resources, builds versioned JSON development catalogs, sends
-eligible interface text to Google Cloud Translation or DeepL, validates the
-results, and exports compact JSON runtime language packs.
+- Delphi VCL and FMX target applications on Windows Win32 and Win64.
+- Translation Studio builds for Win32 and Win64, Debug and Release.
+- Google Cloud Translation Basic v2 and DeepL API providers.
+- Windows Credential Manager storage or session-only provider keys.
+- Incremental catalogs, terminology review, validation, layout proposals,
+  immediate language switching, and offline runtime packs.
+- A Setup Wizard that leads a first-time project through scanning, translation,
+  validation, component-kit generation, deployment, and optional builds.
 
-The developer's Studio computer uses the Internet only while communicating
-with the selected translation provider. A translated target application loads
-local JSON packs and does not need Internet access or an API key at runtime.
+macOS, iOS, Android, Linux, C++Builder, and runtime cloud translation are not
+part of the current alpha scope. Delphi 12.x and clean-machine installation
+remain compatibility items to be tested.
 
-Current target scope:
+## Recommended first-time workflow
 
-- Delphi VCL applications for Windows Win32 and Win64.
-- Delphi FireMonkey applications for Windows Win32 and Win64.
-- Translation Studio builds for Windows Win32 and Win64.
+1. Make a pristine copy and a separate disposable test copy of the target
+   Delphi project. Confirm the test copy builds before localization.
+2. Install the matching DAT Language Manager design-time package through RAD
+   Studio's normal **Component > Install Packages > Add** command.
+3. In the target Form Designer, place one language manager and one connected
+   visible language selector on the primary form. Add supporting labels or
+   menu items, set ApplicationId/LanguagesFolder/SourceLanguage, and choose
+   **File > Save All**.
+4. Close the target project and start the Studio. Choose **Run Setup Wizard**.
+5. Select the project, source and target languages, provider, and deployment
+   destinations. The Wizard scans the saved project and translates unresolved
+   entries during its single controlled processing pass.
+6. Review the generated catalog, terminology, validation results, layout
+   proposals, safety backup, and component kit. Final processing does not
+   rewrite Pascal, DFM, FMX, or DPR source.
+7. On the final page, optionally authorize creating/replacing the deployed
+   application executable, select Win32/Win64 and Debug/Release targets, and
+   choose the build action. JSON packs are written beside each successful
+   executable under `Localization\\Languages`.
+8. Build and run the selected target copies. Test every language, form,
+   restart/persistence path, dynamic-data screen, and translated layout.
 
-macOS, iOS, Android, Linux, and C++Builder are outside the current scope.
+For existing catalogs or maintenance work, choose **Open Maintenance Studio**
+instead of the Wizard. The maintenance workflow provides direct Project, Scan,
+Translate, Validation, Export, Integration, and Provider Settings pages.
 
-### Context-aware automatic translation
+## Safety model
 
-Current scans record each entry's UI role, semantic concept, contextual description, and confidence. The Studio reuses reviewed contextual translation memory and vetted interface terminology before calling a provider. DeepL receives context directly; Google Cloud Translation Basic v2 does not support a context field, so Google results use local context and are flagged when short wording remains ambiguous. Terms such as **Play**, **Schedule**, **Close**, **Activate**, and **Enable** are resolved according to their inferred application meaning where possible.
+Scanning is read-only. The Wizard creates a timestamped safety backup before
+final processing and uses a marked, transactional DPROJ configuration block for
+the ComponentSource Search Path and post-build pack deployment. The recommended
+Component Integration path does not rewrite target Pascal, DFM, FMX, or DPR
+files.
 
-The Setup Wizard is the recommended integration path. It requires the target project to be closed before final processing, inserts its marked settings into Delphi's native Base compiler group, and offers **Deploy to App Folder** for portable or USB installations.
+Deployment is destination-specific. JSON packs may be created or replaced in a
+selected application folder. The application `.exe` is created or replaced
+only when the developer explicitly checks the executable deployment
+authorization. The source project is not replaced by that operation.
 
-## Current safety model
+## Known alpha limitations
 
-Project scanning is read-only. Saving a development catalog or exporting a
-runtime pack can create a `Localization` folder under the selected test
-project, but scanning alone should not modify its source.
+- Dynamic runtime text requires explicit application integration; it is not
+  always discoverable as static form text.
+- A translation can be wider than its English source. Word wrapping,
+  AutoSize, control dimensions, grid columns, charts, and complex forms may
+  need developer review.
+- Translation-provider wording and terminology still require human review,
+  especially for short ambiguous words such as Play, Close, Schedule, or
+  Activate.
+- External HTML help is a separate localization concern.
+- Removable drives can take time to wake. The Wizard retries pack deployment,
+  but destination availability and write permissions still matter.
+- Provider charges, quotas, API restrictions, and account security are the
+  developer's responsibility.
 
-The recommended integration path is **Component Integration**:
+## Building from source
 
-1. The Studio generates a component kit under its own `export` folder.
-2. The developer manually installs the applicable Win32 design-time BPL through
-   RAD Studio's **Component > Install Packages > Add** command.
-3. The developer places one language-manager component and a visible language
-   selector on the target application's primary form in Delphi's Form Designer.
-   A connected Language menu may replace the supplied combo box.
-4. After explicit final authorization and a required safety backup, the Wizard
-   inserts marked Search Path and post-build properties inside Delphi's native
-   DPROJ Base compiler group, inherited by all configurations/platforms.
+The verified development toolchain is RAD Studio 13 Florence with Win32 and
+Win64 compilers. Open `DelphiAppTranslationStudio.dproj` in RAD Studio and
+build the desired platform/configuration. Local executables are written under
+`bin\\<Platform>\\<Configuration>` and compiler units under `dcu`.
 
-This recommended path does not authorize the Studio to rewrite target Pascal,
-DFM, FMX, or DPR files. The only automatic project-file edit is the reviewed,
-backed-up DPROJ properties described above. Earlier source-integration experiments and
-advanced mutation paths are not the recommended pre-release workflow and
-should not be used on valuable projects.
-
-Before evaluation:
-
-- If the target uses Git, commit it and confirm `git status --short` is clean.
-- Git is not required. Always keep an independent verified backup or pristine copy.
-- Use a disposable project copy.
-- Review the generated JSON catalogs and component kit.
-- Build and test both Win32 and Win64 before drawing conclusions.
-
-## Current capabilities under test
-
-The recommended starting point is now **Start Setup Wizard** on the Project
-page. The designer-authored FMX Setup Wizard leads the developer through
-project and language selection, provider configuration, scanning, automatic translation,
-validation, JSON runtime-pack export, component-kit generation, the approved
-manual RAD Studio package step, and Win32/Win64 deployment. Completed wizard
-steps may be revisited; future steps cannot be skipped. Cancel remains safe
-until final processing begins. The Wizard never rewrites Delphi Pascal, form,
-or DPR files; it adds only its marked, transactional DPROJ configuration block.
-
-- VCL `.dfm` and FireMonkey `.fmx` form scanning.
-- Delphi `resourcestring` extraction.
-- Stable catalog keys and incremental JSON catalog merging.
-- Google Cloud Translation Basic v2 and DeepL API translation.
-- API keys stored in Windows Credential Manager or held for one session only.
-- Protected runtime-text classifications that prevent live data, identifiers,
-  and excluded content from being automatically overwritten.
-- Catalog validation, review, approval, JSON runtime-pack export, and offline
-  loading.
-- VCL and FMX language-manager components with immediate language switching.
-- Win32 and Win64 Debug/Release build and smoke-test coverage.
-
-Automatic-translation counts can be lower than scan counts. For example, an
-acceptance catalog may contain 173 scanned entries while only 155 require
-translation; the remaining entries are deliberately protected dynamic data,
-identifiers, or excluded content. The Studio reports these categories before
-sending text to a provider.
-
-## Known pre-release limitations
-
-- Dynamic runtime messages require explicit application integration and are
-  not automatically rewritten as static component text.
-- Translated text can be longer than the original and may expose target-form
-  sizing, wrapping, or truncation problems that require developer review.
-- External HTML help is a separate localization concern and is not currently
-  translated by the runtime component.
-- Delphi 12.x compatibility and clean-machine installation have not completed
-  acceptance testing.
-- Provider use may incur Google Cloud or DeepL charges. Developers are
-  responsible for account security, billing, quotas, and API-key restrictions.
-- The user and engineering guides will be finalized only after acceptance
-  testing and the supported installation procedure are complete.
-
-## Safe developer build
-
-The currently validated toolchain is Delphi 13 / RAD Studio 13 Florence on
-Windows with both Win32 and Win64 compilers installed.
-
-Open `DelphiAppTranslationStudio.dproj` in RAD Studio and build the desired
-platform. Command-line builds must first load the matching RAD Studio
-environment. Generated binaries and compiler output belong under `bin` and
-`dcu`; they are intentionally excluded from Git.
-
-The complete automated release gate is:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\tests\RunPhase10ReleaseValidation.ps1
-```
-
-Passing automation is necessary but does not make the current development
-branch a supported release.
+The repository does not currently publish a supported installer. Source users
+should build locally and evaluate with a clean test project.
 
 ## Repository layout
 
 ```text
-bin/                   Local build output; not distributed through Git
-dcu/                   Local compiler output
-docs/guides/           Engineering and user documentation
-docs/pdf/              Companion PDF documentation
-export/                Local generated catalogs and integration kits
-help/                  Application help source
-images and icons/      Product artwork
-packages/              Delphi runtime and design package source
-samples/               VCL and FireMonkey fixtures
-source/                Studio, scanner, catalog, provider, and runtime source
-tools/tests/           Automated validation and smoke tests
+bin/                 Local executables; not a stable binary distribution
+dcu/                 Local compiler output
+docs/guides/         User, Setup Wizard, and Engineering guides
+docs/pdf/            Companion PDFs
+export/              Generated catalogs and component kits
+help/                Help source
+images and icons/    Product artwork and repository banner
+packages/            Delphi runtime/design package source
+samples/             VCL and FMX fixtures
+source/              Studio, scanner, catalog, provider, and runtime source
+tools/tests/         Automated validation and smoke tests
 ```
 
-## Documentation and issue reporting
+## Documentation
 
-First-time users should begin with the
-[`Setup Wizard Guide`](docs/guides/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.docx).
-The
-[`User Guide`](docs/guides/Delphi%20App%20Translation%20Studio%20User%20Guide.docx)
-is the full product reference, and the
-[`Engineering Guide`](docs/guides/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.docx)
-documents architecture and maintenance. Companion PDFs are under `docs/pdf`.
+- [Setup Wizard Guide](docs/guides/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.docx)
+- [User Guide](docs/guides/Delphi%20App%20Translation%20Studio%20User%20Guide.docx)
+- [Engineering Guide](docs/guides/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.docx)
+- Companion PDFs are in [`docs/pdf`](docs/pdf/).
+- Engineering history is in [`docs/guides/Engineering Notes.md`](docs/guides/Engineering%20Notes.md).
 
-Engineering history is maintained in
-[`docs/guides/Engineering Notes.md`](docs/guides/Engineering%20Notes.md).
-Pre-release testers should record the exact Delphi version, target framework,
-platform, build configuration, reproduction steps, screenshots, and relevant
-catalog entries when reporting a defect. Never publish an API key, credential,
-private source file, or customer data in an issue.
+## Reporting alpha feedback
 
-## Intended release gate
+Please include the RAD Studio/Delphi version, VCL or FMX, Win32 or Win64,
+Debug or Release, exact Wizard step, expected and actual behavior, screenshots,
+and relevant catalog counts or paths. Never publish API keys, credentials,
+private source, customer data, or proprietary language packs.
 
-Version 1.0 will not be declared until the repository has passed a clean-clone
-build, clean IDE package-installation test, VCL and FMX acceptance testing,
-Win32 and Win64 validation, documentation review, license selection, and a
-complete source-distribution audit.
+## Release decision
+
+This repository is suitable for a limited technical alpha and contributor
+feedback. It is not a production release. Version 1.0 requires a clean-clone
+build, clean IDE package-installation test, VCL and FMX acceptance, Win32 and
+Win64 validation, removable-drive deployment testing, documentation review,
+license selection, and a complete source-distribution audit.

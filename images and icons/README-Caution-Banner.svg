@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="220" viewBox="0 0 1200 220" role="img" aria-labelledby="title description">
-  <title id="title">Caution: pre-release development project</title>
-  <desc id="description">This project is not ready for production use.</desc>
+  <title id="title">Alpha release: controlled technical evaluation</title>
+  <desc id="description">Alpha release; not ready for production use.</desc>
   <defs>
     <linearGradient id="warningRed" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#dc2626"/>
@@ -20,7 +20,7 @@
     <circle cx="68" cy="102" r="9" fill="#b91c1c"/>
   </g>
 
-  <text x="635" y="92" text-anchor="middle" fill="#fff" font-family="Segoe UI, Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="6">CAUTION</text>
-  <text x="635" y="146" text-anchor="middle" fill="#fff7ed" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700" letter-spacing="1">PRE-RELEASE DEVELOPMENT PROJECT</text>
-  <text x="635" y="181" text-anchor="middle" fill="#fecaca" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="600">NOT READY FOR PRODUCTION USE</text>
+  <text x="635" y="92" text-anchor="middle" fill="#fff" font-family="Segoe UI, Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="6">ALPHA RELEASE</text>
+  <text x="635" y="146" text-anchor="middle" fill="#fff7ed" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700" letter-spacing="1">CONTROLLED TECHNICAL EVALUATION</text>
+  <text x="635" y="181" text-anchor="middle" fill="#fecaca" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="600">NOT FOR PRODUCTION USE</text>
 </svg>
