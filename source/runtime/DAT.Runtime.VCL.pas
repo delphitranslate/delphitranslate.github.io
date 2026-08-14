@@ -225,16 +225,17 @@ var
   procedure RestoreComponentTree(const AComponent: TComponent);
   var
     ChildIndex: Integer;
+    LocalPropertyName: string;
   begin
     if AComponent = nil then
       Exit;
-    for PropertyName in TextProperties do
+    for LocalPropertyName in TextProperties do
       if RestoreSourceTextProperty(FormIdentity, AForm, AComponent,
-        PropertyName, APack) then
+        LocalPropertyName, APack) then
         Inc(Result);
-    for PropertyName in StringProperties do
+    for LocalPropertyName in StringProperties do
       Inc(Result, RestoreSourceStringCollection(FormIdentity, AForm,
-        AComponent, PropertyName, PropertyName + '.Strings', APack));
+        AComponent, LocalPropertyName, LocalPropertyName + '.Strings', APack));
     for ChildIndex := 0 to AComponent.ComponentCount - 1 do
       RestoreComponentTree(AComponent.Components[ChildIndex]);
   end;

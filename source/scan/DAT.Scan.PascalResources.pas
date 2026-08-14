@@ -142,6 +142,36 @@ begin
      'Description']);
 end;
 
+function TryClassifyRuntimeAssignment(const ALeftSide: string;
+  out APropertyName: string): Boolean;
+var
+  LowerLeft: string;
+begin
+  APropertyName := LastIdentifier(ALeftSide);
+  Result := IsRuntimeTextProperty(APropertyName);
+  if Result then
+    Exit;
+
+  LowerLeft := LowerCase(StringReplace(ALeftSide, ' ', '', [rfReplaceAll]));
+  if ContainsText(LowerLeft, '.cells[') then
+  begin
+    APropertyName := 'GridCell';
+    Exit(True);
+  end;
+  if ContainsText(LowerLeft, '.columns[') and
+    (ContainsText(LowerLeft, '.header') or ContainsText(LowerLeft, '.text')) then
+  begin
+    APropertyName := 'GridHeader';
+    Exit(True);
+  end;
+  if ContainsText(LowerLeft, '.header') and
+    (ContainsText(LowerLeft, 'column') or ContainsText(LowerLeft, 'grid')) then
+  begin
+    APropertyName := 'GridHeader';
+    Exit(True);
+  end;
+end;
+
 function FirstArgument(const AExpression: string): string;
 var
   Depth: Integer;
@@ -458,8 +488,7 @@ begin
       Expression := Trim(Copy(Statement.Text, AssignAt + 2, MaxInt));
       if EndsText(';', Expression) then
         Delete(Expression, Length(Expression), 1);
-      PropertyName := LastIdentifier(LeftSide);
-      if IsRuntimeTextProperty(PropertyName) then
+      if TryClassifyRuntimeAssignment(LeftSide, PropertyName) then
       begin
         if TryDecodeDelphiStringExpression(Expression, ValueText) then
         begin

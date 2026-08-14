@@ -134,7 +134,7 @@
           "formName": { "type": "string", "minLength": 1 },
           "componentName": { "type": "string" },
           "propertyName": {
-            "enum": ["Width", "Height", "WordWrap", "AutoSize"]
+            "enum": ["Width", "Height", "Left", "Top", "Position.X", "Position.Y", "WordWrap", "AutoSize"]
           },
           "originalValue": { "type": "string", "minLength": 1 },
           "translatedValue": { "type": "string", "minLength": 1 },

@@ -499,13 +499,66 @@ var
   IsButton: Boolean;
   IsColumn: Boolean;
   IsWrappingText: Boolean;
+
+  function TextWidthEstimate(const AControl: TLayoutControl): Double;
+  begin
+    Result := (Length(AControl.TranslatedText) * Max(AControl.FontSize, 9) *
+      0.58) + 18;
+  end;
+
+  function EffectiveWidth(const AControl: TLayoutControl): Double;
+  var
+    Estimate: Double;
+  begin
+    Result := AControl.Width;
+    if (AControl.TranslatedText = '') or (AControl.Width <= 0) then
+      Exit;
+    Estimate := TextWidthEstimate(AControl);
+    if ContainsText(AControl.ComponentClassName, 'Column') then
+      Result := Min(Max(Result, Estimate), 420)
+    else if ContainsText(AControl.ComponentClassName, 'Button') then
+      Result := Min(Max(Result, Estimate), Max(AControl.Width * 2.5, 220))
+    else if not (ContainsText(AControl.ComponentClassName, 'Edit') or
+      ContainsText(AControl.ComponentClassName, 'Combo') or
+      ContainsText(AControl.ComponentClassName, 'Grid')) then
+      Result := Min(Max(Result, Estimate), Max(AControl.Width * 2.0, 260));
+  end;
+
+  function EffectiveHeight(const AControl: TLayoutControl): Double;
+  var
+    Estimate: Double;
+    Lines: Integer;
+  begin
+    Result := AControl.Height;
+    if (AControl.TranslatedText = '') or (AControl.Width <= 0) then
+      Exit;
+    Estimate := TextWidthEstimate(AControl);
+    if Estimate > AControl.Width * 1.05 then
+    begin
+      Lines := Max(2, Ceil(Estimate / Max(AControl.Width, 24)));
+      Result := Max(Result, Max(AControl.FontSize, 9) * 1.7 * Lines + 8);
+    end;
+  end;
+
+  function SameVisualRow(const ALeft, ARight: TLayoutControl): Boolean;
+  begin
+    Result := Abs((ALeft.Top + ALeft.Height / 2) -
+      (ARight.Top + ARight.Height / 2)) <=
+      Max(8, Max(ALeft.Height, ARight.Height) * 0.55);
+  end;
+
+  function SameVisualColumn(const AUpper, ALower: TLayoutControl): Boolean;
+  begin
+    Result := (AUpper.Left < ALower.Left + ALower.Width) and
+      (AUpper.Left + AUpper.Width > ALower.Left);
+  end;
 begin
   for Control in AReview.Controls do
   begin
     if (Control.TranslatedText = '') or not Control.HasSize then
       Continue;
     FontSize := Max(Control.FontSize, 9);
-    RequiredWidth := (Length(Control.TranslatedText) * FontSize * 0.52) + 10;
+    RequiredWidth := TextWidthEstimate(Control);
     RequiredHeight := FontSize * 1.65;
     IsButton := ContainsText(Control.ComponentClassName, 'Button');
     IsColumn := ContainsText(Control.ComponentClassName, 'Column');
@@ -522,6 +575,11 @@ begin
       if IsWrappingText and (Control.Width >= 80) then
       begin
         LineCount := Max(2, Ceil(RequiredWidth / Control.Width));
+        NewWidth := Ceil(Min(RequiredWidth, Max(Control.Width * 1.75, 220)));
+        if NewWidth > Ceil(Control.Width) then
+          AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
+            IntToStr(NewWidth),
+            'Moderately widen the text control before wrapping so nearby controls are less likely to be crowded.');
         if Control.AutoSize then
           AddProposal(AReview, Control, 'AutoSize', 'True', 'False',
             'Disable one-line automatic sizing so the translated text can wrap inside the designer width.');
@@ -565,21 +623,34 @@ begin
            SameText(Other.ParentName, Control.ParentName) and
            Other.HasPosition and Other.HasSize and
            (Other.TranslatedText <> '') and
-           (Control.Left < Other.Left + Other.Width) and
-           (Control.Left + Control.Width > Other.Left) and
-           (Control.Top < Other.Top + Other.Height) and
-           (Control.Top + Control.Height > Other.Top) then
+           (Control.Left < Other.Left + EffectiveWidth(Other)) and
+           (Control.Left + EffectiveWidth(Control) > Other.Left) and
+           (Control.Top < Other.Top + EffectiveHeight(Other)) and
+           (Control.Top + EffectiveHeight(Control) > Other.Top) then
         begin
           AddFinding(AReview, lfsWarning, 'Overlap',
             Control.FormName + '.' + Control.ComponentName,
             'This control intersects ' + Other.ComponentName +
-              ' in the designer geometry.',
-            'The runtime pack will move the lower control after an approved layout pass.');
-          if (Other.Top >= Control.Top) and
+              ' after estimated translated sizing.',
+            'Approve only if the proposed same-row or same-column adjustment makes sense for this form.');
+          if SameVisualRow(Control, Other) and
+             (Other.Left >= Control.Left) and
+             ((Other.Align = '') or SameText(Other.Align, 'None')) then
+            AddProposal(AReview, Other, 'Left', FloatToStr(Other.Left),
+              FloatToStr(Ceil(Control.Left + EffectiveWidth(Control) + 8)),
+              'Move this same-row control to the right of the expanded translated text.')
+          else if SameVisualRow(Other, Control) and
+             (Control.Left >= Other.Left) and
+             ((Control.Align = '') or SameText(Control.Align, 'None')) then
+            AddProposal(AReview, Control, 'Left', FloatToStr(Control.Left),
+              FloatToStr(Ceil(Other.Left + EffectiveWidth(Other) + 8)),
+              'Move this same-row control to the right of the expanded translated text.')
+          else if SameVisualColumn(Control, Other) and
+             (Other.Top >= Control.Top) and
              ((Other.Align = '') or SameText(Other.Align, 'None')) then
             AddProposal(AReview, Other, 'Top', FloatToStr(Other.Top),
-              FloatToStr(Ceil(Control.Top + Control.Height + 8)),
-              'Move the lower control below the expanded translated control.');
+              FloatToStr(Ceil(Control.Top + EffectiveHeight(Control) + 8)),
+              'Move this same-column control below the expanded translated text.');
         end;
 end;
 

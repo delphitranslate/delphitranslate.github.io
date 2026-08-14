@@ -18,12 +18,108 @@ type
 implementation
 
 uses
+  System.Classes,
   System.Diagnostics,
+  System.Generics.Collections,
   System.IOUtils,
   System.StrUtils,
   System.SysUtils,
   DAT.Scan.FormText,
   DAT.Scan.PascalResources;
+
+function IsUnderDirectory(const ADirectory, AFileName: string): Boolean;
+var
+  DirectoryPrefix: string;
+  FullFileName: string;
+begin
+  DirectoryPrefix := IncludeTrailingPathDelimiter(
+    LowerCase(TPath.GetFullPath(ADirectory)));
+  FullFileName := LowerCase(TPath.GetFullPath(AFileName));
+  Result := StartsText(DirectoryPrefix, FullFileName);
+end;
+
+procedure AddUniqueFileName(const AFiles: TList<string>; const AFileName: string);
+var
+  ExistingFileName: string;
+  FullFileName: string;
+begin
+  if Trim(AFileName) = '' then
+    Exit;
+  FullFileName := TPath.GetFullPath(AFileName);
+  if not TFile.Exists(FullFileName) then
+    Exit;
+  for ExistingFileName in AFiles do
+    if SameText(ExistingFileName, FullFileName) then
+      Exit;
+  AFiles.Add(FullFileName);
+end;
+
+function ExtractXmlAttribute(const AText, AAttributeName: string): string;
+var
+  AttributeAt: Integer;
+  QuoteChar: Char;
+  StartAt: Integer;
+  EndAt: Integer;
+begin
+  Result := '';
+  AttributeAt := Pos(LowerCase(AAttributeName + '='), LowerCase(AText));
+  if AttributeAt = 0 then
+    Exit;
+  StartAt := AttributeAt + Length(AAttributeName) + 1;
+  if StartAt > Length(AText) then
+    Exit;
+  QuoteChar := AText[StartAt];
+  if not CharInSet(QuoteChar, ['"', '''']) then
+    Exit;
+  Inc(StartAt);
+  EndAt := StartAt;
+  while (EndAt <= Length(AText)) and (AText[EndAt] <> QuoteChar) do
+    Inc(EndAt);
+  if EndAt <= Length(AText) then
+    Result := Copy(AText, StartAt, EndAt - StartAt);
+end;
+
+procedure CollectProjectReferences(const AProjectFileName: string;
+  const AFramework: TTargetFramework; const AFormFiles, ASourceFiles: TList<string>);
+var
+  Extension: string;
+  IncludeName: string;
+  Line: string;
+  Lines: TStringList;
+  ProjectDirectory: string;
+  ResolvedFileName: string;
+begin
+  ProjectDirectory := TPath.GetDirectoryName(AProjectFileName);
+  if AFramework = tfVCL then
+    Extension := '.dfm'
+  else
+    Extension := '.fmx';
+
+  Lines := TStringList.Create;
+  try
+    Lines.LoadFromFile(AProjectFileName);
+    for Line in Lines do
+    begin
+      if not ContainsText(Line, '<DCCReference') then
+        Continue;
+      IncludeName := ExtractXmlAttribute(Line, 'Include');
+      if IncludeName = '' then
+        Continue;
+      ResolvedFileName := TPath.GetFullPath(
+        TPath.Combine(ProjectDirectory, IncludeName));
+      if SameText(TPath.GetExtension(ResolvedFileName), '.pas') then
+      begin
+        AddUniqueFileName(ASourceFiles, ResolvedFileName);
+        AddUniqueFileName(AFormFiles, TPath.ChangeExtension(
+          ResolvedFileName, Extension));
+      end
+      else if SameText(TPath.GetExtension(ResolvedFileName), Extension) then
+        AddUniqueFileName(AFormFiles, ResolvedFileName);
+    end;
+  finally
+    Lines.Free;
+  end;
+end;
 
 class function TProjectScanner.IsExcludedPath(const AProjectDirectory,
   AFileName: string): Boolean;
@@ -38,6 +134,8 @@ begin
   RelativePath := LowerCase(TPath.GetFullPath(AFileName));
   if StartsText(DirectoryPrefix, RelativePath) then
     Delete(RelativePath, 1, Length(DirectoryPrefix));
+  if not IsUnderDirectory(AProjectDirectory, AFileName) then
+    Exit(False);
   Result := StartsText('.git' + PathDelim, RelativePath) or
     StartsText('.agents' + PathDelim, RelativePath) or
     StartsText('__history' + PathDelim, RelativePath) or
@@ -77,7 +175,9 @@ class function TProjectScanner.Scan(
 var
   FileName: string;
   FileNames: TArray<string>;
+  FormFiles: TList<string>;
   ProjectDirectory: string;
+  SourceFiles: TList<string>;
   Stopwatch: TStopwatch;
 begin
   if AProfile.ProjectFileName = '' then
@@ -90,31 +190,46 @@ begin
   try
     ProjectDirectory := TPath.GetDirectoryName(AProfile.ProjectFileName);
     Stopwatch := TStopwatch.StartNew;
+    FormFiles := TList<string>.Create;
+    SourceFiles := TList<string>.Create;
+    try
+      CollectProjectReferences(AProfile.ProjectFileName, AProfile.Framework,
+        FormFiles, SourceFiles);
 
-    if AProfile.Framework = tfVCL then
-      FileNames := TDirectory.GetFiles(ProjectDirectory, '*.dfm',
-        TSearchOption.soAllDirectories)
-    else
-      FileNames := TDirectory.GetFiles(ProjectDirectory, '*.fmx',
+      if AProfile.Framework = tfVCL then
+        FileNames := TDirectory.GetFiles(ProjectDirectory, '*.dfm',
+          TSearchOption.soAllDirectories)
+      else
+        FileNames := TDirectory.GetFiles(ProjectDirectory, '*.fmx',
+          TSearchOption.soAllDirectories);
+
+      for FileName in FileNames do
+        if not IsExcludedPath(ProjectDirectory, FileName) then
+          AddUniqueFileName(FormFiles, FileName);
+
+      FileNames := TDirectory.GetFiles(ProjectDirectory, '*.pas',
         TSearchOption.soAllDirectories);
+      for FileName in FileNames do
+        if not IsExcludedPath(ProjectDirectory, FileName) then
+          AddUniqueFileName(SourceFiles, FileName);
 
-    for FileName in FileNames do
-      if not IsExcludedPath(ProjectDirectory, FileName) then
+      for FileName in FormFiles do
       begin
         TTextFormScanner.ScanFile(FileName, AProfile.Framework, Result);
         Result.FormFilesScanned := Result.FormFilesScanned + 1;
         Result.FilesScanned := Result.FilesScanned + 1;
       end;
 
-    FileNames := TDirectory.GetFiles(ProjectDirectory, '*.pas',
-      TSearchOption.soAllDirectories);
-    for FileName in FileNames do
-      if not IsExcludedPath(ProjectDirectory, FileName) then
+      for FileName in SourceFiles do
       begin
         TPascalResourceStringScanner.ScanFile(FileName, Result);
         Result.SourceFilesScanned := Result.SourceFilesScanned + 1;
         Result.FilesScanned := Result.FilesScanned + 1;
       end;
+    finally
+      SourceFiles.Free;
+      FormFiles.Free;
+    end;
 
     Stopwatch.Stop;
     Result.ElapsedMilliseconds := Stopwatch.ElapsedMilliseconds;

@@ -26,6 +26,7 @@ uses
   Winapi.Windows;
 
 const
+  SEE_MASK_NO_CONSOLE = $00008000;
   DelphiEnvironmentFile =
     'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat';
   BuildProcessTimeout = 1800000;
@@ -44,7 +45,8 @@ begin
     [DelphiEnvironmentFile, AProjectFileName, APlatform, AConfiguration]);
   ZeroMemory(@ExecuteInfo, SizeOf(ExecuteInfo));
   ExecuteInfo.cbSize := SizeOf(ExecuteInfo);
-  ExecuteInfo.fMask := SEE_MASK_NOCLOSEPROCESS or SEE_MASK_FLAG_NO_UI;
+  ExecuteInfo.fMask := SEE_MASK_NOCLOSEPROCESS or SEE_MASK_FLAG_NO_UI or
+    SEE_MASK_NO_CONSOLE;
   ExecuteInfo.Wnd := 0;
   ExecuteInfo.lpVerb := 'runas';
   ExecuteInfo.lpFile := 'cmd.exe';

@@ -142,12 +142,28 @@ end;
 function TrySetLayoutProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
 var
+  Control: TControl;
   FloatValue: Extended;
   IntegerValue: Int64;
   OrdinalValue: NativeInt;
   PropertyInfo: PPropInfo;
 begin
   Result := False;
+  if (AComponent is TControl) and
+    (SameText(APropertyName, 'Left') or SameText(APropertyName, 'Top') or
+     SameText(APropertyName, 'Position.X') or
+     SameText(APropertyName, 'Position.Y')) then
+  begin
+    if not TryStrToFloat(AValue, FloatValue, TFormatSettings.Invariant) or
+      (FloatValue < 0) or (FloatValue > 100000) then
+      Exit;
+    Control := TControl(AComponent);
+    if SameText(APropertyName, 'Left') or SameText(APropertyName, 'Position.X') then
+      Control.Position.X := FloatValue
+    else
+      Control.Position.Y := FloatValue;
+    Exit(True);
+  end;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName);
   if PropertyInfo = nil then
     Exit;
