@@ -139,7 +139,8 @@ function IsRuntimeTextProperty(const APropertyName: string): Boolean;
 begin
   Result := MatchText(APropertyName,
     ['Text', 'Caption', 'Header', 'Hint', 'TextPrompt', 'Title',
-     'Description']);
+     'Description', 'Prompt', 'PromptText', 'StatusText', 'Message',
+     'DisplayText']);
 end;
 
 function TryClassifyRuntimeAssignment(const ALeftSide: string;
@@ -158,6 +159,11 @@ begin
     APropertyName := 'GridCell';
     Exit(True);
   end;
+  if ContainsText(LowerLeft, '.rows[') or ContainsText(LowerLeft, '.row[') then
+  begin
+    APropertyName := 'GridCell';
+    Exit(True);
+  end;
   if ContainsText(LowerLeft, '.columns[') and
     (ContainsText(LowerLeft, '.header') or ContainsText(LowerLeft, '.text')) then
   begin
@@ -170,6 +176,50 @@ begin
     APropertyName := 'GridHeader';
     Exit(True);
   end;
+  if ContainsText(LowerLeft, '.items[') or ContainsText(LowerLeft, '.strings[') then
+  begin
+    APropertyName := 'Items';
+    Exit(True);
+  end;
+end;
+
+function RuntimeComponentClassName(const ALeftSide,
+  APropertyName: string): string;
+var
+  LeftLower: string;
+  NamePart: string;
+  DotAt: Integer;
+begin
+  Result := '';
+  LeftLower := LowerCase(StringReplace(ALeftSide, ' ', '', [rfReplaceAll]));
+  NamePart := ALeftSide;
+  DotAt := Pos('.', NamePart);
+  if DotAt > 0 then
+    NamePart := Copy(NamePart, 1, DotAt - 1);
+  NamePart := LowerCase(Trim(NamePart));
+  if ContainsText(APropertyName, 'Grid') or ContainsText(LeftLower, 'grid') then
+    Exit('TStringGrid');
+  if ContainsText(LeftLower, 'menu') or StartsText('mnu', NamePart) then
+    Exit('TMenuItem');
+  if StartsText('btn', NamePart) or ContainsText(NamePart, 'button') then
+    Exit('TButton');
+  if StartsText('lbl', NamePart) or ContainsText(NamePart, 'label') then
+    Exit('TLabel');
+  if StartsText('chk', NamePart) or ContainsText(NamePart, 'checkbox') then
+    Exit('TCheckBox');
+  if StartsText('rdo', NamePart) or ContainsText(NamePart, 'radio') then
+    Exit('TRadioButton');
+  if StartsText('cmb', NamePart) or StartsText('cbo', NamePart) or
+    ContainsText(NamePart, 'combo') then
+    Exit('TComboBox');
+  if StartsText('edt', NamePart) or ContainsText(NamePart, 'edit') then
+    Exit('TEdit');
+  if StartsText('mem', NamePart) or ContainsText(NamePart, 'memo') then
+    Exit('TMemo');
+  if ContainsText(NamePart, 'browser') or ContainsText(APropertyName, 'Browser') then
+    Exit('TWebBrowser');
+  if ContainsText(APropertyName, 'Dialog') then
+    Exit('TRuntimeDialog');
 end;
 
 function FirstArgument(const AExpression: string): string;
@@ -406,7 +456,8 @@ begin
     [AUnitName, Context, ASourceLine]);
   ScanItem.SourceText := ASourceText;
   ScanItem.ComponentName := Context;
-  ScanItem.ComponentClassName := '';
+  ScanItem.ComponentClassName := RuntimeComponentClassName(ALeftSide,
+    APropertyName);
   ScanItem.PropertyName := APropertyName;
   ScanItem.SourceFileName := AFileName;
   ScanItem.SourceLine := ASourceLine;
@@ -489,11 +540,19 @@ begin
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'MessageDialog', 'DialogMessage');
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'InputBox', 'DialogMessage');
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'InputQuery', 'DialogMessage');
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'ShowScheduleDialog', 'DialogTitle');
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'Items.Add', 'Items');
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'Items.AddObject', 'Items');
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'Lines.Add', 'Lines');
+      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
+        'Strings.Add', 'Items');
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'FillText', 'OwnerDrawText');
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,

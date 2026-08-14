@@ -517,11 +517,11 @@ var
     if ContainsText(AControl.ComponentClassName, 'Column') then
       Result := Min(Max(Result, Estimate), 420)
     else if ContainsText(AControl.ComponentClassName, 'Button') then
-      Result := Min(Max(Result, Estimate), Max(AControl.Width * 2.5, 220))
+      Result := Min(Max(Result, Estimate), Max(AControl.Width * 1.35, 160))
     else if not (ContainsText(AControl.ComponentClassName, 'Edit') or
       ContainsText(AControl.ComponentClassName, 'Combo') or
       ContainsText(AControl.ComponentClassName, 'Grid')) then
-      Result := Min(Max(Result, Estimate), Max(AControl.Width * 2.0, 260));
+      Result := Min(Max(Result, Estimate), Max(AControl.Width * 1.50, 260));
   end;
 
   function EffectiveHeight(const AControl: TLayoutControl): Double;
@@ -552,6 +552,41 @@ var
     Result := (AUpper.Left < ALower.Left + ALower.Width) and
       (AUpper.Left + AUpper.Width > ALower.Left);
   end;
+
+  function BoundedTextWidth(const AControl: TLayoutControl;
+    const ARequiredWidth: Double): Integer;
+  var
+    GrowthCap: Double;
+    HardCap: Double;
+  begin
+    if ContainsText(AControl.ComponentClassName, 'Column') then
+    begin
+      GrowthCap := Max(AControl.Width * 1.25, 140);
+      HardCap := 320;
+    end
+    else if ContainsText(AControl.ComponentClassName, 'Button') then
+    begin
+      GrowthCap := Max(AControl.Width * 1.20, 120);
+      HardCap := 220;
+    end
+    else
+    begin
+      GrowthCap := Max(AControl.Width * 1.35, 180);
+      HardCap := 360;
+    end;
+    Result := Ceil(Min(ARequiredWidth, Min(GrowthCap, HardCap)));
+    if Result < Ceil(AControl.Width) then
+      Result := Ceil(AControl.Width);
+  end;
+
+  function ShouldPreferWrap(const AControl: TLayoutControl): Boolean;
+  begin
+    Result := ContainsText(AControl.ComponentClassName, 'Label') or
+      ContainsText(AControl.ComponentClassName, 'CheckBox') or
+      ContainsText(AControl.ComponentClassName, 'RadioButton') or
+      ContainsText(AControl.ComponentClassName, 'GroupBox') or
+      ContainsText(AControl.ComponentClassName, 'Button');
+  end;
 begin
   for Control in AReview.Controls do
   begin
@@ -564,6 +599,7 @@ begin
     IsColumn := ContainsText(Control.ComponentClassName, 'Column');
     IsWrappingText := ContainsText(Control.ComponentClassName, 'Label') or
       ContainsText(Control.ComponentClassName, 'CheckBox') or
+      ContainsText(Control.ComponentClassName, 'RadioButton') or
       ContainsText(Control.ComponentClassName, 'GroupBox');
     if (Control.Width > 0) and (RequiredWidth > Control.Width * 1.05) then
     begin
@@ -572,35 +608,32 @@ begin
         Format('Estimated translated width %.0f exceeds the %.0f-pixel control.',
           [RequiredWidth, Control.Width]),
         'Review the proposed width, wrapping, or nearby control placement.');
-      if IsWrappingText and (Control.Width >= 80) then
+      if ShouldPreferWrap(Control) and (Control.Width >= 80) then
       begin
-        LineCount := Max(2, Ceil(RequiredWidth / Control.Width));
-        NewWidth := Ceil(Min(RequiredWidth, Max(Control.Width * 1.75, 220)));
+        NewWidth := BoundedTextWidth(Control, RequiredWidth);
+        LineCount := Max(2, Ceil(RequiredWidth / Max(NewWidth, 24)));
         if NewWidth > Ceil(Control.Width) then
           AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
             IntToStr(NewWidth),
-            'Moderately widen the text control before wrapping so nearby controls are less likely to be crowded.');
+            'Bounded widening before wrapping; large horizontal growth is avoided so neighboring controls are preserved.');
         if Control.AutoSize then
           AddProposal(AReview, Control, 'AutoSize', 'True', 'False',
             'Disable one-line automatic sizing so the translated text can wrap inside the designer width.');
         if not Control.WordWrap then
           AddProposal(AReview, Control, 'WordWrap', 'False', 'True',
             'Wrap the translated text instead of expanding across neighboring controls.');
-        if Control.Height < RequiredHeight * LineCount then
+        if (not IsButton) and (Control.Height < RequiredHeight * LineCount) then
           AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
             IntToStr(Ceil(RequiredHeight * LineCount)),
             'Provide enough height for the estimated wrapped line count.');
       end
       else
       begin
-        NewWidth := Ceil(RequiredWidth);
-        if IsColumn then
-          NewWidth := Min(NewWidth, 360)
-        else if IsButton then
-          NewWidth := Min(NewWidth, Max(Ceil(Control.Width * 2), 180));
-        AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
-          IntToStr(NewWidth),
-          'Expand this control for translated text; the visual review shows the resulting geometry.');
+        NewWidth := BoundedTextWidth(Control, RequiredWidth);
+        if NewWidth > Ceil(Control.Width) then
+          AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
+            IntToStr(NewWidth),
+            'Conservatively widen this control without moving surrounding controls.');
       end;
     end;
     if (Control.Height > 0) and (RequiredHeight > Control.Height * 1.10) then

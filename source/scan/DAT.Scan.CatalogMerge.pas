@@ -75,12 +75,6 @@ begin
     AEntry.RuntimeApplication := rakNotApplied;
     AEntry.RuntimeWiringConfirmed := True;
   end;
-  if (AScanItem.Kind <> stkFormProperty) and
-    RuntimeTextRoleRequiresTranslation(AEntry.RuntimeTextRole) then
-  begin
-    AEntry.RuntimeApplication := rakManualTranslateText;
-    AEntry.RuntimeWiringConfirmed := False;
-  end;
   if AScanItem.SuspiciousReason <> '' then
     AEntry.TextOwnership := tokSuspicious
   else if AScanItem.Kind <> stkFormProperty then

@@ -2071,6 +2071,7 @@ begin
     lblRuntimeApplicationValue.Text := 'Runtime: ' +
       RuntimeApplicationKindToString(Entry.RuntimeApplication) +
       ' | Role: ' + RuntimeTextRoleDisplayName(Entry.RuntimeTextRole) +
+      ' | Ownership: ' + TextOwnershipDisplayName(Entry.TextOwnership) +
       ' | Origin: ' +
       TranslationOriginDisplayName(Entry.TranslationOrigin);
     lblTranslationContextValue.Text := 'Context: ' + Entry.ContextKind;
