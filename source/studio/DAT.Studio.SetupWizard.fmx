@@ -789,14 +789,19 @@ object frmSetupWizard: TfrmSetupWizard
               ShowScrollBars = True
               WordWrap = False
             end
-            object btnLocalizationReview: TButton
+            object lblLocalizationReviewInfo: TLabel
+              StyledSettings = []
               Position.X = 480.000000000000000000
               Position.Y = 394.000000000000000000
               Size.Width = 258.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Review Opens After Translation'
-              OnClick = btnLocalizationReviewClick
+              TextSettings.Font.Size = 13.000000000000000000
+              TextSettings.FontColor = xFF17416F
+              TextSettings.HorzAlign = Center
+              TextSettings.VertAlign = Center
+              WordWrap = True
+              Text = 'Localization Review opens automatically after translation completes.'
             end
           end
           object tabComponent: TTabItem

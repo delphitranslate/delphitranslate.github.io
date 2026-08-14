@@ -123,7 +123,7 @@ type
     lblWorkflowMode: TLabel;
     cboWorkflowMode: TComboBox;
     lblWorkflowSummary: TLabel;
-    btnLocalizationReview: TButton;
+    lblLocalizationReviewInfo: TLabel;
     btnFinishLocalizationReview: TButton;
     BuildChoiceCard: TRectangle;
     lblBuildChoiceTitle: TLabel;
@@ -276,7 +276,6 @@ begin
   chkTargetProjectClosed.IsChecked := False;
   edtApiKey.Password := True;
   ApplyLocaleDefaults;
-  btnLocalizationReview.Enabled := False;
   chkBuildNow.IsChecked := False;
   FBuildCompleted := False;
   chkReplaceDeployedExecutable.IsChecked := False;
@@ -887,7 +886,6 @@ begin
     FreeAndNil(FCatalog);
     FCatalogFileName := '';
     FReviewOutputDirectory := '';
-    btnLocalizationReview.Enabled := False;
     FHighestStep := Min(FHighestStep, 5);
     lblFooterStatus.Text := 'Project identified. No target file was changed.';
     UpdateComponentInstructions;
@@ -944,7 +942,6 @@ begin
   FreeAndNil(FCatalog);
   FCatalogFileName := '';
   FReviewOutputDirectory := '';
-  btnLocalizationReview.Enabled := False;
   if FHighestStep > 6 then
     FHighestStep := 6;
   UpdateRail;
@@ -1104,7 +1101,6 @@ begin
       TPath.Combine('export\localization-review',
         TPath.Combine(FProjectProfile.ProjectName,
           SelectedLanguageCode(cboTargetLanguage))));
-    btnLocalizationReview.Enabled := False;
     UpdateWorkflowSummary;
     lblFooterStatus.Text :=
       'Scan complete. Continue through Review & Authorize; automatic translation and Localization Review occur during final processing.';

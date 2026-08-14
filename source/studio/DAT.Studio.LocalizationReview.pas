@@ -278,7 +278,7 @@ begin
       end;
     if HasTranslatedFormText then
       memProposalDetail.Lines.Text :=
-        'No layout adjustment is proposed. The analyzer found no translated control that requires a supported runtime Width, Height, WordWrap, or AutoSize change. Position movement is not considered safe for automatic runtime localization.'
+        'No automatic layout adjustment is proposed. The analyzer found no translated control that can be safely improved with supported runtime Width, Height, WordWrap, or AutoSize rules. Audit warnings may still require manual designer review when controls need movement, regrouping, or form redesign; Delphi source and form files are not edited here.'
     else
       memProposalDetail.Lines.Text :=
         'Layout analysis requires translated form text. Close this window and continue the Setup Wizard. After automatic translation, the Wizard reopens Localization Review and generates the applicable layout proposals.';
