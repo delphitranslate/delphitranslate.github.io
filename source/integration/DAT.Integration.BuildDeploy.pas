@@ -44,7 +44,7 @@ begin
     [DelphiEnvironmentFile, AProjectFileName, APlatform, AConfiguration]);
   ZeroMemory(@ExecuteInfo, SizeOf(ExecuteInfo));
   ExecuteInfo.cbSize := SizeOf(ExecuteInfo);
-  ExecuteInfo.fMask := SEE_MASK_NOCLOSEPROCESS;
+  ExecuteInfo.fMask := SEE_MASK_NOCLOSEPROCESS or SEE_MASK_FLAG_NO_UI;
   ExecuteInfo.Wnd := 0;
   ExecuteInfo.lpVerb := 'runas';
   ExecuteInfo.lpFile := 'cmd.exe';
@@ -224,6 +224,7 @@ var
   ProjectDirectory: string;
   SourceExecutable: string;
   SourceLanguageDirectory: string;
+  ExecutableStatus: string;
 begin
   if not TFile.Exists(AProjectFileName) then
     raise EFileNotFoundException.CreateFmt(
@@ -242,10 +243,15 @@ begin
   DestinationExecutable := TPath.Combine(ADestinationDirectory,
     AProjectName + '.exe');
   if TFile.Exists(DestinationExecutable) and not AReplaceExecutable then
-    raise EInOutError.CreateFmt(
-      'The destination already contains %s. Enable the explicit replace/create authorization before deploying the executable.',
+    ExecutableStatus := Format(
+      'Executable left unchanged at %s (replace authorization was not selected).',
+      [DestinationExecutable])
+  else
+  begin
+    TFile.Copy(SourceExecutable, DestinationExecutable, True);
+    ExecutableStatus := Format('Executable copied to %s.',
       [DestinationExecutable]);
-  TFile.Copy(SourceExecutable, DestinationExecutable, True);
+  end;
   SourceLanguageDirectory := TPath.Combine(APackageDirectory,
     'Localization\Languages');
   DestinationLanguageDirectory := TPath.Combine(ADestinationDirectory,
@@ -256,8 +262,8 @@ begin
     TFile.Copy(LanguagePackFileName,
       TPath.Combine(DestinationLanguageDirectory,
         TPath.GetFileName(LanguagePackFileName)), True);
-  Result := Format('%s copied to %s. Language packs deployed to %s.',
-    [AProjectName + '.exe', DestinationExecutable,
+  Result := Format('%s %s Language packs deployed to %s.',
+    [ExecutableStatus, APlatform + ' ' + AConfiguration,
      DestinationLanguageDirectory]);
 end;
 

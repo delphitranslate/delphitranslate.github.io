@@ -1028,37 +1028,37 @@ object frmSetupWizard: TfrmSetupWizard
             object btnCopyCommands: TButton
               Position.X = 8.000000000000000000
               Position.Y = 410.000000000000000000
-              Size.Width = 110.000000000000000000
+              Size.Width = 166.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Copy Fallback Commands'
+              Text = 'Copy Commands'
               OnClick = btnCopyCommandsClick
             end
             object btnOpenKitFolder: TButton
-              Position.X = 240.000000000000000000
-              Position.Y = 410.000000000000000000
-              Size.Width = 110.000000000000000000
+              Position.X = 8.000000000000000000
+              Position.Y = 456.000000000000000000
+              Size.Width = 166.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
               Text = 'Open Kit Folder'
               OnClick = btnOpenKitFolderClick
             end
             object btnRunDeployment: TButton
-              Position.X = 124.000000000000000000
+              Position.X = 182.000000000000000000
               Position.Y = 410.000000000000000000
-              Size.Width = 110.000000000000000000
+              Size.Width = 166.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Redeploy Build Outputs'
+              Text = 'Redeploy Outputs'
               OnClick = btnRunDeploymentClick
             end
             object btnDeployApplicationFolder: TButton
-              Position.X = 8.000000000000000000
+              Position.X = 182.000000000000000000
               Position.Y = 456.000000000000000000
-              Size.Width = 342.000000000000000000
+              Size.Width = 166.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Deploy New App Folder...'
+              Text = 'Deploy to App Folder...'
               OnClick = btnDeployApplicationFolderClick
             end
             object btnFinishLocalizationReview: TButton
@@ -1076,7 +1076,7 @@ object frmSetupWizard: TfrmSetupWizard
               Position.X = 390.000000000000000000
               Position.Y = 8.000000000000000000
               Size.Width = 350.000000000000000000
-              Size.Height = 442.000000000000000000
+              Size.Height = 500.000000000000000000
               Size.PlatformDefault = False
               Fill.Color = xFFEAF3FF
               Stroke.Color = xFFB7D5F5

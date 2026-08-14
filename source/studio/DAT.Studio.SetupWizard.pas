@@ -340,8 +340,9 @@ begin
                 chkReplaceDeployedExecutable.IsChecked));
             except
               on E: EInOutError do
-                AddProgress('Executable not replaced in ' +
-                  ApplicationDirectory + ': ' + E.Message);
+                AddProgress(Format(
+                  'Executable deployment skipped for %s %s in %s: %s',
+                  [Platform, Configuration, ApplicationDirectory, E.Message]));
             end;
       end;
     lblBuildStatus.Text := 'Build and deployment completed for every selected target.';
@@ -1781,7 +1782,7 @@ begin
   Result := False;
   FillChar(ShellInfo, SizeOf(ShellInfo), 0);
   ShellInfo.cbSize := SizeOf(ShellInfo);
-  ShellInfo.fMask := SEE_MASK_NOCLOSEPROCESS;
+  ShellInfo.fMask := SEE_MASK_NOCLOSEPROCESS or SEE_MASK_FLAG_NO_UI;
   ShellInfo.Wnd := 0;
   ShellInfo.lpVerb := 'open';
   ShellInfo.lpFile :=
