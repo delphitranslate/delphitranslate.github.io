@@ -495,10 +495,11 @@ end;
 procedure TDATCustomLanguageManager.Notification(AComponent: TComponent;
   Operation: TOperation);
 begin
+  { Component-removal notifications are only for component-reference
+    bookkeeping. Runtime form tracking is maintained by RemoveManagedObject
+    and TFormReleasedMessage; never mutate FAppliedGenerations here because
+    Delphi may be tearing down the owner and its notification graph. }
   inherited Notification(AComponent, Operation);
-  if (Operation = opRemove) and not FDestroying and
-    (FAppliedGenerations <> nil) then
-    FAppliedGenerations.Remove(AComponent);
 end;
 
 procedure TDATCustomLanguageManager.NotifyMissingTranslation(
