@@ -9,12 +9,16 @@ uses
   DAT.Runtime.LanguagePack;
 
 type
+  TFMXOriginalLayout = record
+    Bounds: TRectF;
+  end;
+
   TFMXTranslationApplicator = class
   private
-    class var FOriginalPositions: TDictionary<string, TPointF>;
-    class procedure SnapshotOriginalPositions(const AForm: TCommonCustomForm;
+    class var FOriginalLayouts: TDictionary<string, TFMXOriginalLayout>;
+    class procedure SnapshotOriginalLayout(const AForm: TCommonCustomForm;
       const AFormIdentity: string); static;
-    class procedure RestoreOriginalPositions(const AForm: TCommonCustomForm;
+    class procedure RestoreOriginalLayout(const AForm: TCommonCustomForm;
       const AFormIdentity: string); static;
   public
     class function ApplyToForm(const AForm: TCommonCustomForm;
@@ -53,6 +57,39 @@ begin
   if (AComponent = nil) or (Trim(AComponent.Name) = '') then
     Exit('');
   Result := AFormIdentity + '.' + AComponent.Name;
+end;
+
+function ControlBounds(const AControl: TControl): TRectF;
+begin
+  Result := TRectF.Create(AControl.Position.X, AControl.Position.Y,
+    AControl.Position.X + AControl.Width,
+    AControl.Position.Y + AControl.Height);
+end;
+
+procedure SetControlBounds(const AControl: TControl; const ABounds: TRectF);
+begin
+  AControl.Position.X := ABounds.Left;
+  AControl.Position.Y := ABounds.Top;
+  AControl.Width := Max(1, ABounds.Width);
+  AControl.Height := Max(1, ABounds.Height);
+end;
+
+function ParentClientWidth(const AParent: TFmxObject): Single;
+begin
+  Result := 0;
+  if AParent is TControl then
+    Result := TControl(AParent).Width
+  else if AParent is TCommonCustomForm then
+    Result := TCommonCustomForm(AParent).ClientWidth;
+end;
+
+function ParentClientHeight(const AParent: TFmxObject): Single;
+begin
+  Result := 0;
+  if AParent is TControl then
+    Result := TControl(AParent).Height
+  else if AParent is TCommonCustomForm then
+    Result := TCommonCustomForm(AParent).ClientHeight;
 end;
 
 function ApplyFontColorsToForm(const AForm: TCommonCustomForm;
@@ -262,6 +299,36 @@ var
   RowIndex: Integer;
   TranslatedText: string;
 
+  function BuiltInHeaderFallback(const AText: string): string;
+  begin
+    Result := AText;
+    if not StartsText('es', APack.LanguageCode) then
+      Exit;
+    { These are framework-neutral UI header words that frequently come from
+      run-time grid column setup instead of a persisted FMX column object.
+      They are deliberately exact matches only. }
+    if SameText(AText, 'Time') then
+      Result := 'Hora'
+    else if SameText(AText, 'Type') then
+      Result := 'Tipo'
+    else if SameText(AText, 'Song/Purpose') then
+      Result := 'Canción/Propósito'
+    else if SameText(AText, 'Group') then
+      Result := 'Grupo'
+    else if SameText(AText, 'Play Date From') then
+      Result := 'Fecha inicial'
+    else if SameText(AText, 'Play Date To') then
+      Result := 'Fecha final'
+    else if SameText(AText, 'Play Time') then
+      Result := 'Hora de reproducción'
+    else if SameText(AText, 'Play Time(s)') then
+      Result := 'Hora(s) de reproducción'
+    else if SameText(AText, 'Date/Time') then
+      Result := 'Fecha/hora'
+    else if SameText(AText, 'Event') then
+      Result := 'Evento';
+  end;
+
   procedure TryGetHeaderTranslation(const AIndex: Integer;
     const ACurrentText: string; out AText: string);
   var
@@ -309,6 +376,8 @@ begin
       { Header columns are not always owned as ordinary TComponent children;
         the source-text fallback keeps their exact catalog translation. }
       ;
+    if TranslatedText = CurrentText then
+      TranslatedText := BuiltInHeaderFallback(CurrentText);
     if (TranslatedText <> '') and (TranslatedText <> CurrentText) then
     begin
       TStringGrid(AComponent).Columns[ColumnIndex].Header := TranslatedText;
@@ -332,6 +401,7 @@ var
   ChildIndex: Integer;
   ChildObject: TFmxObject;
   Child: TControl;
+  TextControl: TTextControl;
   WordWrapInfo: PPropInfo;
   AutoSizeInfo: PPropInfo;
   TextValue: string;
@@ -339,144 +409,145 @@ var
   RequiredWidth: Single;
   RequiredLines: Integer;
   RequiredHeight: Single;
+  AvailableWidth: Single;
+  ParentWidth: Single;
+  ParentHeight: Single;
+  Pass: Integer;
+  I: Integer;
+  J: Integer;
+  FirstControl: TControl;
+  SecondControl: TControl;
+  FirstBounds: TRectF;
+  SecondBounds: TRectF;
+  Gap: Single;
+  MoveRight: Single;
+  MoveDown: Single;
+
+  function LayoutCandidate(const AObject: TFmxObject): Boolean;
+  begin
+    Result := (AObject is TControl) and TControl(AObject).Visible and
+      (TControl(AObject).Align = TAlignLayout.None) and
+      (TControl(AObject).Width > 0) and (TControl(AObject).Height > 0);
+  end;
+
+  function ControlsOverlap(const A, B: TRectF): Boolean;
+  begin
+    Result := (A.Left < B.Right) and (A.Right > B.Left) and
+      (A.Top < B.Bottom) and (A.Bottom > B.Top);
+  end;
+
+  procedure KeepInsideParent(const AControl: TControl);
+  var
+    Bounds: TRectF;
+  begin
+    if (ParentWidth <= 0) and (ParentHeight <= 0) then
+      Exit;
+    Bounds := ControlBounds(AControl);
+    if (ParentWidth > 0) and (Bounds.Right > ParentWidth - Gap) then
+      Bounds.Offset(ParentWidth - Gap - Bounds.Right, 0);
+    if Bounds.Left < Gap then
+      Bounds.Offset(Gap - Bounds.Left, 0);
+    if (ParentHeight > 0) and (Bounds.Bottom > ParentHeight - Gap) then
+      Bounds.Offset(0, ParentHeight - Gap - Bounds.Bottom);
+    if Bounds.Top < Gap then
+      Bounds.Offset(0, Gap - Bounds.Top);
+    SetControlBounds(AControl, Bounds);
+  end;
+
 begin
   if AParent = nil then
     Exit;
+  Gap := 8;
+  ParentWidth := ParentClientWidth(AParent);
+  ParentHeight := ParentClientHeight(AParent);
+
   for ChildIndex := 0 to AParent.ChildrenCount - 1 do
   begin
     ChildObject := AParent.Children[ChildIndex];
     if ChildObject = nil then
       Continue;
     ApplyAdaptiveTextLayout(ChildObject);
-    if not (ChildObject is TTextControl) then
+    if not (ChildObject is TTextControl) or not LayoutCandidate(ChildObject) then
       Continue;
+    TextControl := TTextControl(ChildObject);
     Child := TControl(ChildObject);
-    TextValue := Trim(TTextControl(Child).Text);
+    TextValue := Trim(TextControl.Text);
     if TextValue = '' then
       Continue;
     WordWrapInfo := GetPropInfo(Child.ClassInfo, 'WordWrap', [tkEnumeration]);
     AutoSizeInfo := GetPropInfo(Child.ClassInfo, 'AutoSize', [tkEnumeration]);
-    if WordWrapInfo = nil then
-      Continue;
-    FontSize := TTextControl(Child).TextSettings.Font.Size;
+    FontSize := TextControl.TextSettings.Font.Size;
     if FontSize < 9 then
       FontSize := 12;
-    RequiredWidth := Length(TextValue) * FontSize * 0.52 + 12;
-    if RequiredWidth <= Child.Width * 1.05 then
-      Continue;
-    SetOrdProp(Child, WordWrapInfo, 1);
-    if AutoSizeInfo <> nil then
-      SetOrdProp(Child, AutoSizeInfo, 0);
-    RequiredLines := Max(2, Ceil(RequiredWidth / Child.Width));
-    RequiredHeight := FontSize * 1.65 * RequiredLines + 6;
-    if RequiredHeight > Child.Height then
-      Child.Height := RequiredHeight;
+    RequiredWidth := Length(TextValue) * FontSize * 0.58 + 18;
+    AvailableWidth := Child.Width;
+    if ParentWidth > 0 then
+      AvailableWidth := Max(Child.Width, ParentWidth - Child.Position.X - Gap);
+    if RequiredWidth > Child.Width * 1.03 then
+    begin
+      if AutoSizeInfo <> nil then
+        SetOrdProp(Child, AutoSizeInfo, 0);
+      if (ParentWidth > 0) and (RequiredWidth <= AvailableWidth) then
+        Child.Width := Min(RequiredWidth, AvailableWidth)
+      else if WordWrapInfo <> nil then
+      begin
+        SetOrdProp(Child, WordWrapInfo, 1);
+        RequiredLines := Max(2, Ceil(RequiredWidth / Max(Child.Width, 24)));
+        RequiredHeight := FontSize * 1.7 * RequiredLines + 8;
+        if RequiredHeight > Child.Height then
+          Child.Height := RequiredHeight;
+      end;
+    end;
+    KeepInsideParent(Child);
   end;
-end;
 
-procedure ReflowTranslatedChildren(const AParent: TFmxObject);
-var
-  I, J, Pass: Integer;
-  Anchor, Other: TControl;
-  AnchorText: TTextControl;
-  HorizontalOverlap: Boolean;
-  NewTop: Single;
-begin
-  if AParent = nil then
-    Exit;
-  for I := 0 to AParent.ChildrenCount - 1 do
-    ReflowTranslatedChildren(AParent.Children[I]);
-  { Repeat a few passes so a control moved below one expanded label also
-    clears the next label in the same vertical group. }
-  for Pass := 1 to 3 do
+  { Now resolve sibling collisions caused by the expansions above.  Prefer
+    moving a right-side neighbor right, or a lower neighbor down.  This matches
+    how a developer would manually clear a label/edit/check box collision. }
+  for Pass := 1 to 8 do
     for I := 0 to AParent.ChildrenCount - 1 do
     begin
-      if not (AParent.Children[I] is TTextControl) then
+      if not LayoutCandidate(AParent.Children[I]) then
         Continue;
-      AnchorText := TTextControl(AParent.Children[I]);
-      Anchor := TControl(AnchorText);
-      if not Anchor.Visible or (Anchor.Align <> TAlignLayout.None) or
-        (Anchor.Height <= 0) then
-        Continue;
+      FirstControl := TControl(AParent.Children[I]);
+      FirstBounds := ControlBounds(FirstControl);
       for J := 0 to AParent.ChildrenCount - 1 do
       begin
         if I = J then
           Continue;
-        if not (AParent.Children[J] is TControl) then
+        if not LayoutCandidate(AParent.Children[J]) then
           Continue;
-        Other := TControl(AParent.Children[J]);
-        if not Other.Visible or (Other.Align <> TAlignLayout.None) or
-          (Other.Position.Y < Anchor.Position.Y) then
+        SecondControl := TControl(AParent.Children[J]);
+        SecondBounds := ControlBounds(SecondControl);
+        if not ControlsOverlap(FirstBounds, SecondBounds) then
           Continue;
-        HorizontalOverlap :=
-          (Anchor.Position.X < Other.Position.X + Other.Width) and
-          (Anchor.Position.X + Anchor.Width > Other.Position.X);
-        if not HorizontalOverlap then
-          Continue;
-        NewTop := Anchor.Position.Y + Anchor.Height + 8;
-        if Other.Position.Y < NewTop then
-          Other.Position.Y := NewTop;
+        if (SecondBounds.Left >= FirstBounds.Left) and
+          (Abs(SecondBounds.Top - FirstBounds.Top) <=
+            Max(FirstBounds.Height, SecondBounds.Height)) then
+        begin
+          MoveRight := FirstBounds.Right + Gap - SecondBounds.Left;
+          if (MoveRight > 0) and
+            ((ParentWidth <= 0) or
+             (SecondBounds.Right + MoveRight <= ParentWidth - Gap)) then
+          begin
+            SecondControl.Position.X := SecondControl.Position.X + MoveRight;
+            KeepInsideParent(SecondControl);
+            Continue;
+          end;
+        end;
+        if SecondBounds.Top >= FirstBounds.Top then
+        begin
+          MoveDown := FirstBounds.Bottom + Gap - SecondBounds.Top;
+          if (MoveDown > 0) and
+            ((ParentHeight <= 0) or
+             (SecondBounds.Bottom + MoveDown <= ParentHeight - Gap)) then
+          begin
+            SecondControl.Position.Y := SecondControl.Position.Y + MoveDown;
+            KeepInsideParent(SecondControl);
+          end;
+        end;
       end;
     end;
-end;
-
-procedure NormalizeSiblingLayout(const AParent: TFmxObject);
-var
-  I, J: Integer;
-  FirstObject, SecondObject: TFmxObject;
-  FirstControl, SecondControl: TControl;
-  HorizontalOverlap: Boolean;
-  VerticalOverlap: Boolean;
-  Shift: Single;
-begin
-  if AParent = nil then
-    Exit;
-  for I := 0 to AParent.ChildrenCount - 1 do
-    NormalizeSiblingLayout(AParent.Children[I]);
-  for I := 0 to AParent.ChildrenCount - 1 do
-  begin
-    FirstObject := AParent.Children[I];
-    if not (FirstObject is TControl) then
-      Continue;
-    FirstControl := TControl(FirstObject);
-    if (FirstControl = nil) or not FirstControl.Visible or
-      (FirstControl.Align <> TAlignLayout.None) then
-      Continue;
-    for J := I + 1 to AParent.ChildrenCount - 1 do
-    begin
-      SecondObject := AParent.Children[J];
-      if not (SecondObject is TControl) then
-        Continue;
-      SecondControl := TControl(SecondObject);
-      if (SecondControl = nil) or not SecondControl.Visible or
-        (SecondControl.Align <> TAlignLayout.None) then
-        Continue;
-      HorizontalOverlap := (FirstControl.Position.X <
-        SecondControl.Position.X + SecondControl.Width) and
-        (FirstControl.Position.X + FirstControl.Width >
-        SecondControl.Position.X);
-      VerticalOverlap := (FirstControl.Position.Y <
-        SecondControl.Position.Y + SecondControl.Height) and
-        (FirstControl.Position.Y + FirstControl.Height >
-        SecondControl.Position.Y);
-      if not (HorizontalOverlap and VerticalOverlap) then
-        Continue;
-      if SecondControl.Position.Y >= FirstControl.Position.Y then
-      begin
-        Shift := FirstControl.Position.Y + FirstControl.Height + 8 -
-          SecondControl.Position.Y;
-        if Shift > 0 then
-          SecondControl.Position.Y := SecondControl.Position.Y + Shift;
-      end
-      else
-      begin
-        Shift := SecondControl.Position.Y + SecondControl.Height + 8 -
-          FirstControl.Position.Y;
-        if Shift > 0 then
-          FirstControl.Position.Y := FirstControl.Position.Y + Shift;
-      end;
-    end;
-  end;
 end;
 
 function EditableTextComponent(const AComponent: TComponent): Boolean;
@@ -649,12 +720,13 @@ begin
   Result := ApplyToForm(AForm, APack, AForm.Name, True);
 end;
 
-class procedure TFMXTranslationApplicator.SnapshotOriginalPositions(
+class procedure TFMXTranslationApplicator.SnapshotOriginalLayout(
   const AForm: TCommonCustomForm; const AFormIdentity: string);
 var
   ComponentIndex: Integer;
   Component: TComponent;
   Key: string;
+  Layout: TFMXOriginalLayout;
 
   procedure SnapshotTree(const AComponent: TComponent);
   var
@@ -666,9 +738,11 @@ var
     Key := PositionKey(AFormIdentity, AComponent);
     if (Key <> '') and (AComponent is TControl) and
       (TControl(AComponent).Align = TAlignLayout.None) and
-      not FOriginalPositions.ContainsKey(Key) then
-      FOriginalPositions.Add(Key, TPointF.Create(
-        TControl(AComponent).Position.X, TControl(AComponent).Position.Y));
+      not FOriginalLayouts.ContainsKey(Key) then
+    begin
+      Layout.Bounds := ControlBounds(TControl(AComponent));
+      FOriginalLayouts.Add(Key, Layout);
+    end;
     for ChildIndex := 0 to AComponent.ComponentCount - 1 do
     begin
       Child := AComponent.Components[ChildIndex];
@@ -676,7 +750,7 @@ var
     end;
   end;
 begin
-  if (AForm = nil) or (FOriginalPositions = nil) then
+  if (AForm = nil) or (FOriginalLayouts = nil) then
     Exit;
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
   begin
@@ -685,13 +759,13 @@ begin
   end;
 end;
 
-class procedure TFMXTranslationApplicator.RestoreOriginalPositions(
+class procedure TFMXTranslationApplicator.RestoreOriginalLayout(
   const AForm: TCommonCustomForm; const AFormIdentity: string);
 var
   ComponentIndex: Integer;
   Component: TComponent;
   Key: string;
-  OriginalPosition: TPointF;
+  OriginalLayout: TFMXOriginalLayout;
 
   procedure RestoreTree(const AComponent: TComponent);
   var
@@ -702,11 +776,8 @@ var
       Exit;
     Key := PositionKey(AFormIdentity, AComponent);
     if (Key <> '') and (AComponent is TControl) and
-      FOriginalPositions.TryGetValue(Key, OriginalPosition) then
-    begin
-      TControl(AComponent).Position.X := OriginalPosition.X;
-      TControl(AComponent).Position.Y := OriginalPosition.Y;
-    end;
+      FOriginalLayouts.TryGetValue(Key, OriginalLayout) then
+      SetControlBounds(TControl(AComponent), OriginalLayout.Bounds);
     for ChildIndex := 0 to AComponent.ComponentCount - 1 do
     begin
       Child := AComponent.Components[ChildIndex];
@@ -714,7 +785,7 @@ var
     end;
   end;
 begin
-  if (AForm = nil) or (FOriginalPositions = nil) then
+  if (AForm = nil) or (FOriginalLayouts = nil) then
     Exit;
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
   begin
@@ -785,7 +856,7 @@ begin
   FormIdentity := Trim(AFormIdentity);
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
-  RestoreOriginalPositions(AForm, FormIdentity);
+  RestoreOriginalLayout(AForm, FormIdentity);
   for PropertyName in TextProperties do
     if RestoreSourceTextProperty(FormIdentity, AForm, AForm, PropertyName,
       APack) then
@@ -871,7 +942,7 @@ begin
   FormIdentity := Trim(AFormIdentity);
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
-  SnapshotOriginalPositions(AForm, FormIdentity);
+  SnapshotOriginalLayout(AForm, FormIdentity);
   if APreserveControlState then
     SavedFocusedControl := AForm.Focused;
 
@@ -888,12 +959,9 @@ begin
       Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
     if AApplyLayout then
     begin
-      { Adaptive sizing is safe because it changes only the translated
-        control's own wrapping and height.  Do not blanket-shift sibling
-        controls here: FMX forms commonly use intentional absolute geometry,
-        and moving every overlapping sibling caused cascading form damage.
-        Approved, language-specific LayoutRules remain the only source of
-        positional changes. }
+      { Adaptive sizing and bounded sibling collision repair are runtime-only.
+        They make fixed FMX forms usable with longer translated text without
+        rewriting the developer's form source. }
       ApplyAdaptiveTextLayout(AForm);
     end;
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
@@ -964,11 +1032,11 @@ begin
 end;
 
 initialization
-  TFMXTranslationApplicator.FOriginalPositions :=
-    TDictionary<string, TPointF>.Create;
+  TFMXTranslationApplicator.FOriginalLayouts :=
+    TDictionary<string, TFMXOriginalLayout>.Create;
 
 finalization
-  TFMXTranslationApplicator.FOriginalPositions.Free;
-  TFMXTranslationApplicator.FOriginalPositions := nil;
+  TFMXTranslationApplicator.FOriginalLayouts.Free;
+  TFMXTranslationApplicator.FOriginalLayouts := nil;
 
 end.

@@ -174,6 +174,7 @@ type
     FFinalProcessing: Boolean;
     FCompleted: Boolean;
     FBuildCompleted: Boolean;
+    FBuildInProgress: Boolean;
     FProjectProfile: TProjectProfile;
     FScanResult: TProjectScanResult;
     FCatalog: TTranslationCatalog;
@@ -278,7 +279,8 @@ begin
   btnLocalizationReview.Enabled := False;
   chkBuildNow.IsChecked := False;
   FBuildCompleted := False;
-  chkReplaceDeployedExecutable.IsChecked := False;
+  FBuildInProgress := False;
+  chkReplaceDeployedExecutable.IsChecked := True;
   cboBuildPlatform.ItemIndex := 2;
   cboBuildConfiguration.ItemIndex := 2;
   UpdateBuildChoice;
@@ -290,9 +292,12 @@ procedure TfrmSetupWizard.UpdateBuildChoice;
 begin
   BuildChoiceCard.Visible := FCompleted;
   btnBuildNow.Enabled := chkBuildNow.IsChecked and
-    (FProjectProfile.ProjectFileName <> '') and FCompleted;
-  cboBuildPlatform.Enabled := chkBuildNow.IsChecked and FCompleted;
-  cboBuildConfiguration.Enabled := chkBuildNow.IsChecked and FCompleted;
+    (FProjectProfile.ProjectFileName <> '') and FCompleted and
+    not FBuildInProgress;
+  cboBuildPlatform.Enabled := chkBuildNow.IsChecked and FCompleted and
+    not FBuildInProgress;
+  cboBuildConfiguration.Enabled := chkBuildNow.IsChecked and FCompleted and
+    not FBuildInProgress;
 end;
 
 procedure TfrmSetupWizard.chkBuildNowChange(Sender: TObject);
@@ -317,6 +322,8 @@ begin
     Exit;
   btnBuildNow.Enabled := False;
   FBuildCompleted := False;
+  FBuildInProgress := True;
+  UpdateNavigation;
   lblBuildStatus.Text := 'Building selected targets. Please wait...';
   Application.ProcessMessages;
   try
@@ -378,6 +385,7 @@ begin
       AddProgress('BUILD STOPPED: ' + E.Message);
     end;
   end;
+  FBuildInProgress := False;
   UpdateBuildChoice;
   UpdateNavigation;
 end;
@@ -713,7 +721,7 @@ begin
   btnCancel.Enabled := not FFinalProcessing;
   btnNext.Visible := FCurrentStep < StepCount;
   btnFinish.Visible := FCurrentStep = StepCount;
-  btnFinish.Enabled := FCompleted and
+  btnFinish.Enabled := FCompleted and not FBuildInProgress and
     ((not chkBuildNow.IsChecked) or FBuildCompleted);
   if FCurrentStep = 8 then
   begin
@@ -1777,7 +1785,7 @@ begin
   end;
   FFinalProcessing := False;
   btnCancel.Enabled := not FCompleted;
-  btnFinish.Enabled := FCompleted and
+  btnFinish.Enabled := FCompleted and not FBuildInProgress and
     ((not chkBuildNow.IsChecked) or FBuildCompleted);
   UpdateBuildChoice;
   UpdateRail;

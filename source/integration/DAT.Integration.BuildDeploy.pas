@@ -28,8 +28,11 @@ uses
 const
   DelphiEnvironmentFile =
     'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat';
+  SystemCommandProcessor =
+    'C:\Windows\System32\cmd.exe';
   BuildProcessTimeout = 1800000;
   ProcessTerminationWait = 5000;
+  ShellExecuteNoConsole = $00008000;
 
 procedure RunElevatedBuild(const AProjectFileName, APlatform,
   AConfiguration: string);
@@ -44,10 +47,11 @@ begin
     [DelphiEnvironmentFile, AProjectFileName, APlatform, AConfiguration]);
   ZeroMemory(@ExecuteInfo, SizeOf(ExecuteInfo));
   ExecuteInfo.cbSize := SizeOf(ExecuteInfo);
-  ExecuteInfo.fMask := SEE_MASK_NOCLOSEPROCESS or SEE_MASK_FLAG_NO_UI;
+  ExecuteInfo.fMask := SEE_MASK_NOCLOSEPROCESS or SEE_MASK_FLAG_NO_UI or
+    ShellExecuteNoConsole;
   ExecuteInfo.Wnd := 0;
   ExecuteInfo.lpVerb := 'runas';
-  ExecuteInfo.lpFile := 'cmd.exe';
+  ExecuteInfo.lpFile := SystemCommandProcessor;
   ExecuteInfo.lpParameters := PChar(CommandParameters);
   ExecuteInfo.nShow := SW_HIDE;
   if not ShellExecuteEx(@ExecuteInfo) then
