@@ -979,9 +979,9 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object memProgress: TMemo
               Position.X = 8.000000000000000000
-              Position.Y = 112.000000000000000000
+              Position.Y = 104.000000000000000000
               Size.Width = 360.000000000000000000
-              Size.Height = 120.000000000000000000
+              Size.Height = 92.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True
@@ -992,7 +992,7 @@ object frmSetupWizard: TfrmSetupWizard
               ShowHint = True
               StyledSettings = []
               Position.X = 8.000000000000000000
-              Position.Y = 240.000000000000000000
+              Position.Y = 204.000000000000000000
               Size.Width = 360.000000000000000000
               Size.Height = 36.000000000000000000
               Size.PlatformDefault = False
@@ -1008,9 +1008,9 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               WordWrap = True
               Position.X = 8.000000000000000000
-              Position.Y = 282.000000000000000000
+              Position.Y = 238.000000000000000000
               Size.Width = 360.000000000000000000
-              Size.Height = 52.000000000000000000
+              Size.Height = 38.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 12.000000000000000000
               TextSettings.FontColor = xFF365674
@@ -1018,9 +1018,9 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object memCommands: TMemo
               Position.X = 8.000000000000000000
-              Position.Y = 340.000000000000000000
+              Position.Y = 280.000000000000000000
               Size.Width = 360.000000000000000000
-              Size.Height = 60.000000000000000000
+              Size.Height = 52.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True
@@ -1028,7 +1028,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnCopyCommands: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 408.000000000000000000
+              Position.Y = 342.000000000000000000
               Size.Width = 166.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
@@ -1037,7 +1037,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnOpenKitFolder: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 452.000000000000000000
+              Position.Y = 386.000000000000000000
               Size.Width = 166.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
@@ -1046,7 +1046,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnRunDeployment: TButton
               Position.X = 182.000000000000000000
-              Position.Y = 408.000000000000000000
+              Position.Y = 342.000000000000000000
               Size.Width = 166.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
@@ -1055,7 +1055,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnDeployApplicationFolder: TButton
               Position.X = 182.000000000000000000
-              Position.Y = 452.000000000000000000
+              Position.Y = 386.000000000000000000
               Size.Width = 166.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
@@ -1077,7 +1077,7 @@ object frmSetupWizard: TfrmSetupWizard
               Position.X = 390.000000000000000000
               Position.Y = 8.000000000000000000
               Size.Width = 350.000000000000000000
-              Size.Height = 500.000000000000000000
+              Size.Height = 458.000000000000000000
               Size.PlatformDefault = False
               Fill.Color = xFFEAF3FF
               Stroke.Color = xFFB7D5F5

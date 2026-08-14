@@ -304,6 +304,11 @@ begin
         AComponent.Name, ColumnIndex]);
     if not APack.TryGetText(GridKey, TranslatedText) then
       TryGetHeaderTranslation(ColumnIndex, CurrentText, TranslatedText);
+    if (TranslatedText = CurrentText) and
+       APack.TryTranslateSource(CurrentText, TranslatedText) then
+      { Header columns are not always owned as ordinary TComponent children;
+        the source-text fallback keeps their exact catalog translation. }
+      ;
     if (TranslatedText <> '') and (TranslatedText <> CurrentText) then
     begin
       TStringGrid(AComponent).Columns[ColumnIndex].Header := TranslatedText;
@@ -883,8 +888,13 @@ begin
       Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
     if AApplyLayout then
     begin
+      { Adaptive sizing is safe because it changes only the translated
+        control's own wrapping and height.  Do not blanket-shift sibling
+        controls here: FMX forms commonly use intentional absolute geometry,
+        and moving every overlapping sibling caused cascading form damage.
+        Approved, language-specific LayoutRules remain the only source of
+        positional changes. }
       ApplyAdaptiveTextLayout(AForm);
-      ReflowTranslatedChildren(AForm);
     end;
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
   finally
