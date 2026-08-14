@@ -28,6 +28,7 @@ uses
   System.Classes,
   System.Generics.Collections,
   System.JSON,
+  System.Math,
   System.SysUtils,
   System.StrUtils,
   System.TypInfo,
@@ -235,11 +236,12 @@ begin
   end;
 end;
 
-function ApplyGridText(const AComponent: TComponent;
-  const APack: TRuntimeLanguagePack): Integer;
+function ApplyGridText(const AFormIdentity: string;
+  const AComponent: TComponent; const APack: TRuntimeLanguagePack): Integer;
 var
   ColumnIndex: Integer;
   CurrentText: string;
+  GridKey: string;
   RowIndex: Integer;
   TranslatedText: string;
 begin
@@ -249,8 +251,14 @@ begin
   for ColumnIndex := 0 to TStringGrid(AComponent).ColumnCount - 1 do
   begin
     CurrentText := TStringGrid(AComponent).Columns[ColumnIndex].Header;
-    if APack.TryTranslateDynamicText(CurrentText, TranslatedText) and
-      (TranslatedText <> CurrentText) then
+    GridKey := Format('%s.%s.Columns.Header.%d', [AFormIdentity,
+      AComponent.Name, ColumnIndex]);
+    if not APack.TryGetText(GridKey, TranslatedText) then
+      GridKey := Format('%s.%s.Columns[%d].Header', [AFormIdentity,
+        AComponent.Name, ColumnIndex]);
+    if not APack.TryGetText(GridKey, TranslatedText) then
+      APack.TryTranslateDynamicText(CurrentText, TranslatedText);
+    if (TranslatedText <> '') and (TranslatedText <> CurrentText) then
     begin
       TStringGrid(AComponent).Columns[ColumnIndex].Header := TranslatedText;
       Inc(Result);
@@ -263,6 +271,112 @@ begin
       begin
         TStringGrid(AComponent).Cells[ColumnIndex, RowIndex] := TranslatedText;
         Inc(Result);
+      end;
+    end;
+  end;
+end;
+
+procedure ApplyAdaptiveTextLayout(const AParent: TFmxObject);
+var
+  ChildIndex: Integer;
+  ChildObject: TFmxObject;
+  Child: TControl;
+  WordWrapInfo: PPropInfo;
+  AutoSizeInfo: PPropInfo;
+  TextValue: string;
+  FontSize: Single;
+  RequiredWidth: Single;
+  RequiredLines: Integer;
+  RequiredHeight: Single;
+begin
+  if AParent = nil then
+    Exit;
+  for ChildIndex := 0 to AParent.ChildrenCount - 1 do
+  begin
+    ChildObject := AParent.Children[ChildIndex];
+    if ChildObject = nil then
+      Continue;
+    ApplyAdaptiveTextLayout(ChildObject);
+    if not (ChildObject is TTextControl) then
+      Continue;
+    Child := TControl(ChildObject);
+    TextValue := Trim(TTextControl(Child).Text);
+    if (TextValue = '') or (Child.Width < 80) then
+      Continue;
+    WordWrapInfo := GetPropInfo(Child.ClassInfo, 'WordWrap', [tkEnumeration]);
+    AutoSizeInfo := GetPropInfo(Child.ClassInfo, 'AutoSize', [tkEnumeration]);
+    if WordWrapInfo = nil then
+      Continue;
+    FontSize := TTextControl(Child).TextSettings.Font.Size;
+    if FontSize < 9 then
+      FontSize := 12;
+    RequiredWidth := Length(TextValue) * FontSize * 0.52 + 12;
+    if RequiredWidth <= Child.Width * 1.05 then
+      Continue;
+    SetOrdProp(Child, WordWrapInfo, 1);
+    if AutoSizeInfo <> nil then
+      SetOrdProp(Child, AutoSizeInfo, 0);
+    RequiredLines := Max(2, Ceil(RequiredWidth / Child.Width));
+    RequiredHeight := FontSize * 1.65 * RequiredLines + 6;
+    if RequiredHeight > Child.Height then
+      Child.Height := RequiredHeight;
+  end;
+end;
+
+procedure NormalizeSiblingLayout(const AParent: TFmxObject);
+var
+  I, J: Integer;
+  FirstObject, SecondObject: TFmxObject;
+  FirstControl, SecondControl: TControl;
+  HorizontalOverlap: Boolean;
+  VerticalOverlap: Boolean;
+  Shift: Single;
+begin
+  if AParent = nil then
+    Exit;
+  for I := 0 to AParent.ChildrenCount - 1 do
+    NormalizeSiblingLayout(AParent.Children[I]);
+  for I := 0 to AParent.ChildrenCount - 1 do
+  begin
+    FirstObject := AParent.Children[I];
+    if not (FirstObject is TControl) then
+      Continue;
+    FirstControl := TControl(FirstObject);
+    if (FirstControl = nil) or not FirstControl.Visible or
+      (FirstControl.Align <> TAlignLayout.None) then
+      Continue;
+    for J := I + 1 to AParent.ChildrenCount - 1 do
+    begin
+      SecondObject := AParent.Children[J];
+      if not (SecondObject is TControl) then
+        Continue;
+      SecondControl := TControl(SecondObject);
+      if (SecondControl = nil) or not SecondControl.Visible or
+        (SecondControl.Align <> TAlignLayout.None) then
+        Continue;
+      HorizontalOverlap := (FirstControl.Position.X <
+        SecondControl.Position.X + SecondControl.Width) and
+        (FirstControl.Position.X + FirstControl.Width >
+        SecondControl.Position.X);
+      VerticalOverlap := (FirstControl.Position.Y <
+        SecondControl.Position.Y + SecondControl.Height) and
+        (FirstControl.Position.Y + FirstControl.Height >
+        SecondControl.Position.Y);
+      if not (HorizontalOverlap and VerticalOverlap) then
+        Continue;
+      if SecondControl.Position.Y >= FirstControl.Position.Y then
+      begin
+        Shift := FirstControl.Position.Y + FirstControl.Height + 8 -
+          SecondControl.Position.Y;
+        if Shift > 0 then
+          SecondControl.Position.Y := SecondControl.Position.Y + Shift;
+      end
+      else
+      begin
+        Shift := SecondControl.Position.Y + SecondControl.Height + 8 -
+          FirstControl.Position.Y;
+        if Shift > 0 then
+          FirstControl.Position.Y := FirstControl.Position.Y + Shift;
       end;
     end;
   end;
@@ -294,7 +408,6 @@ var
   PropertyInfo: PPropInfo;
   CurrentText: string;
   Key: string;
-  SourceText: string;
   TranslatedText: string;
 begin
   Result := False;
@@ -309,12 +422,6 @@ begin
   Key := ComponentKey(AFormIdentity, AForm, AComponent, APropertyName);
   if APack.TryGetText(Key, TranslatedText) then
   begin
-    if APack.TryGetSource(Key, SourceText) and
-      not SameText(CurrentText, SourceText) and
-      not ContainsStr(CurrentText, TranslatedText) and
-      ContainsStr(CurrentText, SourceText) then
-      TranslatedText := StringReplace(CurrentText, SourceText,
-        TranslatedText, [rfReplaceAll]);
     if TranslatedText = CurrentText then
       Exit;
     SetStrProp(AComponent, PropertyInfo, TranslatedText);
@@ -562,7 +669,7 @@ var
         Inc(Result, ApplyStringCollection(FormIdentity, AForm, AComponent,
           LocalPropertyName, LocalPropertyName + '.Strings', APack,
           APreserveControlState));
-      Inc(Result, ApplyGridText(AComponent, APack));
+      Inc(Result, ApplyGridText(FormIdentity, AComponent, APack));
       { Browser-backed HTML is applied during the initial language pass only.
         Re-evaluating JavaScript on every dynamic refresh can race the FMX
         browser and produce repeated platform error 80020101 dialogs. }
@@ -606,6 +713,10 @@ begin
       ApplyComponentTree(AForm.Components[ComponentIndex]);
     if AApplyLayout then
       Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
+    if AApplyLayout then
+    begin
+      ApplyAdaptiveTextLayout(AForm);
+    end;
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
   finally
     VisitedComponents.Free;

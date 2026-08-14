@@ -225,6 +225,8 @@ var
   SourceExecutable: string;
   SourceLanguageDirectory: string;
   ExecutableStatus: string;
+  Attempt: Integer;
+  CopySucceeded: Boolean;
 begin
   if not TFile.Exists(AProjectFileName) then
     raise EFileNotFoundException.CreateFmt(
@@ -248,7 +250,27 @@ begin
       [DestinationExecutable])
   else
   begin
-    TFile.Copy(SourceExecutable, DestinationExecutable, True);
+    CopySucceeded := False;
+    for Attempt := 1 to 8 do
+    begin
+      try
+        TFile.Copy(SourceExecutable, DestinationExecutable, True);
+        CopySucceeded := TFile.Exists(DestinationExecutable) and
+          (TFile.GetSize(DestinationExecutable) =
+           TFile.GetSize(SourceExecutable));
+        if CopySucceeded then
+          Break;
+      except
+        on E: EInOutError do
+          if Attempt = 8 then
+            raise;
+      end;
+      Sleep(500);
+    end;
+    if not CopySucceeded then
+      raise EInOutError.CreateFmt(
+        'The executable copy did not verify at %s.',
+        [DestinationExecutable]);
     ExecutableStatus := Format('Executable copied to %s.',
       [DestinationExecutable]);
   end;

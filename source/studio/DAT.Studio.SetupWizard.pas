@@ -305,6 +305,8 @@ var
   Configuration: string;
   Platform: string;
   ApplicationDirectory: string;
+  DestinationAttempt: Integer;
+  DestinationReady: Boolean;
 begin
   if not FCompleted then
     Exit;
@@ -332,7 +334,17 @@ begin
           FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
           Platform, Configuration, FKitDirectory));
         for ApplicationDirectory in lstDeploymentDestinations.Items do
-          if TDirectory.Exists(ApplicationDirectory) then
+        begin
+          DestinationReady := TDirectory.Exists(ApplicationDirectory);
+          if not DestinationReady then
+            for DestinationAttempt := 1 to 12 do
+            begin
+              Sleep(500);
+              DestinationReady := TDirectory.Exists(ApplicationDirectory);
+              if DestinationReady then
+                Break;
+            end;
+          if DestinationReady then
             try
               AddProgress(TTargetBuildDeployer.DeployBuildOutput(
                 FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
@@ -343,7 +355,12 @@ begin
                 AddProgress(Format(
                   'Executable deployment skipped for %s %s in %s: %s',
                   [Platform, Configuration, ApplicationDirectory, E.Message]));
-            end;
+            end
+          else
+            AddProgress(Format(
+              'Destination unavailable after waiting: %s',
+              [ApplicationDirectory]));
+        end;
       end;
     lblBuildStatus.Text := 'Build and deployment completed for every selected target.';
   except

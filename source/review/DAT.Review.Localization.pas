@@ -569,11 +569,18 @@ begin
            (Control.Left + Control.Width > Other.Left) and
            (Control.Top < Other.Top + Other.Height) and
            (Control.Top + Control.Height > Other.Top) then
+        begin
           AddFinding(AReview, lfsWarning, 'Overlap',
             Control.FormName + '.' + Control.ComponentName,
             'This control intersects ' + Other.ComponentName +
               ' in the designer geometry.',
-            'Inspect the form visually; aligned/contained controls may be intentional.');
+            'The runtime pack will move the lower control after an approved layout pass.');
+          if (Other.Top >= Control.Top) and
+             ((Other.Align = '') or SameText(Other.Align, 'None')) then
+            AddProposal(AReview, Other, 'Top', FloatToStr(Other.Top),
+              FloatToStr(Ceil(Control.Top + Control.Height + 8)),
+              'Move the lower control below the expanded translated control.');
+        end;
 end;
 
 class function TLocalizationReviewer.Analyze(
