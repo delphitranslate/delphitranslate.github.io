@@ -1764,19 +1764,22 @@ built-in terminology and provider translation, and persisted under the target's
 ## Documentation backlog
 
 Formal User Guide, Setup Wizard Guide, Engineering Guide, and test-guide
-revisions must be regenerated after the current runtime layout, deployment,
-and Wizard finish-page fixes pass acceptance testing. Until then, the current
-operational checkpoint is `docs\guides\Current To-Do Resolution.md`.
+revisions are intentionally deferred until the localization-intelligence and
+iterative-update workflows complete acceptance testing. Do not regenerate the
+DOCX/PDF guides before that checkpoint. Provide current, chat-based test
+instructions on request in the meantime.
 
-## Complete Reset
+## Future: Full Reset
 
-The Complete Reset command now exists as a conservative, preview-first
-maintenance workflow. It is exposed from the Maintenance Studio advanced
-integration area. It restores/removes only paths represented in a prior
-integration backup manifest and Studio-owned localization output locations. It
-creates a safety backup before execution and requires the developer to preview
-the plan and explicitly authorize the reset. It does not run silently and is
-not part of the ordinary first-run Wizard path.
+A future Full Reset command should provide a conservative, preview-first way
+to start a localization project again. It may remove only Studio-owned
+development catalogs, runtime packs, generated component kits, review
+decisions, saved language preferences, and deployment caches selected by the
+developer. It must never delete or rewrite developer-owned PAS, FMX, DFM, DPR,
+or DPROJ files. Before reset, the Studio should show the exact paths and files,
+create a timestamped safety backup, and offer narrower choices such as Reset
+One Language and Reset Generated Output Only. Git or a pristine project copy
+remains the authoritative recovery mechanism.
 
 ## Wizard acceptance corrections (2026-08-11)
 

@@ -36,7 +36,6 @@ export/*
 /communication.txt
 /packages/design/*.dproj
 /packages/design/*.res
-/prechange_*.zip
 
 # Project resources generated automatically by the current Delphi projects
 /DelphiAppTranslationStudio.res
