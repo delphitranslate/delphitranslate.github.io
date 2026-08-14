@@ -223,10 +223,6 @@ begin
               PropertyName := LayoutItem.GetValue<string>('propertyName', '');
               if not (SameText(PropertyName, 'Width') or
                 SameText(PropertyName, 'Height') or
-                SameText(PropertyName, 'Left') or
-                SameText(PropertyName, 'Top') or
-                SameText(PropertyName, 'Position.X') or
-                SameText(PropertyName, 'Position.Y') or
                 SameText(PropertyName, 'WordWrap') or
                 SameText(PropertyName, 'AutoSize')) then
                 Continue;

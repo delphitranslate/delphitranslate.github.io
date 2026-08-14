@@ -142,28 +142,20 @@ end;
 function TrySetLayoutProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
 var
-  Control: TControl;
   FloatValue: Extended;
   IntegerValue: Int64;
   OrdinalValue: NativeInt;
   PropertyInfo: PPropInfo;
 begin
   Result := False;
-  if (AComponent is TControl) and
-    (SameText(APropertyName, 'Left') or SameText(APropertyName, 'Top') or
+  { Runtime localization must never move controls by default.  Earlier builds
+    accepted Left/Top/Position rules and tried to repair crowding by shifting
+    controls.  On hand-designed FMX forms that caused cascading layout damage.
+    Keep language packs limited to text-preserving sizing/wrapping changes. }
+  if SameText(APropertyName, 'Left') or SameText(APropertyName, 'Top') or
      SameText(APropertyName, 'Position.X') or
-     SameText(APropertyName, 'Position.Y')) then
-  begin
-    if not TryStrToFloat(AValue, FloatValue, TFormatSettings.Invariant) or
-      (FloatValue < 0) or (FloatValue > 100000) then
-      Exit;
-    Control := TControl(AComponent);
-    if SameText(APropertyName, 'Left') or SameText(APropertyName, 'Position.X') then
-      Control.Position.X := FloatValue
-    else
-      Control.Position.Y := FloatValue;
-    Exit(True);
-  end;
+     SameText(APropertyName, 'Position.Y') then
+    Exit(False);
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName);
   if PropertyInfo = nil then
     Exit;
@@ -250,7 +242,7 @@ begin
         Script.Append(',');
       Script.Append('[').Append(Candidate).Append(']');
     end;
-    Script.Append('];function a(){if(!document.body)return;const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){let v=n.nodeValue;for(const q of p){if(v.trim()===q[0]){const l=v.match(/^\\s*/)[0],r=v.match(/\\s*$/)[0];v=l+q[1]+r;break;}if(v.indexOf(q[0])>=0&&v.indexOf(q[1])<0)v=v.split(q[0]).join(q[1]);}if(n.nodeValue!==v)n.nodeValue=v;}}a();})();');
+    Script.Append('];function a(){if(!document.body)return;const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){let v=n.nodeValue;for(const q of p){if(v.trim()===q[0]){const l=v.match(/^\\s*/)[0],r=v.match(/\\s*$/)[0];v=l+q[1]+r;break;}}if(n.nodeValue!==v)n.nodeValue=v;}}a();})();');
     try
       TCustomWebBrowser(AComponent).EvaluateJavaScript(Script.ToString);
       Result := Pairs.Count;
@@ -338,158 +330,6 @@ begin
       begin
         TStringGrid(AComponent).Cells[ColumnIndex, RowIndex] := TranslatedText;
         Inc(Result);
-      end;
-    end;
-  end;
-end;
-
-procedure ApplyAdaptiveTextLayout(const AParent: TFmxObject);
-var
-  ChildIndex: Integer;
-  ChildObject: TFmxObject;
-  Child: TControl;
-  WordWrapInfo: PPropInfo;
-  AutoSizeInfo: PPropInfo;
-  TextValue: string;
-  FontSize: Single;
-  RequiredWidth: Single;
-  RequiredLines: Integer;
-  RequiredHeight: Single;
-begin
-  if AParent = nil then
-    Exit;
-  for ChildIndex := 0 to AParent.ChildrenCount - 1 do
-  begin
-    ChildObject := AParent.Children[ChildIndex];
-    if ChildObject = nil then
-      Continue;
-    ApplyAdaptiveTextLayout(ChildObject);
-    if not (ChildObject is TTextControl) then
-      Continue;
-    Child := TControl(ChildObject);
-    TextValue := Trim(TTextControl(Child).Text);
-    if TextValue = '' then
-      Continue;
-    WordWrapInfo := GetPropInfo(Child.ClassInfo, 'WordWrap', [tkEnumeration]);
-    AutoSizeInfo := GetPropInfo(Child.ClassInfo, 'AutoSize', [tkEnumeration]);
-    if WordWrapInfo = nil then
-      Continue;
-    FontSize := TTextControl(Child).TextSettings.Font.Size;
-    if FontSize < 9 then
-      FontSize := 12;
-    RequiredWidth := Length(TextValue) * FontSize * 0.52 + 12;
-    if RequiredWidth <= Child.Width * 1.05 then
-      Continue;
-    SetOrdProp(Child, WordWrapInfo, 1);
-    if AutoSizeInfo <> nil then
-      SetOrdProp(Child, AutoSizeInfo, 0);
-    RequiredLines := Max(2, Ceil(RequiredWidth / Child.Width));
-    RequiredHeight := FontSize * 1.65 * RequiredLines + 6;
-    if RequiredHeight > Child.Height then
-      Child.Height := RequiredHeight;
-  end;
-end;
-
-procedure ReflowTranslatedChildren(const AParent: TFmxObject);
-var
-  I, J, Pass: Integer;
-  Anchor, Other: TControl;
-  AnchorText: TTextControl;
-  HorizontalOverlap: Boolean;
-  NewTop: Single;
-begin
-  if AParent = nil then
-    Exit;
-  for I := 0 to AParent.ChildrenCount - 1 do
-    ReflowTranslatedChildren(AParent.Children[I]);
-  { Repeat a few passes so a control moved below one expanded label also
-    clears the next label in the same vertical group. }
-  for Pass := 1 to 3 do
-    for I := 0 to AParent.ChildrenCount - 1 do
-    begin
-      if not (AParent.Children[I] is TTextControl) then
-        Continue;
-      AnchorText := TTextControl(AParent.Children[I]);
-      Anchor := TControl(AnchorText);
-      if not Anchor.Visible or (Anchor.Align <> TAlignLayout.None) or
-        (Anchor.Height <= 0) then
-        Continue;
-      for J := 0 to AParent.ChildrenCount - 1 do
-      begin
-        if I = J then
-          Continue;
-        if not (AParent.Children[J] is TControl) then
-          Continue;
-        Other := TControl(AParent.Children[J]);
-        if not Other.Visible or (Other.Align <> TAlignLayout.None) or
-          (Other.Position.Y < Anchor.Position.Y) then
-          Continue;
-        HorizontalOverlap :=
-          (Anchor.Position.X < Other.Position.X + Other.Width) and
-          (Anchor.Position.X + Anchor.Width > Other.Position.X);
-        if not HorizontalOverlap then
-          Continue;
-        NewTop := Anchor.Position.Y + Anchor.Height + 8;
-        if Other.Position.Y < NewTop then
-          Other.Position.Y := NewTop;
-      end;
-    end;
-end;
-
-procedure NormalizeSiblingLayout(const AParent: TFmxObject);
-var
-  I, J: Integer;
-  FirstObject, SecondObject: TFmxObject;
-  FirstControl, SecondControl: TControl;
-  HorizontalOverlap: Boolean;
-  VerticalOverlap: Boolean;
-  Shift: Single;
-begin
-  if AParent = nil then
-    Exit;
-  for I := 0 to AParent.ChildrenCount - 1 do
-    NormalizeSiblingLayout(AParent.Children[I]);
-  for I := 0 to AParent.ChildrenCount - 1 do
-  begin
-    FirstObject := AParent.Children[I];
-    if not (FirstObject is TControl) then
-      Continue;
-    FirstControl := TControl(FirstObject);
-    if (FirstControl = nil) or not FirstControl.Visible or
-      (FirstControl.Align <> TAlignLayout.None) then
-      Continue;
-    for J := I + 1 to AParent.ChildrenCount - 1 do
-    begin
-      SecondObject := AParent.Children[J];
-      if not (SecondObject is TControl) then
-        Continue;
-      SecondControl := TControl(SecondObject);
-      if (SecondControl = nil) or not SecondControl.Visible or
-        (SecondControl.Align <> TAlignLayout.None) then
-        Continue;
-      HorizontalOverlap := (FirstControl.Position.X <
-        SecondControl.Position.X + SecondControl.Width) and
-        (FirstControl.Position.X + FirstControl.Width >
-        SecondControl.Position.X);
-      VerticalOverlap := (FirstControl.Position.Y <
-        SecondControl.Position.Y + SecondControl.Height) and
-        (FirstControl.Position.Y + FirstControl.Height >
-        SecondControl.Position.Y);
-      if not (HorizontalOverlap and VerticalOverlap) then
-        Continue;
-      if SecondControl.Position.Y >= FirstControl.Position.Y then
-      begin
-        Shift := FirstControl.Position.Y + FirstControl.Height + 8 -
-          SecondControl.Position.Y;
-        if Shift > 0 then
-          SecondControl.Position.Y := SecondControl.Position.Y + Shift;
-      end
-      else
-      begin
-        Shift := SecondControl.Position.Y + SecondControl.Height + 8 -
-          FirstControl.Position.Y;
-        if Shift > 0 then
-          FirstControl.Position.Y := FirstControl.Position.Y + Shift;
       end;
     end;
   end;
@@ -902,16 +742,10 @@ begin
       ApplyComponentTree(AForm.Components[ComponentIndex]);
     if AApplyLayout then
       Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
-    if AApplyLayout then
-    begin
-      { Adaptive sizing is safe because it changes only the translated
-        control's own wrapping and height.  Do not blanket-shift sibling
-        controls here: FMX forms commonly use intentional absolute geometry,
-        and moving every overlapping sibling caused cascading form damage.
-        Approved, language-specific LayoutRules remain the only source of
-        positional changes. }
-      ApplyAdaptiveTextLayout(AForm);
-    end;
+    { Do not run the broad adaptive layout pass by default.  It walks every
+      text control and can grow controls without knowing whether the developer
+      intended a fixed-height design.  Only reviewed language-pack layout rules
+      are applied above. }
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
   finally
     VisitedComponents.Free;

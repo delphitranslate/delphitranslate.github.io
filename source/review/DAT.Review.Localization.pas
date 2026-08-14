@@ -627,31 +627,11 @@ begin
            (Control.Left + EffectiveWidth(Control) > Other.Left) and
            (Control.Top < Other.Top + EffectiveHeight(Other)) and
            (Control.Top + EffectiveHeight(Control) > Other.Top) then
-        begin
           AddFinding(AReview, lfsWarning, 'Overlap',
             Control.FormName + '.' + Control.ComponentName,
             'This control intersects ' + Other.ComponentName +
               ' after estimated translated sizing.',
-            'Approve only if the proposed same-row or same-column adjustment makes sense for this form.');
-          if SameVisualRow(Control, Other) and
-             (Other.Left >= Control.Left) and
-             ((Other.Align = '') or SameText(Other.Align, 'None')) then
-            AddProposal(AReview, Other, 'Left', FloatToStr(Other.Left),
-              FloatToStr(Ceil(Control.Left + EffectiveWidth(Control) + 8)),
-              'Move this same-row control to the right of the expanded translated text.')
-          else if SameVisualRow(Other, Control) and
-             (Control.Left >= Other.Left) and
-             ((Control.Align = '') or SameText(Control.Align, 'None')) then
-            AddProposal(AReview, Control, 'Left', FloatToStr(Control.Left),
-              FloatToStr(Ceil(Other.Left + EffectiveWidth(Other) + 8)),
-              'Move this same-row control to the right of the expanded translated text.')
-          else if SameVisualColumn(Control, Other) and
-             (Other.Top >= Control.Top) and
-             ((Other.Align = '') or SameText(Other.Align, 'None')) then
-            AddProposal(AReview, Other, 'Top', FloatToStr(Other.Top),
-              FloatToStr(Ceil(Control.Top + EffectiveHeight(Control) + 8)),
-              'Move this same-column control below the expanded translated text.');
-        end;
+            'No automatic move is proposed. Adjust the designer layout or use a manual source-specific layout correction.');
 end;
 
 class function TLocalizationReviewer.Analyze(

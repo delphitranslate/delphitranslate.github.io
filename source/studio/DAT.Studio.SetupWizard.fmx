@@ -3,11 +3,11 @@ object frmSetupWizard: TfrmSetupWizard
   Top = 0
   BorderStyle = None
   Caption = 'Delphi App Translation - Setup Wizard'
-  ClientHeight = 720
+  ClientHeight = 800
   ClientWidth = 1120
   Fill.Color = xFFF3F7FC
   FormFactor.Width = 1120
-  FormFactor.Height = 720
+  FormFactor.Height = 800
   FormFactor.Devices = [Desktop]
   Position = ScreenCenter
   OnCloseQuery = FormCloseQuery
@@ -16,7 +16,7 @@ object frmSetupWizard: TfrmSetupWizard
   object RootLayout: TLayout
     Align = Client
     Size.Width = 1120.000000000000000000
-    Size.Height = 720.000000000000000000
+    Size.Height = 800.000000000000000000
     Size.PlatformDefault = False
     object HeaderBackground: TRectangle
       Align = Top
@@ -66,13 +66,13 @@ object frmSetupWizard: TfrmSetupWizard
       Position.X = 18.000000000000000000
       Position.Y = 120.000000000000000000
       Size.Width = 1084.000000000000000000
-      Size.Height = 518.000000000000000000
+      Size.Height = 598.000000000000000000
       Size.PlatformDefault = False
       object RailBackground: TRectangle
         Align = Left
         Fill.Color = xFF245587
         Size.Width = 246.000000000000000000
-        Size.Height = 518.000000000000000000
+        Size.Height = 598.000000000000000000
         Size.PlatformDefault = False
         Stroke.Kind = None
         XRadius = 18.000000000000000000
@@ -222,7 +222,7 @@ object frmSetupWizard: TfrmSetupWizard
         Margins.Left = 16.000000000000000000
         Position.X = 262.000000000000000000
         Size.Width = 822.000000000000000000
-        Size.Height = 518.000000000000000000
+        Size.Height = 598.000000000000000000
         Size.PlatformDefault = False
         Stroke.Color = xFFD3E2F2
         XRadius = 18.000000000000000000
@@ -1029,7 +1029,7 @@ object frmSetupWizard: TfrmSetupWizard
             object btnCopyCommands: TButton
               Position.X = 8.000000000000000000
               Position.Y = 342.000000000000000000
-              Size.Width = 166.000000000000000000
+              Size.Width = 188.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
               Text = 'Copy Commands'
@@ -1038,25 +1038,25 @@ object frmSetupWizard: TfrmSetupWizard
             object btnOpenKitFolder: TButton
               Position.X = 8.000000000000000000
               Position.Y = 386.000000000000000000
-              Size.Width = 166.000000000000000000
+              Size.Width = 188.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
               Text = 'Open Kit Folder'
               OnClick = btnOpenKitFolderClick
             end
             object btnRunDeployment: TButton
-              Position.X = 182.000000000000000000
+              Position.X = 208.000000000000000000
               Position.Y = 342.000000000000000000
-              Size.Width = 166.000000000000000000
+              Size.Width = 188.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
               Text = 'Redeploy Outputs'
               OnClick = btnRunDeploymentClick
             end
             object btnDeployApplicationFolder: TButton
-              Position.X = 182.000000000000000000
+              Position.X = 208.000000000000000000
               Position.Y = 386.000000000000000000
-              Size.Width = 166.000000000000000000
+              Size.Width = 188.000000000000000000
               Size.Height = 40.000000000000000000
               Size.PlatformDefault = False
               Text = 'Deploy to App Folder...'
@@ -1074,9 +1074,9 @@ object frmSetupWizard: TfrmSetupWizard
               OnClick = btnLocalizationReviewClick
             end
             object BuildChoiceCard: TRectangle
-              Position.X = 390.000000000000000000
+              Position.X = 410.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 350.000000000000000000
+              Size.Width = 390.000000000000000000
               Size.Height = 458.000000000000000000
               Size.PlatformDefault = False
               Fill.Color = xFFEAF3FF
@@ -1087,7 +1087,7 @@ object frmSetupWizard: TfrmSetupWizard
                 StyledSettings = []
                 Position.X = 18.000000000000000000
                 Position.Y = 18.000000000000000000
-                Size.Width = 310.000000000000000000
+                Size.Width = 350.000000000000000000
                 Size.Height = 34.000000000000000000
                 Size.PlatformDefault = False
                 TextSettings.Font.Size = 18.000000000000000000
@@ -1100,7 +1100,7 @@ object frmSetupWizard: TfrmSetupWizard
                 WordWrap = True
                 Position.X = 18.000000000000000000
                 Position.Y = 62.000000000000000000
-                Size.Width = 310.000000000000000000
+                Size.Width = 350.000000000000000000
                 Size.Height = 72.000000000000000000
                 Size.PlatformDefault = False
                 TextSettings.Font.Size = 13.000000000000000000
@@ -1110,7 +1110,7 @@ object frmSetupWizard: TfrmSetupWizard
               object chkBuildNow: TCheckBox
                 Position.X = 18.000000000000000000
                 Position.Y = 150.000000000000000000
-                Size.Width = 300.000000000000000000
+                Size.Width = 350.000000000000000000
                 Size.Height = 28.000000000000000000
                 Size.PlatformDefault = False
                 Text = 'Build and deploy now'
@@ -1123,6 +1123,7 @@ object frmSetupWizard: TfrmSetupWizard
                 Size.Height = 36.000000000000000000
                 Size.PlatformDefault = False
                 Items.Strings = ('Win32 only' 'Win64 only' 'Win32 and Win64')
+                OnChange = BuildSelectionChange
               end
               object cboBuildConfiguration: TComboBox
                 Position.X = 18.000000000000000000
@@ -1131,11 +1132,12 @@ object frmSetupWizard: TfrmSetupWizard
                 Size.Height = 36.000000000000000000
                 Size.PlatformDefault = False
                 Items.Strings = ('Debug only' 'Release only' 'Debug and Release')
+                OnChange = BuildSelectionChange
               end
               object btnBuildNow: TButton
                 Position.X = 18.000000000000000000
                 Position.Y = 304.000000000000000000
-                Size.Width = 310.000000000000000000
+                Size.Width = 350.000000000000000000
                 Size.Height = 46.000000000000000000
                 Size.PlatformDefault = False
                 Text = 'Build and Deploy Selected Targets'
@@ -1146,7 +1148,7 @@ object frmSetupWizard: TfrmSetupWizard
                 WordWrap = True
                 Position.X = 18.000000000000000000
                 Position.Y = 362.000000000000000000
-                Size.Width = 310.000000000000000000
+                Size.Width = 350.000000000000000000
                 Size.Height = 58.000000000000000000
                 Size.PlatformDefault = False
                 TextSettings.Font.Size = 12.000000000000000000
@@ -1161,7 +1163,7 @@ object frmSetupWizard: TfrmSetupWizard
     object FooterLine: TRectangle
       Align = Bottom
       Fill.Color = xFFD7E5F6
-      Position.Y = 638.000000000000000000
+      Position.Y = 718.000000000000000000
       Size.Width = 1120.000000000000000000
       Size.Height = 1.000000000000000000
       Size.PlatformDefault = False
@@ -1171,7 +1173,7 @@ object frmSetupWizard: TfrmSetupWizard
       Anchors = [akLeft, akBottom, akRight]
       StyledSettings = []
       Position.X = 28.000000000000000000
-      Position.Y = 655.000000000000000000
+      Position.Y = 735.000000000000000000
       Size.Width = 600.000000000000000000
       Size.Height = 42.000000000000000000
       Size.PlatformDefault = False
@@ -1182,7 +1184,7 @@ object frmSetupWizard: TfrmSetupWizard
     object btnBack: TButton
       Anchors = [akRight, akBottom]
       Position.X = 650.000000000000000000
-      Position.Y = 654.000000000000000000
+      Position.Y = 734.000000000000000000
       Size.Width = 112.000000000000000000
       Size.Height = 44.000000000000000000
       Size.PlatformDefault = False
@@ -1192,7 +1194,7 @@ object frmSetupWizard: TfrmSetupWizard
     object btnNext: TButton
       Anchors = [akRight, akBottom]
       Position.X = 774.000000000000000000
-      Position.Y = 654.000000000000000000
+      Position.Y = 734.000000000000000000
       Size.Width = 170.000000000000000000
       Size.Height = 44.000000000000000000
       Size.PlatformDefault = False
@@ -1202,7 +1204,7 @@ object frmSetupWizard: TfrmSetupWizard
     object btnCancel: TButton
       Anchors = [akRight, akBottom]
       Position.X = 956.000000000000000000
-      Position.Y = 654.000000000000000000
+      Position.Y = 734.000000000000000000
       Size.Width = 136.000000000000000000
       Size.Height = 44.000000000000000000
       Size.PlatformDefault = False
@@ -1212,7 +1214,7 @@ object frmSetupWizard: TfrmSetupWizard
     object btnFinish: TButton
       Anchors = [akRight, akBottom]
       Position.X = 774.000000000000000000
-      Position.Y = 654.000000000000000000
+      Position.Y = 734.000000000000000000
       Size.Width = 170.000000000000000000
       Size.Height = 44.000000000000000000
       Size.PlatformDefault = False

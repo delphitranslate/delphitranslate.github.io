@@ -281,7 +281,24 @@ begin
     StartsText('select ', LowerText) or StartsText('update ', LowerText) or
     StartsText('insert ', LowerText) or StartsText('delete ', LowerText) or
     StartsText('pragma ', LowerText) or ContainsText(LowerText, '<tr') or
-    ContainsText(LowerText, '<td');
+    ContainsText(LowerText, '<td') or
+    ContainsText(LowerText, '.text') or
+    ContainsText(LowerText, '.caption') or
+    ContainsText(LowerText, '.checked') or
+    ContainsText(LowerText, '.items') or
+    ContainsText(LowerText, ' then ') or
+    ContainsText(LowerText, ' else ') or
+    ContainsText(LowerText, ' begin') or
+    ContainsText(LowerText, ' end') or
+    ContainsText(LowerText, 'encodedate') or
+    ContainsText(LowerText, 'encodetime') or
+    ContainsText(LowerText, 'formatdatetime') or
+    ContainsText(LowerText, 'strftime') or
+    ContainsText(LowerText, 'http://127.0.0.1') or
+    ContainsText(LowerText, 'oauth') or
+    ContainsText(LowerText, '://') or
+    ContainsText(LowerText, '@') or
+    ContainsText(LowerText, 'apps.googleusercontent.com');
 end;
 
 procedure ScanHtmlText(const AStatement: TRuntimeStatement;

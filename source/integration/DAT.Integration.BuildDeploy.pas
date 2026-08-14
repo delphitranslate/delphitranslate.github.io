@@ -32,7 +32,7 @@ const
   BuildProcessTimeout = 1800000;
   ProcessTerminationWait = 5000;
 
-procedure RunElevatedBuild(const AProjectFileName, APlatform,
+procedure RunHiddenBuild(const AProjectFileName, APlatform,
   AConfiguration: string);
 var
   CommandParameters: string;
@@ -48,7 +48,7 @@ begin
   ExecuteInfo.fMask := SEE_MASK_NOCLOSEPROCESS or SEE_MASK_FLAG_NO_UI or
     SEE_MASK_NO_CONSOLE;
   ExecuteInfo.Wnd := 0;
-  ExecuteInfo.lpVerb := 'runas';
+  ExecuteInfo.lpVerb := 'open';
   ExecuteInfo.lpFile := 'cmd.exe';
   ExecuteInfo.lpParameters := PChar(CommandParameters);
   ExecuteInfo.nShow := SW_HIDE;
@@ -189,7 +189,7 @@ begin
     TFile.Exists(TPath.ChangeExtension(BuildProjectFileName, '.dproj')) then
     BuildProjectFileName := TPath.ChangeExtension(
       BuildProjectFileName, '.dproj');
-  RunElevatedBuild(BuildProjectFileName, APlatform, AConfiguration);
+  RunHiddenBuild(BuildProjectFileName, APlatform, AConfiguration);
   DestinationDirectory := FindBuildOutputDirectory(BuildProjectFileName,
     AProjectName, APlatform, AConfiguration, True);
   if DestinationDirectory = '' then
@@ -233,8 +233,19 @@ begin
   if not TFile.Exists(AProjectFileName) then
     raise EFileNotFoundException.CreateFmt(
       'The target project was not found: %s', [AProjectFileName]);
-  if not TDirectory.Exists(ADestinationDirectory) then
-    TDirectory.CreateDirectory(ADestinationDirectory);
+  for Attempt := 1 to 12 do
+  begin
+    try
+      if not TDirectory.Exists(ADestinationDirectory) then
+        TDirectory.CreateDirectory(ADestinationDirectory);
+      if TDirectory.Exists(ADestinationDirectory) then
+        Break;
+    except
+      if Attempt = 12 then
+        raise;
+    end;
+    Sleep(500);
+  end;
   ProjectDirectory := TPath.GetDirectoryName(AProjectFileName);
   SourceExecutable := FindBuildOutputDirectory(AProjectFileName, AProjectName,
     APlatform, AConfiguration, True);

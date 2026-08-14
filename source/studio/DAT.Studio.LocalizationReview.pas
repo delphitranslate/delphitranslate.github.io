@@ -278,7 +278,7 @@ begin
       end;
     if HasTranslatedFormText then
       memProposalDetail.Lines.Text :=
-        'No layout adjustment is proposed. The analyzer found no translated control that requires a supported runtime Width, Height, Left, Top, WordWrap, or AutoSize change.'
+        'No layout adjustment is proposed. The analyzer found no translated control that requires a supported runtime Width, Height, WordWrap, or AutoSize change. Position movement is not considered safe for automatic runtime localization.'
     else
       memProposalDetail.Lines.Text :=
         'Layout analysis requires translated form text. Close this window and continue the Setup Wizard. After automatic translation, the Wizard reopens Localization Review and generates the applicable layout proposals.';
@@ -466,10 +466,6 @@ begin
   for Proposal in FReview.Proposals do
     if SameText(Proposal.PropertyName, 'Width') or
       SameText(Proposal.PropertyName, 'Height') or
-      SameText(Proposal.PropertyName, 'Left') or
-      SameText(Proposal.PropertyName, 'Top') or
-      SameText(Proposal.PropertyName, 'Position.X') or
-      SameText(Proposal.PropertyName, 'Position.Y') or
       SameText(Proposal.PropertyName, 'WordWrap') or
       SameText(Proposal.PropertyName, 'AutoSize') then
     begin

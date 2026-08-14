@@ -404,6 +404,14 @@ begin
               'componentName', True);
             LayoutRule.PropertyName := JsonString(LayoutObject,
               'propertyName', True);
+            if SameText(LayoutRule.PropertyName, 'Left') or
+              SameText(LayoutRule.PropertyName, 'Top') or
+              SameText(LayoutRule.PropertyName, 'Position.X') or
+              SameText(LayoutRule.PropertyName, 'Position.Y') then
+            begin
+              LayoutRule.Free;
+              Continue;
+            end;
             LayoutRule.OriginalValue := JsonString(LayoutObject,
               'originalValue', True);
             LayoutRule.TranslatedValue := JsonString(LayoutObject,

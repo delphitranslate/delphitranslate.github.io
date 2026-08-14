@@ -38,6 +38,11 @@ var
   PropertyInfo: PPropInfo;
 begin
   Result := False;
+  { Runtime localization must not move controls by default.  Position changes
+    are too destructive for hand-designed forms; keep runtime layout rules to
+    sizing/wrapping style properties. }
+  if SameText(APropertyName, 'Left') or SameText(APropertyName, 'Top') then
+    Exit(False);
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName);
   if PropertyInfo = nil then
     Exit;

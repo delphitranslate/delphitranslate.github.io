@@ -168,6 +168,7 @@ type
     procedure btnLocalizationReviewClick(Sender: TObject);
     procedure btnBuildNowClick(Sender: TObject);
     procedure chkBuildNowChange(Sender: TObject);
+    procedure BuildSelectionChange(Sender: TObject);
   private
     FCurrentStep: Integer;
     FHighestStep: Integer;
@@ -303,6 +304,18 @@ begin
   UpdateNavigation;
 end;
 
+procedure TfrmSetupWizard.BuildSelectionChange(Sender: TObject);
+begin
+  if chkBuildNow.IsChecked then
+  begin
+    FBuildCompleted := False;
+    lblBuildStatus.Text :=
+      'Build selection changed. Click Build and Deploy Selected Targets before Finish.';
+  end;
+  UpdateBuildChoice;
+  UpdateNavigation;
+end;
+
 procedure TfrmSetupWizard.btnBuildNowClick(Sender: TObject);
 var
   Configurations: TArray<string>;
@@ -316,6 +329,9 @@ begin
   if not FCompleted then
     Exit;
   btnBuildNow.Enabled := False;
+  btnBack.Enabled := False;
+  btnFinish.Enabled := False;
+  btnCancel.Enabled := False;
   FBuildCompleted := False;
   lblBuildStatus.Text := 'Building selected targets. Please wait...';
   Application.ProcessMessages;
