@@ -78,6 +78,8 @@ type
     function TryGetSource(const AKey: string; out AText: string): Boolean;
     function TryTranslateSource(const ASourceText: string;
       out ATranslatedText: string): Boolean;
+    function TryRestoreDynamicText(const ATranslatedText: string;
+      out ASourceText: string): Boolean;
     function TryTranslateDynamicText(const ASourceText: string;
       out ATranslatedText: string): Boolean;
     function GetTemplate(const AKey, AFallbackText: string): string;
@@ -463,6 +465,36 @@ function TRuntimeLanguagePack.TryTranslateSource(const ASourceText: string;
 begin
   Result := FSourceStrings.TryGetValue(ASourceText, ATranslatedText) and
     (ATranslatedText <> '');
+end;
+
+function TRuntimeLanguagePack.TryRestoreDynamicText(
+  const ATranslatedText: string; out ASourceText: string): Boolean;
+var
+  Candidate: string;
+  LongestTranslation: string;
+  Replacement: string;
+begin
+  Result := False;
+  ASourceText := '';
+  LongestTranslation := '';
+  for Candidate in FSourceStrings.Values do
+    if (Trim(Candidate) <> '') and
+      (ContainsText(ATranslatedText, Candidate)) and
+      (Length(Candidate) > Length(LongestTranslation)) then
+      LongestTranslation := Candidate;
+  if LongestTranslation = '' then
+    Exit;
+  for Candidate in FSourceStrings.Keys do
+    if SameText(FSourceStrings[Candidate], LongestTranslation) then
+    begin
+      Replacement := StringReplace(ATranslatedText, LongestTranslation,
+        Candidate, [rfReplaceAll]);
+      if Replacement <> ATranslatedText then
+      begin
+        ASourceText := Replacement;
+        Exit(True);
+      end;
+    end;
 end;
 
 function IsFormatConversion(const AValue: Char): Boolean;

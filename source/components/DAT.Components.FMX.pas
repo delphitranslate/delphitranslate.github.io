@@ -41,6 +41,9 @@ type
     function RestoreLanguageLayout(const AManagedObject: TObject;
       const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; override;
+    function RestoreSourceLanguage(const AManagedObject: TObject;
+      const APack: TRuntimeLanguagePack;
+      const AFormIdentity: string): Integer; override;
     procedure CollectOpenManagedObjects(
       const AObjects: TList<TObject>); override;
   public
@@ -159,6 +162,14 @@ function TDATFMXLanguageManager.RestoreLanguageLayout(
 begin
   Result := TFMXTranslationApplicator.ApplyLayoutToForm(
     TCommonCustomForm(AManagedObject), APack, AFormIdentity, False);
+end;
+
+function TDATFMXLanguageManager.RestoreSourceLanguage(
+  const AManagedObject: TObject; const APack: TRuntimeLanguagePack;
+  const AFormIdentity: string): Integer;
+begin
+  Result := TFMXTranslationApplicator.RestoreSourceLanguage(
+    TCommonCustomForm(AManagedObject), APack, AFormIdentity);
 end;
 
 function TDATFMXLanguageManager.ApplyToForm(

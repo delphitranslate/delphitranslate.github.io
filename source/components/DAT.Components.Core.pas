@@ -109,6 +109,9 @@ type
     function RestoreLanguageLayout(const AManagedObject: TObject;
       const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; virtual; abstract;
+    function RestoreSourceLanguage(const AManagedObject: TObject;
+      const APack: TRuntimeLanguagePack;
+      const AFormIdentity: string): Integer; virtual; abstract;
     procedure CollectOpenManagedObjects(
       const AObjects: TList<TObject>); virtual; abstract;
     procedure NotifyMissingTranslation(const AFormIdentity, AKey,
@@ -662,8 +665,12 @@ begin
           InstanceName := ManagedObjectInstanceName(ManagedObject);
           FormIdentity := ResolveFormIdentity(ManagedObject, InstanceName);
           if not IsExcluded(ManagedObject, FormIdentity, InstanceName) then
-            RestoreLanguageLayout(ManagedObject, FRuntime.ActivePack,
-              FormIdentity);
+            if SameText(CandidateLanguage, FSourceLanguage) then
+              RestoreSourceLanguage(ManagedObject, FRuntime.ActivePack,
+                FormIdentity)
+            else
+              RestoreLanguageLayout(ManagedObject, FRuntime.ActivePack,
+                FormIdentity);
         end;
       end;
       LoadedLanguage := FRuntime.LoadLanguage(CandidateLanguage);

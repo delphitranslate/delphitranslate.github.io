@@ -289,8 +289,8 @@ begin
   BuildChoiceCard.Visible := FCompleted;
   btnBuildNow.Enabled := chkBuildNow.IsChecked and
     (FProjectProfile.ProjectFileName <> '') and FCompleted;
-  cboBuildPlatform.Enabled := chkBuildNow.IsChecked;
-  cboBuildConfiguration.Enabled := chkBuildNow.IsChecked;
+  cboBuildPlatform.Enabled := chkBuildNow.IsChecked and FCompleted;
+  cboBuildConfiguration.Enabled := chkBuildNow.IsChecked and FCompleted;
 end;
 
 procedure TfrmSetupWizard.chkBuildNowChange(Sender: TObject);
@@ -1447,9 +1447,12 @@ var
   ProjectGlossaryFileName: string;
 begin
   FFinalProcessing := True;
+  FCompleted := False;
   btnBack.Enabled := False;
   btnCancel.Enabled := False;
   btnNext.Enabled := False;
+  btnFinish.Enabled := False;
+  UpdateBuildChoice;
   UpdateRail;
   memProgress.Lines.Clear;
   FProjectConfigurationBackupDirectory := '';

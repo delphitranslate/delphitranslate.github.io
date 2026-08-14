@@ -18,6 +18,8 @@ type
     class function ApplyLayoutToForm(const AForm: TCustomForm;
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const AUseTranslatedValues: Boolean): Integer; static;
+    class function RestoreSourceLanguage(const AForm: TCustomForm;
+      const APack: TRuntimeLanguagePack; const AFormIdentity: string): Integer; static;
   end;
 
 implementation
@@ -150,12 +152,107 @@ begin
   end;
 end;
 
+function RestoreSourceTextProperty(const AFormIdentity: string;
+  const AForm, AComponent: TComponent; const APropertyName: string;
+  const APack: TRuntimeLanguagePack): Boolean;
+var
+  PropertyInfo: PPropInfo;
+  SourceText: string;
+begin
+  Result := False;
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName,
+    [tkString, tkLString, tkWString, tkUString]);
+  if (PropertyInfo = nil) or not APack.TryGetSource(
+    ComponentKey(AFormIdentity, AForm, AComponent, APropertyName), SourceText) then
+    Exit;
+  if GetStrProp(AComponent, PropertyInfo) = SourceText then
+    Exit;
+  SetStrProp(AComponent, PropertyInfo, SourceText);
+  Result := True;
+end;
+
+function RestoreSourceStringCollection(const AFormIdentity: string;
+  const AForm, AComponent: TComponent; const APropertyName,
+  AKeyPropertyName: string; const APack: TRuntimeLanguagePack): Integer;
+var
+  Index: Integer;
+  Key: string;
+  Prefix: string;
+  PropertyInfo: PPropInfo;
+  StringObject: TObject;
+  SourceText: string;
+begin
+  Result := 0;
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName, [tkClass]);
+  if PropertyInfo = nil then
+    Exit;
+  StringObject := GetObjectProp(AComponent, PropertyInfo);
+  if not (StringObject is TStrings) then
+    Exit;
+  Prefix := ComponentKey(AFormIdentity, AForm, AComponent,
+    AKeyPropertyName) + '.';
+  for Index := 0 to TStrings(StringObject).Count - 1 do
+  begin
+    Key := Prefix + Index.ToString;
+    if APack.TryGetSource(Key, SourceText) and
+      (TStrings(StringObject)[Index] <> SourceText) then
+    begin
+      TStrings(StringObject)[Index] := SourceText;
+      Inc(Result);
+    end;
+  end;
+end;
+
 class function TVCLTranslationApplicator.ApplyToForm(
   const AForm: TCustomForm; const APack: TRuntimeLanguagePack): Integer;
 begin
   if AForm = nil then
     raise EArgumentNilException.Create('A VCL form is required.');
   Result := ApplyToForm(AForm, APack, AForm.Name, True);
+end;
+
+class function TVCLTranslationApplicator.RestoreSourceLanguage(
+  const AForm: TCustomForm; const APack: TRuntimeLanguagePack;
+  const AFormIdentity: string): Integer;
+const
+  TextProperties: array[0..2] of string = ('Caption', 'Hint', 'TextHint');
+  StringProperties: array[0..1] of string = ('Items', 'Lines');
+var
+  ComponentIndex: Integer;
+  FormIdentity: string;
+  PropertyName: string;
+
+  procedure RestoreComponentTree(const AComponent: TComponent);
+  var
+    ChildIndex: Integer;
+  begin
+    if AComponent = nil then
+      Exit;
+    for PropertyName in TextProperties do
+      if RestoreSourceTextProperty(FormIdentity, AForm, AComponent,
+        PropertyName, APack) then
+        Inc(Result);
+    for PropertyName in StringProperties do
+      Inc(Result, RestoreSourceStringCollection(FormIdentity, AForm,
+        AComponent, PropertyName, PropertyName + '.Strings', APack));
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      RestoreComponentTree(AComponent.Components[ChildIndex]);
+  end;
+
+begin
+  Result := 0;
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  FormIdentity := Trim(AFormIdentity);
+  if FormIdentity = '' then
+    FormIdentity := AForm.Name;
+  for PropertyName in TextProperties do
+    if RestoreSourceTextProperty(FormIdentity, AForm, AForm, PropertyName,
+      APack) then
+      Inc(Result);
+  for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+    RestoreComponentTree(AForm.Components[ComponentIndex]);
+  Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, False));
 end;
 
 class function TVCLTranslationApplicator.ApplyToForm(
@@ -239,8 +336,12 @@ class function TVCLTranslationApplicator.ApplyLayoutToForm(
   const AFormIdentity: string;
   const AUseTranslatedValues: Boolean): Integer;
 var
+  CandidateRule: TRuntimeLayoutRule;
   Component: TComponent;
+  CurrentNumber: Extended;
   Rule: TRuntimeLayoutRule;
+  CandidateNumber: Extended;
+  Superseded: Boolean;
   Value: string;
 begin
   Result := 0;
@@ -249,6 +350,24 @@ begin
   for Rule in APack.LayoutRules do
   begin
     if not SameText(Rule.FormName, AFormIdentity) then
+      Continue;
+    Superseded := False;
+    if (SameText(Rule.PropertyName, 'Width') or
+        SameText(Rule.PropertyName, 'Height')) and
+       TryStrToFloat(Rule.TranslatedValue, CurrentNumber,
+         TFormatSettings.Invariant) then
+      for CandidateRule in APack.LayoutRules do
+        if SameText(CandidateRule.FormName, Rule.FormName) and
+           SameText(CandidateRule.ComponentName, Rule.ComponentName) and
+           SameText(CandidateRule.PropertyName, Rule.PropertyName) and
+           TryStrToFloat(CandidateRule.TranslatedValue, CandidateNumber,
+             TFormatSettings.Invariant) and
+           (CandidateNumber > CurrentNumber) then
+        begin
+          Superseded := True;
+          Break;
+        end;
+    if Superseded then
       Continue;
     if SameText(Rule.ComponentName, AFormIdentity) or
       SameText(Rule.ComponentName, AForm.Name) or
