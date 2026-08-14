@@ -5,6 +5,9 @@ interface
 type
   TTargetBuildDeployer = class
   public
+    class function FindBuildOutputDirectory(const AProjectFileName,
+      AProjectName, APlatform, AConfiguration: string;
+      ARequireExecutable: Boolean = False): string; static;
     class function BuildAndDeploy(const AProjectFileName, AProjectName,
       APlatform, AConfiguration, APackageDirectory: string): string; static;
     class function DeployBuildOutput(const AProjectFileName, AProjectName,
@@ -15,7 +18,9 @@ type
 implementation
 
 uses
+  System.Classes,
   System.IOUtils,
+  System.RegularExpressions,
   System.SysUtils,
   Winapi.ShellAPI,
   Winapi.Windows;
@@ -74,6 +79,89 @@ begin
   end;
 end;
 
+class function TTargetBuildDeployer.FindBuildOutputDirectory(
+  const AProjectFileName, AProjectName, APlatform, AConfiguration: string;
+  ARequireExecutable: Boolean): string;
+var
+  Candidate: string;
+  CandidateList: TStringList;
+  ExecutableName: string;
+  Match: TMatch;
+  ProjectDirectory: string;
+  ProjectText: string;
+  OutputPattern: string;
+
+  procedure AddCandidate(const APattern: string);
+  var
+    Expanded: string;
+  begin
+    Expanded := Trim(APattern);
+    if Expanded = '' then
+      Exit;
+    Expanded := StringReplace(Expanded, '&amp;', '&',
+      [rfReplaceAll, rfIgnoreCase]);
+    Expanded := StringReplace(Expanded, '$(Platform)', APlatform,
+      [rfReplaceAll, rfIgnoreCase]);
+    Expanded := StringReplace(Expanded, '$(Config)', AConfiguration,
+      [rfReplaceAll, rfIgnoreCase]);
+    Expanded := StringReplace(Expanded, '$(PROJECTDIR)', ProjectDirectory,
+      [rfReplaceAll, rfIgnoreCase]);
+    Expanded := StringReplace(Expanded, '$(MSBuildProjectDirectory)',
+      ProjectDirectory, [rfReplaceAll, rfIgnoreCase]);
+    if Pos('$(', Expanded) > 0 then
+      Exit;
+    if not TPath.IsPathRooted(Expanded) then
+      Expanded := TPath.Combine(ProjectDirectory, Expanded);
+    Expanded := TPath.GetFullPath(Expanded);
+    while (Length(Expanded) > 0) and
+      CharInSet(Expanded[Length(Expanded)], ['\', '/']) do
+      Delete(Expanded, Length(Expanded), 1);
+    if (Expanded <> '') and (CandidateList.IndexOf(Expanded) < 0) then
+      CandidateList.Add(Expanded);
+  end;
+
+  function IsUsable(const ADirectory: string): Boolean;
+  begin
+    Result := TDirectory.Exists(ADirectory) and
+      ((not ARequireExecutable) or TFile.Exists(
+        TPath.Combine(ADirectory, ExecutableName)));
+  end;
+
+begin
+  ProjectDirectory := TPath.GetDirectoryName(AProjectFileName);
+  ExecutableName := AProjectName + '.exe';
+  CandidateList := TStringList.Create;
+  try
+    if TFile.Exists(AProjectFileName) then
+    begin
+      ProjectText := TFile.ReadAllText(AProjectFileName, TEncoding.UTF8);
+      for Match in TRegEx.Matches(ProjectText,
+        '<DCC_ExeOutput>(.*?)</DCC_ExeOutput>',
+        [roIgnoreCase, roSingleLine]) do
+      begin
+        OutputPattern := Match.Groups[1].Value;
+        AddCandidate(OutputPattern);
+      end;
+    end;
+    { Some Delphi projects use the conventional bin tree; others use the
+      project-root Platform\Configuration tree. Keep both supported. }
+    AddCandidate(TPath.Combine('bin', TPath.Combine(APlatform,
+      AConfiguration)));
+    AddCandidate(TPath.Combine(APlatform, AConfiguration));
+
+    for Candidate in CandidateList do
+      if IsUsable(Candidate) then
+        Exit(Candidate);
+    if not ARequireExecutable then
+      for Candidate in CandidateList do
+        if TDirectory.Exists(Candidate) then
+          Exit(Candidate);
+    Result := '';
+  finally
+    CandidateList.Free;
+  end;
+end;
+
 class function TTargetBuildDeployer.BuildAndDeploy(
   const AProjectFileName, AProjectName, APlatform, AConfiguration,
   APackageDirectory: string): string;
@@ -99,16 +187,17 @@ begin
     TFile.Exists(TPath.ChangeExtension(BuildProjectFileName, '.dproj')) then
     BuildProjectFileName := TPath.ChangeExtension(
       BuildProjectFileName, '.dproj');
-  DestinationDirectory := TPath.Combine(ProjectDirectory,
-    TPath.Combine('bin', TPath.Combine(APlatform, AConfiguration)));
   RunElevatedBuild(BuildProjectFileName, APlatform, AConfiguration);
-  ExecutableFileName := TPath.Combine(
-    DestinationDirectory, AProjectName + '.exe');
-  if not TFile.Exists(ExecutableFileName) then
+  DestinationDirectory := FindBuildOutputDirectory(BuildProjectFileName,
+    AProjectName, APlatform, AConfiguration, True);
+  if DestinationDirectory = '' then
     raise EFileNotFoundException.CreateFmt(
-      'The build completed, but the expected executable was not found: %s. ' +
-      'Set the target project output directory to bin\%s\%s.',
-      [ExecutableFileName, APlatform, AConfiguration]);
+      'The %s %s build completed, but %s.exe was not found in the configured ' +
+      'output folder. Checked the project output setting, bin\%s\%s, and ' +
+      '%s\%s.', [APlatform, AConfiguration, AProjectName, APlatform,
+      AConfiguration, APlatform, AConfiguration]);
+  ExecutableFileName := TPath.Combine(DestinationDirectory,
+    AProjectName + '.exe');
 
   SourceLanguageDirectory := TPath.Combine(
     APackageDirectory, 'Localization\Languages');
@@ -142,12 +231,14 @@ begin
   if not TDirectory.Exists(ADestinationDirectory) then
     TDirectory.CreateDirectory(ADestinationDirectory);
   ProjectDirectory := TPath.GetDirectoryName(AProjectFileName);
-  SourceExecutable := TPath.Combine(ProjectDirectory,
-    TPath.Combine('bin', TPath.Combine(APlatform,
-      TPath.Combine(AConfiguration, AProjectName + '.exe'))));
-  if not TFile.Exists(SourceExecutable) then
+  SourceExecutable := FindBuildOutputDirectory(AProjectFileName, AProjectName,
+    APlatform, AConfiguration, True);
+  if SourceExecutable = '' then
     raise EFileNotFoundException.CreateFmt(
-      'The built executable was not found: %s', [SourceExecutable]);
+      'The built executable %s was not found in the configured output folder, ' +
+      'bin\%s\%s, or %s\%s.', [AProjectName + '.exe', APlatform,
+      AConfiguration, APlatform, AConfiguration]);
+  SourceExecutable := TPath.Combine(SourceExecutable, AProjectName + '.exe');
   DestinationExecutable := TPath.Combine(ADestinationDirectory,
     AProjectName + '.exe');
   if TFile.Exists(DestinationExecutable) and not AReplaceExecutable then

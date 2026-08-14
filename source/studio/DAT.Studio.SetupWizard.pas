@@ -1225,19 +1225,34 @@ const
   Platforms: array[0..1] of string = ('Win32', 'Win64');
 var
   Configuration: string;
+  OutputDirectory: string;
   Platform: string;
-  ProjectDirectory: string;
   ScriptName: string;
+  UniqueDirectories: TStringList;
 begin
   memCommands.Lines.Clear;
-  ProjectDirectory := TPath.GetDirectoryName(FProjectProfile.ProjectFileName);
   ScriptName := TPath.Combine(FKitDirectory, 'Deploy-LanguagePacks.ps1');
-  for Platform in Platforms do
-    for Configuration in Configurations do
+  UniqueDirectories := TStringList.Create;
+  try
+    UniqueDirectories.CaseSensitive := False;
+    UniqueDirectories.Duplicates := dupIgnore;
+    for Platform in Platforms do
+      for Configuration in Configurations do
+      begin
+        OutputDirectory := TTargetBuildDeployer.FindBuildOutputDirectory(
+          FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+          Platform, Configuration);
+        if (OutputDirectory <> '') and
+          (UniqueDirectories.IndexOf(OutputDirectory) < 0) then
+          UniqueDirectories.Add(OutputDirectory);
+      end;
+    for OutputDirectory in UniqueDirectories do
       memCommands.Lines.Add(Format(
         '& "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%s" -ApplicationDirectory "%s"',
-        [ScriptName, TPath.Combine(ProjectDirectory,
-          TPath.Combine('bin\' + Platform, Configuration))]));
+        [ScriptName, OutputDirectory]));
+  finally
+    UniqueDirectories.Free;
+  end;
 end;
 
 function TfrmSetupWizard.ExistingBuildOutputDirectories: TArray<string>;
@@ -1306,8 +1321,9 @@ begin
       for Platform in Platforms do
         for Configuration in Configurations do
         begin
-          OutputDirectory := TPath.Combine(ProjectDirectory,
-            TPath.Combine('bin\' + Platform, Configuration));
+          OutputDirectory := TTargetBuildDeployer.FindBuildOutputDirectory(
+            FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+            Platform, Configuration);
           if TDirectory.Exists(OutputDirectory) then
             UniqueDirectories.Add(TPath.GetFullPath(OutputDirectory));
         end;
@@ -1336,11 +1352,9 @@ var
   ApplicationDirectory: string;
   Configuration: string;
   Platform: string;
-  ProjectDirectory: string;
   SourceExecutable: string;
 begin
   Result := 0;
-  ProjectDirectory := TPath.GetDirectoryName(FProjectProfile.ProjectFileName);
   for ApplicationDirectory in lstDeploymentDestinations.Items do
   begin
     if not DeployLanguagePacksDirect(ApplicationDirectory) then
@@ -1350,10 +1364,10 @@ begin
       for Platform in ['Win32', 'Win64'] do
         for Configuration in ['Debug', 'Release'] do
         begin
-          SourceExecutable := TPath.Combine(ProjectDirectory,
-            TPath.Combine('bin', TPath.Combine(Platform,
-            TPath.Combine(Configuration, FProjectProfile.ProjectName + '.exe'))));
-          if TFile.Exists(SourceExecutable) then
+          SourceExecutable := TTargetBuildDeployer.FindBuildOutputDirectory(
+            FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+            Platform, Configuration, True);
+          if SourceExecutable <> '' then
             AddProgress(TTargetBuildDeployer.DeployBuildOutput(
               FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
               Platform, Configuration, ApplicationDirectory, FKitDirectory,
@@ -1834,7 +1848,6 @@ var
   ApplicationDirectory: string;
   Configuration: string;
   Platform: string;
-  ProjectDirectory: string;
   SourceExecutable: string;
   DeployedExecutable: Boolean;
 begin
@@ -1851,15 +1864,14 @@ begin
   btnDeployApplicationFolder.Enabled := False;
   try
     DeployedExecutable := False;
-    ProjectDirectory := TPath.GetDirectoryName(FProjectProfile.ProjectFileName);
     if chkReplaceDeployedExecutable.IsChecked then
       for Platform in ['Win32', 'Win64'] do
         for Configuration in ['Debug', 'Release'] do
         begin
-          SourceExecutable := TPath.Combine(ProjectDirectory,
-            TPath.Combine('bin', TPath.Combine(Platform,
-            TPath.Combine(Configuration, FProjectProfile.ProjectName + '.exe'))));
-          if TFile.Exists(SourceExecutable) then
+          SourceExecutable := TTargetBuildDeployer.FindBuildOutputDirectory(
+            FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+            Platform, Configuration, True);
+          if SourceExecutable <> '' then
           begin
             lblFooterStatus.Text := TTargetBuildDeployer.DeployBuildOutput(
               FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
