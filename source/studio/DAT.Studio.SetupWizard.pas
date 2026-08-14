@@ -173,6 +173,7 @@ type
     FHighestStep: Integer;
     FFinalProcessing: Boolean;
     FCompleted: Boolean;
+    FBuildCompleted: Boolean;
     FProjectProfile: TProjectProfile;
     FScanResult: TProjectScanResult;
     FCatalog: TTranslationCatalog;
@@ -276,6 +277,7 @@ begin
   ApplyLocaleDefaults;
   btnLocalizationReview.Enabled := False;
   chkBuildNow.IsChecked := False;
+  FBuildCompleted := False;
   chkReplaceDeployedExecutable.IsChecked := False;
   cboBuildPlatform.ItemIndex := 2;
   cboBuildConfiguration.ItemIndex := 2;
@@ -295,7 +297,10 @@ end;
 
 procedure TfrmSetupWizard.chkBuildNowChange(Sender: TObject);
 begin
+  if chkBuildNow.IsChecked then
+    FBuildCompleted := False;
   UpdateBuildChoice;
+  UpdateNavigation;
 end;
 
 procedure TfrmSetupWizard.btnBuildNowClick(Sender: TObject);
@@ -311,6 +316,7 @@ begin
   if not FCompleted then
     Exit;
   btnBuildNow.Enabled := False;
+  FBuildCompleted := False;
   lblBuildStatus.Text := 'Building selected targets. Please wait...';
   Application.ProcessMessages;
   try
@@ -362,15 +368,18 @@ begin
               [ApplicationDirectory]));
         end;
       end;
+    FBuildCompleted := True;
     lblBuildStatus.Text := 'Build and deployment completed for every selected target.';
   except
     on E: Exception do
     begin
+      FBuildCompleted := False;
       lblBuildStatus.Text := 'Build stopped: ' + E.Message;
       AddProgress('BUILD STOPPED: ' + E.Message);
     end;
   end;
   UpdateBuildChoice;
+  UpdateNavigation;
 end;
 
 function TfrmSetupWizard.ExistingCatalogFileName: string;
@@ -649,6 +658,8 @@ end;
 
 procedure TfrmSetupWizard.btnFinishClick(Sender: TObject);
 begin
+  if not FCompleted or (chkBuildNow.IsChecked and not FBuildCompleted) then
+    Exit;
   ModalResult := mrOk;
 end;
 
@@ -702,7 +713,8 @@ begin
   btnCancel.Enabled := not FFinalProcessing;
   btnNext.Visible := FCurrentStep < StepCount;
   btnFinish.Visible := FCurrentStep = StepCount;
-  btnFinish.Enabled := FCompleted;
+  btnFinish.Enabled := FCompleted and
+    ((not chkBuildNow.IsChecked) or FBuildCompleted);
   if FCurrentStep = 8 then
   begin
     btnNext.Text := 'Begin Final Processing';
@@ -1466,6 +1478,7 @@ var
 begin
   FFinalProcessing := True;
   FCompleted := False;
+  FBuildCompleted := False;
   btnBack.Enabled := False;
   btnCancel.Enabled := False;
   btnNext.Enabled := False;
@@ -1764,7 +1777,8 @@ begin
   end;
   FFinalProcessing := False;
   btnCancel.Enabled := not FCompleted;
-  btnFinish.Enabled := FCompleted;
+  btnFinish.Enabled := FCompleted and
+    ((not chkBuildNow.IsChecked) or FBuildCompleted);
   UpdateBuildChoice;
   UpdateRail;
 end;

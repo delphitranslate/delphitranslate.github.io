@@ -3,11 +3,19 @@ unit DAT.Runtime.FMX;
 interface
 
 uses
+  System.Generics.Collections,
+  System.Types,
   FMX.Forms,
   DAT.Runtime.LanguagePack;
 
 type
   TFMXTranslationApplicator = class
+  private
+    class var FOriginalPositions: TDictionary<string, TPointF>;
+    class procedure SnapshotOriginalPositions(const AForm: TCommonCustomForm;
+      const AFormIdentity: string); static;
+    class procedure RestoreOriginalPositions(const AForm: TCommonCustomForm;
+      const AFormIdentity: string); static;
   public
     class function ApplyToForm(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack): Integer; overload; static;
@@ -26,7 +34,6 @@ implementation
 
 uses
   System.Classes,
-  System.Generics.Collections,
   System.JSON,
   System.Math,
   System.SysUtils,
@@ -39,6 +46,14 @@ uses
   FMX.Memo,
   FMX.Types,
   FMX.WebBrowser;
+
+function PositionKey(const AFormIdentity: string;
+  const AComponent: TComponent): string;
+begin
+  if (AComponent = nil) or (Trim(AComponent.Name) = '') then
+    Exit('');
+  Result := AFormIdentity + '.' + AComponent.Name;
+end;
 
 function ApplyFontColorsToForm(const AForm: TCommonCustomForm;
   const APack: TRuntimeLanguagePack; const AFormIdentity: string): Integer;
@@ -242,22 +257,53 @@ var
   ColumnIndex: Integer;
   CurrentText: string;
   GridKey: string;
+  StringDictionary: TDictionary<string, string>;
+  StringPairs: TArray<TPair<string, string>>;
   RowIndex: Integer;
   TranslatedText: string;
+
+  procedure TryGetHeaderTranslation(const AIndex: Integer;
+    const ACurrentText: string; out AText: string);
+  var
+    Prefix: string;
+    PairIndex: Integer;
+  begin
+    AText := ACurrentText;
+    Prefix := Format('%s.%s.Columns[%d].Header.', [AFormIdentity,
+      AComponent.Name, AIndex]);
+    for PairIndex := 0 to Length(StringPairs) - 1 do
+      if StartsText(Prefix, StringPairs[PairIndex].Key) then
+      begin
+        AText := StringPairs[PairIndex].Value;
+        Exit;
+      end;
+    Prefix := Format('%s.%s.Columns.Header.%d.', [AFormIdentity,
+      AComponent.Name, AIndex]);
+    for PairIndex := 0 to Length(StringPairs) - 1 do
+      if StartsText(Prefix, StringPairs[PairIndex].Key) then
+      begin
+        AText := StringPairs[PairIndex].Value;
+        Exit;
+      end;
+    APack.TryTranslateDynamicText(ACurrentText, AText);
+  end;
 begin
   Result := 0;
   if not (AComponent is TStringGrid) then
     Exit;
+  StringDictionary := APack.Strings;
+  StringPairs := StringDictionary.ToArray;
   for ColumnIndex := 0 to TStringGrid(AComponent).ColumnCount - 1 do
   begin
     CurrentText := TStringGrid(AComponent).Columns[ColumnIndex].Header;
+    TranslatedText := CurrentText;
     GridKey := Format('%s.%s.Columns.Header.%d', [AFormIdentity,
       AComponent.Name, ColumnIndex]);
     if not APack.TryGetText(GridKey, TranslatedText) then
       GridKey := Format('%s.%s.Columns[%d].Header', [AFormIdentity,
         AComponent.Name, ColumnIndex]);
     if not APack.TryGetText(GridKey, TranslatedText) then
-      APack.TryTranslateDynamicText(CurrentText, TranslatedText);
+      TryGetHeaderTranslation(ColumnIndex, CurrentText, TranslatedText);
     if (TranslatedText <> '') and (TranslatedText <> CurrentText) then
     begin
       TStringGrid(AComponent).Columns[ColumnIndex].Header := TranslatedText;
@@ -301,7 +347,7 @@ begin
       Continue;
     Child := TControl(ChildObject);
     TextValue := Trim(TTextControl(Child).Text);
-    if (TextValue = '') or (Child.Width < 80) then
+    if TextValue = '' then
       Continue;
     WordWrapInfo := GetPropInfo(Child.ClassInfo, 'WordWrap', [tkEnumeration]);
     AutoSizeInfo := GetPropInfo(Child.ClassInfo, 'AutoSize', [tkEnumeration]);
@@ -321,6 +367,52 @@ begin
     if RequiredHeight > Child.Height then
       Child.Height := RequiredHeight;
   end;
+end;
+
+procedure ReflowTranslatedChildren(const AParent: TFmxObject);
+var
+  I, J, Pass: Integer;
+  Anchor, Other: TControl;
+  AnchorText: TTextControl;
+  HorizontalOverlap: Boolean;
+  NewTop: Single;
+begin
+  if AParent = nil then
+    Exit;
+  for I := 0 to AParent.ChildrenCount - 1 do
+    ReflowTranslatedChildren(AParent.Children[I]);
+  { Repeat a few passes so a control moved below one expanded label also
+    clears the next label in the same vertical group. }
+  for Pass := 1 to 3 do
+    for I := 0 to AParent.ChildrenCount - 1 do
+    begin
+      if not (AParent.Children[I] is TTextControl) then
+        Continue;
+      AnchorText := TTextControl(AParent.Children[I]);
+      Anchor := TControl(AnchorText);
+      if not Anchor.Visible or (Anchor.Align <> TAlignLayout.None) or
+        (Anchor.Height <= 0) then
+        Continue;
+      for J := 0 to AParent.ChildrenCount - 1 do
+      begin
+        if I = J then
+          Continue;
+        if not (AParent.Children[J] is TControl) then
+          Continue;
+        Other := TControl(AParent.Children[J]);
+        if not Other.Visible or (Other.Align <> TAlignLayout.None) or
+          (Other.Position.Y < Anchor.Position.Y) then
+          Continue;
+        HorizontalOverlap :=
+          (Anchor.Position.X < Other.Position.X + Other.Width) and
+          (Anchor.Position.X + Anchor.Width > Other.Position.X);
+        if not HorizontalOverlap then
+          Continue;
+        NewTop := Anchor.Position.Y + Anchor.Height + 8;
+        if Other.Position.Y < NewTop then
+          Other.Position.Y := NewTop;
+      end;
+    end;
 end;
 
 procedure NormalizeSiblingLayout(const AParent: TFmxObject);
@@ -552,6 +644,80 @@ begin
   Result := ApplyToForm(AForm, APack, AForm.Name, True);
 end;
 
+class procedure TFMXTranslationApplicator.SnapshotOriginalPositions(
+  const AForm: TCommonCustomForm; const AFormIdentity: string);
+var
+  ComponentIndex: Integer;
+  Component: TComponent;
+  Key: string;
+
+  procedure SnapshotTree(const AComponent: TComponent);
+  var
+    ChildIndex: Integer;
+    Child: TComponent;
+  begin
+    if AComponent = nil then
+      Exit;
+    Key := PositionKey(AFormIdentity, AComponent);
+    if (Key <> '') and (AComponent is TControl) and
+      (TControl(AComponent).Align = TAlignLayout.None) and
+      not FOriginalPositions.ContainsKey(Key) then
+      FOriginalPositions.Add(Key, TPointF.Create(
+        TControl(AComponent).Position.X, TControl(AComponent).Position.Y));
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+    begin
+      Child := AComponent.Components[ChildIndex];
+      SnapshotTree(Child);
+    end;
+  end;
+begin
+  if (AForm = nil) or (FOriginalPositions = nil) then
+    Exit;
+  for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+  begin
+    Component := AForm.Components[ComponentIndex];
+    SnapshotTree(Component);
+  end;
+end;
+
+class procedure TFMXTranslationApplicator.RestoreOriginalPositions(
+  const AForm: TCommonCustomForm; const AFormIdentity: string);
+var
+  ComponentIndex: Integer;
+  Component: TComponent;
+  Key: string;
+  OriginalPosition: TPointF;
+
+  procedure RestoreTree(const AComponent: TComponent);
+  var
+    ChildIndex: Integer;
+    Child: TComponent;
+  begin
+    if AComponent = nil then
+      Exit;
+    Key := PositionKey(AFormIdentity, AComponent);
+    if (Key <> '') and (AComponent is TControl) and
+      FOriginalPositions.TryGetValue(Key, OriginalPosition) then
+    begin
+      TControl(AComponent).Position.X := OriginalPosition.X;
+      TControl(AComponent).Position.Y := OriginalPosition.Y;
+    end;
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+    begin
+      Child := AComponent.Components[ChildIndex];
+      RestoreTree(Child);
+    end;
+  end;
+begin
+  if (AForm = nil) or (FOriginalPositions = nil) then
+    Exit;
+  for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+  begin
+    Component := AForm.Components[ComponentIndex];
+    RestoreTree(Component);
+  end;
+end;
+
 class function TFMXTranslationApplicator.RestoreSourceLanguage(
   const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string): Integer;
@@ -614,6 +780,7 @@ begin
   FormIdentity := Trim(AFormIdentity);
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
+  RestoreOriginalPositions(AForm, FormIdentity);
   for PropertyName in TextProperties do
     if RestoreSourceTextProperty(FormIdentity, AForm, AForm, PropertyName,
       APack) then
@@ -699,6 +866,7 @@ begin
   FormIdentity := Trim(AFormIdentity);
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
+  SnapshotOriginalPositions(AForm, FormIdentity);
   if APreserveControlState then
     SavedFocusedControl := AForm.Focused;
 
@@ -716,6 +884,7 @@ begin
     if AApplyLayout then
     begin
       ApplyAdaptiveTextLayout(AForm);
+      ReflowTranslatedChildren(AForm);
     end;
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
   finally
@@ -783,5 +952,13 @@ begin
       Inc(Result);
   end;
 end;
+
+initialization
+  TFMXTranslationApplicator.FOriginalPositions :=
+    TDictionary<string, TPointF>.Create;
+
+finalization
+  TFMXTranslationApplicator.FOriginalPositions.Free;
+  TFMXTranslationApplicator.FOriginalPositions := nil;
 
 end.
