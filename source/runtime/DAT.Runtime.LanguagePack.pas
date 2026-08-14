@@ -619,7 +619,44 @@ end;
 function TRuntimeLanguagePack.TryTranslateDynamicText(
   const ASourceText: string; out ATranslatedText: string): Boolean;
 var
+  Candidate: string;
+  LongestSource: string;
   SourceTemplate: string;
+  Replacement: string;
+
+  function IsWordCharacter(const AValue: Char): Boolean;
+  begin
+    Result := CharInSet(AValue, ['A'..'Z', 'a'..'z', '0'..'9', '_']) or
+      (Ord(AValue) > 127);
+  end;
+
+  function ReplaceWholeTerm(const AText, ASource, AReplacement: string): string;
+  var
+    At: Integer;
+    BeforeIsWord: Boolean;
+    AfterIsWord: Boolean;
+    SearchFrom: Integer;
+  begin
+    Result := AText;
+    SearchFrom := 1;
+    while SearchFrom <= Length(Result) do
+    begin
+      At := PosEx(ASource, Result, SearchFrom);
+      if At = 0 then
+        Break;
+      BeforeIsWord := (At > 1) and IsWordCharacter(Result[At - 1]);
+      AfterIsWord := (At + Length(ASource) <= Length(Result)) and
+        IsWordCharacter(Result[At + Length(ASource)]);
+      if not BeforeIsWord and not AfterIsWord then
+      begin
+        Delete(Result, At, Length(ASource));
+        Insert(AReplacement, Result, At);
+        SearchFrom := At + Length(AReplacement);
+      end
+      else
+        SearchFrom := At + Length(ASource);
+    end;
+  end;
 begin
   { Dynamic refresh can see a value translated on an earlier pass.  Treat
     translated values as terminal so source prefixes such as Event -> Evento
@@ -640,11 +677,20 @@ begin
       ATranslatedText := FSourceTemplates[SourceTemplate];
       Exit(ATranslatedText <> ASourceText);
     end;
-  { Do not perform opportunistic substring replacement here.  It looks useful
-    for simple cases, but in live applications it corrupts runtime values:
-    Schedule inside Scheduled, Event inside Event..., or one already-translated
-    prefix that grows on every timer refresh.  Runtime strings must be exact
-    source entries or approved format templates. }
+  LongestSource := '';
+  for Candidate in FSourceStrings.Keys do
+    if (Length(Candidate) >= 4) and
+      (Length(Candidate) > Length(LongestSource)) and
+      ContainsStr(ASourceText, Candidate) and
+      not ContainsStr(ASourceText, FSourceStrings[Candidate]) then
+      LongestSource := Candidate;
+  if LongestSource <> '' then
+  begin
+    Replacement := FSourceStrings[LongestSource];
+    ATranslatedText := ReplaceWholeTerm(ASourceText, LongestSource,
+      Replacement);
+    Exit(ATranslatedText <> ASourceText);
+  end;
   for SourceTemplate in FSourceTemplates.Keys do
     if TryApplyFormatTemplate(ASourceText, SourceTemplate,
       FSourceTemplates[SourceTemplate], ATranslatedText) then
