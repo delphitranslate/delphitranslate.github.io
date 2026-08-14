@@ -5,6 +5,13 @@
 > [!CAUTION]
 > **Alpha release - for controlled technical evaluation only.**
 >
+> Update 08-14-2026
+>
+> We have hit a major snag with the translator and it is giving unreliable translations and
+> runtime properties.  As an example, due to the length of the translated text, buttons are
+> too short for the translation and their size, wrap, etc., must be manipulated.  For now,
+> if you want to just look at it, continue, otherwise wait for the all clear.
+> 
 > Due to the ongoing development, there is no guarantee that this software always function
 > or provide any usable results at ths time. Therefore, users who download this software will be
 > using it at their own risk.
