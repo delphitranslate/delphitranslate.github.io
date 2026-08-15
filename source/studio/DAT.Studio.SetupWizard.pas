@@ -261,9 +261,13 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
+  StudioBuildLabel = 'Build 2026.08.15.1330';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
+  Caption := 'Translation Setup Wizard - ' + StudioBuildLabel;
+  lblSubtitle.Text := 'A safe, step-by-step path from Delphi project to offline language pack - ' +
+    StudioBuildLabel;
   FCurrentStep := 1;
   FHighestStep := 1;
   cboSourceLanguage.ItemIndex := 0;

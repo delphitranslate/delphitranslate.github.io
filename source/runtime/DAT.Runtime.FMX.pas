@@ -47,12 +47,71 @@ uses
   FMX.Types,
   FMX.WebBrowser;
 
+type
+  TBrowserTranslationRetry = class(TComponent)
+  private
+    FAttempts: Integer;
+    FBrowser: TCustomWebBrowser;
+    FScript: string;
+    FTimer: TTimer;
+    procedure TimerTick(Sender: TObject);
+  protected
+    procedure Notification(AComponent: TComponent;
+      Operation: TOperation); override;
+  public
+    constructor Create(ABrowser: TCustomWebBrowser;
+      const AScript: string); reintroduce;
+  end;
+
 function PositionKey(const AFormIdentity: string;
   const AComponent: TComponent): string;
 begin
   if (AComponent = nil) or (Trim(AComponent.Name) = '') then
     Exit('');
   Result := AFormIdentity + '.' + AComponent.Name;
+end;
+
+constructor TBrowserTranslationRetry.Create(ABrowser: TCustomWebBrowser;
+  const AScript: string);
+begin
+  inherited Create(ABrowser);
+  FBrowser := ABrowser;
+  FScript := AScript;
+  if FBrowser <> nil then
+    FBrowser.FreeNotification(Self);
+  FTimer := TTimer.Create(Self);
+  FTimer.Interval := 175;
+  FTimer.OnTimer := TimerTick;
+  FTimer.Enabled := True;
+end;
+
+procedure TBrowserTranslationRetry.Notification(AComponent: TComponent;
+  Operation: TOperation);
+begin
+  inherited;
+  if (Operation = opRemove) and (AComponent = FBrowser) then
+  begin
+    FBrowser := nil;
+    if FTimer <> nil then
+      FTimer.Enabled := False;
+  end;
+end;
+
+procedure TBrowserTranslationRetry.TimerTick(Sender: TObject);
+begin
+  Inc(FAttempts);
+  if FBrowser <> nil then
+  begin
+    try
+      FBrowser.EvaluateJavaScript(FScript);
+    except
+      { TWebBrowser may reject script while the platform view is still
+        finishing navigation. Keep retrying quietly; never surface platform
+        script timing as an application error. }
+    end;
+  end;
+  if FAttempts >= 40 then
+    FTimer.Enabled := False;
 end;
 
 function ApplyFontColorsToForm(const AForm: TCommonCustomForm;
@@ -267,17 +326,18 @@ begin
         Script.Append(',');
       Script.Append('[').Append(Candidate).Append(']');
     end;
-    Script.Append('];function a(){if(!document.body)return false;let c=0;const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){let v=n.nodeValue;for(const q of p){if(v.trim()===q[0]){const l=v.match(/^\\s*/)[0],r=v.match(/\\s*$/)[0];v=l+q[1]+r;break;}}if(n.nodeValue!==v){n.nodeValue=v;c++;}}return c>0;}let tries=0;function r(){try{a();}catch(e){}tries++;if(tries<25)setTimeout(r,120);}r();})();');
+    Script.Append('];function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}function apply(n){var c=0,i,v,l,r,ch;if(!n)return 0;if(n.nodeType===3){v=n.nodeValue;for(i=0;i<p.length;i++){if(trim(v)===p[i][0]){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[i][1]+r;c++;break;}}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}function run(){if(!document.body)return 0;return apply(document.body);}var tries=0;function retry(){try{run();}catch(e){}tries++;if(tries<40)window.setTimeout(retry,150);}retry();})();');
     try
       TCustomWebBrowser(AComponent).EvaluateJavaScript(Script.ToString);
-      Result := Pairs.Count;
     except
       { A browser may still be loading when a newly-created dynamic dialog is
         first shown. Translation must never turn that platform race into a
-        repeated application error dialog; the next explicit language pass
-        can retry once the document is ready. }
-      Result := 0;
+        repeated application error dialog. The retry component below keeps
+        applying the same browser-safe script after the platform view settles. }
     end;
+    TBrowserTranslationRetry.Create(TCustomWebBrowser(AComponent),
+      Script.ToString);
+    Result := Pairs.Count;
   finally
     Script.Free;
     Pairs.Free;

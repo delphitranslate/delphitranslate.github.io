@@ -308,6 +308,9 @@ uses
 
 {$R *.fmx}
 
+const
+  StudioBuildLabel = 'Build 2026.08.15.1330';
+
 procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var
   SetupWizard: TfrmSetupWizard;
@@ -342,6 +345,11 @@ procedure TfrmTranslationStudio.FormCreate(Sender: TObject);
 begin
   FIntroScreen := True;
   ApplyStudioTranslation(Self);
+  Caption := 'Delphi App Translation Studio - ' + StudioBuildLabel;
+  lblApplicationTitle.Text := 'Delphi App Translation Studio';
+  lblApplicationSubtitle.Text :=
+    'Offline language packs for Delphi VCL and FireMonkey applications - ' +
+    StudioBuildLabel;
   SelectLanguageCode(cboSourceLanguage, 'en-US');
   cboTextDirection.ItemIndex := 0;
   cboBuildPlatform.ItemIndex := 0;
