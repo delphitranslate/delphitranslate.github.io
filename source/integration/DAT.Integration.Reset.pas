@@ -274,6 +274,8 @@ var
   FileName: string;
   SafetyChangeSet: TIntegrationChangeSet;
 begin
+  raise EInvalidOpException.Create(
+    'Complete Reset is disabled. The translator treats target project files as read-only.');
   if APlan = nil then
     raise EArgumentNilException.Create(
       'A complete reset plan is required.');

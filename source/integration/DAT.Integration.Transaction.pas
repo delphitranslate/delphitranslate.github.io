@@ -86,11 +86,23 @@ begin
   Result := Copy(TargetPath, Length(ProjectPrefix) + 1, MaxInt);
 end;
 
+function IsProtectedTargetSourceFile(const AFileName: string): Boolean;
+var
+  Extension: string;
+begin
+  Extension := LowerCase(TPath.GetExtension(AFileName));
+  Result := MatchText(Extension, ['.pas', '.fmx', '.dfm', '.dpr', '.dproj',
+    '.inc', '.rc', '.res', '.lfm']);
+end;
+
 procedure WriteTextAtomically(const AFileName, AText: string);
 var
   DirectoryName: string;
   TemporaryFileName: string;
 begin
+  if IsProtectedTargetSourceFile(AFileName) then
+    raise EIntegrationTransactionError.CreateFmt(
+      'Target source/project file edits are forbidden: %s', [AFileName]);
   DirectoryName := TPath.GetDirectoryName(AFileName);
   TDirectory.CreateDirectory(DirectoryName);
   TemporaryFileName := AFileName + '.translation-studio.tmp';
@@ -145,6 +157,10 @@ begin
   for Change in AChangeSet.Changes do
   begin
     RelativeTargetName(AChangeSet.ProjectDirectory, Change.TargetFileName);
+    if IsProtectedTargetSourceFile(Change.TargetFileName) then
+      raise EIntegrationTransactionError.CreateFmt(
+        'Target source/project file edits are forbidden: %s',
+        [Change.TargetFileName]);
     if Change.OriginalExists then
     begin
       {$WARN SYMBOL_PLATFORM OFF}
@@ -302,6 +318,8 @@ var
   SourceFileName: string;
   TargetFileName: string;
 begin
+  raise EIntegrationTransactionError.Create(
+    'Automatic target restore is disabled. The translator treats target project files as read-only.');
   JsonValue := TJSONObject.ParseJSONValue(TFile.ReadAllText(
     TPath.Combine(ABackupDirectory, 'integration-backup.json'),
     TEncoding.UTF8));

@@ -104,6 +104,8 @@ var
   RuntimeRelativeFileName: string;
   SourceLanguageCode: string;
 begin
+  raise EInvalidOpException.Create(
+    'Automatic target source integration is disabled. The translator treats target project files as read-only.');
   if not TDirectory.Exists(APackageDirectory) then
     raise EDirectoryNotFoundException.CreateFmt(
       'The integration package was not found: %s', [APackageDirectory]);

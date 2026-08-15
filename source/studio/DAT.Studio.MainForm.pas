@@ -370,7 +370,7 @@ end;
 
 function TfrmTranslationStudio.IsComponentIntegrationMode: Boolean;
 begin
-  Result := cboIntegrationMode.ItemIndex <= 0;
+  Result := True;
 end;
 
 procedure TfrmTranslationStudio.UpdateIntegrationModeUI;
@@ -428,7 +428,7 @@ begin
       'Component Integration selected. Target source will not be modified.'
   else
     lblStatus.Text :=
-      'Advanced Automatic Integration selected. Preview before applying.';
+      'Advanced Automatic Integration is disabled. Target source and project files are read-only.';
 end;
 
 procedure TfrmTranslationStudio.datLanguageMenuItemClick(Sender: TObject);
@@ -1742,6 +1742,9 @@ var
   BuildMessage: string;
   SafetyBackupDirectory: string;
 begin
+  lblStatus.Text :=
+    'Apply is disabled. Target source and project files are read-only.';
+  Exit;
   if FCompleteResetPlan <> nil then
   begin
     if not chkIntegrationReviewConfirmed.IsChecked then
@@ -1852,6 +1855,9 @@ procedure TfrmTranslationStudio.btnCompleteResetClick(Sender: TObject);
 var
   ProjectDirectory: string;
 begin
+  lblStatus.Text :=
+    'Complete Reset is disabled because the selected target project is read-only.';
+  Exit;
   if FProjectProfile.ProjectFileName = '' then
   begin
     lblStatus.Text := 'Open the Delphi project to reset first.';

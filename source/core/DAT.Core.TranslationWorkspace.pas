@@ -51,11 +51,19 @@ end;
 
 class function TTranslationWorkspace.RootDirectory(
   const AProfile: TProjectProfile): string;
+var
+  LocalAppData: string;
+  WorkspaceRoot: string;
 begin
   if AProfile.ProjectFileName = '' then
     raise EArgumentException.Create('A Delphi project must be open.');
-  Result := TPath.Combine(TPath.GetDirectoryName(AProfile.ProjectFileName),
-    'Localization');
+  LocalAppData := GetEnvironmentVariable('LOCALAPPDATA');
+  if LocalAppData = '' then
+    LocalAppData := TPath.GetHomePath;
+  WorkspaceRoot := TPath.Combine(LocalAppData,
+    'DelphiAppTranslationStudio\Workspaces');
+  Result := TPath.Combine(WorkspaceRoot,
+    SafeFilePart(AProfile.ProjectName));
 end;
 
 class function TTranslationWorkspace.DevelopmentDirectory(

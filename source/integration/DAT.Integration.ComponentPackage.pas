@@ -145,6 +145,8 @@ var
   NewProjectText: string;
   OriginalProjectText: string;
 begin
+  raise EInvalidOpException.Create(
+    'Automatic target project configuration is disabled. The translator treats target project files as read-only.');
   if not TFile.Exists(AProfile.ProjectFileName) then
     raise EFileNotFoundException.CreateFmt(
       'The Delphi project file was not found: %s',

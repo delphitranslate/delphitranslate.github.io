@@ -1518,7 +1518,6 @@ var
   Report: TStringList;
   DeployedCount: Integer;
   ConfiguredDestinationCount: Integer;
-  ProjectBackupDirectory: string;
   RuntimePackFileName: string;
   SourceTexts: TArray<string>;
   TranslatedTexts: TArray<string>;
@@ -1756,12 +1755,8 @@ begin
         'Automatic deployment completed for %d of %d configured application destination(s).',
         [ConfiguredDestinationCount,
          lstDeploymentDestinations.Items.Count]));
-    ProjectBackupDirectory := ChangeFileExt(FBackupFileName, '') +
-      '-project-configuration';
-    FProjectConfigurationBackupDirectory :=
-      TComponentIntegrationPackageGenerator.ConfigureProject(
-        FProjectProfile, FKitDirectory, ProjectBackupDirectory);
-    AddProgress('Project Search Path and automatic post-build deployment configured.');
+    FProjectConfigurationBackupDirectory := '';
+    AddProgress('Target project source and project files were not modified.');
     lblKitPath.Text := FKitDirectory;
     lblKitPath.Hint := 'Click to open the generated component kit folder.';
     Report := TStringList.Create;
@@ -1776,8 +1771,7 @@ begin
       Report.Add('Runtime pack: ' + RuntimePackFileName);
       Report.Add('Component kit: ' + FKitDirectory);
       Report.Add('Backup: ' + FBackupFileName);
-      Report.Add('DPROJ transaction backup: ' +
-        FProjectConfigurationBackupDirectory);
+      Report.Add('DPROJ transaction backup: not created; target project file was not modified');
       Report.Add('Application ID: ' + FProjectProfile.ProjectName);
       Report.Add('ComponentSource Search Path: ' +
         TPath.Combine(FKitDirectory, 'ComponentSource'));
@@ -1803,11 +1797,11 @@ begin
     finally
       Report.Free;
     end;
-    AddProgress('Completion report written. Pascal and form source files remain unchanged.');
+    AddProgress('Completion report written. Target Pascal, form, DPR, and DPROJ files remain unchanged.');
     FCompleted := True;
     UpdateBuildChoice;
     lblFinishText.Text :=
-      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation, runtime-pack export, and component-kit generation. Existing build outputs and every available application destination were deployed automatically. Perform the clearly listed Delphi package/component step, then build the target. Future builds redeploy automatically.';
+      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation, runtime-pack export, and component-kit generation. Existing build outputs and every available application destination were deployed automatically. Target Pascal, form, DPR, and DPROJ files were not edited. Perform the clearly listed manual Delphi package/component step, then build the target.';
     lblFooterStatus.Text := 'Setup Wizard completed successfully.';
   except
     on E: Exception do
