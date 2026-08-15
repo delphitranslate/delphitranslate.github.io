@@ -418,10 +418,7 @@ begin
     1: Result := 'Create a new translation';
     2: Result := 'Update the existing translation';
   else
-    if (ExistingCatalogFileName <> '') and TFile.Exists(ExistingCatalogFileName) then
-      Result := 'Update the existing translation'
-    else
-      Result := 'Create a new translation';
+    Result := 'Create a new translation';
   end;
 end;
 
@@ -433,9 +430,10 @@ begin
     TFile.Exists(ExistingCatalogFileName);
   if FProjectProfile.ProjectFileName = '' then
     lblWorkflowSummary.Text := 'Select a project and target language to detect existing work.'
+  else if Existing and (cboWorkflowMode.ItemIndex = 2) then
+    lblWorkflowSummary.Text := 'Existing catalog detected. Update the existing translation will preserve reviewed and approved entries.'
   else if Existing then
-    lblWorkflowSummary.Text := 'Existing catalog detected. ' +
-      EffectiveWorkflowName + ' will preserve reviewed and approved entries.'
+    lblWorkflowSummary.Text := 'Existing catalog detected, but it will not be used unless Update Existing Translation is selected. Create New and Automatic scan the current saved source into a fresh catalog.'
   else
     lblWorkflowSummary.Text := 'No catalog exists for this language. ' +
       EffectiveWorkflowName + ' will start a new development catalog.';
@@ -832,7 +830,8 @@ begin
       else if (cboWorkflowMode.ItemIndex = 1) and
         TFile.Exists(ExistingCatalogFileName) then
       begin
-        lblFooterStatus.Text := 'A catalog already exists. Choose Update Existing Translation or use Complete Reset first.';
+        lblFooterStatus.Text := 'A catalog already exists, but Create New Translation will ignore it and use the current saved source files. Select Update Existing Translation only if you want to preserve that catalog.';
+        Result := True;
         Exit;
       end
       else if (cboWorkflowMode.ItemIndex = 2) and
@@ -1044,7 +1043,7 @@ begin
   ExistingFileName := TTranslationWorkspace.DevelopmentCatalogFileName(
     FProjectProfile, LanguageCode);
   FreeAndNil(FCatalog);
-  if TFile.Exists(ExistingFileName) then
+  if (cboWorkflowMode.ItemIndex = 2) and TFile.Exists(ExistingFileName) then
     FCatalog := TCatalogJson.LoadFromFile(ExistingFileName)
   else
   begin
@@ -1101,11 +1100,16 @@ begin
     finally
       memScanResults.Lines.EndUpdate;
     end;
-    lblScanSummary.Text := Format(
-      '%d translatable entries  |  %d new  |  %d changed  |  %d unchanged  |  %d obsolete',
-      [FScanResult.Items.Count, MergeSummary.NewEntries,
-       MergeSummary.ChangedEntries, MergeSummary.UnchangedEntries,
-       MergeSummary.ObsoleteEntries]);
+    if cboWorkflowMode.ItemIndex = 2 then
+      lblScanSummary.Text := Format(
+        '%d translatable entries  |  %d new  |  %d changed  |  %d unchanged  |  %d obsolete',
+        [FScanResult.Items.Count, MergeSummary.NewEntries,
+         MergeSummary.ChangedEntries, MergeSummary.UnchangedEntries,
+         MergeSummary.ObsoleteEntries])
+    else
+      lblScanSummary.Text := Format(
+        '%d current translatable entries  |  new catalog  |  %d duplicate scan key(s) ignored',
+        [FScanResult.Items.Count, MergeSummary.DuplicateScanKeys]);
     FReviewOutputDirectory := TPath.Combine(FindStudioRoot,
       TPath.Combine('export\localization-review',
         TPath.Combine(FProjectProfile.ProjectName,

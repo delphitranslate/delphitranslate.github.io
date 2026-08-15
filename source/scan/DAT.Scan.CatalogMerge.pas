@@ -12,6 +12,7 @@ type
     UnchangedEntries: Integer;
     ChangedEntries: Integer;
     ObsoleteEntries: Integer;
+    DuplicateScanKeys: Integer;
   end;
 
   TScanCatalogMerger = class
@@ -110,7 +111,12 @@ begin
   try
     for ScanItem in AScanResult.Items do
     begin
-      SeenKeys.AddOrSetValue(LowerCase(ScanItem.Key), True);
+      if SeenKeys.ContainsKey(LowerCase(ScanItem.Key)) then
+      begin
+        Inc(Result.DuplicateScanKeys);
+        Continue;
+      end;
+      SeenKeys.Add(LowerCase(ScanItem.Key), True);
       Entry := ACatalog.FindEntry(ScanItem.Key);
       if Entry = nil then
       begin
