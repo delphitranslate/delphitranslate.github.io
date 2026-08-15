@@ -358,12 +358,14 @@ var
   Decoded: string;
   OpenAt: Integer;
   Segment: string;
+  SegmentIndex: Integer;
   StartAt: Integer;
   TextValue: string;
 begin
   if not ContainsText(AStatement.Text, '<') or
     not ExtractLiteralPhrase(AStatement.Text, Decoded) then
     Exit;
+  SegmentIndex := 0;
   StartAt := 1;
   while StartAt <= Length(Decoded) do
   begin
@@ -380,8 +382,12 @@ begin
       (Pos('>', TextValue) = 0) and
       not ContainsText(TextValue, '%s') and
       not ContainsText(TextValue, '%d') then
-      AddRuntimeItem(AResult, AFileName, AUnitName, 'HtmlText',
-        'BrowserText', TextValue, AStatement.SourceLine, rtrStaticText);
+    begin
+      AddRuntimeItem(AResult, AFileName, AUnitName,
+        Format('HtmlText.%d', [SegmentIndex]), 'BrowserText',
+        TextValue, AStatement.SourceLine, rtrStaticText);
+      Inc(SegmentIndex);
+    end;
     StartAt := CloseAt + 1;
   end;
 end;

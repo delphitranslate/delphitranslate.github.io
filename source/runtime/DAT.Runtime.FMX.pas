@@ -213,34 +213,51 @@ function ApplyBrowserText(const AComponent: TComponent;
   const APack: TRuntimeLanguagePack): Integer;
 var
   Candidate: string;
+  Key: string;
   Pairs: TStringList;
+  PairMap: TDictionary<string, string>;
   Script: TStringBuilder;
+  SourceText: string;
   TranslatedText: string;
+
+  procedure AddBrowserPair(const ASourceText, ATranslatedText: string);
+  begin
+    if (Trim(ASourceText) = '') or (Trim(ATranslatedText) = '') or
+      SameText(ASourceText, ATranslatedText) then
+      Exit;
+    if not PairMap.ContainsKey(ASourceText) then
+      PairMap.Add(ASourceText, ATranslatedText);
+  end;
 begin
   Result := 0;
   if not (AComponent is TCustomWebBrowser) then
     Exit;
+  PairMap := TDictionary<string, string>.Create;
   Pairs := TStringList.Create;
   Script := TStringBuilder.Create;
   try
+    for Key in APack.Sources.Keys do
+      if APack.Strings.TryGetValue(Key, TranslatedText) then
+      begin
+        SourceText := APack.Sources[Key];
+        AddBrowserPair(SourceText, TranslatedText);
+      end;
     for Candidate in APack.SourceStrings.Keys do
     begin
       TranslatedText := APack.SourceStrings[Candidate];
-      if (Trim(Candidate) <> '') and (Trim(TranslatedText) <> '') and
-        not SameText(Candidate, TranslatedText) then
-        Pairs.Add(JavaScriptString(Candidate) + ',' +
-          JavaScriptString(TranslatedText));
+      AddBrowserPair(Candidate, TranslatedText);
     end;
     for Candidate in APack.SourceTemplates.Keys do
     begin
       TranslatedText := APack.SourceTemplates[Candidate];
       { Format strings belong to code, not browser text nodes. }
       if (Pos('%', Candidate) = 0) and (Pos('%', TranslatedText) = 0) and
-        (Trim(Candidate) <> '') and (Trim(TranslatedText) <> '') and
-        not SameText(Candidate, TranslatedText) then
-        Pairs.Add(JavaScriptString(Candidate) + ',' +
-          JavaScriptString(TranslatedText));
+        (Trim(Candidate) <> '') and (Trim(TranslatedText) <> '') then
+        AddBrowserPair(Candidate, TranslatedText);
     end;
+    for Candidate in PairMap.Keys do
+      Pairs.Add(JavaScriptString(Candidate) + ',' +
+        JavaScriptString(PairMap[Candidate]));
     if Pairs.Count = 0 then
       Exit;
     Script.Append('(function(){const p=[');
@@ -264,6 +281,7 @@ begin
   finally
     Script.Free;
     Pairs.Free;
+    PairMap.Free;
   end;
 end;
 
