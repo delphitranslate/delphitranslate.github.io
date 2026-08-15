@@ -175,6 +175,7 @@ type
     FFinalProcessing: Boolean;
     FCompleted: Boolean;
     FBuildCompleted: Boolean;
+    FBuildInProgress: Boolean;
     FProjectProfile: TProjectProfile;
     FScanResult: TProjectScanResult;
     FCatalog: TTranslationCatalog;
@@ -278,6 +279,7 @@ begin
   ApplyLocaleDefaults;
   chkBuildNow.IsChecked := False;
   FBuildCompleted := False;
+  FBuildInProgress := False;
   chkReplaceDeployedExecutable.IsChecked := False;
   cboBuildPlatform.ItemIndex := 2;
   cboBuildConfiguration.ItemIndex := 2;
@@ -290,9 +292,12 @@ procedure TfrmSetupWizard.UpdateBuildChoice;
 begin
   BuildChoiceCard.Visible := FCompleted;
   btnBuildNow.Enabled := chkBuildNow.IsChecked and
-    (FProjectProfile.ProjectFileName <> '') and FCompleted;
-  cboBuildPlatform.Enabled := chkBuildNow.IsChecked and FCompleted;
-  cboBuildConfiguration.Enabled := chkBuildNow.IsChecked and FCompleted;
+    (FProjectProfile.ProjectFileName <> '') and FCompleted and
+    not FBuildInProgress;
+  cboBuildPlatform.Enabled := chkBuildNow.IsChecked and FCompleted and
+    not FBuildInProgress;
+  cboBuildConfiguration.Enabled := chkBuildNow.IsChecked and FCompleted and
+    not FBuildInProgress;
 end;
 
 procedure TfrmSetupWizard.chkBuildNowChange(Sender: TObject);
@@ -332,6 +337,7 @@ begin
   btnFinish.Enabled := False;
   btnCancel.Enabled := False;
   FBuildCompleted := False;
+  FBuildInProgress := True;
   lblBuildStatus.Text := 'Building selected targets. Please wait...';
   Application.ProcessMessages;
   try
@@ -393,6 +399,7 @@ begin
       AddProgress('BUILD STOPPED: ' + E.Message);
     end;
   end;
+  FBuildInProgress := False;
   UpdateBuildChoice;
   UpdateNavigation;
 end;
@@ -729,6 +736,8 @@ begin
   btnNext.Visible := FCurrentStep < StepCount;
   btnFinish.Visible := FCurrentStep = StepCount;
   btnFinish.Enabled := FCompleted and
+    not FFinalProcessing and
+    not FBuildInProgress and
     ((not chkBuildNow.IsChecked) or FBuildCompleted);
   if FCurrentStep = 8 then
   begin
@@ -1393,6 +1402,9 @@ function TfrmSetupWizard.DeployLanguagePacksToConfiguredDestinations: Integer;
 var
   ApplicationDirectory: string;
   Configuration: string;
+  DestinationExecutable: string;
+  ExecutableDeployed: Boolean;
+  ShouldDeployExecutable: Boolean;
   Platform: string;
   SourceExecutable: string;
 begin
@@ -1402,19 +1414,41 @@ begin
     if not DeployLanguagePacksDirect(ApplicationDirectory) then
       raise Exception.Create('Language-pack deployment failed for configured destination ' +
         ApplicationDirectory + '. The drive may still be waking or may be read-only.');
-    if chkReplaceDeployedExecutable.IsChecked then
+    DestinationExecutable := TPath.Combine(ApplicationDirectory,
+      FProjectProfile.ProjectName + '.exe');
+    ShouldDeployExecutable := chkReplaceDeployedExecutable.IsChecked or
+      not TFile.Exists(DestinationExecutable);
+    if ShouldDeployExecutable then
+    begin
+      ExecutableDeployed := False;
       for Platform in ['Win32', 'Win64'] do
+      begin
+        if ExecutableDeployed then
+          Break;
         for Configuration in ['Debug', 'Release'] do
         begin
+          if ExecutableDeployed then
+            Break;
           SourceExecutable := TTargetBuildDeployer.FindBuildOutputDirectory(
             FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
             Platform, Configuration, True);
           if SourceExecutable <> '' then
+          begin
             AddProgress(TTargetBuildDeployer.DeployBuildOutput(
               FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
               Platform, Configuration, ApplicationDirectory, FKitDirectory,
-              True));
+              chkReplaceDeployedExecutable.IsChecked));
+            ExecutableDeployed := True;
+          end;
         end;
+      end;
+      if not ExecutableDeployed then
+        AddProgress('Executable not copied to ' + ApplicationDirectory +
+          ': no current build output was found. Use Build and Deploy Selected Targets after final processing.');
+    end
+    else
+      AddProgress('Executable left unchanged at ' + DestinationExecutable +
+        ' (replace/create authorization was not selected).');
     Inc(Result);
     AddProgress('Language packs deployed to configured destination ' +
       ApplicationDirectory);
@@ -1894,8 +1928,10 @@ procedure TfrmSetupWizard.btnDeployApplicationFolderClick(Sender: TObject);
 var
   ApplicationDirectory: string;
   Configuration: string;
+  DestinationExecutable: string;
   Platform: string;
   SourceExecutable: string;
+  ShouldDeployExecutable: Boolean;
   DeployedExecutable: Boolean;
 begin
   if FKitDirectory = '' then
@@ -1911,10 +1947,20 @@ begin
   btnDeployApplicationFolder.Enabled := False;
   try
     DeployedExecutable := False;
-    if chkReplaceDeployedExecutable.IsChecked then
+    DestinationExecutable := TPath.Combine(ApplicationDirectory,
+      FProjectProfile.ProjectName + '.exe');
+    ShouldDeployExecutable := chkReplaceDeployedExecutable.IsChecked or
+      not TFile.Exists(DestinationExecutable);
+    if ShouldDeployExecutable then
+    begin
       for Platform in ['Win32', 'Win64'] do
+      begin
+        if DeployedExecutable then
+          Break;
         for Configuration in ['Debug', 'Release'] do
         begin
+          if DeployedExecutable then
+            Break;
           SourceExecutable := TTargetBuildDeployer.FindBuildOutputDirectory(
             FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
             Platform, Configuration, True);
@@ -1923,18 +1969,24 @@ begin
             lblFooterStatus.Text := TTargetBuildDeployer.DeployBuildOutput(
               FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
               Platform, Configuration, ApplicationDirectory, FKitDirectory,
-              True);
+              chkReplaceDeployedExecutable.IsChecked);
             DeployedExecutable := True;
-            Break;
           end;
         end;
+      end;
+    end;
     if not DeployedExecutable then
     begin
       if not RunDeploymentScript(ApplicationDirectory) then
         raise Exception.Create('Language-pack deployment failed.');
-      lblFooterStatus.Text := 'Language packs deployed to ' +
-        TPath.Combine(ApplicationDirectory, 'Localization\Languages') +
-        '. No built executable was selected for deployment.';
+      if ShouldDeployExecutable then
+        lblFooterStatus.Text := 'Language packs deployed to ' +
+          TPath.Combine(ApplicationDirectory, 'Localization\Languages') +
+          '. No current build output was found for executable deployment.'
+      else
+        lblFooterStatus.Text := 'Language packs deployed to ' +
+          TPath.Combine(ApplicationDirectory, 'Localization\Languages') +
+          '. Existing executable left unchanged.';
     end;
   except
     on E: Exception do

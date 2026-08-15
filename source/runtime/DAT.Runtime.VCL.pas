@@ -38,11 +38,18 @@ var
   PropertyInfo: PPropInfo;
 begin
   Result := False;
-  { Runtime localization must not move controls by default.  Position changes
-    are too destructive for hand-designed forms; keep runtime layout rules to
-    sizing/wrapping style properties. }
-  if SameText(APropertyName, 'Left') or SameText(APropertyName, 'Top') then
-    Exit(False);
+  if (AComponent is TControl) and
+    (SameText(APropertyName, 'Left') or SameText(APropertyName, 'Top')) then
+  begin
+    if not TryStrToInt64(AValue, IntegerValue) or
+      (IntegerValue < -100000) or (IntegerValue > 100000) then
+      Exit;
+    if SameText(APropertyName, 'Left') then
+      TControl(AComponent).Left := IntegerValue
+    else
+      TControl(AComponent).Top := IntegerValue;
+    Exit(True);
+  end;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName);
   if PropertyInfo = nil then
     Exit;

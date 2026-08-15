@@ -22,10 +22,13 @@ uses
   System.Diagnostics,
   System.Generics.Collections,
   System.IOUtils,
+  System.RegularExpressions,
   System.StrUtils,
   System.SysUtils,
+  DAT.Scan.Context,
   DAT.Scan.FormText,
-  DAT.Scan.PascalResources;
+  DAT.Scan.PascalResources,
+  DAT.Scan.Quality;
 
 function IsUnderDirectory(const ADirectory, AFileName: string): Boolean;
 var
@@ -121,6 +124,95 @@ begin
   end;
 end;
 
+function DecodeHtmlText(const AValue: string): string;
+begin
+  Result := AValue;
+  Result := StringReplace(Result, '&nbsp;', ' ', [rfReplaceAll, rfIgnoreCase]);
+  Result := StringReplace(Result, '&amp;', '&', [rfReplaceAll, rfIgnoreCase]);
+  Result := StringReplace(Result, '&lt;', '<', [rfReplaceAll, rfIgnoreCase]);
+  Result := StringReplace(Result, '&gt;', '>', [rfReplaceAll, rfIgnoreCase]);
+  Result := StringReplace(Result, '&quot;', '"', [rfReplaceAll, rfIgnoreCase]);
+  Result := StringReplace(Result, '&#39;', '''', [rfReplaceAll, rfIgnoreCase]);
+  Result := Trim(TRegEx.Replace(Result, '\s+', ' '));
+end;
+
+function LooksLikeHumanText(const AValue: string): Boolean;
+var
+  CharacterIndex: Integer;
+begin
+  Result := False;
+  if Length(Trim(AValue)) < 2 then
+    Exit;
+  if ContainsText(AValue, '://') or ContainsText(AValue, '@') or
+    ContainsText(AValue, '.css') or ContainsText(AValue, '.js') then
+    Exit;
+  for CharacterIndex := 1 to Length(AValue) do
+    if CharInSet(AValue[CharacterIndex], ['A'..'Z', 'a'..'z']) then
+      Exit(True);
+end;
+
+procedure AddHtmlScanItem(const AResult: TProjectScanResult;
+  const AFileName, ASourceText: string; const AIndex: Integer);
+var
+  ScanItem: TScanItem;
+begin
+  if not LooksLikeHumanText(ASourceText) then
+    Exit;
+  ScanItem := TScanItem.Create;
+  ScanItem.Key := Format('%s.HtmlText.%d',
+    [TPath.GetFileNameWithoutExtension(AFileName), AIndex]);
+  ScanItem.SourceText := ASourceText;
+  ScanItem.FormName := TPath.GetFileNameWithoutExtension(AFileName);
+  ScanItem.ComponentName := 'HtmlText';
+  ScanItem.ComponentClassName := 'TWebBrowser';
+  ScanItem.PropertyName := 'BrowserText';
+  ScanItem.SourceFileName := AFileName;
+  ScanItem.SourceLine := 0;
+  ScanItem.CollectionIndex := AIndex;
+  ScanItem.Framework := tfUnknown;
+  ScanItem.Kind := stkRuntimeAssignment;
+  ScanItem.RuntimeTextRole := rtrStaticText;
+  TScanContextAnalyzer.Analyze(ScanItem);
+  TScanQualityAnalyzer.Analyze(ScanItem);
+  AResult.Items.Add(ScanItem);
+end;
+
+procedure ScanHtmlFile(const AFileName: string; const AResult: TProjectScanResult);
+var
+  CleanHtml: string;
+  Index: Integer;
+  Parts: TArray<string>;
+  Seen: TStringList;
+  RawText: string;
+  Text: string;
+begin
+  CleanHtml := TFile.ReadAllText(AFileName, TEncoding.UTF8);
+  CleanHtml := TRegEx.Replace(CleanHtml, '<script\b[^>]*>.*?</script>', ' ',
+    [roIgnoreCase, roSingleLine]);
+  CleanHtml := TRegEx.Replace(CleanHtml, '<style\b[^>]*>.*?</style>', ' ',
+    [roIgnoreCase, roSingleLine]);
+  CleanHtml := TRegEx.Replace(CleanHtml, '<[^>]+>', sLineBreak,
+    [roIgnoreCase, roSingleLine]);
+  Parts := CleanHtml.Split([sLineBreak]);
+  Seen := TStringList.Create;
+  try
+    Seen.Sorted := True;
+    Seen.Duplicates := dupIgnore;
+    Index := 0;
+    for RawText in Parts do
+    begin
+      Text := DecodeHtmlText(RawText);
+      if not LooksLikeHumanText(Text) or (Seen.IndexOf(Text) >= 0) then
+        Continue;
+      Seen.Add(Text);
+      AddHtmlScanItem(AResult, AFileName, Text, Index);
+      Inc(Index);
+    end;
+  finally
+    Seen.Free;
+  end;
+end;
+
 class function TProjectScanner.IsExcludedPath(const AProjectDirectory,
   AFileName: string): Boolean;
 var
@@ -176,6 +268,7 @@ var
   FileName: string;
   FileNames: TArray<string>;
   FormFiles: TList<string>;
+  HtmlFiles: TList<string>;
   ProjectDirectory: string;
   SourceFiles: TList<string>;
   Stopwatch: TStopwatch;
@@ -191,6 +284,7 @@ begin
     ProjectDirectory := TPath.GetDirectoryName(AProfile.ProjectFileName);
     Stopwatch := TStopwatch.StartNew;
     FormFiles := TList<string>.Create;
+    HtmlFiles := TList<string>.Create;
     SourceFiles := TList<string>.Create;
     try
       CollectProjectReferences(AProfile.ProjectFileName, AProfile.Framework,
@@ -213,6 +307,12 @@ begin
         if not IsExcludedPath(ProjectDirectory, FileName) then
           AddUniqueFileName(SourceFiles, FileName);
 
+      FileNames := TDirectory.GetFiles(ProjectDirectory, '*.htm*',
+        TSearchOption.soAllDirectories);
+      for FileName in FileNames do
+        if not IsExcludedPath(ProjectDirectory, FileName) then
+          AddUniqueFileName(HtmlFiles, FileName);
+
       for FileName in FormFiles do
       begin
         TTextFormScanner.ScanFile(FileName, AProfile.Framework, Result);
@@ -226,8 +326,16 @@ begin
         Result.SourceFilesScanned := Result.SourceFilesScanned + 1;
         Result.FilesScanned := Result.FilesScanned + 1;
       end;
+
+      for FileName in HtmlFiles do
+      begin
+        ScanHtmlFile(FileName, Result);
+        Result.SourceFilesScanned := Result.SourceFilesScanned + 1;
+        Result.FilesScanned := Result.FilesScanned + 1;
+      end;
     finally
       SourceFiles.Free;
+      HtmlFiles.Free;
       FormFiles.Free;
     end;
 

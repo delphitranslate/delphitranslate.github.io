@@ -224,7 +224,11 @@ begin
               if not (SameText(PropertyName, 'Width') or
                 SameText(PropertyName, 'Height') or
                 SameText(PropertyName, 'WordWrap') or
-                SameText(PropertyName, 'AutoSize')) then
+                SameText(PropertyName, 'AutoSize') or
+                SameText(PropertyName, 'Left') or
+                SameText(PropertyName, 'Top') or
+                SameText(PropertyName, 'Position.X') or
+                SameText(PropertyName, 'Position.Y')) then
                 Continue;
               if Trim(LayoutItem.GetValue<string>('sourceChecksum', '')) = '' then
                 Continue;

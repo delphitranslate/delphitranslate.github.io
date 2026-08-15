@@ -148,14 +148,22 @@ var
   PropertyInfo: PPropInfo;
 begin
   Result := False;
-  { Runtime localization must never move controls by default.  Earlier builds
-    accepted Left/Top/Position rules and tried to repair crowding by shifting
-    controls.  On hand-designed FMX forms that caused cascading layout damage.
-    Keep language packs limited to text-preserving sizing/wrapping changes. }
-  if SameText(APropertyName, 'Left') or SameText(APropertyName, 'Top') or
+  if (AComponent is TControl) and
+    (SameText(APropertyName, 'Left') or
+     SameText(APropertyName, 'Top') or
      SameText(APropertyName, 'Position.X') or
-     SameText(APropertyName, 'Position.Y') then
-    Exit(False);
+     SameText(APropertyName, 'Position.Y')) then
+  begin
+    if not TryStrToFloat(AValue, FloatValue, TFormatSettings.Invariant) or
+      (FloatValue < -100000) or (FloatValue > 100000) then
+      Exit;
+    if SameText(APropertyName, 'Left') or
+      SameText(APropertyName, 'Position.X') then
+      TControl(AComponent).Position.X := FloatValue
+    else
+      TControl(AComponent).Position.Y := FloatValue;
+    Exit(True);
+  end;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName);
   if PropertyInfo = nil then
     Exit;

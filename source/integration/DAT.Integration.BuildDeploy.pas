@@ -22,11 +22,9 @@ uses
   System.IOUtils,
   System.RegularExpressions,
   System.SysUtils,
-  Winapi.ShellAPI,
   Winapi.Windows;
 
 const
-  SEE_MASK_NO_CONSOLE = $00008000;
   DelphiEnvironmentFile =
     'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat';
   BuildProcessTimeout = 1800000;
@@ -35,32 +33,34 @@ const
 procedure RunHiddenBuild(const AProjectFileName, APlatform,
   AConfiguration: string);
 var
-  CommandParameters: string;
+  CommandLine: string;
   ExitCode: Cardinal;
-  ExecuteInfo: TShellExecuteInfo;
+  ProcessInfo: TProcessInformation;
+  StartupInfo: TStartupInfo;
   WaitResult: Cardinal;
+  WorkDirectory: string;
 begin
-  CommandParameters := Format(
-    '/d /s /c ""%s" && msbuild "%s" /t:Build /p:Platform=%s /p:Config=%s"',
+  CommandLine := Format(
+    'cmd.exe /d /s /c ""%s" && msbuild "%s" /t:Build /p:Platform=%s /p:Config=%s"',
     [DelphiEnvironmentFile, AProjectFileName, APlatform, AConfiguration]);
-  ZeroMemory(@ExecuteInfo, SizeOf(ExecuteInfo));
-  ExecuteInfo.cbSize := SizeOf(ExecuteInfo);
-  ExecuteInfo.fMask := SEE_MASK_NOCLOSEPROCESS or SEE_MASK_FLAG_NO_UI or
-    SEE_MASK_NO_CONSOLE;
-  ExecuteInfo.Wnd := 0;
-  ExecuteInfo.lpVerb := 'open';
-  ExecuteInfo.lpFile := 'cmd.exe';
-  ExecuteInfo.lpParameters := PChar(CommandParameters);
-  ExecuteInfo.nShow := SW_HIDE;
-  if not ShellExecuteEx(@ExecuteInfo) then
+  WorkDirectory := TPath.GetDirectoryName(AProjectFileName);
+  ZeroMemory(@StartupInfo, SizeOf(StartupInfo));
+  ZeroMemory(@ProcessInfo, SizeOf(ProcessInfo));
+  StartupInfo.cb := SizeOf(StartupInfo);
+  StartupInfo.dwFlags := STARTF_USESHOWWINDOW;
+  StartupInfo.wShowWindow := SW_HIDE;
+  if not CreateProcess(nil, PChar(CommandLine), nil, nil, False,
+    CREATE_NO_WINDOW, nil, PChar(WorkDirectory), StartupInfo, ProcessInfo) then
     RaiseLastOSError;
   try
-    WaitResult := WaitForSingleObject(ExecuteInfo.hProcess,
+    CloseHandle(ProcessInfo.hThread);
+    ProcessInfo.hThread := 0;
+    WaitResult := WaitForSingleObject(ProcessInfo.hProcess,
       BuildProcessTimeout);
     if WaitResult = WAIT_TIMEOUT then
     begin
-      TerminateProcess(ExecuteInfo.hProcess, ERROR_TIMEOUT);
-      WaitForSingleObject(ExecuteInfo.hProcess, ProcessTerminationWait);
+      TerminateProcess(ProcessInfo.hProcess, ERROR_TIMEOUT);
+      WaitForSingleObject(ProcessInfo.hProcess, ProcessTerminationWait);
       raise Exception.CreateFmt(
         'The %s %s build timed out and its command process was stopped.',
         [APlatform, AConfiguration]);
@@ -70,14 +70,17 @@ begin
     if WaitResult <> WAIT_OBJECT_0 then
       raise Exception.CreateFmt('Unexpected build wait result: %d.',
         [WaitResult]);
-    if not GetExitCodeProcess(ExecuteInfo.hProcess, ExitCode) then
+    if not GetExitCodeProcess(ProcessInfo.hProcess, ExitCode) then
       RaiseLastOSError;
     if ExitCode <> 0 then
       raise Exception.CreateFmt(
         'The %s %s build failed with exit code %d.',
         [APlatform, AConfiguration, ExitCode]);
   finally
-    CloseHandle(ExecuteInfo.hProcess);
+    if ProcessInfo.hThread <> 0 then
+      CloseHandle(ProcessInfo.hThread);
+    if ProcessInfo.hProcess <> 0 then
+      CloseHandle(ProcessInfo.hProcess);
   end;
 end;
 

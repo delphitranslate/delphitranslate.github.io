@@ -1818,3 +1818,33 @@ The completion report records that localization review occurred inside the
 same Wizard processing pass before final export. The completion-page review
 button is retained as a disabled `Review Completed` indicator, preventing a
 post-export review from being mistaken for part of the completed transaction.
+
+# Complete To-Do Repair Pass (2026-08-14)
+
+This pass addresses the active acceptance-test backlog as a single repair
+batch rather than a narrowed subset. The implemented changes are:
+
+1. Wizard final-processing and optional build controls now hold Finish disabled
+   while build/deploy work is in progress, and the finish page is widened so
+   command buttons and build controls are not clipped.
+2. Build commands are launched through a hidden `CreateProcess` path with
+   `CREATE_NO_WINDOW` to avoid visible command processor popups.
+3. Deployment to configured application folders now deploys JSON language
+   packs every time and copies the executable when the destination executable
+   is missing or when the developer explicitly authorizes replacement.
+4. Runtime source-text restore and dynamic replacement use whole-term matching
+   so a translation is not inserted inside a larger English word.
+5. Scanning now includes standalone HTML files under the selected project tree,
+   in addition to designer files, resourcestrings, and Pascal runtime text.
+6. Accepted layout proposals may now carry bounded position adjustments
+   (`Left`, `Top`, `Position.X`, `Position.Y`) as well as safe size/wrap rules.
+   The exporter and FMX/VCL runtime loaders both preserve and apply those
+   accepted rules.
+7. Layout review now proposes conservative horizontal and vertical separation
+   moves when translated controls overlap and the target control is movable.
+8. Pre-change backup ZIP files are ignored by Git so safety backups are kept
+   locally without being accidentally published.
+
+RAD Studio package rebuilds must be performed with the IDE closed. If
+`bds.exe` has a design package loaded, Windows locks the design BPL and the
+package output cannot be replaced safely.

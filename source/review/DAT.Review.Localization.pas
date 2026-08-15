@@ -275,8 +275,27 @@ procedure AddProposal(const AReview: TLocalizationReview;
   const AControl: TLayoutControl; const APropertyName, ACurrent,
   AProposed, ARationale: string);
 var
+  ExistingNumber: Double;
+  NewNumber: Double;
   Proposal: TLayoutProposal;
 begin
+  for Proposal in AReview.Proposals do
+    if SameText(Proposal.FormName, AControl.FormName) and
+      SameText(Proposal.ComponentName, AControl.ComponentName) and
+      SameText(Proposal.PropertyName, APropertyName) then
+    begin
+      if SameText(Proposal.ProposedValue, AProposed) then
+        Exit;
+      if TryStrToFloat(Proposal.ProposedValue, ExistingNumber,
+          TFormatSettings.Invariant) and
+        TryStrToFloat(AProposed, NewNumber, TFormatSettings.Invariant) and
+        (NewNumber > ExistingNumber) then
+      begin
+        Proposal.ProposedValue := AProposed;
+        Proposal.Rationale := ARationale;
+      end;
+      Exit;
+    end;
   Proposal := TLayoutProposal.Create;
   Proposal.FormName := AControl.FormName;
   Proposal.ComponentName := AControl.ComponentName;
@@ -561,8 +580,8 @@ var
   begin
     if ContainsText(AControl.ComponentClassName, 'Column') then
     begin
-      GrowthCap := Max(AControl.Width * 1.25, 140);
-      HardCap := 320;
+      GrowthCap := Max(AControl.Width * 1.60, 160);
+      HardCap := 460;
     end
     else if ContainsText(AControl.ComponentClassName, 'Button') then
     begin
@@ -586,6 +605,76 @@ var
       ContainsText(AControl.ComponentClassName, 'RadioButton') or
       ContainsText(AControl.ComponentClassName, 'GroupBox') or
       ContainsText(AControl.ComponentClassName, 'Button');
+  end;
+
+  function CanMoveControl(const AControl: TLayoutControl): Boolean;
+  begin
+    Result := AControl.HasPosition and AControl.HasSize and
+      ((Trim(AControl.Align) = '') or SameText(Trim(AControl.Align), 'None') or
+       SameText(Trim(AControl.Align), 'TAlignLayout.None')) and
+      not ContainsText(AControl.ComponentClassName, 'Form') and
+      not ContainsText(AControl.ComponentClassName, 'Layout') and
+      not ContainsText(AControl.ComponentClassName, 'Panel') and
+      not ContainsText(AControl.ComponentClassName, 'Rectangle') and
+      not ContainsText(AControl.ComponentClassName, 'Grid') and
+      not ContainsText(AControl.ComponentClassName, 'WebBrowser');
+  end;
+
+  function PositionPropertyName(const AControl: TLayoutControl;
+    const AAxis: string): string;
+  begin
+    if SameText(TPath.GetExtension(AControl.SourceFileName), '.dfm') then
+      if SameText(AAxis, 'X') then
+        Exit('Left')
+      else
+        Exit('Top');
+    Result := 'Position.' + AAxis;
+  end;
+
+  function OverlapsHorizontally(const ALeft, ARight: TLayoutControl): Boolean;
+  begin
+    Result := (ALeft.Left < ARight.Left + EffectiveWidth(ARight)) and
+      (ALeft.Left + EffectiveWidth(ALeft) > ARight.Left);
+  end;
+
+  function OverlapsVertically(const AUpper, ALower: TLayoutControl): Boolean;
+  begin
+    Result := (AUpper.Top < ALower.Top + EffectiveHeight(ALower)) and
+      (AUpper.Top + EffectiveHeight(AUpper) > ALower.Top);
+  end;
+
+  procedure ProposeVerticalSeparation(const AUpper, ALower: TLayoutControl);
+  var
+    NeededTop: Double;
+    MoveDistance: Double;
+  begin
+    if not CanMoveControl(ALower) then
+      Exit;
+    NeededTop := AUpper.Top + EffectiveHeight(AUpper) + 8;
+    MoveDistance := NeededTop - ALower.Top;
+    if (MoveDistance <= 1) or (MoveDistance > 140) then
+      Exit;
+    AddProposal(AReview, ALower, PositionPropertyName(ALower, 'Y'),
+      FloatToStr(ALower.Top), IntToStr(Ceil(NeededTop)),
+      Format('Move down %.0f pixels to clear translated text above it.',
+        [MoveDistance]));
+  end;
+
+  procedure ProposeHorizontalSeparation(const ALeft, ARight: TLayoutControl);
+  var
+    NeededLeft: Double;
+    MoveDistance: Double;
+  begin
+    if not CanMoveControl(ARight) then
+      Exit;
+    NeededLeft := ALeft.Left + EffectiveWidth(ALeft) + 8;
+    MoveDistance := NeededLeft - ARight.Left;
+    if (MoveDistance <= 1) or (MoveDistance > 180) then
+      Exit;
+    AddProposal(AReview, ARight, PositionPropertyName(ARight, 'X'),
+      FloatToStr(ARight.Left), IntToStr(Ceil(NeededLeft)),
+      Format('Move right %.0f pixels to clear translated text beside it.',
+        [MoveDistance]));
   end;
 begin
   for Control in AReview.Controls do
@@ -656,15 +745,29 @@ begin
            SameText(Other.ParentName, Control.ParentName) and
            Other.HasPosition and Other.HasSize and
            (Other.TranslatedText <> '') and
-           (Control.Left < Other.Left + EffectiveWidth(Other)) and
-           (Control.Left + EffectiveWidth(Control) > Other.Left) and
-           (Control.Top < Other.Top + EffectiveHeight(Other)) and
-           (Control.Top + EffectiveHeight(Control) > Other.Top) then
+           OverlapsHorizontally(Control, Other) and
+           OverlapsVertically(Control, Other) then
+        begin
           AddFinding(AReview, lfsWarning, 'Overlap',
             Control.FormName + '.' + Control.ComponentName,
             'This control intersects ' + Other.ComponentName +
               ' after estimated translated sizing.',
-            'No automatic move is proposed. Adjust the designer layout or use a manual source-specific layout correction.');
+            'Review the proposed move/size rule or adjust the designer layout manually.');
+          if SameVisualRow(Control, Other) then
+          begin
+            if Control.Left <= Other.Left then
+              ProposeHorizontalSeparation(Control, Other)
+            else
+              ProposeHorizontalSeparation(Other, Control);
+          end
+          else if SameVisualColumn(Control, Other) then
+          begin
+            if Control.Top <= Other.Top then
+              ProposeVerticalSeparation(Control, Other)
+            else
+              ProposeVerticalSeparation(Other, Control);
+          end;
+        end;
 end;
 
 class function TLocalizationReviewer.Analyze(

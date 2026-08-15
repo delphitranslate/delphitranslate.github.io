@@ -404,14 +404,6 @@ begin
               'componentName', True);
             LayoutRule.PropertyName := JsonString(LayoutObject,
               'propertyName', True);
-            if SameText(LayoutRule.PropertyName, 'Left') or
-              SameText(LayoutRule.PropertyName, 'Top') or
-              SameText(LayoutRule.PropertyName, 'Position.X') or
-              SameText(LayoutRule.PropertyName, 'Position.Y') then
-            begin
-              LayoutRule.Free;
-              Continue;
-            end;
             LayoutRule.OriginalValue := JsonString(LayoutObject,
               'originalValue', True);
             LayoutRule.TranslatedValue := JsonString(LayoutObject,
@@ -481,6 +473,40 @@ var
   Candidate: string;
   LongestTranslation: string;
   Replacement: string;
+
+  function IsWordCharacter(const AValue: Char): Boolean;
+  begin
+    Result := CharInSet(AValue, ['A'..'Z', 'a'..'z', '0'..'9', '_']) or
+      (Ord(AValue) > 127);
+  end;
+
+  function ReplaceWholeTerm(const AText, ASource, AReplacement: string): string;
+  var
+    At: Integer;
+    BeforeIsWord: Boolean;
+    AfterIsWord: Boolean;
+    SearchFrom: Integer;
+  begin
+    Result := AText;
+    SearchFrom := 1;
+    while SearchFrom <= Length(Result) do
+    begin
+      At := PosEx(ASource, Result, SearchFrom);
+      if At = 0 then
+        Break;
+      BeforeIsWord := (At > 1) and IsWordCharacter(Result[At - 1]);
+      AfterIsWord := (At + Length(ASource) <= Length(Result)) and
+        IsWordCharacter(Result[At + Length(ASource)]);
+      if not BeforeIsWord and not AfterIsWord then
+      begin
+        Delete(Result, At, Length(ASource));
+        Insert(AReplacement, Result, At);
+        SearchFrom := At + Length(AReplacement);
+      end
+      else
+        SearchFrom := At + Length(ASource);
+    end;
+  end;
 begin
   Result := False;
   ASourceText := '';
@@ -495,8 +521,8 @@ begin
   for Candidate in FSourceStrings.Keys do
     if SameText(FSourceStrings[Candidate], LongestTranslation) then
     begin
-      Replacement := StringReplace(ATranslatedText, LongestTranslation,
-        Candidate, [rfReplaceAll]);
+      Replacement := ReplaceWholeTerm(ATranslatedText, LongestTranslation,
+        Candidate);
       if Replacement <> ATranslatedText then
       begin
         ASourceText := Replacement;
