@@ -34,6 +34,7 @@ implementation
 
 uses
   System.Classes,
+  System.IOUtils,
   System.JSON,
   System.Math,
   System.SysUtils,
@@ -62,6 +63,25 @@ type
     constructor Create(ABrowser: TCustomWebBrowser;
       const AScript: string); reintroduce;
   end;
+
+const
+  DATRuntimeDebugLogFileName = 'C:\Downloads\DAT_Translation_Debug_Log.txt';
+
+procedure DATRuntimeDebugLog(const AMessage: string);
+var
+  LogDirectory: string;
+begin
+  try
+    LogDirectory := TPath.GetDirectoryName(DATRuntimeDebugLogFileName);
+    if (LogDirectory <> '') and not TDirectory.Exists(LogDirectory) then
+      TDirectory.CreateDirectory(LogDirectory);
+    TFile.AppendAllText(DATRuntimeDebugLogFileName,
+      FormatDateTime('yyyy-mm-dd hh:nn:ss.zzz', Now) + ' ' + AMessage +
+      sLineBreak, TEncoding.UTF8);
+  except
+    { Runtime diagnostics must never change target application behavior. }
+  end;
+end;
 
 function PositionKey(const AFormIdentity: string;
   const AComponent: TComponent): string;
@@ -103,11 +123,21 @@ begin
   if FBrowser <> nil then
   begin
     try
+      DATRuntimeDebugLog(Format(
+        'Browser retry attempt %d on %s.%s; script length=%d',
+        [FAttempts, FBrowser.ClassName, FBrowser.Name, Length(FScript)]));
       FBrowser.EvaluateJavaScript(FScript);
     except
-      { TWebBrowser may reject script while the platform view is still
-        finishing navigation. Keep retrying quietly; never surface platform
-        script timing as an application error. }
+      on E: Exception do
+      begin
+        DATRuntimeDebugLog(Format(
+          'Browser retry attempt %d failed on %s.%s: %s: %s',
+          [FAttempts, FBrowser.ClassName, FBrowser.Name, E.ClassName,
+          E.Message]));
+        { TWebBrowser may reject script while the platform view is still
+          finishing navigation. Keep retrying quietly; never surface platform
+          script timing as an application error. }
+      end;
     end;
   end;
   if FAttempts >= 40 then
@@ -279,6 +309,20 @@ var
   SourceText: string;
   TranslatedText: string;
 
+  procedure LogKnownBrowserTerm(const ASourceText: string);
+  var
+    LogTranslation: string;
+  begin
+    LogTranslation := '';
+    if APack.TryTranslateSource(ASourceText, LogTranslation) or
+      APack.TryTranslateDynamicText(ASourceText, LogTranslation) then
+      DATRuntimeDebugLog(Format('Browser term "%s" -> "%s"',
+        [ASourceText, LogTranslation]))
+    else
+      DATRuntimeDebugLog(Format('Browser term "%s" has no runtime translation',
+        [ASourceText]));
+  end;
+
   procedure AddBrowserPair(const ASourceText, ATranslatedText: string);
   begin
     if (Trim(ASourceText) = '') or (Trim(ATranslatedText) = '') or
@@ -295,6 +339,8 @@ begin
   Pairs := TStringList.Create;
   Script := TStringBuilder.Create;
   try
+    DATRuntimeDebugLog(Format('ApplyBrowserText start: %s.%s language=%s',
+      [AComponent.ClassName, AComponent.Name, APack.LanguageCode]));
     for Key in APack.Sources.Keys do
       if APack.Strings.TryGetValue(Key, TranslatedText) then
       begin
@@ -314,11 +360,17 @@ begin
         (Trim(Candidate) <> '') and (Trim(TranslatedText) <> '') then
         AddBrowserPair(Candidate, TranslatedText);
     end;
+    LogKnownBrowserTerm('Time');
+    LogKnownBrowserTerm('Type');
+    LogKnownBrowserTerm('Song/Purpose');
     for Candidate in PairMap.Keys do
       Pairs.Add(JavaScriptString(Candidate) + ',' +
         JavaScriptString(PairMap[Candidate]));
     if Pairs.Count = 0 then
+    begin
+      DATRuntimeDebugLog('ApplyBrowserText stopped: no browser text pairs.');
       Exit;
+    end;
     Script.Append('(function(){const p=[');
     for Candidate in Pairs do
     begin
@@ -327,13 +379,24 @@ begin
       Script.Append('[').Append(Candidate).Append(']');
     end;
     Script.Append('];function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}function apply(n){var c=0,i,v,l,r,ch;if(!n)return 0;if(n.nodeType===3){v=n.nodeValue;for(i=0;i<p.length;i++){if(trim(v)===p[i][0]){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[i][1]+r;c++;break;}}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}function run(){if(!document.body)return 0;return apply(document.body);}var tries=0;function retry(){try{run();}catch(e){}tries++;if(tries<40)window.setTimeout(retry,150);}retry();})();');
+    DATRuntimeDebugLog(Format(
+      'ApplyBrowserText executing: pairs=%d script length=%d contains Time=%s Type=%s Song/Purpose=%s',
+      [Pairs.Count, Script.Length, BoolToStr(Pos('"Time"', Script.ToString) > 0,
+      True), BoolToStr(Pos('"Type"', Script.ToString) > 0, True),
+      BoolToStr(Pos('"Song/Purpose"', Script.ToString) > 0, True)]));
     try
       TCustomWebBrowser(AComponent).EvaluateJavaScript(Script.ToString);
     except
-      { A browser may still be loading when a newly-created dynamic dialog is
-        first shown. Translation must never turn that platform race into a
-        repeated application error dialog. The retry component below keeps
-        applying the same browser-safe script after the platform view settles. }
+      on E: Exception do
+      begin
+        DATRuntimeDebugLog(Format(
+          'ApplyBrowserText immediate EvaluateJavaScript failed on %s.%s: %s: %s',
+          [AComponent.ClassName, AComponent.Name, E.ClassName, E.Message]));
+        { A browser may still be loading when a newly-created dynamic dialog is
+          first shown. Translation must never turn that platform race into a
+          repeated application error dialog. The retry component below keeps
+          applying the same browser-safe script after the platform view settles. }
+      end;
     end;
     TBrowserTranslationRetry.Create(TCustomWebBrowser(AComponent),
       Script.ToString);
