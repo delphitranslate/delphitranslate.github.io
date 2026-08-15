@@ -174,6 +174,11 @@ var
   Term: TProjectGlossaryTerm;
 begin
   lstGlossary.Clear;
+  if FGlossary = nil then
+  begin
+    lblStatus.Text := 'No project glossary is loaded.';
+    Exit;
+  end;
   for Term in FGlossary.Terms do
     lstGlossary.Items.Add(Term.SourceText + '  ->  ' + Term.TargetText);
   lblStatus.Text := Format('%d approved project terminology term(s).',
@@ -294,12 +299,18 @@ procedure TfrmLocalizationReview.btnAddTermClick(Sender: TObject);
 var
   Term: TProjectGlossaryTerm;
 begin
+  if FGlossary = nil then
+  begin
+    lblStatus.Text := 'No project glossary is loaded.';
+    Exit;
+  end;
   if (Trim(edtSourceTerm.Text) = '') or (Trim(edtTargetTerm.Text) = '') then
   begin
     lblStatus.Text := 'Enter both source and preferred target text.';
     Exit;
   end;
-  if lstGlossary.ItemIndex >= 0 then
+  if (lstGlossary.ItemIndex >= 0) and
+     (lstGlossary.ItemIndex < FGlossary.Terms.Count) then
     Term := FGlossary.Terms[lstGlossary.ItemIndex]
   else
   begin
@@ -330,7 +341,9 @@ end;
 
 procedure TfrmLocalizationReview.btnDeleteTermClick(Sender: TObject);
 begin
-  if lstGlossary.ItemIndex < 0 then
+  if (FGlossary = nil) or
+     (lstGlossary.ItemIndex < 0) or
+     (lstGlossary.ItemIndex >= FGlossary.Terms.Count) then
     Exit;
   FGlossary.Terms.Delete(lstGlossary.ItemIndex);
   RefreshGlossary;
@@ -338,6 +351,11 @@ end;
 
 procedure TfrmLocalizationReview.btnSaveGlossaryClick(Sender: TObject);
 begin
+  if FGlossary = nil then
+  begin
+    lblStatus.Text := 'No project glossary is loaded.';
+    Exit;
+  end;
   FGlossary.SaveToFile(FGlossaryFileName);
   RefreshSuggestions;
   lblStatus.Text := 'Project glossary saved: ' + FGlossaryFileName;
@@ -347,7 +365,9 @@ procedure TfrmLocalizationReview.lstSuggestionsChange(Sender: TObject);
 var
   Suggestion: TGlossarySuggestion;
 begin
-  if (FGlossarySuggestions = nil) or (lstSuggestions.ItemIndex < 0) then Exit;
+  if (FGlossarySuggestions = nil) or
+     (lstSuggestions.ItemIndex < 0) or
+     (lstSuggestions.ItemIndex >= FGlossarySuggestions.Count) then Exit;
   Suggestion := FGlossarySuggestions[lstSuggestions.ItemIndex];
   memSuggestionDetail.Lines.Text :=
     'Source term: ' + Suggestion.SourceText + sLineBreak +
@@ -362,7 +382,9 @@ end;
 
 procedure TfrmLocalizationReview.btnUseSuggestionClick(Sender: TObject);
 begin
-  if (FGlossarySuggestions = nil) or (lstSuggestions.ItemIndex < 0) then Exit;
+  if (FGlossarySuggestions = nil) or
+     (lstSuggestions.ItemIndex < 0) or
+     (lstSuggestions.ItemIndex >= FGlossarySuggestions.Count) then Exit;
   AddSuggestionToGlossary(FGlossarySuggestions[lstSuggestions.ItemIndex]);
   FGlossary.SaveToFile(FGlossaryFileName);
   RefreshGlossary;
@@ -376,6 +398,11 @@ var
   Added: Integer;
 begin
   Added := 0;
+  if FGlossary = nil then
+  begin
+    lblStatus.Text := 'No project glossary is loaded.';
+    Exit;
+  end;
   if FGlossarySuggestions <> nil then
     for Index := 0 to FGlossarySuggestions.Count - 1 do
       if FGlossarySuggestions[Index].CanBulkApprove then
@@ -393,7 +420,9 @@ procedure TfrmLocalizationReview.btnRejectSuggestionClick(Sender: TObject);
 var
   SelectedIndex: Integer;
 begin
-  if (FGlossarySuggestions = nil) or (lstSuggestions.ItemIndex < 0) then Exit;
+  if (FGlossarySuggestions = nil) or
+     (lstSuggestions.ItemIndex < 0) or
+     (lstSuggestions.ItemIndex >= FGlossarySuggestions.Count) then Exit;
   SelectedIndex := lstSuggestions.ItemIndex;
   FGlossarySuggestions.Delete(SelectedIndex);
   lstSuggestions.Items.Delete(SelectedIndex);
@@ -411,7 +440,9 @@ procedure TfrmLocalizationReview.lstGlossaryChange(Sender: TObject);
 var
   Term: TProjectGlossaryTerm;
 begin
-  if lstGlossary.ItemIndex < 0 then Exit;
+  if (FGlossary = nil) or
+     (lstGlossary.ItemIndex < 0) or
+     (lstGlossary.ItemIndex >= FGlossary.Terms.Count) then Exit;
   Term := FGlossary.Terms[lstGlossary.ItemIndex];
   edtSourceTerm.Text := Term.SourceText;
   edtTargetTerm.Text := Term.TargetText;
@@ -425,7 +456,9 @@ procedure TfrmLocalizationReview.lstProposalsChange(Sender: TObject);
 var
   Proposal: TLayoutProposal;
 begin
-  if lstProposals.ItemIndex < 0 then Exit;
+  if (FReview = nil) or
+     (lstProposals.ItemIndex < 0) or
+     (lstProposals.ItemIndex >= FReview.Proposals.Count) then Exit;
   Proposal := FReview.Proposals[lstProposals.ItemIndex];
   memProposalDetail.Lines.Text :=
     'Form: ' + Proposal.FormName + sLineBreak +

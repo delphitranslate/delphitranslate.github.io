@@ -16,8 +16,6 @@ uses
   FMX.Dialogs,
   FMX.Menus,
   DAT.Core.Types,
-  DAT.Integration.Reset,
-  DAT.Integration.Types,
   DAT.Provider.Settings,
   DAT.Provider.Types,
   DAT.Scan.Types,
@@ -227,10 +225,8 @@ type
     FScanResult: TProjectScanResult;
     FTranslationCatalog: TTranslationCatalog;
     FValidationResult: TCatalogValidationResult;
-    FIntegrationChangeSet: TIntegrationChangeSet;
     FIntegrationPackageDirectory: string;
     FLastIntegrationBackupDirectory: string;
-    FCompleteResetPlan: TCompleteResetPlan;
     FCatalogFileName: string;
     FProviderSettings: TProviderSettings;
     FSessionApiKeys: array[TTranslationProvider] of string;
@@ -295,9 +291,6 @@ uses
   DAT.Integration.Package,
   DAT.Integration.BuildDeploy,
   DAT.Integration.ComponentPackage,
-  DAT.Integration.Plan,
-  DAT.Integration.Engine,
-  DAT.Integration.Transaction,
   DAT.Provider.Client,
   DAT.Provider.CredentialStore,
   DAT.Runtime.LanguagePack,
@@ -309,7 +302,7 @@ uses
 {$R *.fmx}
 
 const
-  StudioBuildLabel = 'Build 2026.08.15.1858';
+  StudioBuildLabel = 'Build 2026.08.15.1924';
 
 procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var
@@ -374,44 +367,28 @@ begin
 end;
 
 procedure TfrmTranslationStudio.UpdateIntegrationModeUI;
-var
-  AdvancedMode: Boolean;
 begin
-  AdvancedMode := not IsComponentIntegrationMode;
-  lblLanguageMenuName.Enabled := AdvancedMode;
-  edtLanguageMenuName.Enabled := AdvancedMode;
-  chkBuildAfterIntegration.Visible := AdvancedMode;
-  cboBuildPlatform.Visible := AdvancedMode;
-  cboBuildConfiguration.Visible := AdvancedMode;
-  chkIntegrationReviewConfirmed.Visible := AdvancedMode;
-  btnApplyIntegration.Visible := AdvancedMode;
-  btnRestoreIntegration.Visible := AdvancedMode;
-  btnCompleteReset.Visible := AdvancedMode;
-  btnOpenDesignPackageLocation.Visible := not AdvancedMode;
-  btnOpenComponentKitFolder.Visible := not AdvancedMode;
+  lblLanguageMenuName.Enabled := False;
+  edtLanguageMenuName.Enabled := False;
+  chkBuildAfterIntegration.Visible := False;
+  cboBuildPlatform.Visible := False;
+  cboBuildConfiguration.Visible := False;
+  chkIntegrationReviewConfirmed.Visible := False;
+  btnApplyIntegration.Visible := False;
+  btnRestoreIntegration.Visible := False;
+  btnCompleteReset.Visible := False;
+  btnOpenDesignPackageLocation.Visible := True;
+  btnOpenComponentKitFolder.Visible := True;
   btnOpenDesignPackageLocation.Enabled := False;
   btnOpenComponentKitFolder.Enabled := False;
-  if AdvancedMode then
-  begin
-    btnGenerateIntegrationPackage.Text := 'Generate Preview';
-    lblIntegrationDescription.Text :=
-      'Advanced fallback: preview backed-up, transactional source changes. ' +
-      'Use only when component integration is unsuitable.';
-    lblIntegrationDiffTitle.Text := 'Exact changes';
-  end
-  else
-  begin
-    FreeAndNil(FIntegrationChangeSet);
-    FreeAndNil(FCompleteResetPlan);
-    btnGenerateIntegrationPackage.Text := 'Generate Component Kit';
-    lblIntegrationDescription.Text :=
-      'Recommended: generate a component setup kit without modifying any ' +
-      'target project or source file.';
-    lblIntegrationDiffTitle.Text := 'Setup instructions and generated files';
-    chkIntegrationReviewConfirmed.IsChecked := False;
-    btnApplyIntegration.Enabled := False;
-    btnRestoreIntegration.Enabled := False;
-  end;
+  btnGenerateIntegrationPackage.Text := 'Generate Component Kit';
+  lblIntegrationDescription.Text :=
+    'Recommended: generate a component setup kit without modifying any ' +
+    'target project or source file.';
+  lblIntegrationDiffTitle.Text := 'Setup instructions and generated files';
+  chkIntegrationReviewConfirmed.IsChecked := False;
+  btnApplyIntegration.Enabled := False;
+  btnRestoreIntegration.Enabled := False;
   lstIntegrationPlan.Items.Clear;
   memIntegrationDiff.Text := 'Build the integration plan to begin.';
   btnGenerateIntegrationPackage.Enabled := False;
@@ -423,12 +400,8 @@ end;
 procedure TfrmTranslationStudio.cboIntegrationModeChange(Sender: TObject);
 begin
   UpdateIntegrationModeUI;
-  if IsComponentIntegrationMode then
-    lblStatus.Text :=
-      'Component Integration selected. Target source will not be modified.'
-  else
-    lblStatus.Text :=
-      'Advanced Automatic Integration is disabled. Target source and project files are read-only.';
+  lblStatus.Text :=
+    'Component Integration selected. Target source will not be modified.';
 end;
 
 procedure TfrmTranslationStudio.datLanguageMenuItemClick(Sender: TObject);
@@ -454,8 +427,6 @@ begin
   btnApplyIntegration.Enabled := False;
   btnRestoreIntegration.Enabled := False;
   btnCompleteReset.Enabled := False;
-  FreeAndNil(FIntegrationChangeSet);
-  FreeAndNil(FCompleteResetPlan);
   FIntegrationPackageDirectory := '';
   FLastIntegrationBackupDirectory := '';
   lstIntegrationPlan.Items.Clear;
@@ -487,8 +458,6 @@ destructor TfrmTranslationStudio.Destroy;
 begin
   FProviderSettings.Free;
   FValidationResult.Free;
-  FIntegrationChangeSet.Free;
-  FCompleteResetPlan.Free;
   FTranslationCatalog.Free;
   FScanResult.Free;
   inherited Destroy;
@@ -580,79 +549,32 @@ end;
 
 procedure TfrmTranslationStudio.DisplaySelectedIntegrationChange;
 var
-  Change: TIntegrationFileChange;
   ComponentFileName: string;
-  Index: Integer;
 begin
-  if IsComponentIntegrationMode then
-  begin
-    if (FIntegrationPackageDirectory = '') or
-      (lstIntegrationPlan.ItemIndex < 0) then
-    begin
-      memIntegrationDiff.Text :=
-        'Generate the component kit to inspect its files and instructions.';
-      Exit;
-    end;
-    ComponentFileName := TPath.Combine(FIntegrationPackageDirectory,
-      lstIntegrationPlan.Items[lstIntegrationPlan.ItemIndex]);
-    if TFile.Exists(ComponentFileName) then
-      memIntegrationDiff.Lines.LoadFromFile(ComponentFileName)
-    else
-      memIntegrationDiff.Text := 'Generated file not found: ' +
-        ComponentFileName;
-    memIntegrationDiff.GoToTextBegin;
-    Exit;
-  end;
-  if FCompleteResetPlan <> nil then
-  begin
-    memIntegrationDiff.Lines.Assign(FCompleteResetPlan.PreviewLines);
-    memIntegrationDiff.GoToTextBegin;
-    Exit;
-  end;
-  if (FIntegrationChangeSet = nil) or
-     (lstIntegrationPlan.ItemIndex < 0) or
-     (lstIntegrationPlan.ItemIndex >=
-      FIntegrationChangeSet.Changes.Count) then
+  if (FIntegrationPackageDirectory = '') or
+    (lstIntegrationPlan.ItemIndex < 0) then
   begin
     memIntegrationDiff.Text :=
-      'Select a changed file to review its exact original and proposed text.';
+      'Generate the component kit to inspect its files and instructions.';
     Exit;
   end;
-
-  Index := lstIntegrationPlan.ItemIndex;
-  Change := FIntegrationChangeSet.Changes[Index];
-  memIntegrationDiff.Text := Change.ExactReviewText;
+  ComponentFileName := TPath.Combine(FIntegrationPackageDirectory,
+    lstIntegrationPlan.Items[lstIntegrationPlan.ItemIndex]);
+  if TFile.Exists(ComponentFileName) then
+    memIntegrationDiff.Lines.LoadFromFile(ComponentFileName)
+  else
+    memIntegrationDiff.Text := 'Generated file not found: ' +
+      ComponentFileName;
   memIntegrationDiff.GoToTextBegin;
 end;
 
 procedure TfrmTranslationStudio.UpdateIntegrationApplyState;
 begin
-  if IsComponentIntegrationMode then
-  begin
-    chkIntegrationReviewConfirmed.Enabled := False;
-    btnApplyIntegration.Enabled := False;
-    lblIntegrationDiffTitle.Text := 'Setup instructions and generated files';
-    Exit;
-  end;
-  if FCompleteResetPlan <> nil then
-  begin
-    chkIntegrationReviewConfirmed.Enabled := True;
-    btnApplyIntegration.Enabled :=
-      chkIntegrationReviewConfirmed.IsChecked;
-    lblIntegrationDiffTitle.Text :=
-      'Complete reset preview — one confirmation required';
-    Exit;
-  end;
-  chkIntegrationReviewConfirmed.Enabled :=
-    (FIntegrationChangeSet <> nil) and
-    (FIntegrationChangeSet.Changes.Count > 0);
-  btnApplyIntegration.Enabled := chkIntegrationReviewConfirmed.Enabled and
-    chkIntegrationReviewConfirmed.IsChecked;
-  if FIntegrationChangeSet <> nil then
-    lblIntegrationDiffTitle.Text :=
-      'Optional exact-change preview — select any file to inspect'
-  else
-    lblIntegrationDiffTitle.Text := 'Exact changes';
+  btnApplyIntegration.Enabled := False;
+  btnRestoreIntegration.Enabled := False;
+  btnCompleteReset.Enabled := False;
+  chkIntegrationReviewConfirmed.Enabled := False;
+  lblIntegrationDiffTitle.Text := 'Setup instructions and generated files';
 end;
 
 function TfrmTranslationStudio.SelectedProvider: TTranslationProvider;
@@ -757,7 +679,7 @@ begin
   ResetCatalog;
   btnScanProject.Enabled := AProfile.Framework <> tfUnknown;
   btnBuildIntegrationPlan.Enabled := AProfile.Framework <> tfUnknown;
-  btnCompleteReset.Enabled := AProfile.Framework <> tfUnknown;
+  btnCompleteReset.Enabled := False;
   SetWorkflowStep(1);
 
   if AProfile.Framework = tfUnknown then
@@ -1501,18 +1423,15 @@ end;
 procedure TfrmTranslationStudio.btnBuildIntegrationPlanClick(Sender: TObject);
 var
   Descriptor: TLanguagePackDescriptor;
-  IntegrationPlan: TIntegrationPlan;
   Languages: TObjectList<TLanguagePackDescriptor>;
 begin
-  FreeAndNil(FCompleteResetPlan);
   btnApplyIntegration.Text := 'Apply';
   chkIntegrationReviewConfirmed.Text :=
     'I authorize the backed-up, transactional integration changes';
   chkIntegrationReviewConfirmed.IsChecked := False;
   chkIntegrationReviewConfirmed.Enabled := False;
   btnApplyIntegration.Enabled := False;
-  btnRestoreIntegration.Enabled :=
-    FLastIntegrationBackupDirectory <> '';
+  btnRestoreIntegration.Enabled := False;
   try
     if IsComponentIntegrationMode then
     begin
@@ -1559,24 +1478,21 @@ begin
         'Component plan ready. No target project or source files were changed.';
       Exit;
     end;
-    IntegrationPlan := TIntegrationPlanner.Build(
-      FProjectProfile, edtLanguageMenuName.Text);
-    try
-      lstIntegrationPlan.Items.Assign(IntegrationPlan.Lines);
-      if IntegrationPlan.MenuFound then
-        lblIntegrationSummary.Text := Format(
-          '%d language pack(s) found. Existing designer menu will be populated.',
-          [IntegrationPlan.LanguageCount])
-      else
-        lblIntegrationSummary.Text := Format(
-          '%d language pack(s) found. A designer menu will be added to the primary form.',
-          [IntegrationPlan.LanguageCount]);
-      btnGenerateIntegrationPackage.Enabled := True;
-      lblStatus.Text :=
-        'Integration plan ready. No target source files were changed.';
-    finally
-      IntegrationPlan.Free;
-    end;
+    lstIntegrationPlan.Items.Clear;
+    lstIntegrationPlan.Items.Add(
+      'Target source integration is disabled.');
+    lstIntegrationPlan.Items.Add(
+      'Use Component Integration mode. The Studio may scan, translate, export JSON packs, and generate component kits, but it must not edit target Pascal, form, DPR, or DPROJ files.');
+    memIntegrationDiff.Text :=
+      'Read-only policy: no source integration preview is generated. ' +
+      'Select Component Integration (Recommended) to generate the safe kit.';
+    lblIntegrationSummary.Text :=
+      'No target file changes are available in read-only mode.';
+    lblIntegrationOutput.Text := '';
+    lblStatus.Text :=
+      'Target source integration is disabled. Use Component Integration.';
+    btnGenerateIntegrationPackage.Enabled := False;
+    Exit;
   except
     on E: Exception do
       lblStatus.Text := 'Unable to build integration plan: ' + E.Message;
@@ -1657,13 +1573,11 @@ end;
 procedure TfrmTranslationStudio.btnGenerateIntegrationPackageClick(
   Sender: TObject);
 var
-  Change: TIntegrationFileChange;
   FileName: string;
   OutputDirectory: string;
   StudioProjectRoot: string;
 begin
   try
-    FreeAndNil(FCompleteResetPlan);
     btnApplyIntegration.Text := 'Apply';
     chkIntegrationReviewConfirmed.Text :=
       'I authorize the backed-up, transactional integration changes';
@@ -1677,7 +1591,6 @@ begin
         TPath.Combine(StudioProjectRoot, 'source\components'));
       FIntegrationPackageDirectory := OutputDirectory;
       btnOpenComponentKitFolder.Enabled := True;
-      FreeAndNil(FIntegrationChangeSet);
       lstIntegrationPlan.Items.Clear;
       for FileName in TDirectory.GetFiles(OutputDirectory, '*',
         TSearchOption.soAllDirectories) do
@@ -1699,37 +1612,21 @@ begin
         'Component integration kit generated. The target project is unchanged.';
       Exit;
     end;
-    OutputDirectory := TIntegrationPackageGenerator.Generate(
-      FProjectProfile,
-      TPath.Combine(StudioProjectRoot, 'export\integration'),
-      TPath.Combine(StudioProjectRoot, 'source\runtime'));
-    FIntegrationPackageDirectory := OutputDirectory;
-    FreeAndNil(FIntegrationChangeSet);
-    FIntegrationChangeSet := TTargetIntegrationEngine.BuildChangeSet(
-      FProjectProfile, FIntegrationPackageDirectory,
-      edtLanguageMenuName.Text);
-    chkIntegrationReviewConfirmed.IsChecked := False;
-    chkIntegrationReviewConfirmed.Enabled :=
-      FIntegrationChangeSet.Changes.Count > 0;
-    btnApplyIntegration.Enabled := False;
     lstIntegrationPlan.Items.Clear;
-    for Change in FIntegrationChangeSet.Changes do
-      lstIntegrationPlan.Items.Add(Format('%s  |  %s',
-        [IntegrationChangeKindDisplayName(Change.Kind),
-         Change.TargetFileName]));
-    if lstIntegrationPlan.Items.Count > 0 then
-    begin
-      lstIntegrationPlan.ItemIndex := 0;
-      DisplaySelectedIntegrationChange;
-    end
-    else
-      memIntegrationDiff.Text := 'No target file changes are required.';
-    lblIntegrationOutput.Text := OutputDirectory;
-    lblIntegrationSummary.Text := Format(
-      '%d target file change(s) are ready. Exact review is optional.',
-      [FIntegrationChangeSet.Changes.Count]);
+    lstIntegrationPlan.Items.Add(
+      'Target source integration is disabled.');
+    lstIntegrationPlan.Items.Add(
+      'Use Component Integration mode. The Studio may scan, translate, export JSON packs, and generate component kits, but it must not edit target Pascal, form, DPR, or DPROJ files.');
+    memIntegrationDiff.Text :=
+      'Read-only policy: no source integration package is generated. ' +
+      'Select Component Integration (Recommended) to generate the safe kit.';
+    lblIntegrationOutput.Text := '';
+    lblIntegrationSummary.Text :=
+      'No target file changes are available in read-only mode.';
     lblStatus.Text :=
-      'Integration preview ready. Confirm once to enable Apply.';
+      'Target source integration is disabled. Use Component Integration.';
+    btnGenerateIntegrationPackage.Enabled := False;
+    Exit;
   except
     on E: Exception do
       lblStatus.Text := 'Unable to generate integration package: ' + E.Message;
@@ -1737,166 +1634,17 @@ begin
 end;
 
 procedure TfrmTranslationStudio.btnApplyIntegrationClick(Sender: TObject);
-var
-  ApplyResult: TIntegrationApplyResult;
-  BuildMessage: string;
-  SafetyBackupDirectory: string;
 begin
   lblStatus.Text :=
-    'Apply is disabled. Target source and project files are read-only.';
-  Exit;
-  if FCompleteResetPlan <> nil then
-  begin
-    if not chkIntegrationReviewConfirmed.IsChecked then
-    begin
-      lblStatus.Text :=
-        'Review the reset preview and confirm before continuing.';
-      Exit;
-    end;
-    if TDialogServiceSync.MessageDialog(
-      'Complete Reset will restore the original pre-integration source and ' +
-      'remove the Development, Languages, and Runtime translation folders. ' +
-      'A new verified safety backup will be created first. Continue?',
-      TMsgDlgType.mtWarning,
-      [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo],
-      TMsgDlgBtn.mbNo, 0) <> mrYes then
-      Exit;
-    btnApplyIntegration.Enabled := False;
-    btnCompleteReset.Enabled := False;
-    try
-      TCompleteResetEngine.Execute(FCompleteResetPlan);
-      SafetyBackupDirectory :=
-        FCompleteResetPlan.SafetyBackupDirectory;
-      FreeAndNil(FIntegrationChangeSet);
-      FIntegrationPackageDirectory := '';
-      FLastIntegrationBackupDirectory := '';
-      ClearScanSummary;
-      ResetCatalog;
-      lstIntegrationPlan.Items.Clear;
-      memIntegrationDiff.Text :=
-        'Complete Reset finished. Scan the project to begin again.';
-      lblIntegrationSummary.Text :=
-        'The target is back at its pre-translation state.';
-      lblIntegrationOutput.Text :=
-        'Pre-reset safety backup: ' + SafetyBackupDirectory;
-      chkIntegrationReviewConfirmed.IsChecked := False;
-      chkIntegrationReviewConfirmed.Enabled := False;
-      chkIntegrationReviewConfirmed.Text :=
-        'I authorize the backed-up, transactional integration changes';
-      btnApplyIntegration.Text := 'Apply';
-      btnGenerateIntegrationPackage.Enabled := False;
-      btnRestoreIntegration.Enabled := False;
-      btnCompleteReset.Enabled := True;
-      FreeAndNil(FCompleteResetPlan);
-      lblStatus.Text :=
-        'Complete Reset succeeded. The safety backup was retained.';
-    except
-      on E: Exception do
-      begin
-        btnCompleteReset.Enabled := True;
-        UpdateIntegrationApplyState;
-        lblStatus.Text := 'Complete Reset failed safely: ' + E.Message;
-      end;
-    end;
-    Exit;
-  end;
-  if FIntegrationChangeSet = nil then
-  begin
-    lblStatus.Text := 'Generate an integration package first.';
-    Exit;
-  end;
-  if not chkIntegrationReviewConfirmed.IsChecked then
-  begin
-    lblStatus.Text :=
-      'Confirm authorization before Apply.';
-    Exit;
-  end;
+    'Apply is disabled. Target source, form, DPR, and DPROJ files are read-only.';
   btnApplyIntegration.Enabled := False;
-  try
-    ApplyResult := TIntegrationTransaction.Apply(FIntegrationChangeSet);
-    try
-      FLastIntegrationBackupDirectory := ApplyResult.BackupDirectory;
-      lblIntegrationOutput.Text := Format(
-        '%d files written. Backup: %s',
-        [ApplyResult.FilesWritten, ApplyResult.BackupDirectory]);
-      lblStatus.Text :=
-        'Target integration completed. Reopen and build the target project.';
-      btnRestoreIntegration.Enabled := True;
-      if chkBuildAfterIntegration.IsChecked then
-      begin
-        try
-          BuildMessage := TTargetBuildDeployer.BuildAndDeploy(
-            FProjectProfile.ProjectFileName,
-            FProjectProfile.ProjectName,
-            cboBuildPlatform.Selected.Text,
-            cboBuildConfiguration.Selected.Text,
-            FIntegrationPackageDirectory);
-          lblStatus.Text := BuildMessage + ' The application was not launched.';
-        except
-          on E: Exception do
-            lblStatus.Text :=
-              'Integration succeeded, but automatic build/deploy failed: ' +
-              E.Message;
-        end;
-      end;
-    finally
-      ApplyResult.Free;
-    end;
-  except
-    on E: Exception do
-    begin
-      UpdateIntegrationApplyState;
-      lblStatus.Text := 'Integration failed and was rolled back: ' + E.Message;
-    end;
-  end;
 end;
 
 procedure TfrmTranslationStudio.btnCompleteResetClick(Sender: TObject);
-var
-  ProjectDirectory: string;
 begin
   lblStatus.Text :=
     'Complete Reset is disabled because the selected target project is read-only.';
-  Exit;
-  if FProjectProfile.ProjectFileName = '' then
-  begin
-    lblStatus.Text := 'Open the Delphi project to reset first.';
-    Exit;
-  end;
   btnCompleteReset.Enabled := False;
-  try
-    ProjectDirectory := TPath.GetDirectoryName(
-      FProjectProfile.ProjectFileName);
-    FreeAndNil(FCompleteResetPlan);
-    FCompleteResetPlan := TCompleteResetEngine.BuildPlan(
-      FProjectProfile.ProjectName, ProjectDirectory);
-    FreeAndNil(FIntegrationChangeSet);
-    lstIntegrationPlan.Items.Assign(FCompleteResetPlan.PreviewLines);
-    memIntegrationDiff.Lines.Assign(FCompleteResetPlan.PreviewLines);
-    memIntegrationDiff.GoToTextBegin;
-    lblIntegrationSummary.Text :=
-      'Complete Reset is ready. No project files have changed.';
-    lblIntegrationOutput.Text := 'Original baseline: ' +
-      FCompleteResetPlan.BaselineBackupDirectory;
-    chkIntegrationReviewConfirmed.IsChecked := False;
-    chkIntegrationReviewConfirmed.Text :=
-      'I reviewed this reset plan and authorize Complete Reset';
-    chkIntegrationReviewConfirmed.Enabled := True;
-    btnApplyIntegration.Text := 'Reset Project';
-    btnApplyIntegration.Enabled := False;
-    btnRestoreIntegration.Enabled := False;
-    lblIntegrationDiffTitle.Text :=
-      'Complete reset preview — one confirmation required';
-    lblStatus.Text :=
-      'Reset preview ready. One confirmation enables Reset Project.';
-  except
-    on E: Exception do
-    begin
-      FreeAndNil(FCompleteResetPlan);
-      lblStatus.Text := 'Unable to prepare Complete Reset: ' + E.Message;
-    end;
-  end;
-  btnCompleteReset.Enabled := True;
 end;
 
 procedure TfrmTranslationStudio.lstIntegrationPlanChange(Sender: TObject);
@@ -1912,24 +1660,12 @@ end;
 
 procedure TfrmTranslationStudio.btnRestoreIntegrationClick(Sender: TObject);
 begin
-  if FLastIntegrationBackupDirectory = '' then
-  begin
-    lblStatus.Text := 'No integration backup is available in this session.';
-    Exit;
-  end;
-  try
-    TIntegrationTransaction.Restore(
-      TPath.GetDirectoryName(FProjectProfile.ProjectFileName),
-      FLastIntegrationBackupDirectory);
-    btnRestoreIntegration.Enabled := False;
-    btnApplyIntegration.Enabled := False;
-    chkIntegrationReviewConfirmed.IsChecked := False;
-    chkIntegrationReviewConfirmed.Enabled := False;
-    lblStatus.Text := 'The target project was restored from its backup.';
-  except
-    on E: Exception do
-      lblStatus.Text := 'Unable to restore integration backup: ' + E.Message;
-  end;
+  lblStatus.Text :=
+    'Restore is disabled. Target source, form, DPR, and DPROJ files are read-only.';
+  btnRestoreIntegration.Enabled := False;
+  btnApplyIntegration.Enabled := False;
+  chkIntegrationReviewConfirmed.IsChecked := False;
+  chkIntegrationReviewConfirmed.Enabled := False;
 end;
 
 procedure TfrmTranslationStudio.btnOpenCatalogClick(Sender: TObject);

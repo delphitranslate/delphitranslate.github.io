@@ -244,7 +244,6 @@ uses
   DAT.Core.TranslationWorkspace,
   DAT.Review.Localization,
   DAT.Integration.ComponentPackage,
-  DAT.Integration.Transaction,
   DAT.Provider.Client,
   DAT.Provider.CredentialStore,
   DAT.Provider.Settings,
@@ -261,7 +260,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.15.1858';
+  StudioBuildLabel = 'Build 2026.08.15.1924';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
@@ -1809,20 +1808,7 @@ begin
     on E: Exception do
     begin
       AddProgress('STOPPED: ' + E.Message);
-      if FProjectConfigurationBackupDirectory <> '' then
-      begin
-        try
-          TIntegrationTransaction.Restore(
-            TPath.GetDirectoryName(FProjectProfile.ProjectFileName),
-            FProjectConfigurationBackupDirectory);
-          AddProgress('The Delphi project configuration was restored automatically.');
-          FProjectConfigurationBackupDirectory := '';
-        except
-          on RestoreError: Exception do
-            AddProgress('URGENT: automatic project restore failed: ' +
-              RestoreError.Message);
-        end;
-      end;
+      FProjectConfigurationBackupDirectory := '';
       lblFinishText.Text :=
         'Processing stopped safely. Review the message below. Target Pascal, form, DPR, and DPROJ files were not edited.';
       lblFooterStatus.Text := 'Setup Wizard did not complete: ' + E.Message;

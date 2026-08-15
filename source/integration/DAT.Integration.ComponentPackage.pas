@@ -11,9 +11,6 @@ type
     class function Generate(const AProfile: TProjectProfile;
       const AOutputRoot, ARuntimeSourceDirectory,
       AComponentSourceDirectory: string): string; static;
-    class function BuildConfiguredProjectText(const AOriginalText,
-      AComponentSourceDirectory, ADeploymentScriptFileName: string): string;
-      static;
     class function ConfigureProject(const AProfile: TProjectProfile;
       const AKitDirectory, ABackupDirectory: string): string; static;
   end;
@@ -28,113 +25,10 @@ uses
   System.SysUtils,
   DAT.Core.RuntimePack,
   DAT.Core.TranslationWorkspace,
-  DAT.Integration.Transaction,
-  DAT.Integration.Types,
   DAT.Runtime.LanguagePack,
   DAT.Scan.CatalogMerge,
   DAT.Scan.Project,
   DAT.Scan.Types;
-
-const
-  WizardProjectBlockBegin =
-    '        <!-- Delphi App Translation Setup Wizard: begin -->';
-  WizardProjectBlockEnd =
-    '        <!-- Delphi App Translation Setup Wizard: end -->';
-
-function XmlElementText(const AValue: string): string;
-begin
-  Result := StringReplace(AValue, '&', '&amp;', [rfReplaceAll]);
-  Result := StringReplace(Result, '<', '&lt;', [rfReplaceAll]);
-  Result := StringReplace(Result, '>', '&gt;', [rfReplaceAll]);
-  Result := StringReplace(Result, '"', '&quot;', [rfReplaceAll]);
-end;
-
-class function TComponentIntegrationPackageGenerator.BuildConfiguredProjectText(
-  const AOriginalText, AComponentSourceDirectory,
-  ADeploymentScriptFileName: string): string;
-var
-  BlockEndAt: Integer;
-  BlockStartAt: Integer;
-  ConfigurationBlock: string;
-  BaseGroupAt: Integer;
-  BaseGroupEndAt: Integer;
-  LineBreak: string;
-  SearchAt: Integer;
-  GroupText: string;
-begin
-  if Trim(AOriginalText) = '' then
-    raise EArgumentException.Create('The Delphi project file is empty.');
-  if Trim(AComponentSourceDirectory) = '' then
-    raise EArgumentException.Create('The ComponentSource path is required.');
-  if Trim(ADeploymentScriptFileName) = '' then
-    raise EArgumentException.Create('The deployment script path is required.');
-
-  if Pos(#13#10, AOriginalText) > 0 then
-    LineBreak := #13#10
-  else
-    LineBreak := #10;
-  ConfigurationBlock :=
-    WizardProjectBlockBegin + LineBreak +
-    '        <DCC_UnitSearchPath>' +
-      XmlElementText(TPath.GetFullPath(AComponentSourceDirectory)) +
-      ';$(DCC_UnitSearchPath)</DCC_UnitSearchPath>' + LineBreak +
-    '        <PostBuildEvent>$(PostBuildEvent)&#xD;&#xA;' +
-      '&quot;C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe&quot; ' +
-      '-NoProfile -ExecutionPolicy Bypass -File &quot;' +
-      XmlElementText(TPath.GetFullPath(ADeploymentScriptFileName)) +
-      '&quot; -ApplicationDirectory &quot;$(DCC_ExeOutput)&quot; ' +
-      '-ProjectDirectory &quot;$(MSBuildProjectDirectory)&quot;</PostBuildEvent>' +
-      LineBreak +
-    WizardProjectBlockEnd;
-
-  Result := AOriginalText;
-  BlockStartAt := Pos(WizardProjectBlockBegin, Result);
-  if BlockStartAt > 0 then
-  begin
-    BlockEndAt := PosEx(WizardProjectBlockEnd, Result, BlockStartAt);
-    if BlockEndAt = 0 then
-      raise EInvalidOpException.Create(
-        'The existing Setup Wizard project block is incomplete.');
-    Delete(Result, BlockStartAt,
-      BlockEndAt + Length(WizardProjectBlockEnd) - BlockStartAt);
-  end;
-
-  BaseGroupAt := 0;
-  SearchAt := 1;
-  repeat
-    SearchAt := PosEx('<PropertyGroup Condition="''$(Base)''!=''''">',
-      Result, SearchAt);
-    if SearchAt = 0 then
-      Break;
-    BaseGroupEndAt := PosEx('</PropertyGroup>', Result, SearchAt);
-    if BaseGroupEndAt = 0 then
-      raise EInvalidOpException.Create(
-        'The Delphi project contains an incomplete Base property group.');
-    GroupText := Copy(Result, SearchAt,
-      BaseGroupEndAt - SearchAt + Length('</PropertyGroup>'));
-    if ContainsText(GroupText, '<DCC_Namespace>') or
-       ContainsText(GroupText, '<DCC_DcuOutput>') or
-       ContainsText(GroupText, '<DCC_ExeOutput>') then
-    begin
-      BaseGroupAt := SearchAt;
-      Break;
-    end;
-    SearchAt := BaseGroupEndAt + Length('</PropertyGroup>');
-  until False;
-
-  if BaseGroupAt = 0 then
-    raise EInvalidOpException.Create(
-      'The Delphi-native Base compiler property group was not found. The target project was not changed.');
-  BaseGroupEndAt := PosEx('</PropertyGroup>', Result, BaseGroupAt);
-  Insert(ConfigurationBlock + LineBreak, Result, BaseGroupEndAt);
-
-  if (Pos(WizardProjectBlockBegin, Result) = 0) or
-     (Pos(WizardProjectBlockEnd, Result) = 0) or
-     (Pos(WizardProjectBlockBegin, Result) > BaseGroupEndAt) or
-     (Pos('</Project>', Result) = 0) then
-    raise EInvalidOpException.Create(
-      'The proposed Delphi project configuration failed structural validation.');
-end;
 
 class function TComponentIntegrationPackageGenerator.ConfigureProject(
   const AProfile: TProjectProfile; const AKitDirectory,
