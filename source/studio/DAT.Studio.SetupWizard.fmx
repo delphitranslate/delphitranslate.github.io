@@ -235,7 +235,7 @@ object frmSetupWizard: TfrmSetupWizard
           Margins.Bottom = 22.000000000000000000
           Position.X = 28.000000000000000000
           Position.Y = 22.000000000000000000
-          Size.Width = 766.000000000000000000
+          Size.Width = 706.000000000000000000
           Size.Height = 474.000000000000000000
           Size.PlatformDefault = False
           TabPosition = None
@@ -246,7 +246,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 700.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 24.000000000000000000
@@ -259,7 +259,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 66.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 120.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 16.000000000000000000
@@ -270,7 +270,7 @@ object frmSetupWizard: TfrmSetupWizard
               Fill.Color = xFFFFF3E2
               Position.X = 8.000000000000000000
               Position.Y = 214.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 128.000000000000000000
               Size.PlatformDefault = False
               Stroke.Color = xFFFFB75E
@@ -281,7 +281,7 @@ object frmSetupWizard: TfrmSetupWizard
                 WordWrap = True
                 Position.X = 20.000000000000000000
                 Position.Y = 18.000000000000000000
-                Size.Width = 690.000000000000000000
+                Size.Width = 630.000000000000000000
                 Size.Height = 92.000000000000000000
                 Size.PlatformDefault = False
                 TextSettings.Font.Size = 15.000000000000000000
@@ -296,7 +296,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 700.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 24.000000000000000000
@@ -309,7 +309,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 60.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 62.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
@@ -320,13 +320,13 @@ object frmSetupWizard: TfrmSetupWizard
               ReadOnly = True
               Position.X = 8.000000000000000000
               Position.Y = 142.000000000000000000
-              Size.Width = 575.000000000000000000
+              Size.Width = 520.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextPrompt = 'No Delphi project selected'
             end
             object btnBrowseProject: TButton
-              Position.X = 598.000000000000000000
+              Position.X = 540.000000000000000000
               Position.Y = 142.000000000000000000
               Size.Width = 140.000000000000000000
               Size.Height = 42.000000000000000000
@@ -339,7 +339,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 292.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 58.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 16.000000000000000000
@@ -372,7 +372,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 314.000000000000000000
               Position.Y = 378.000000000000000000
-              Size.Width = 424.000000000000000000
+              Size.Width = 364.000000000000000000
               Size.Height = 54.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 13.000000000000000000
@@ -391,13 +391,13 @@ object frmSetupWizard: TfrmSetupWizard
               ReadOnly = True
               Position.X = 8.000000000000000000
               Position.Y = 238.000000000000000000
-              Size.Width = 575.000000000000000000
+              Size.Width = 520.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextPrompt = 'Select a Delphi project'
             end
             object btnCopyApplicationId: TButton
-              Position.X = 598.000000000000000000
+              Position.X = 540.000000000000000000
               Position.Y = 238.000000000000000000
               Size.Width = 140.000000000000000000
               Size.Height = 42.000000000000000000
@@ -412,7 +412,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 700.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 24.000000000000000000
@@ -425,7 +425,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 60.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 82.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
@@ -435,7 +435,7 @@ object frmSetupWizard: TfrmSetupWizard
             object lstDeploymentDestinations: TListBox
               Position.X = 8.000000000000000000
               Position.Y = 154.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 184.000000000000000000
               Size.PlatformDefault = False
               ShowCheckboxes = False
@@ -465,7 +465,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 406.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 54.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 13.000000000000000000
@@ -476,7 +476,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 468.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 44.000000000000000000
               Size.PlatformDefault = False
               TextSettings.FontColor = xFFB25400
@@ -489,7 +489,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 700.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 24.000000000000000000
@@ -502,7 +502,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 58.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 54.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
@@ -606,7 +606,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 334.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 76.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
@@ -619,7 +619,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 700.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 24.000000000000000000
@@ -632,7 +632,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 58.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 54.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
@@ -688,7 +688,7 @@ object frmSetupWizard: TfrmSetupWizard
             object edtApiKey: TEdit
               Position.X = 8.000000000000000000
               Position.Y = 244.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextPrompt = 'Paste a new key, or use one already saved on this computer'
@@ -759,7 +759,7 @@ object frmSetupWizard: TfrmSetupWizard
               Text = 'Scans forms and resourcestrings while preserving existing translations. Continue after scanning; Localization Review opens automatically after translation.'
             end
             object btnRunScan: TButton
-              Position.X = 574.000000000000000000
+              Position.X = 520.000000000000000000
               Position.Y = 26.000000000000000000
               Size.Width = 164.000000000000000000
               Size.Height = 48.000000000000000000
@@ -771,7 +771,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 122.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 34.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
@@ -782,7 +782,7 @@ object frmSetupWizard: TfrmSetupWizard
             object memScanResults: TMemo
               Position.X = 8.000000000000000000
               Position.Y = 164.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 218.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
@@ -810,7 +810,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 700.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 24.000000000000000000
@@ -823,7 +823,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 58.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 68.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
@@ -833,7 +833,7 @@ object frmSetupWizard: TfrmSetupWizard
             object memComponentInstructions: TMemo
               Position.X = 8.000000000000000000
               Position.Y = 136.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 198.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
@@ -886,7 +886,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 700.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 24.000000000000000000
@@ -899,7 +899,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 58.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 48.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
@@ -909,7 +909,7 @@ object frmSetupWizard: TfrmSetupWizard
             object memReview: TMemo
               Position.X = 8.000000000000000000
               Position.Y = 116.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 164.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
@@ -927,7 +927,7 @@ object frmSetupWizard: TfrmSetupWizard
             object chkTargetProjectClosed: TCheckBox
               Position.X = 8.000000000000000000
               Position.Y = 324.000000000000000000
-              Size.Width = 700.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 32.000000000000000000
               Size.PlatformDefault = False
               Text = 'Required: the target project is closed in RAD Studio'
@@ -947,7 +947,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 398.000000000000000000
-              Size.Width = 730.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 52.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 14.000000000000000000
@@ -962,7 +962,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 700.000000000000000000
+              Size.Width = 670.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 24.000000000000000000
@@ -1079,10 +1079,10 @@ object frmSetupWizard: TfrmSetupWizard
               OnClick = btnLocalizationReviewClick
             end
             object BuildChoiceCard: TRectangle
-              Position.X = 330.000000000000000000
+              Position.X = 332.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 410.000000000000000000
-              Size.Height = 500.000000000000000000
+              Size.Width = 338.000000000000000000
+              Size.Height = 430.000000000000000000
               Size.PlatformDefault = False
               Fill.Color = xFFEAF3FF
               Stroke.Color = xFFB7D5F5
@@ -1092,7 +1092,7 @@ object frmSetupWizard: TfrmSetupWizard
                 StyledSettings = []
                 Position.X = 18.000000000000000000
                 Position.Y = 18.000000000000000000
-                Size.Width = 370.000000000000000000
+                Size.Width = 302.000000000000000000
                 Size.Height = 34.000000000000000000
                 Size.PlatformDefault = False
                 TextSettings.Font.Size = 18.000000000000000000
@@ -1105,7 +1105,7 @@ object frmSetupWizard: TfrmSetupWizard
                 WordWrap = True
                 Position.X = 18.000000000000000000
                 Position.Y = 62.000000000000000000
-                Size.Width = 370.000000000000000000
+                Size.Width = 302.000000000000000000
                 Size.Height = 72.000000000000000000
                 Size.PlatformDefault = False
                 TextSettings.Font.Size = 13.000000000000000000
@@ -1115,7 +1115,7 @@ object frmSetupWizard: TfrmSetupWizard
               object chkBuildNow: TCheckBox
                 Position.X = 18.000000000000000000
                 Position.Y = 150.000000000000000000
-                Size.Width = 370.000000000000000000
+                Size.Width = 302.000000000000000000
                 Size.Height = 28.000000000000000000
                 Size.PlatformDefault = False
                 Text = 'Build and deploy now'
@@ -1124,7 +1124,7 @@ object frmSetupWizard: TfrmSetupWizard
               object cboBuildPlatform: TComboBox
                 Position.X = 18.000000000000000000
                 Position.Y = 198.000000000000000000
-                Size.Width = 370.000000000000000000
+                Size.Width = 302.000000000000000000
                 Size.Height = 36.000000000000000000
                 Size.PlatformDefault = False
                 Items.Strings = ('Win32 only' 'Win64 only' 'Win32 and Win64')
@@ -1133,7 +1133,7 @@ object frmSetupWizard: TfrmSetupWizard
               object cboBuildConfiguration: TComboBox
                 Position.X = 18.000000000000000000
                 Position.Y = 248.000000000000000000
-                Size.Width = 370.000000000000000000
+                Size.Width = 302.000000000000000000
                 Size.Height = 36.000000000000000000
                 Size.PlatformDefault = False
                 Items.Strings = ('Debug only' 'Release only' 'Debug and Release')
@@ -1142,7 +1142,7 @@ object frmSetupWizard: TfrmSetupWizard
               object btnBuildNow: TButton
                 Position.X = 18.000000000000000000
                 Position.Y = 304.000000000000000000
-                Size.Width = 370.000000000000000000
+                Size.Width = 302.000000000000000000
                 Size.Height = 46.000000000000000000
                 Size.PlatformDefault = False
                 Text = 'Build and Deploy Selected Targets'
@@ -1153,7 +1153,7 @@ object frmSetupWizard: TfrmSetupWizard
                 WordWrap = True
                 Position.X = 18.000000000000000000
                 Position.Y = 362.000000000000000000
-                Size.Width = 370.000000000000000000
+                Size.Width = 302.000000000000000000
                 Size.Height = 58.000000000000000000
                 Size.PlatformDefault = False
                 TextSettings.Font.Size = 12.000000000000000000

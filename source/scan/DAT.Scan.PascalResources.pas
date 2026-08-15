@@ -545,18 +545,14 @@ begin
         'InputQuery', 'DialogMessage');
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'ShowScheduleDialog', 'DialogTitle');
-      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
-        'Items.Add', 'Items');
-      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
-        'Items.AddObject', 'Items');
-      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
-        'Lines.Add', 'Lines');
-      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
-        'Strings.Add', 'Items');
-      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
-        'FillText', 'OwnerDrawText');
-      ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
-        'TextOut', 'OwnerDrawText');
+      { Do not harvest broad Items.Add/Lines.Add/Strings.Add or canvas
+        drawing calls. In real applications these are commonly data rows,
+        logs, filenames, generated HTML, or owner-drawn runtime values rather
+        than stable UI captions. Collecting them caused thousands of false
+        "translatable" strings in Carillon and made the runtime try to
+        translate behavior/data. Designer-authored Items/Lines are still
+        scanned from .fmx/.dfm files; intentional runtime UI text should use
+        explicit visual property assignment, resourcestring, or a dialog call. }
       AssignAt := Pos(':=', Statement.Text);
       if AssignAt = 0 then
         Continue;

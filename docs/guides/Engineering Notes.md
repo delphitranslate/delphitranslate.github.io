@@ -1834,8 +1834,11 @@ batch rather than a narrowed subset. The implemented changes are:
    is missing or when the developer explicitly authorizes replacement.
 4. Runtime source-text restore and dynamic replacement use whole-term matching
    so a translation is not inserted inside a larger English word.
-5. Scanning now includes standalone HTML files under the selected project tree,
-   in addition to designer files, resourcestrings, and Pascal runtime text.
+5. Scanning intentionally does not sweep every standalone HTML file under the
+   selected project tree. Web sites, help pages, release notes, and download
+   pages are separate localization assets and should not inflate the app UI
+   catalog. Pascal-assembled browser UI can still be scanned from explicit
+   runtime HTML text.
 6. Accepted layout proposals may now carry bounded position adjustments
    (`Left`, `Top`, `Position.X`, `Position.Y`) as well as safe size/wrap rules.
    The exporter and FMX/VCL runtime loaders both preserve and apply those
@@ -1848,3 +1851,32 @@ batch rather than a narrowed subset. The implemented changes are:
 RAD Studio package rebuilds must be performed with the IDE closed. If
 `bds.exe` has a design package loaded, Windows locks the design BPL and the
 package output cannot be replaced safely.
+
+# Scan and Layout Correction Pass (2026-08-14)
+
+The Carillon acceptance test exposed two root causes that made the previous
+repair appear to do nothing:
+
+1. the scanner was over-collecting project-folder material, producing thousands
+   of non-UI strings from old tools, generated HTML, web pages, logs, and data
+   population calls; and
+2. layout review could propose useful move adjustments, but accepted move
+   decisions were not marked as runtime-eligible and therefore were not exported
+   into the offline JSON pack.
+
+The scanner is now limited to project-referenced source units and designer
+resources. Broad `Items.Add`, `Items.AddObject`, `Lines.Add`, `Strings.Add`,
+`FillText`, and `TextOut` harvesting is disabled because those calls commonly
+represent data rows, filenames, logs, owner-drawn values, or generated content
+rather than stable application captions. Designer-authored Items and Lines
+remain covered through FMX/DFM resource scanning.
+
+Layout overlap analysis now checks translated labels against untranslated
+neighbor controls as blockers, so labels are no longer allowed to expand under
+edit boxes, combo boxes, grids, or other non-translated controls. Accepted safe
+move proposals (`Left`, `Top`, `Position.X`, and `Position.Y`) are exported and
+applied at runtime along with width, height, word-wrap, and autosize decisions.
+
+The Setup Wizard geometry was also constrained to its visible content card so
+project, deployment, scan, and finish pages do not clip controls on normal
+desktop screens.

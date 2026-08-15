@@ -301,17 +301,17 @@ begin
         if not IsExcludedPath(ProjectDirectory, FileName) then
           AddUniqueFileName(FormFiles, FileName);
 
-      FileNames := TDirectory.GetFiles(ProjectDirectory, '*.pas',
-        TSearchOption.soAllDirectories);
-      for FileName in FileNames do
-        if not IsExcludedPath(ProjectDirectory, FileName) then
-          AddUniqueFileName(SourceFiles, FileName);
+      { Source scanning is intentionally limited to units referenced by the
+        selected project. Walking every .pas file below the folder pulls in
+        converters, old tools, backups, samples, and unrelated utilities; that
+        was the main reason Carillon scans jumped into the thousands. }
 
-      FileNames := TDirectory.GetFiles(ProjectDirectory, '*.htm*',
-        TSearchOption.soAllDirectories);
-      for FileName in FileNames do
-        if not IsExcludedPath(ProjectDirectory, FileName) then
-          AddUniqueFileName(HtmlFiles, FileName);
+      { Do not scan every standalone .htm/.html file in the project tree as
+        application UI. Real projects often carry websites, help pages,
+        release notes, or download pages beside the Delphi source; those are
+        separate localization assets and can explode the app catalog with
+        non-form text. Browser-backed UI assembled in Pascal is still scanned
+        by TPascalResourceStringScanner.ScanHtmlText. }
 
       for FileName in FormFiles do
       begin

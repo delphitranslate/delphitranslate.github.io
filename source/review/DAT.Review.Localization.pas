@@ -744,7 +744,6 @@ begin
            SameText(Other.FormName, Control.FormName) and
            SameText(Other.ParentName, Control.ParentName) and
            Other.HasPosition and Other.HasSize and
-           (Other.TranslatedText <> '') and
            OverlapsHorizontally(Control, Other) and
            OverlapsVertically(Control, Other) then
         begin
@@ -874,7 +873,11 @@ begin
         (SameText(Proposal.PropertyName, 'Width') or
          SameText(Proposal.PropertyName, 'Height') or
          SameText(Proposal.PropertyName, 'WordWrap') or
-         SameText(Proposal.PropertyName, 'AutoSize')) then
+         SameText(Proposal.PropertyName, 'AutoSize') or
+         SameText(Proposal.PropertyName, 'Left') or
+         SameText(Proposal.PropertyName, 'Top') or
+         SameText(Proposal.PropertyName, 'Position.X') or
+         SameText(Proposal.PropertyName, 'Position.Y')) then
       begin
         Item.AddPair('runtimeEligible', TJSONBool.Create(True));
         Inc(AcceptedSafeCount);
