@@ -371,14 +371,14 @@ begin
       DATRuntimeDebugLog('ApplyBrowserText stopped: no browser text pairs.');
       Exit;
     end;
-    Script.Append('(function(){const p=[');
+    Script.Append('(function(){var p=[');
     for Candidate in Pairs do
     begin
       if Script.Chars[Script.Length - 1] <> '[' then
         Script.Append(',');
       Script.Append('[').Append(Candidate).Append(']');
     end;
-    Script.Append('];function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}function apply(n){var c=0,i,v,l,r,ch;if(!n)return 0;if(n.nodeType===3){v=n.nodeValue;for(i=0;i<p.length;i++){if(trim(v)===p[i][0]){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[i][1]+r;c++;break;}}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}function run(){if(!document.body)return 0;return apply(document.body);}var tries=0;function retry(){try{run();}catch(e){}tries++;if(tries<40)window.setTimeout(retry,150);}retry();})();');
+    Script.Append('];function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}function apply(n){var c=0,i,v,l,r,ch;if(!n){return 0;}if(n.nodeType===3){v=n.nodeValue;for(i=0;i<p.length;i++){if(trim(v)===p[i][0]){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[i][1]+r;c++;break;}}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}function run(){if(!document.body){return 0;}return apply(document.body);}var tries=0;function retry(){try{run();}catch(e){}tries++;if(tries<40){window.setTimeout(retry,150);}}retry();})();');
     DATRuntimeDebugLog(Format(
       'ApplyBrowserText executing: pairs=%d script length=%d contains Time=%s Type=%s Song/Purpose=%s',
       [Pairs.Count, Script.Length, BoolToStr(Pos('"Time"', Script.ToString) > 0,
