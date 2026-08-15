@@ -784,11 +784,10 @@ var
           LocalPropertyName, LocalPropertyName + '.Strings', APack,
           APreserveControlState));
       Inc(Result, ApplyGridText(FormIdentity, AComponent, APack));
-      { Browser-backed HTML is applied during the initial language pass only.
-        Re-evaluating JavaScript on every dynamic refresh can race the FMX
-        browser and produce repeated platform error 80020101 dialogs. }
-      if AApplyLayout then
-        Inc(Result, ApplyBrowserText(AComponent, APack));
+      { Browser-backed HTML is text, not layout. Dynamic dialogs often contain
+        no designer-authored form file, so their browser text must be applied
+        whenever the language manager sees the browser component. }
+      Inc(Result, ApplyBrowserText(AComponent, APack));
       for ChildIndex := 0 to AComponent.ComponentCount - 1 do
         ApplyComponentTree(AComponent.Components[ChildIndex]);
     finally
