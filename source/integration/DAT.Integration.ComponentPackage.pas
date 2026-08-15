@@ -139,45 +139,9 @@ end;
 class function TComponentIntegrationPackageGenerator.ConfigureProject(
   const AProfile: TProjectProfile; const AKitDirectory,
   ABackupDirectory: string): string;
-var
-  ApplyResult: TIntegrationApplyResult;
-  ChangeSet: TIntegrationChangeSet;
-  NewProjectText: string;
-  OriginalProjectText: string;
 begin
   raise EInvalidOpException.Create(
     'Automatic target project configuration is disabled. The translator treats target project files as read-only.');
-  if not TFile.Exists(AProfile.ProjectFileName) then
-    raise EFileNotFoundException.CreateFmt(
-      'The Delphi project file was not found: %s',
-      [AProfile.ProjectFileName]);
-  OriginalProjectText := TFile.ReadAllText(AProfile.ProjectFileName,
-    TEncoding.UTF8);
-  NewProjectText := BuildConfiguredProjectText(OriginalProjectText,
-    TPath.Combine(AKitDirectory, 'ComponentSource'),
-    TPath.Combine(AKitDirectory, 'Deploy-LanguagePacks.ps1'));
-  if NewProjectText = OriginalProjectText then
-    Exit('');
-
-  ChangeSet := TIntegrationChangeSet.Create;
-  try
-    ChangeSet.ProjectDirectory :=
-      TPath.GetDirectoryName(AProfile.ProjectFileName);
-    ChangeSet.ProjectName := AProfile.ProjectName;
-    ChangeSet.AddTextChange(ickProjectMetadata,
-      AProfile.ProjectFileName,
-      'Add the generated ComponentSource Search Path and automatic ' +
-      'post-build language-pack deployment for every configuration and platform.',
-      NewProjectText);
-    ApplyResult := TIntegrationTransaction.Apply(ChangeSet, ABackupDirectory);
-    try
-      Result := ApplyResult.BackupDirectory;
-    finally
-      ApplyResult.Free;
-    end;
-  finally
-    ChangeSet.Free;
-  end;
 end;
 
 function SafeDirectoryName(const AValue: string): string;
@@ -279,13 +243,11 @@ begin
     'Target: ' + AProfile.ProjectName + sLineBreak +
     'Framework: ' + TargetFrameworkToString(AProfile.Framework) +
       sLineBreak + sLineBreak +
-    'Generating this kit does not modify the target project. When this kit is ' +
-      'created by the Setup Wizard, final processing adds only the marked ' +
-      'Search Path and post-build block to the DPROJ after creating the ' +
-      'required backups. Pascal source, form resources, and the DPR remain ' +
-      'unchanged. Delphi performs package registration through its own Install ' +
-      'Packages dialog. Never use the Install Component wizard and never ' +
-      'select a .dpk.' +
+    'Generating this kit does not modify the target project. The Setup Wizard ' +
+      'writes catalogs, runtime packs, and this external component kit only. ' +
+      'Pascal source, form resources, the DPR, and the DPROJ remain unchanged. ' +
+      'Delphi performs package registration through its own Install Packages ' +
+      'dialog. Never use the Install Component wizard and never select a .dpk.' +
       sLineBreak + sLineBreak +
     '1. In Delphi App Translation Studio, build the Integration plan and ' +
       'choose Show Design BPL. The Studio selects the stable verified ' +
@@ -307,17 +269,19 @@ begin
       'LanguageManager property to the manager component. Do not leave this ' +
       'property blank. A visible selector is required unless the ' +
       'application provides an equivalent connected Language menu.' + sLineBreak +
-    '11. The Setup Wizard adds this kit''s ComponentSource folder to the ' +
-      'project Search Path for all configurations and platforms.' + sLineBreak +
-    '12. The Setup Wizard adds automatic post-build deployment of ' +
-      'Localization\Languages. The included Deploy-LanguagePacks.ps1 ' +
+    '11. For manual RAD Studio builds, add this kit''s ComponentSource folder ' +
+      'to the project Search Path or install/use a common approved source ' +
+      'location. The Wizard build button passes this path to MSBuild without ' +
+      'editing the target project file.' + sLineBreak +
+    '12. The Wizard deploys Localization\Languages during final processing ' +
+      'and after Wizard-initiated builds. The included Deploy-LanguagePacks.ps1 ' +
       'script remains the manual fallback.' + sLineBreak +
     '13. Build and test Win32 and Win64. Changing the selector applies the ' +
       'language immediately and saves the preference.' + sLineBreak +
     '14. For a portable, network, or USB installation, enter its full ' +
-      'application folder on the Wizard Deployment page. Final processing ' +
-      'and future builds deploy it automatically whenever the destination ' +
-      'is available. The component property stays relative as ' +
+      'application folder on the Wizard Deployment page. Final processing and ' +
+      'Wizard-initiated builds deploy it whenever the destination is available. ' +
+      'The component property stays relative as ' +
       'Localization\Languages.' + sLineBreak + sLineBreak +
     'Ordinary forms need no component. For inherited or unusually renamed ' +
       'forms, configure FormIdentityMappings on the manager using ' +

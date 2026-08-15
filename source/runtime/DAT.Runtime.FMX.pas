@@ -45,6 +45,7 @@ uses
   FMX.Edit,
   FMX.Grid,
   FMX.Memo,
+  FMX.StdCtrls,
   FMX.Types,
   FMX.WebBrowser;
 
@@ -484,6 +485,118 @@ begin
   end;
 end;
 
+function ApplyConservativeTextFit(const AForm: TCommonCustomForm;
+  const APack: TRuntimeLanguagePack): Integer;
+const
+  MinimumButtonWidth = 96;
+  MaximumButtonWidth = 220;
+  MinimumLabelHeight = 22;
+  MaximumLabelHeight = 86;
+var
+  ComponentIndex: Integer;
+  SourceText: string;
+
+  function EstimatedTextWidth(const AText: string): Single;
+  begin
+    Result := Max(0, Length(Trim(AText)) * 7.4 + 20);
+  end;
+
+  function AvailableWidth(const AControl: TControl): Single;
+  begin
+    Result := 0;
+    if AControl = nil then
+      Exit;
+    if (AControl.Parent <> nil) and (AControl.Parent is TControl) then
+      Result := TControl(AControl.Parent).Width - AControl.Position.X - 12
+    else if AForm <> nil then
+      Result := AForm.Width - AControl.Position.X - 12;
+    if Result < AControl.Width then
+      Result := AControl.Width;
+  end;
+
+  function SetWordWrapIfSupported(const AComponent: TComponent): Boolean;
+  var
+    PropertyInfo: PPropInfo;
+  begin
+    Result := False;
+    PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'WordWrap',
+      [tkEnumeration]);
+    if PropertyInfo = nil then
+      Exit;
+    if GetOrdProp(AComponent, PropertyInfo) = 0 then
+    begin
+      SetOrdProp(AComponent, PropertyInfo, 1);
+      Result := True;
+    end;
+  end;
+
+  function FitComponent(const AComponent: TComponent): Integer;
+  var
+    Control: TControl;
+    CurrentText: string;
+    CurrentWidth: Single;
+    MaxWidth: Single;
+    NeededHeight: Single;
+    NeededWidth: Single;
+    NewWidth: Single;
+  begin
+    Result := 0;
+    if not (AComponent is TTextControl) or not (AComponent is TControl) then
+      Exit;
+    Control := TControl(AComponent);
+    if Control.Align <> TAlignLayout.None then
+      Exit;
+    CurrentText := Trim(TTextControl(AComponent).Text);
+    if CurrentText = '' then
+      Exit;
+    if not APack.TryRestoreDynamicText(CurrentText, SourceText) then
+      Exit;
+    CurrentWidth := Control.Width;
+    NeededWidth := EstimatedTextWidth(CurrentText);
+    if NeededWidth <= CurrentWidth + 6 then
+      Exit;
+    MaxWidth := AvailableWidth(Control);
+    if AComponent is TButton then
+    begin
+      NewWidth := Min(Max(NeededWidth, MinimumButtonWidth),
+        Min(MaxWidth, MaximumButtonWidth));
+      if NewWidth > CurrentWidth + 4 then
+      begin
+        Control.Width := NewWidth;
+        Inc(Result);
+      end;
+      Exit;
+    end;
+    if AComponent is TLabel then
+    begin
+      if SetWordWrapIfSupported(AComponent) then
+        Inc(Result);
+      NeededHeight := Min(MaximumLabelHeight,
+        Max(MinimumLabelHeight, Ceil(NeededWidth / Max(40, CurrentWidth)) * 20));
+      if NeededHeight > Control.Height + 2 then
+      begin
+        Control.Height := NeededHeight;
+        Inc(Result);
+      end;
+      if (CurrentWidth < 80) and (MaxWidth > CurrentWidth + 20) then
+      begin
+        NewWidth := Min(MaxWidth, Min(160, NeededWidth));
+        if NewWidth > CurrentWidth + 4 then
+        begin
+          Control.Width := NewWidth;
+          Inc(Result);
+        end;
+      end;
+    end;
+  end;
+begin
+  Result := 0;
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+    Inc(Result, FitComponent(AForm.Components[ComponentIndex]));
+end;
+
 function EditableTextComponent(const AComponent: TComponent): Boolean;
 begin
   Result := ((AComponent is TCustomEdit) and
@@ -890,10 +1003,10 @@ begin
       ApplyComponentTree(AForm.Components[ComponentIndex]);
     if AApplyLayout then
       Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
-    { Do not run the broad adaptive layout pass by default.  It walks every
-      text control and can grow controls without knowing whether the developer
-      intended a fixed-height design.  Only reviewed language-pack layout rules
-      are applied above. }
+    { Keep this fitting pass deliberately narrow: no source edits, no movement,
+      and no broad rearrangement. It only gives translated labels/buttons a
+      little breathing room when the text already came from the language pack. }
+    Inc(Result, ApplyConservativeTextFit(AForm, APack));
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
   finally
     VisitedComponents.Free;

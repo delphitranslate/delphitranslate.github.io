@@ -261,7 +261,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.15.1522';
+  StudioBuildLabel = 'Build 2026.08.15.1858';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
@@ -528,8 +528,10 @@ begin
     '5. Build-output folders and every available application destination ' +
       'entered on the Deployment page receive the current JSON packs ' +
       'automatically.' + sLineBreak +
-    'The Wizard configures the ComponentSource Search Path for all build ' +
-      'configurations and adds automatic post-build language-pack deployment.';
+    'For Wizard-initiated builds, the Wizard passes ComponentSource to MSBuild ' +
+      'without editing the target project file. For manual RAD Studio builds, ' +
+      'add the generated ComponentSource folder to the project Search Path or ' +
+      'use an approved common source location.';
 end;
 
 procedure TfrmSetupWizard.UpdateDeploymentSummary;
@@ -1226,17 +1228,17 @@ begin
     'Provider: ' + TranslationProviderDisplayName(SelectedProvider) + sLineBreak +
     Format('Scanned entries: %d', [FScanResult.Items.Count]) + sLineBreak +
     Format('Unresolved entries to translate: %d', [MissingCount]) + sLineBreak +
-    'Integration: component kit plus one controlled DPROJ configuration block.' +
+    'Integration: component kit only; target project files remain read-only.' +
       sLineBreak +
-    'Search Path: ComponentSource for all configurations and platforms.' +
+    'Search Path: passed temporarily to Wizard-initiated MSBuild commands.' +
       sLineBreak +
-    'Deployment: automatic after every future build; deploy now to existing outputs.' +
+    'Deployment: automatic during final processing and Wizard-initiated builds.' +
       sLineBreak +
     Format('Separate application destinations: %d (automatically deployed when available).',
       [lstDeploymentDestinations.Items.Count]) + sLineBreak +
     'RAD Studio: target project must be closed before final processing.' +
       sLineBreak +
-    'Backup: required ZIP plus verified DPROJ transaction backup.';
+    'Backup: required ZIP before final processing.';
 end;
 
 procedure TfrmSetupWizard.GenerateLocalizationReviewArtifacts;
@@ -1801,7 +1803,7 @@ begin
     FCompleted := True;
     UpdateBuildChoice;
     lblFinishText.Text :=
-      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation, runtime-pack export, and component-kit generation. Existing build outputs and every available application destination were deployed automatically. Target Pascal, form, DPR, and DPROJ files were not edited. Perform the clearly listed manual Delphi package/component step, then build the target.';
+      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation, runtime-pack export, and component-kit generation. Existing build outputs and every available application destination were deployed automatically. Target Pascal, form, DPR, and DPROJ files were not edited. If needed, use the build panel to build and deploy selected targets now.';
     lblFooterStatus.Text := 'Setup Wizard completed successfully.';
   except
     on E: Exception do
@@ -1822,7 +1824,7 @@ begin
         end;
       end;
       lblFinishText.Text :=
-        'Processing stopped safely. Review the message below. Pascal and form source files were not automatically edited.';
+        'Processing stopped safely. Review the message below. Target Pascal, form, DPR, and DPROJ files were not edited.';
       lblFooterStatus.Text := 'Setup Wizard did not complete: ' + E.Message;
       FCompleted := False;
     end;

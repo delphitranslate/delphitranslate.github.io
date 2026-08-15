@@ -140,6 +140,14 @@ begin
   else if MatchText(TextValue, ['play time:', 'play times:',
     'play time(s):']) then
     AItem.SemanticConcept := 'media.playTime'
+  else if SameText(TextValue, 'time') then
+    AItem.SemanticConcept := 'media.clockTime'
+  else if SameText(TextValue, 'type') then
+    AItem.SemanticConcept := 'noun.type'
+  else if SameText(TextValue, 'song') then
+    AItem.SemanticConcept := 'media.song'
+  else if SameText(TextValue, 'song/purpose') then
+    AItem.SemanticConcept := 'media.songPurpose'
   else if MatchText(TextValue, ['times to play:', 'number of times to play:']) then
     AItem.SemanticConcept := 'media.timesToPlay'
   else if SameText(TextValue, 'play on the following days:') then

@@ -34,23 +34,34 @@ begin
     Result := Copy(Result, 1, SeparatorAt - 1);
 end;
 
+function ExactSourceTranslation(const ALanguage, ASourceText: string;
+  out ATranslation: string): Boolean; forward;
+
 class function TTerminologyResolver.ApplyAuthoritativeTerms(
   const ACatalog: TTranslationCatalog): Integer;
 var
   Entry: TTranslationEntry;
+  MandatoryText: string;
+  IsMandatory: Boolean;
   ResolvedText: string;
 begin
   Result := 0;
   if ACatalog = nil then
     Exit;
   for Entry in ACatalog.Entries do
-    if (Entry.TranslationOrigin <> torProjectGlossary) and
-      not (Entry.Status in [tsExcluded, tsObsolete, tsReviewed,
-      tsApproved, tsEdited]) and
-      ((Entry.TranslationOrigin in [torUnknown, torGoogle, torDeepL,
-        torSuggestion, torTerminology]) or
-       (Entry.Status in [tsNeedsTranslation, tsAiDraft,
-         tsMachineTranslated, tsSourceChanged, tsError])) and
+  begin
+    if Entry.Status in [tsExcluded, tsObsolete, tsEdited] then
+      Continue;
+    IsMandatory := ExactSourceTranslation(BaseLanguage(
+      ACatalog.Locale.LanguageCode), Entry.SourceText, MandatoryText);
+    if not IsMandatory and
+      ((Entry.TranslationOrigin = torProjectGlossary) or
+       (Entry.Status in [tsReviewed, tsApproved])) then
+      Continue;
+    if ((Entry.TranslationOrigin in [torUnknown, torGoogle, torDeepL,
+      torSuggestion, torTerminology, torProjectGlossary]) or
+      (Entry.Status in [tsNeedsTranslation, tsAiDraft, tsMachineTranslated,
+       tsSourceChanged, tsError, tsReviewed, tsApproved])) and
       TryResolve(Entry, ACatalog.Locale.LanguageCode, ResolvedText) and
       not SameText(Trim(Entry.TranslatedText), Trim(ResolvedText)) then
     begin
@@ -61,6 +72,7 @@ begin
       Entry.TranslationReviewNote := '';
       Inc(Result);
     end;
+  end;
 end;
 
 function ConceptTranslation(const ALanguage, AConcept: string;
@@ -100,12 +112,16 @@ begin
     else if AConcept = 'calendar.sunday' then ATranslation := 'Dom'
     else if AConcept = 'media.playSchedule' then ATranslation := 'Horario de reproducci' + #$00F3 + 'n'
     else if AConcept = 'media.showRemainingSchedule' then ATranslation := 'Mostrar horario restante'
-    else if AConcept = 'media.playDates' then ATranslation := 'Fechas de reproducci' + #$00F3 + 'n:'
-    else if AConcept = 'media.playTime' then ATranslation := 'Hora(s) de reproducci' + #$00F3 + 'n:'
+    else if AConcept = 'media.playDates' then ATranslation := 'Fechas:'
+    else if AConcept = 'media.playTime' then ATranslation := 'Hora(s):'
+    else if AConcept = 'media.clockTime' then ATranslation := 'Hora'
+    else if AConcept = 'media.song' then ATranslation := 'Canci' + #$00F3 + 'n'
+    else if AConcept = 'media.songPurpose' then ATranslation := 'Canci' + #$00F3 + 'n/Motivo'
+    else if AConcept = 'noun.type' then ATranslation := 'Tipo'
     else if AConcept = 'media.timesToPlay' then ATranslation := 'Veces:'
     else if AConcept = 'media.playFollowingDays' then ATranslation := 'Reproducir en los siguientes d' + #$00ED + 'as:'
-    else if AConcept = 'media.playDateFrom' then ATranslation := 'Fecha inicial de reproducci' + #$00F3 + 'n'
-    else if AConcept = 'media.playDateTo' then ATranslation := 'Fecha final de reproducci' + #$00F3 + 'n'
+    else if AConcept = 'media.playDateFrom' then ATranslation := 'Fecha inicial'
+    else if AConcept = 'media.playDateTo' then ATranslation := 'Fecha final'
     else if AConcept = 'noun.group' then ATranslation := 'Grupo'
     else if AConcept = 'media.pause' then ATranslation := 'Pausar'
     else if AConcept = 'media.stop' then ATranslation := 'Detener'
@@ -226,14 +242,50 @@ begin
     Result := False;
 end;
 
+function ExactSourceTranslation(const ALanguage, ASourceText: string;
+  out ATranslation: string): Boolean;
+var
+  TextValue: string;
+begin
+  Result := False;
+  ATranslation := '';
+  TextValue := Trim(StringReplace(ASourceText, '&', '', [rfReplaceAll]));
+  if ALanguage = 'es' then
+  begin
+    if SameText(TextValue, 'Time') then
+      ATranslation := 'Hora'
+    else if SameText(TextValue, 'Type') then
+      ATranslation := 'Tipo'
+    else if SameText(TextValue, 'Song') then
+      ATranslation := 'Canci' + #$00F3 + 'n'
+    else if SameText(TextValue, 'Song/Purpose') then
+      ATranslation := 'Canci' + #$00F3 + 'n/Motivo'
+    else if SameText(TextValue, 'Play Date From') then
+      ATranslation := 'Fecha inicial'
+    else if SameText(TextValue, 'Play Date To') then
+      ATranslation := 'Fecha final'
+    else if MatchText(TextValue, ['Play Time', 'Play Time(s)', 'Time(s)',
+      'Hours of play', 'Playback hours']) then
+      ATranslation := 'Hora(s)'
+    else
+      Exit(False);
+    Exit(True);
+  end;
+end;
+
 class function TTerminologyResolver.TryResolve(
   const AEntry: TTranslationEntry; const ATargetLanguage: string;
   out ATranslation: string): Boolean;
 begin
   ATranslation := '';
-  Result := (AEntry <> nil) and (AEntry.SemanticConcept <> '') and
-    ConceptTranslation(BaseLanguage(ATargetLanguage),
-      AEntry.SemanticConcept, ATranslation);
+  if AEntry = nil then
+    Exit(False);
+  Result := (AEntry.SemanticConcept <> '') and
+    ConceptTranslation(BaseLanguage(ATargetLanguage), AEntry.SemanticConcept,
+      ATranslation);
+  if not Result then
+    Result := ExactSourceTranslation(BaseLanguage(ATargetLanguage),
+      AEntry.SourceText, ATranslation);
   if Result then
   begin
     if (Pos('&', AEntry.SourceText) > 0) and
