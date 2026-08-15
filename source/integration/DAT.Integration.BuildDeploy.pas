@@ -32,18 +32,28 @@ const
   ProcessTerminationWait = 5000;
 
 procedure RunHiddenBuild(const AProjectFileName, APlatform,
-  AConfiguration: string);
+  AConfiguration, APackageDirectory: string);
 var
   CommandLine: string;
+  ComponentSourceDirectory: string;
   ExitCode: Cardinal;
+  SearchPathProperty: string;
   ProcessInfo: TProcessInformation;
   StartupInfo: TStartupInfo;
   WaitResult: Cardinal;
   WorkDirectory: string;
 begin
+  ComponentSourceDirectory := TPath.Combine(APackageDirectory,
+    'ComponentSource');
+  SearchPathProperty := '';
+  if TDirectory.Exists(ComponentSourceDirectory) then
+    SearchPathProperty := Format(
+      ' /p:DCC_UnitSearchPath="%s;$(DCC_UnitSearchPath)"',
+      [ComponentSourceDirectory]);
   CommandLine := Format(
-    'cmd.exe /d /s /c ""%s" && msbuild "%s" /t:Build /p:Platform=%s /p:Config=%s"',
-    [DelphiEnvironmentFile, AProjectFileName, APlatform, AConfiguration]);
+    'cmd.exe /d /s /c ""%s" && msbuild "%s" /t:Build /p:Platform=%s /p:Config=%s%s"',
+    [DelphiEnvironmentFile, AProjectFileName, APlatform, AConfiguration,
+     SearchPathProperty]);
   WorkDirectory := TPath.GetDirectoryName(AProjectFileName);
   ZeroMemory(@StartupInfo, SizeOf(StartupInfo));
   ZeroMemory(@ProcessInfo, SizeOf(ProcessInfo));
@@ -215,7 +225,8 @@ begin
     TFile.Exists(TPath.ChangeExtension(BuildProjectFileName, '.dproj')) then
     BuildProjectFileName := TPath.ChangeExtension(
       BuildProjectFileName, '.dproj');
-  RunHiddenBuild(BuildProjectFileName, APlatform, AConfiguration);
+  RunHiddenBuild(BuildProjectFileName, APlatform, AConfiguration,
+    APackageDirectory);
   DestinationDirectory := FindBuildOutputDirectory(BuildProjectFileName,
     AProjectName, APlatform, AConfiguration, True);
   if DestinationDirectory = '' then
