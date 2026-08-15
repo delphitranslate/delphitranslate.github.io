@@ -226,12 +226,14 @@ var
   DestinationExecutable: string;
   DestinationLanguageDirectory: string;
   LanguagePackFileName: string;
-  ProjectDirectory: string;
   SourceExecutable: string;
   SourceLanguageDirectory: string;
   ExecutableStatus: string;
   Attempt: Integer;
   CopySucceeded: Boolean;
+  DestinationExisted: Boolean;
+  DestinationSize: Int64;
+  SourceSize: Int64;
 begin
   if not TFile.Exists(AProjectFileName) then
     raise EFileNotFoundException.CreateFmt(
@@ -249,7 +251,6 @@ begin
     end;
     Sleep(500);
   end;
-  ProjectDirectory := TPath.GetDirectoryName(AProjectFileName);
   SourceExecutable := FindBuildOutputDirectory(AProjectFileName, AProjectName,
     APlatform, AConfiguration, True);
   if SourceExecutable = '' then
@@ -258,12 +259,18 @@ begin
       'bin\%s\%s, or %s\%s.', [AProjectName + '.exe', APlatform,
       AConfiguration, APlatform, AConfiguration]);
   SourceExecutable := TPath.Combine(SourceExecutable, AProjectName + '.exe');
+  SourceSize := TFile.GetSize(SourceExecutable);
   DestinationExecutable := TPath.Combine(ADestinationDirectory,
     AProjectName + '.exe');
-  if TFile.Exists(DestinationExecutable) and not AReplaceExecutable then
+  DestinationExisted := TFile.Exists(DestinationExecutable);
+  if DestinationExisted and not AReplaceExecutable then
+  begin
+    DestinationSize := TFile.GetSize(DestinationExecutable);
     ExecutableStatus := Format(
-      'Executable left unchanged at %s (replace authorization was not selected).',
-      [DestinationExecutable])
+      'Executable left unchanged at %s (replace authorization was not selected). ' +
+      'Source was %s (%d bytes); existing destination is %d bytes.',
+      [DestinationExecutable, SourceExecutable, SourceSize, DestinationSize]);
+  end
   else
   begin
     CopySucceeded := False;
@@ -285,10 +292,17 @@ begin
     end;
     if not CopySucceeded then
       raise EInOutError.CreateFmt(
-        'The executable copy did not verify at %s.',
-        [DestinationExecutable]);
-    ExecutableStatus := Format('Executable copied to %s.',
-      [DestinationExecutable]);
+        'The executable copy did not verify at %s. Source was %s (%d bytes).',
+        [DestinationExecutable, SourceExecutable, SourceSize]);
+    DestinationSize := TFile.GetSize(DestinationExecutable);
+    if DestinationExisted then
+      ExecutableStatus := Format(
+        'Executable replaced at %s from %s (%d bytes verified).',
+        [DestinationExecutable, SourceExecutable, DestinationSize])
+    else
+      ExecutableStatus := Format(
+        'Executable created at %s from %s (%d bytes verified).',
+        [DestinationExecutable, SourceExecutable, DestinationSize]);
   end;
   SourceLanguageDirectory := TPath.Combine(APackageDirectory,
     'Localization\Languages');
