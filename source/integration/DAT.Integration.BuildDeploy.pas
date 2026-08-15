@@ -21,6 +21,7 @@ uses
   System.Classes,
   System.IOUtils,
   System.RegularExpressions,
+  System.StrUtils,
   System.SysUtils,
   Winapi.Windows;
 
@@ -88,7 +89,10 @@ class function TTargetBuildDeployer.FindBuildOutputDirectory(
   const AProjectFileName, AProjectName, APlatform, AConfiguration: string;
   ARequireExecutable: Boolean): string;
 var
+  BestCandidate: string;
+  BestWriteTime: TDateTime;
   Candidate: string;
+  CandidateFileName: string;
   CandidateList: TStringList;
   ExecutableName: string;
   Match: TMatch;
@@ -126,14 +130,19 @@ var
   end;
 
   function IsUsable(const ADirectory: string): Boolean;
+  var
+    FullDirectory: string;
   begin
-    Result := TDirectory.Exists(ADirectory) and
+    FullDirectory := IncludeTrailingPathDelimiter(TPath.GetFullPath(ADirectory));
+    Result := StartsText(IncludeTrailingPathDelimiter(ProjectDirectory),
+      FullDirectory) and TDirectory.Exists(ADirectory) and
       ((not ARequireExecutable) or TFile.Exists(
         TPath.Combine(ADirectory, ExecutableName)));
   end;
 
 begin
-  ProjectDirectory := TPath.GetDirectoryName(AProjectFileName);
+  ProjectDirectory := IncludeTrailingPathDelimiter(
+    TPath.GetFullPath(TPath.GetDirectoryName(AProjectFileName)));
   ExecutableName := AProjectName + '.exe';
   CandidateList := TStringList.Create;
   try
@@ -154,9 +163,23 @@ begin
       AConfiguration)));
     AddCandidate(TPath.Combine(APlatform, AConfiguration));
 
+    BestCandidate := '';
+    BestWriteTime := 0;
     for Candidate in CandidateList do
       if IsUsable(Candidate) then
-        Exit(Candidate);
+      begin
+        if not ARequireExecutable then
+          Exit(Candidate);
+        CandidateFileName := TPath.Combine(Candidate, ExecutableName);
+        if (BestCandidate = '') or
+          (TFile.GetLastWriteTime(CandidateFileName) > BestWriteTime) then
+        begin
+          BestCandidate := Candidate;
+          BestWriteTime := TFile.GetLastWriteTime(CandidateFileName);
+        end;
+      end;
+    if BestCandidate <> '' then
+      Exit(BestCandidate);
     if not ARequireExecutable then
       for Candidate in CandidateList do
         if TDirectory.Exists(Candidate) then

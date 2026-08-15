@@ -267,7 +267,7 @@ begin
         Script.Append(',');
       Script.Append('[').Append(Candidate).Append(']');
     end;
-    Script.Append('];function a(){if(!document.body)return;const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){let v=n.nodeValue;for(const q of p){if(v.trim()===q[0]){const l=v.match(/^\\s*/)[0],r=v.match(/\\s*$/)[0];v=l+q[1]+r;break;}}if(n.nodeValue!==v)n.nodeValue=v;}}a();})();');
+    Script.Append('];function a(){if(!document.body)return false;let c=0;const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){let v=n.nodeValue;for(const q of p){if(v.trim()===q[0]){const l=v.match(/^\\s*/)[0],r=v.match(/\\s*$/)[0];v=l+q[1]+r;break;}}if(n.nodeValue!==v){n.nodeValue=v;c++;}}return c>0;}let tries=0;function r(){try{a();}catch(e){}tries++;if(tries<25)setTimeout(r,120);}r();})();');
     try
       TCustomWebBrowser(AComponent).EvaluateJavaScript(Script.ToString);
       Result := Pairs.Count;

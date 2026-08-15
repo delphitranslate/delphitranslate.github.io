@@ -1790,6 +1790,9 @@ begin
       Report.Add('');
       Report.Add('DEPLOYMENT COMMANDS');
       Report.AddStrings(memCommands.Lines);
+      Report.Add('');
+      Report.Add('WIZARD PROGRESS AND DEPLOYMENT LOG');
+      Report.AddStrings(memProgress.Lines);
       Report.SaveToFile(TPath.Combine(FKitDirectory,
         'Wizard-Completion-Report.txt'), TEncoding.UTF8);
     finally
