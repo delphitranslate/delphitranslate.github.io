@@ -209,6 +209,7 @@ type
     function DeployLanguagePacksDirect(const AApplicationDirectory: string): Boolean;
     function RunDeploymentScript(const AApplicationDirectory: string;
       const ASkipConfiguredDestinations: Boolean = True): Boolean;
+    function PatchBrowserHtmlLoadCalls: Integer;
     function ExistingCatalogFileName: string;
     function EffectiveWorkflowName: string;
     procedure UpdateWorkflowSummary;
@@ -261,7 +262,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.15.1402';
+  StudioBuildLabel = 'Build 2026.08.15.1520';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
@@ -1463,6 +1464,102 @@ begin
   end;
 end;
 
+function TfrmSetupWizard.PatchBrowserHtmlLoadCalls: Integer;
+var
+  FileName: string;
+  Files: TStringList;
+  I: Integer;
+  InsertAt: Integer;
+  ProjectDirectory: string;
+  ScanItem: TScanItem;
+  SourceText: string;
+  UpdatedText: string;
+
+  procedure AddCandidateFile(const ACandidateFileName: string);
+  var
+    FullName: string;
+    LowerName: string;
+  begin
+    FullName := TPath.GetFullPath(ACandidateFileName);
+    LowerName := LowerCase(FullName);
+    if not SameText(TPath.GetExtension(FullName), '.pas') then
+      Exit;
+    if Pos('\componentsource\', LowerName) > 0 then
+      Exit;
+    if Pos('\localization\', LowerName) > 0 then
+      Exit;
+    if Pos('\__backup\', LowerName) > 0 then
+      Exit;
+    if Pos('\__history\', LowerName) > 0 then
+      Exit;
+    if Pos('\.git\', LowerName) > 0 then
+      Exit;
+    if Files.IndexOf(FullName) < 0 then
+      Files.Add(FullName);
+  end;
+
+  procedure EnsureDATComponentsCoreUses(var ASourceText: string);
+  begin
+    if Pos('DAT.Components.Core', ASourceText) > 0 then
+      Exit;
+    InsertAt := Pos('uses', ASourceText);
+    if InsertAt <= 0 then
+      Exit;
+    Inc(InsertAt, Length('uses'));
+    Insert('' + sLineBreak + '  DAT.Components.Core,', ASourceText,
+      InsertAt);
+  end;
+
+  function PatchText(const ASourceText: string): string;
+  begin
+    Result := ASourceText;
+    Result := StringReplace(Result, 'LoadFromStrings(Html,',
+      'LoadFromStrings(DATTranslateHtmlText(Html),',
+      [rfReplaceAll]);
+    Result := StringReplace(Result, 'LoadFromStrings( Html,',
+      'LoadFromStrings(DATTranslateHtmlText(Html),',
+      [rfReplaceAll]);
+    Result := StringReplace(Result,
+      'LoadFromStrings(DATTranslateHtmlText(DATTranslateHtmlText(Html),',
+      'LoadFromStrings(DATTranslateHtmlText(Html),',
+      [rfReplaceAll]);
+  end;
+
+begin
+  Result := 0;
+  if (FProjectProfile.ProjectFileName = '') or (FScanResult = nil) then
+    Exit;
+  ProjectDirectory := TPath.GetDirectoryName(FProjectProfile.ProjectFileName);
+  Files := TStringList.Create;
+  try
+    Files.CaseSensitive := False;
+    Files.Duplicates := dupIgnore;
+    Files.Sorted := True;
+    for ScanItem in FScanResult.Items do
+      if TFile.Exists(ScanItem.SourceFileName) then
+        AddCandidateFile(ScanItem.SourceFileName);
+    if Files.Count = 0 then
+      for FileName in TDirectory.GetFiles(ProjectDirectory, '*.pas',
+        TSearchOption.soAllDirectories) do
+        AddCandidateFile(FileName);
+
+    for I := 0 to Files.Count - 1 do
+    begin
+      FileName := Files[I];
+      SourceText := TFile.ReadAllText(FileName, TEncoding.UTF8);
+      UpdatedText := PatchText(SourceText);
+      if UpdatedText <> SourceText then
+      begin
+        EnsureDATComponentsCoreUses(UpdatedText);
+        TFile.WriteAllText(FileName, UpdatedText, TEncoding.UTF8);
+        Inc(Result);
+      end;
+    end;
+  finally
+    Files.Free;
+  end;
+end;
+
 function TfrmSetupWizard.DeployLanguagePacksDirect(
   const AApplicationDirectory: string): Boolean;
 const
@@ -1524,6 +1621,7 @@ var
   TranslatedTexts: TArray<string>;
   Contexts: TArray<string>;
   ProviderCount: Integer;
+  PatchedHtmlUnits: Integer;
   ResolvedText: string;
   Validation: TCatalogValidationResult;
   Glossary: TProjectGlossary;
@@ -1562,6 +1660,13 @@ begin
     TZipFile.ZipDirectoryContents(FBackupFileName,
       TPath.GetDirectoryName(FProjectProfile.ProjectFileName));
     AddProgress('Backup created: ' + FBackupFileName);
+    PatchedHtmlUnits := PatchBrowserHtmlLoadCalls;
+    if PatchedHtmlUnits > 0 then
+      AddProgress(Format(
+        'Browser HTML translation wrapper applied to %d source unit(s).',
+        [PatchedHtmlUnits]))
+    else
+      AddProgress('No browser HTML LoadFromStrings(Html, ...) calls required wrapping.');
 
     Provider := SelectedProvider;
     ApiKey := EffectiveApiKey;

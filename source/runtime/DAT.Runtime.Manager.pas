@@ -25,6 +25,8 @@ type
     function LoadLanguage(const ALanguageCode: string): Boolean;
     function LoadPreferredLanguage: Boolean;
     function Translate(const AKey, AFallbackText: string): string;
+    function TranslateDynamicText(const ASourceText: string): string;
+    function TranslateHtmlText(const AHtmlText: string): string;
     function FormatTemplate(const AKey, AFallbackText: string;
       const AArgs: array of const): string;
     property ActivePack: TRuntimeLanguagePack read FActivePack;
@@ -34,7 +36,9 @@ type
 implementation
 
 uses
+  System.Classes,
   System.IOUtils,
+  System.StrUtils,
   DAT.Runtime.Preference;
 
 constructor TTranslationRuntime.Create(const AApplicationId,
@@ -123,6 +127,131 @@ begin
     Result := AFallbackText
   else
     Result := FActivePack.GetAnyText(AKey, AFallbackText);
+end;
+
+function TTranslationRuntime.TranslateDynamicText(
+  const ASourceText: string): string;
+begin
+  if (FActivePack = nil) or
+    not FActivePack.TryTranslateDynamicText(ASourceText, Result) then
+    Result := ASourceText;
+end;
+
+function TTranslationRuntime.TranslateHtmlText(const AHtmlText: string): string;
+var
+  Candidate: string;
+  InTag: Boolean;
+  I: Integer;
+  J: Integer;
+  Keys: TStringList;
+  Segment: string;
+  SwapText: string;
+  TextIndex: Integer;
+
+  function IsWordCharacter(const AValue: Char): Boolean;
+  begin
+    Result := CharInSet(AValue, ['A'..'Z', 'a'..'z', '0'..'9', '_']) or
+      (Ord(AValue) > 127);
+  end;
+
+  function ReplaceWholeTerm(const AText, ASource,
+    AReplacement: string): string;
+  var
+    AfterIsWord: Boolean;
+    At: Integer;
+    BeforeIsWord: Boolean;
+    SearchFrom: Integer;
+  begin
+    Result := AText;
+    SearchFrom := 1;
+    while SearchFrom <= Length(Result) do
+    begin
+      At := PosEx(ASource, Result, SearchFrom);
+      if At = 0 then
+        Break;
+      BeforeIsWord := (At > 1) and IsWordCharacter(Result[At - 1]);
+      AfterIsWord := (At + Length(ASource) <= Length(Result)) and
+        IsWordCharacter(Result[At + Length(ASource)]);
+      if not BeforeIsWord and not AfterIsWord then
+      begin
+        Delete(Result, At, Length(ASource));
+        Insert(AReplacement, Result, At);
+        SearchFrom := At + Length(AReplacement);
+      end
+      else
+        SearchFrom := At + Length(ASource);
+    end;
+  end;
+
+  function TranslateVisibleSegment(const AText: string): string;
+  var
+    KeyIndex: Integer;
+    SourceText: string;
+    TranslatedText: string;
+  begin
+    Result := AText;
+    for KeyIndex := 0 to Keys.Count - 1 do
+    begin
+      SourceText := Keys[KeyIndex];
+      TranslatedText := FActivePack.SourceStrings[SourceText];
+      if (Trim(SourceText) <> '') and (Trim(TranslatedText) <> '') and
+        not SameText(SourceText, TranslatedText) then
+        Result := ReplaceWholeTerm(Result, SourceText, TranslatedText);
+    end;
+  end;
+
+begin
+  Result := AHtmlText;
+  if (FActivePack = nil) or (AHtmlText = '') then
+    Exit;
+  Keys := TStringList.Create;
+  try
+    for Candidate in FActivePack.SourceStrings.Keys do
+      if Trim(Candidate) <> '' then
+        Keys.Add(Candidate);
+    for I := 0 to Keys.Count - 2 do
+      for J := I + 1 to Keys.Count - 1 do
+      begin
+        if (Length(Keys[J]) > Length(Keys[I])) or
+          ((Length(Keys[J]) = Length(Keys[I])) and
+           (CompareText(Keys[J], Keys[I]) < 0)) then
+        begin
+          SwapText := Keys[I];
+          Keys[I] := Keys[J];
+          Keys[J] := SwapText;
+        end;
+      end;
+
+    Result := '';
+    Segment := '';
+    InTag := False;
+    for TextIndex := 1 to Length(AHtmlText) do
+    begin
+      if AHtmlText[TextIndex] = '<' then
+      begin
+        if Segment <> '' then
+        begin
+          Result := Result + TranslateVisibleSegment(Segment);
+          Segment := '';
+        end;
+        InTag := True;
+        Result := Result + AHtmlText[TextIndex];
+      end
+      else if AHtmlText[TextIndex] = '>' then
+      begin
+        InTag := False;
+        Result := Result + AHtmlText[TextIndex];
+      end
+      else if InTag then
+        Result := Result + AHtmlText[TextIndex]
+      else
+        Segment := Segment + AHtmlText[TextIndex];
+    end;
+    if Segment <> '' then
+      Result := Result + TranslateVisibleSegment(Segment);
+  finally
+    Keys.Free;
+  end;
 end;
 
 function TTranslationRuntime.FormatTemplate(const AKey,
