@@ -794,77 +794,6 @@ var
       Max(8, Max(AFirst.PlannedHeight, ASecond.PlannedHeight) * 0.55);
   end;
 
-  function ShareColumn(const AFirst, ASecond: TLayoutControl;
-    const AByRightEdge: Boolean): Boolean;
-  begin
-    Result := False;
-    if (AFirst = ASecond) or not AFirst.HasPosition or not ASecond.HasPosition or
-      not AFirst.HasSize or not ASecond.HasSize then
-      Exit;
-    if not SameText(AFirst.FormName, ASecond.FormName) or
-      not SameText(AFirst.ParentName, ASecond.ParentName) then
-      Exit;
-    if AByRightEdge then
-      Result := Abs((AFirst.Left + AFirst.Width) -
-        (ASecond.Left + ASecond.Width)) <= ColumnTolerance
-    else
-      Result := Abs(AFirst.Left - ASecond.Left) <= ColumnTolerance;
-  end;
-
-  function InLeftColumn(const AControl: TLayoutControl): Boolean;
-  var
-    Candidate: TLayoutControl;
-  begin
-    Result := False;
-    for Candidate in AReview.Controls do
-      if ShareColumn(AControl, Candidate, False) then
-        Exit(True);
-  end;
-
-  { A designed form is usually a table: captions sharing a right edge, fields
-    sharing a left edge, buttons sharing a column. Sizing each control on its
-    own merits breaks those edges apart, and a form whose columns have
-    dissolved reads as untidy even when nothing actually overlaps. Pull each
-    column back onto a single edge once the separation pass has decided how
-    much room each row needs. }
-  procedure SnapAlignmentColumns;
-  var
-    Control, Candidate: TLayoutControl;
-    TargetLeft, TargetRight: Double;
-  begin
-    for Control in AReview.Controls do
-    begin
-      if not Control.HasPosition or not Control.HasSize or
-        not CanMoveControl(Control) then
-        Continue;
-      if InLeftColumn(Control) then
-      begin
-        { Fields that started on a common left edge move together, out to
-          whichever of them needs the most room for its caption. }
-        TargetLeft := Control.PlannedLeft;
-        for Candidate in AReview.Controls do
-          if ShareColumn(Control, Candidate, False) then
-            TargetLeft := Max(TargetLeft, Candidate.PlannedLeft);
-        if (TargetLeft > Control.PlannedLeft) and
-          (TargetLeft + Control.PlannedWidth <= ContentRightBound(Control)) then
-          Control.PlannedLeft := TargetLeft;
-      end
-      else
-      begin
-        { Captions that started on a common right edge keep it, growing
-          leftwards, which is what right-aligned text expects. }
-        TargetRight := Control.PlannedLeft + Control.PlannedWidth;
-        for Candidate in AReview.Controls do
-          if ShareColumn(Control, Candidate, True) then
-            TargetRight := Max(TargetRight,
-              Candidate.PlannedLeft + Candidate.PlannedWidth);
-        if (TargetRight > Control.PlannedLeft + Control.PlannedWidth) and
-          (TargetRight - Control.PlannedWidth >= 0) and
-          (TargetRight <= ContentRightBound(Control)) then
-          Control.PlannedLeft := TargetRight - Control.PlannedWidth;
-      end;
-    end;
-  end;
 begin
   { Phase 1 - start every control from its designer geometry. }
   for Control in AReview.Controls do
@@ -1062,13 +991,9 @@ begin
         end;
       end;
     end;
-    { Re-align the columns after every pass so separation and alignment settle
-      together rather than one undoing the other. }
-    SnapAlignmentColumns;
     if not Moved then
       Break;
   end;
-  SnapAlignmentColumns;
 
   { Phase 4 - emit proposals from the settled geometry. Because every value
     comes from the same resolved model, the exported rules agree with one
