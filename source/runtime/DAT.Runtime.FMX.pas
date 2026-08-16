@@ -34,6 +34,7 @@ implementation
 
 uses
   System.Classes,
+  System.Generics.Defaults,
   System.IOUtils,
   System.JSON,
   System.Math,
@@ -497,7 +498,6 @@ const
   MaximumLabelHeight = 120;
 var
   ComponentIndex: Integer;
-  SourceText: string;
 
   function EstimatedTextWidth(const AText: string): Single;
   begin
@@ -721,13 +721,190 @@ var
     CurrentText := Trim(TTextControl(AComponent).Text);
     if CurrentText = '' then
       Exit;
-    if not APack.TryRestoreDynamicText(CurrentText, SourceText) then
-      Exit;
 
     if AComponent is TButton then
       Exit(FitButton(AComponent, Control, CurrentText));
     if AComponent is TLabel then
       Exit(FitLabel(AComponent, Control, CurrentText));
+  end;
+
+  function IsMovableControl(const AComponent: TComponent): Boolean;
+  begin
+    Result := (AComponent is TControl) and
+      TControl(AComponent).Visible and
+      (TControl(AComponent).Align = TAlignLayout.None);
+  end;
+
+  function IsTextLayoutControl(const AComponent: TComponent): Boolean;
+  begin
+    Result := (AComponent is TLabel) or (AComponent is TButton) or
+      (AComponent is TCheckBox);
+  end;
+
+  function HorizontalOverlap(const ALeft, ARight: TControl): Single;
+  begin
+    Result := Min(RightEdge(ALeft), RightEdge(ARight)) -
+      Max(ALeft.Position.X, ARight.Position.X);
+    if Result < 0 then
+      Result := 0;
+  end;
+
+  procedure SortControlsTopLeft(const AControls: TList<TControl>);
+  begin
+    AControls.Sort(TComparer<TControl>.Construct(
+      function(const ALeft, ARight: TControl): Integer
+      begin
+        if Abs(ALeft.Position.Y - ARight.Position.Y) > 4 then
+          Result := Sign(ALeft.Position.Y - ARight.Position.Y)
+        else
+          Result := Sign(ALeft.Position.X - ARight.Position.X);
+      end));
+  end;
+
+  function CollectSameParentControls(const AParent: TFmxObject): TList<TControl>;
+  var
+    Candidate: TComponent;
+    CandidateControl: TControl;
+    CandidateIndex: Integer;
+  begin
+    Result := TList<TControl>.Create;
+    for CandidateIndex := 0 to AForm.ComponentCount - 1 do
+    begin
+      Candidate := AForm.Components[CandidateIndex];
+      if not IsMovableControl(Candidate) then
+        Continue;
+      CandidateControl := TControl(Candidate);
+      if CandidateControl.Parent = AParent then
+        Result.Add(CandidateControl);
+    end;
+    SortControlsTopLeft(Result);
+  end;
+
+  function ResolveSiblingCollisionsForParent(const AParent: TFmxObject): Integer;
+  const
+    MinimumGap = 8;
+  var
+    Adjusted: Boolean;
+    AControl: TControl;
+    BControl: TControl;
+    Controls: TList<TControl>;
+    Horizontal: Single;
+    IndexA: Integer;
+    IndexB: Integer;
+    Iteration: Integer;
+    ParentWidth: Single;
+    RequiredX: Single;
+    RequiredY: Single;
+    Vertical: Single;
+  begin
+    Result := 0;
+    Controls := CollectSameParentControls(AParent);
+    try
+      ParentWidth := 0;
+      if AParent is TControl then
+        ParentWidth := TControl(AParent).Width
+      else if AForm <> nil then
+        ParentWidth := AForm.Width;
+
+      for Iteration := 1 to 8 do
+      begin
+        Adjusted := False;
+        SortControlsTopLeft(Controls);
+        for IndexA := 0 to Controls.Count - 2 do
+        begin
+          AControl := Controls[IndexA];
+          for IndexB := IndexA + 1 to Controls.Count - 1 do
+          begin
+            BControl := Controls[IndexB];
+            if BControl.Parent <> AControl.Parent then
+              Continue;
+            Horizontal := HorizontalOverlap(AControl, BControl);
+            Vertical := VerticalOverlap(AControl, BControl);
+            if (Horizontal <= 1) or (Vertical <= 1) then
+              Continue;
+
+            if BControl.Position.Y > AControl.Position.Y + 4 then
+            begin
+              RequiredY := BottomEdge(AControl) + MinimumGap;
+              if BControl.Position.Y < RequiredY then
+              begin
+                BControl.Position.Y := RequiredY;
+                Adjusted := True;
+                Inc(Result);
+              end;
+              Continue;
+            end;
+
+            if (BControl.Position.X > AControl.Position.X + 4) and
+              IsTextLayoutControl(AControl) then
+            begin
+              RequiredX := RightEdge(AControl) + MinimumGap;
+              if (ParentWidth <= 0) or
+                (RequiredX + BControl.Width <= ParentWidth - MinimumGap) then
+              begin
+                if BControl.Position.X < RequiredX then
+                begin
+                  BControl.Position.X := RequiredX;
+                  Adjusted := True;
+                  Inc(Result);
+                end;
+              end
+              else if AControl is TLabel then
+              begin
+                if DisableAutoSizeIfSupported(AControl) then
+                  Inc(Result);
+                if SetWordWrapIfSupported(AControl) then
+                  Inc(Result);
+                if AControl.Width > Max(MinimumLabelWidth,
+                  BControl.Position.X - AControl.Position.X - MinimumGap) then
+                begin
+                  AControl.Width := Max(MinimumLabelWidth,
+                    BControl.Position.X - AControl.Position.X - MinimumGap);
+                  AControl.Height := Max(AControl.Height,
+                    FitWrappedHeight(TTextControl(AControl).Text,
+                      AControl.Width, MinimumLabelHeight, MaximumLabelHeight));
+                  Adjusted := True;
+                  Inc(Result);
+                end;
+              end;
+            end;
+          end;
+        end;
+        if not Adjusted then
+          Break;
+      end;
+    finally
+      Controls.Free;
+    end;
+  end;
+
+  function ResolveSiblingCollisions: Integer;
+  var
+    ParentIndex: Integer;
+    ParentObject: TFmxObject;
+    Parents: TList<TFmxObject>;
+    Candidate: TComponent;
+    CandidateControl: TControl;
+    CandidateIndex: Integer;
+  begin
+    Result := 0;
+    Parents := TList<TFmxObject>.Create;
+    try
+      for CandidateIndex := 0 to AForm.ComponentCount - 1 do
+      begin
+        Candidate := AForm.Components[CandidateIndex];
+        if not IsMovableControl(Candidate) then
+          Continue;
+        CandidateControl := TControl(Candidate);
+        ParentObject := CandidateControl.Parent;
+        if (ParentObject <> nil) and (Parents.IndexOf(ParentObject) < 0) then
+          Parents.Add(ParentObject);
+      end;
+      for ParentIndex := 0 to Parents.Count - 1 do
+        Inc(Result, ResolveSiblingCollisionsForParent(Parents[ParentIndex]));
+    finally
+      Parents.Free;
+    end;
   end;
 begin
   Result := 0;
@@ -735,6 +912,7 @@ begin
     Exit;
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
     Inc(Result, FitComponent(AForm.Components[ComponentIndex]));
+  Inc(Result, ResolveSiblingCollisions);
 end;
 function EditableTextComponent(const AComponent: TComponent): Boolean;
 begin
