@@ -5,6 +5,17 @@
 > [!CAUTION]
 > **Alpha release - for controlled technical evaluation only.**
 >
+> Update 08-16-2026
+>
+> We have made substantial process on the translation and the problems with long translations for
+> tight spaces.  However, this product remains Alpha and for just looking at it for now.  It does
+> translate a form, but the alignments are still not fixed. We are currently designing rules
+> to handle the form and component alignment.
+>
+> If we can get this to work correctly, it will be of great use to developers everywhere.
+> Stay tuned.
+> 
+> 
 > Update 08-14-2026
 >
 > We have hit a major snag with the translator and it is giving unreliable translations and
