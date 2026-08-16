@@ -738,7 +738,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 540.000000000000000000
+              Size.Width = 498.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 24.000000000000000000
@@ -751,15 +751,15 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 58.000000000000000000
-              Size.Width = 535.000000000000000000
-              Size.Height = 52.000000000000000000
+              Size.Width = 498.000000000000000000
+              Size.Height = 74.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
               TextSettings.FontColor = xFF365674
               Text = 'Scans forms and resourcestrings while preserving existing translations. Continue after scanning; Localization Review opens automatically after translation.'
             end
             object btnRunScan: TButton
-              Position.X = 520.000000000000000000
+              Position.X = 514.000000000000000000
               Position.Y = 26.000000000000000000
               Size.Width = 164.000000000000000000
               Size.Height = 48.000000000000000000

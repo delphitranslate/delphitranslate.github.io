@@ -1448,10 +1448,20 @@ class function TFMXTranslationApplicator.ApplyLayoutToForm(
   const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string;
   const AUseTranslatedValues: Boolean): Integer;
+const
+  { Order matters. AutoSize must be cleared before any width or height is
+    assigned, because an auto-sizing FMX text control recomputes its own
+    bounds from a single line of text and discards an assigned Width.
+    WordWrap follows, so the height that is applied afterwards describes
+    wrapped text. Positions are applied last, once every control has its
+    final size. }
+  OrderedLayoutProperties: array[0..5] of string = (
+    'AutoSize', 'WordWrap', 'Width', 'Height', 'Position.X', 'Position.Y');
 var
   CandidateRule: TRuntimeLayoutRule;
   Component: TComponent;
   CurrentNumber: Extended;
+  OrderedProperty: string;
   Rule: TRuntimeLayoutRule;
   CandidateNumber: Extended;
   Superseded: Boolean;
@@ -1462,22 +1472,29 @@ var
     Result :=
       SameText(APropertyName, 'Width') or
       SameText(APropertyName, 'Height') or
-      SameText(APropertyName, 'WordWrap');
+      SameText(APropertyName, 'WordWrap') or
+      SameText(APropertyName, 'AutoSize') or
+      SameText(APropertyName, 'Left') or
+      SameText(APropertyName, 'Top') or
+      SameText(APropertyName, 'Position.X') or
+      SameText(APropertyName, 'Position.Y');
   end;
 begin
   Result := 0;
   if (AForm = nil) or (APack = nil) then
     Exit;
+  { The review analyser resolves sizes and positions together against one
+    planned model, so the rules for a form describe a single coherent layout.
+    Applying only part of that model is what leaves controls overlapping:
+    a width means nothing while AutoSize is still on, and a widened control
+    still collides with its neighbour unless the neighbour also moves. }
+  for OrderedProperty in OrderedLayoutProperties do
   for Rule in APack.LayoutRules do
   begin
     if not SameText(Rule.FormName, AFormIdentity) then
       Continue;
-    { Runtime localization must not rearrange a target form. Earlier layout
-      packs could contain positional proposals; those are too dangerous to
-      apply generically because they can scatter related controls. Keep the
-      runtime solver conservative: only expand/wrap controls to fit translated
-      text. The developer can still manually redesign the form if a language
-      needs a different layout. }
+    if not SameText(Rule.PropertyName, OrderedProperty) then
+      Continue;
     if not IsSafeRuntimeLayoutProperty(Rule.PropertyName) then
       Continue;
     { A catalog can contain more than one proposal for the same property
