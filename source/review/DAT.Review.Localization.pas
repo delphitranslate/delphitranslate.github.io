@@ -57,6 +57,7 @@ type
     FPlannedWidth: Double;
     FPlannedHeight: Double;
     FPlannedWordWrap: Boolean;
+    FPlannedFontSize: Double;
   public
     property FormName: string read FFormName write FFormName;
     property ParentName: string read FParentName write FParentName;
@@ -83,6 +84,7 @@ type
     property PlannedWidth: Double read FPlannedWidth write FPlannedWidth;
     property PlannedHeight: Double read FPlannedHeight write FPlannedHeight;
     property PlannedWordWrap: Boolean read FPlannedWordWrap write FPlannedWordWrap;
+    property PlannedFontSize: Double read FPlannedFontSize write FPlannedFontSize;
   end;
 
   TLayoutProposal = class
@@ -325,7 +327,7 @@ begin
     widened while the control it displaced stays put. Start them accepted;
     RestoreDecisions still lets an explicit rejection from the review win. }
   if MatchText(APropertyName, ['Width', 'Height', 'WordWrap', 'AutoSize',
-    'Left', 'Top', 'Position.X', 'Position.Y']) then
+    'Left', 'Top', 'Position.X', 'Position.Y', 'FontSize']) then
     Proposal.Decision := 'accepted'
   else
     Proposal.Decision := 'pending';
@@ -543,6 +545,14 @@ const
   UnboundedWidthAllowance = 100000;
   { How far apart two designed edges may sit and still count as one column. }
   ColumnTolerance = 6;
+  { Below this width a control cannot hold a whole word, so wrapping it only
+    produces fragments. }
+  MinimumWrapWidth = 60;
+  { More lines than this in a caption reads as a cramped block rather than a
+    label, and is where shrinking the text becomes the better trade. }
+  MaximumComfortableLines = 2;
+  { Never shrink text past the point where it stops being comfortable to read. }
+  MinimumReadableFontSize = 9;
 var
   Control, Other: TLayoutControl;
   RequiredWidth, RequiredHeight, FontSize: Double;
@@ -553,7 +563,7 @@ var
   Pass: Integer;
   Moved: Boolean;
   Leader, Follower: TLayoutControl;
-  RequiredLeft, Surplus, ReducedWidth: Double;
+  RequiredLeft, Surplus, ReducedWidth, ReducedFont: Double;
 
   { Measure the translated text with the same engine that renders it at
     runtime. Character-count arithmetic cannot predict real glyph widths, so
@@ -864,6 +874,7 @@ begin
     Control.PlannedWidth := Control.Width;
     Control.PlannedHeight := Control.Height;
     Control.PlannedWordWrap := Control.WordWrap;
+    Control.PlannedFontSize := Control.FontSize;
   end;
 
   { Phase 2 - size each control against its measured translated text, writing
@@ -884,24 +895,65 @@ begin
         Format('Measured translated width %.0f exceeds the %.0f-pixel control.',
           [RequiredWidth, Control.Width]),
         'Review the proposed width, wrapping, or nearby control placement.');
-      NewWidth := BoundedTextWidth(Control, RequiredWidth);
-      { Narrow captions need wrapping most of all: a control too small to hold
-        its translation on one line has to be allowed to break it, and must
-        have automatic sizing switched off, or it silently grows across its
-        neighbours instead. }
-      if IsWrappingText and (NewWidth >= 40) then
+      { Order of preference, most faithful to the design first.
+
+        Growing a control is what starts every cascade: the neighbour has to
+        move, the column it belonged to comes apart, and the row below is
+        disturbed in turn. So try the operations that disturb nothing before
+        the one that disturbs everything.
+
+        1. Wrap inside the designed width. Position and width are untouched;
+           only the height grows.
+        2. If that needs an uncomfortable number of lines, reduce the font a
+           little so it fits in fewer. This changes no geometry at all.
+        3. Only when neither is enough, widen the control. }
+      if IsWrappingText and (Control.Width >= MinimumWrapWidth) then
       begin
-        Control.PlannedWidth := NewWidth;
         Control.PlannedWordWrap := True;
-        { Line count is measured against the width the control will actually
-          have, so the height matches what the text will really occupy. }
-        LineCount := Max(1, Ceil(RequiredWidth / Max(NewWidth, 24)));
+        LineCount := Max(1, Ceil(RequiredWidth / Control.Width));
+        if LineCount > MaximumComfortableLines then
+        begin
+          { Shrink the text just enough for the lines that will fit, never
+            below the readable floor. }
+          ReducedFont := Max(MinimumReadableFontSize,
+            FontSize * MaximumComfortableLines / LineCount);
+          if ReducedFont < FontSize then
+          begin
+            Control.PlannedFontSize := ReducedFont;
+            RequiredWidth := RequiredWidth * ReducedFont / FontSize;
+            RequiredHeight := ReducedFont * 1.65;
+            LineCount := Max(1, Ceil(RequiredWidth / Control.Width));
+          end;
+        end;
+        if LineCount > MaximumComfortableLines then
+        begin
+          { Still cramped after shrinking, so widen as a last resort, only far
+            enough to reach a comfortable line count. }
+          NewWidth := BoundedTextWidth(Control,
+            RequiredWidth / MaximumComfortableLines);
+          if NewWidth > Ceil(Control.Width) then
+          begin
+            Control.PlannedWidth := NewWidth;
+            LineCount := Max(1, Ceil(RequiredWidth / NewWidth));
+          end;
+        end;
         if not IsButton then
           Control.PlannedHeight := Max(Control.PlannedHeight,
             Ceil(RequiredHeight * LineCount));
       end
       else
-        Control.PlannedWidth := NewWidth;
+      begin
+        { A control that cannot wrap has only the two remaining options. }
+        ReducedFont := Max(MinimumReadableFontSize,
+          FontSize * Control.Width / RequiredWidth);
+        if ReducedFont < FontSize then
+        begin
+          Control.PlannedFontSize := ReducedFont;
+          RequiredWidth := RequiredWidth * ReducedFont / FontSize;
+        end;
+        if RequiredWidth > Control.Width * 1.05 then
+          Control.PlannedWidth := BoundedTextWidth(Control, RequiredWidth);
+      end;
       { A heading centred inside its own bounds keeps its apparent position
         only if it grows about its centre. Pinning the left edge and extending
         rightwards slides the caption away from where it was designed to sit.
@@ -1043,6 +1095,13 @@ begin
         AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
           IntToStr(Ceil(Control.PlannedHeight)),
           'Height for the measured wrapped line count at the planned width.');
+      if (Control.PlannedFontSize > 0) and
+        (Control.PlannedFontSize < Control.FontSize - 0.1) then
+        AddProposal(AReview, Control, 'FontSize',
+          FormatFloat('0.##', Control.FontSize, TFormatSettings.Invariant),
+          FormatFloat('0.##', Control.PlannedFontSize,
+            TFormatSettings.Invariant),
+          'Slightly smaller text so the translation fits the designed control without moving anything.');
     end;
     { Movement is different. The separation pass steps a control aside to make
       room for a caption that grew, and that control is very often an edit box
@@ -1172,7 +1231,8 @@ begin
          SameText(Proposal.PropertyName, 'Left') or
          SameText(Proposal.PropertyName, 'Top') or
          SameText(Proposal.PropertyName, 'Position.X') or
-         SameText(Proposal.PropertyName, 'Position.Y')) then
+         SameText(Proposal.PropertyName, 'Position.Y') or
+         SameText(Proposal.PropertyName, 'FontSize')) then
       begin
         Item.AddPair('runtimeEligible', TJSONBool.Create(True));
         Inc(AcceptedSafeCount);

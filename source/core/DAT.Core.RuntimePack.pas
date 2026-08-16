@@ -228,7 +228,8 @@ begin
                 SameText(PropertyName, 'Left') or
                 SameText(PropertyName, 'Top') or
                 SameText(PropertyName, 'Position.X') or
-                SameText(PropertyName, 'Position.Y')) then
+                SameText(PropertyName, 'Position.Y') or
+                SameText(PropertyName, 'FontSize')) then
                 Continue;
               if Trim(LayoutItem.GetValue<string>('sourceChecksum', '')) = '' then
                 Continue;

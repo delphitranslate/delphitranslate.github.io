@@ -552,7 +552,7 @@ begin
     displacement that made room for it. }
   for Proposal in FReview.Proposals do
     if MatchText(Proposal.PropertyName, ['Width', 'Height', 'WordWrap',
-      'AutoSize', 'Left', 'Top', 'Position.X', 'Position.Y']) then
+      'AutoSize', 'Left', 'Top', 'Position.X', 'Position.Y', 'FontSize']) then
     begin
       Proposal.Decision := 'accepted';
       Inc(AcceptedCount);

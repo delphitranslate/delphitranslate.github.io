@@ -263,6 +263,29 @@ begin
   end;
 end;
 
+{ Font size is style-controlled in the same way wrapping is: while
+  TStyledSetting.Size remains, the platform style supplies the size and an
+  assignment is quietly ignored. Take it out of style control before setting
+  it, or a caption asked to shrink keeps rendering at its designed size and
+  overflows exactly as before. }
+function ApplyFontSizeSetting(const AComponent: TComponent;
+  const AValue: Single): Boolean;
+var
+  TextControl: TTextControl;
+begin
+  Result := False;
+  if not (AComponent is TTextControl) or (AValue <= 0) then
+    Exit;
+  TextControl := TTextControl(AComponent);
+  TextControl.StyledSettings := TextControl.StyledSettings -
+    [TStyledSetting.Size];
+  if not SameValue(TextControl.TextSettings.Font.Size, AValue, 0.01) then
+  begin
+    TextControl.TextSettings.Font.Size := AValue;
+    Result := True;
+  end;
+end;
+
 function TrySetLayoutProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
 var
@@ -295,6 +318,14 @@ begin
   if SameText(APropertyName, 'WordWrap') and (AComponent is TTextControl) then
   begin
     ApplyWordWrapSetting(AComponent, SameText(AValue, 'True'));
+    Exit(True);
+  end;
+  if SameText(APropertyName, 'FontSize') and (AComponent is TTextControl) then
+  begin
+    if not TryStrToFloat(AValue, FloatValue, TFormatSettings.Invariant) or
+      (FloatValue <= 0) or (FloatValue > 400) then
+      Exit;
+    ApplyFontSizeSetting(AComponent, FloatValue);
     Exit(True);
   end;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName);
@@ -1496,8 +1527,9 @@ const
     WordWrap follows, so the height that is applied afterwards describes
     wrapped text. Positions are applied last, once every control has its
     final size. }
-  OrderedLayoutProperties: array[0..5] of string = (
-    'AutoSize', 'WordWrap', 'Width', 'Height', 'Position.X', 'Position.Y');
+  OrderedLayoutProperties: array[0..6] of string = (
+    'AutoSize', 'FontSize', 'WordWrap', 'Width', 'Height', 'Position.X',
+    'Position.Y');
 var
   CandidateRule: TRuntimeLayoutRule;
   Component: TComponent;
@@ -1518,7 +1550,8 @@ var
       SameText(APropertyName, 'Left') or
       SameText(APropertyName, 'Top') or
       SameText(APropertyName, 'Position.X') or
-      SameText(APropertyName, 'Position.Y');
+      SameText(APropertyName, 'Position.Y') or
+      SameText(APropertyName, 'FontSize');
   end;
 begin
   Result := 0;
