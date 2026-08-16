@@ -1,4 +1,4 @@
-unit DAT.Studio.SetupWizard;
+﻿unit DAT.Studio.SetupWizard;
 
 interface
 
@@ -263,7 +263,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.16.1635';
+  StudioBuildLabel = 'Build 2026.08.16.1646';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin

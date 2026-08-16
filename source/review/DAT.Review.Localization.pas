@@ -318,7 +318,17 @@ begin
   Proposal.CurrentValue := ACurrent;
   Proposal.ProposedValue := AProposed;
   Proposal.Rationale := ARationale;
-  Proposal.Decision := 'pending';
+  { The geometry properties the runtime can apply are the whole point of the
+    analysis, and they only reach the pack once accepted. Leaving them pending
+    means a form is planned coherently and then ships with an arbitrary subset
+    of that plan, which is worse than shipping none of it: a caption is
+    widened while the control it displaced stays put. Start them accepted;
+    RestoreDecisions still lets an explicit rejection from the review win. }
+  if MatchText(APropertyName, ['Width', 'Height', 'WordWrap', 'AutoSize',
+    'Left', 'Top', 'Position.X', 'Position.Y']) then
+    Proposal.Decision := 'accepted'
+  else
+    Proposal.Decision := 'pending';
   Proposal.SourceChecksum := THashSHA2.GetHashString(
     AControl.SourceText + '|' + ACurrent);
   AReview.Proposals.Add(Proposal);

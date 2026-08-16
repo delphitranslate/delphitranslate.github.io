@@ -1,4 +1,4 @@
-unit DAT.Studio.MainForm;
+﻿unit DAT.Studio.MainForm;
 
 interface
 
@@ -304,7 +304,7 @@ uses
 {$R *.fmx}
 
 const
-  StudioBuildLabel = 'Build 2026.08.16.1635';
+  StudioBuildLabel = 'Build 2026.08.16.1646';
 
 procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var
@@ -888,7 +888,7 @@ begin
     begin
       Candidate := TTranslationEntry(Candidates.Objects[CandidateIndex]);
       cboTranslationSuggestions.Items.AddObject(
-        Candidate.TranslatedText + '  —  ' + Candidate.Key, Candidate);
+        Candidate.TranslatedText + '  â€”  ' + Candidate.Key, Candidate);
     end;
   finally
     Candidates.Free;

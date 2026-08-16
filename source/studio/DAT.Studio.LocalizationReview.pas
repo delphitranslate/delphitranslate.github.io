@@ -547,10 +547,12 @@ var
   AcceptedCount: Integer;
 begin
   AcceptedCount := 0;
+  { Match the set the runtime is able to apply. Accepting only sizes leaves
+    behind the moves that go with them, so a widened caption ships without the
+    displacement that made room for it. }
   for Proposal in FReview.Proposals do
-    if SameText(Proposal.PropertyName, 'Width') or
-      SameText(Proposal.PropertyName, 'Height') or
-      SameText(Proposal.PropertyName, 'WordWrap') then
+    if MatchText(Proposal.PropertyName, ['Width', 'Height', 'WordWrap',
+      'AutoSize', 'Left', 'Top', 'Position.X', 'Position.Y']) then
     begin
       Proposal.Decision := 'accepted';
       Inc(AcceptedCount);
