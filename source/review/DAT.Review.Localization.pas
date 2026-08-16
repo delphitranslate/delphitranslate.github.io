@@ -915,22 +915,32 @@ begin
     another instead of describing conflicting placements. }
   for Control in AReview.Controls do
   begin
-    if (Control.TranslatedText = '') or not Control.HasSize then
+    if not Control.HasSize then
       Continue;
-    if Ceil(Control.PlannedWidth) > Ceil(Control.Width) then
-      AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
-        IntToStr(Ceil(Control.PlannedWidth)),
-        'Width measured from the translated text and clamped to the space actually available.');
-    if Control.PlannedWordWrap and not Control.WordWrap then
-      AddProposal(AReview, Control, 'WordWrap', 'False', 'True',
-        'Wrap the translated text instead of expanding across neighboring controls.');
-    if Control.PlannedWordWrap and Control.AutoSize then
-      AddProposal(AReview, Control, 'AutoSize', 'True', 'False',
-        'Disable one-line automatic sizing so the translated text can wrap inside the planned width.');
-    if Ceil(Control.PlannedHeight) > Ceil(Control.Height) then
-      AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
-        IntToStr(Ceil(Control.PlannedHeight)),
-        'Height for the measured wrapped line count at the planned width.');
+    { Sizing and wrapping only mean something for a control whose text was
+      translated. }
+    if Control.TranslatedText <> '' then
+    begin
+      if Ceil(Control.PlannedWidth) > Ceil(Control.Width) then
+        AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
+          IntToStr(Ceil(Control.PlannedWidth)),
+          'Width measured from the translated text and clamped to the space actually available.');
+      if Control.PlannedWordWrap and not Control.WordWrap then
+        AddProposal(AReview, Control, 'WordWrap', 'False', 'True',
+          'Wrap the translated text instead of expanding across neighboring controls.');
+      if Control.PlannedWordWrap and Control.AutoSize then
+        AddProposal(AReview, Control, 'AutoSize', 'True', 'False',
+          'Disable one-line automatic sizing so the translated text can wrap inside the planned width.');
+      if Ceil(Control.PlannedHeight) > Ceil(Control.Height) then
+        AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
+          IntToStr(Ceil(Control.PlannedHeight)),
+          'Height for the measured wrapped line count at the planned width.');
+    end;
+    { Movement is different. The separation pass steps a control aside to make
+      room for a caption that grew, and that control is very often an edit box
+      or a check box carrying no text of its own. Exporting only the growth and
+      not the matching move is what leaves captions sitting on top of input
+      controls, so emit position changes for anything the planner moved. }
     if not Control.HasPosition then
       Continue;
     if Abs(Control.PlannedLeft - Control.Left) > 1 then
