@@ -488,10 +488,13 @@ end;
 function ApplyConservativeTextFit(const AForm: TCommonCustomForm;
   const APack: TRuntimeLanguagePack): Integer;
 const
+  HorizontalPadding = 10;
   MinimumButtonWidth = 96;
-  MaximumButtonWidth = 220;
+  MaximumButtonWidth = 240;
+  MinimumLabelWidth = 42;
+  MaximumLabelWidth = 420;
   MinimumLabelHeight = 22;
-  MaximumLabelHeight = 86;
+  MaximumLabelHeight = 120;
 var
   ComponentIndex: Integer;
   SourceText: string;
@@ -501,32 +504,206 @@ var
     Result := Max(0, Length(Trim(AText)) * 7.4 + 20);
   end;
 
-  function AvailableWidth(const AControl: TControl): Single;
+  function ParentClientWidth(const AControl: TControl): Single;
   begin
     Result := 0;
     if AControl = nil then
       Exit;
     if (AControl.Parent <> nil) and (AControl.Parent is TControl) then
-      Result := TControl(AControl.Parent).Width - AControl.Position.X - 12
+      Result := TControl(AControl.Parent).Width
     else if AForm <> nil then
-      Result := AForm.Width - AControl.Position.X - 12;
-    if Result < AControl.Width then
-      Result := AControl.Width;
+      Result := AForm.Width;
   end;
 
-  function SetWordWrapIfSupported(const AComponent: TComponent): Boolean;
+  function RightEdge(const AControl: TControl): Single;
+  begin
+    if AControl = nil then
+      Exit(0);
+    Result := AControl.Position.X + AControl.Width;
+  end;
+
+  function BottomEdge(const AControl: TControl): Single;
+  begin
+    if AControl = nil then
+      Exit(0);
+    Result := AControl.Position.Y + AControl.Height;
+  end;
+
+  function VerticalOverlap(const ALeft, ARight: TControl): Single;
+  begin
+    if (ALeft = nil) or (ARight = nil) then
+      Exit(0);
+    Result := Min(BottomEdge(ALeft), BottomEdge(ARight)) -
+      Max(ALeft.Position.Y, ARight.Position.Y);
+    if Result < 0 then
+      Result := 0;
+  end;
+
+  function AvailableWidthToParentRight(const AControl: TControl): Single;
   var
+    ParentWidth: Single;
+  begin
+    Result := AControl.Width;
+    ParentWidth := ParentClientWidth(AControl);
+    if ParentWidth > 0 then
+      Result := Max(MinimumLabelWidth,
+        ParentWidth - AControl.Position.X - HorizontalPadding);
+  end;
+
+  function NearestSameRowRightEdgeLimit(const AControl: TControl): Single;
+  var
+    Candidate: TComponent;
+    CandidateControl: TControl;
+    CandidateIndex: Integer;
+    CandidateLeft: Single;
+    BestLeft: Single;
+  begin
+    Result := AvailableWidthToParentRight(AControl);
+    BestLeft := MaxSingle;
+    for CandidateIndex := 0 to AForm.ComponentCount - 1 do
+    begin
+      Candidate := AForm.Components[CandidateIndex];
+      if (Candidate = AControl) or not (Candidate is TControl) then
+        Continue;
+      CandidateControl := TControl(Candidate);
+      if (CandidateControl.Parent <> AControl.Parent) or
+        (CandidateControl.Align <> TAlignLayout.None) or
+        not CandidateControl.Visible then
+        Continue;
+      CandidateLeft := CandidateControl.Position.X;
+      if (CandidateLeft <= AControl.Position.X + 2) or
+        (CandidateLeft >= BestLeft) then
+        Continue;
+      if VerticalOverlap(AControl, CandidateControl) < 4 then
+        Continue;
+      BestLeft := CandidateLeft;
+    end;
+    if BestLeft < MaxSingle then
+      Result := Max(MinimumLabelWidth, BestLeft - AControl.Position.X -
+        HorizontalPadding);
+  end;
+
+  function SetBooleanPropertyIfSupported(const AComponent: TComponent;
+    const APropertyName: string; const AValue: Boolean): Boolean;
+  var
+    NewValue: NativeInt;
     PropertyInfo: PPropInfo;
   begin
     Result := False;
-    PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'WordWrap',
+    PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName,
       [tkEnumeration]);
     if PropertyInfo = nil then
       Exit;
-    if GetOrdProp(AComponent, PropertyInfo) = 0 then
+    if AValue then
+      NewValue := 1
+    else
+      NewValue := 0;
+    if GetOrdProp(AComponent, PropertyInfo) <> NewValue then
     begin
-      SetOrdProp(AComponent, PropertyInfo, 1);
+      SetOrdProp(AComponent, PropertyInfo, NewValue);
       Result := True;
+    end;
+  end;
+
+  function SetWordWrapIfSupported(const AComponent: TComponent): Boolean;
+  begin
+    Result := SetBooleanPropertyIfSupported(AComponent, 'WordWrap', True);
+  end;
+
+  function DisableAutoSizeIfSupported(const AComponent: TComponent): Boolean;
+  begin
+    Result := SetBooleanPropertyIfSupported(AComponent, 'AutoSize', False);
+  end;
+
+  function FitWrappedHeight(const AText: string; const AWidth: Single;
+    const AMinimumHeight, AMaximumHeight: Single): Single;
+  var
+    Lines: Integer;
+  begin
+    Lines := Ceil(EstimatedTextWidth(AText) / Max(40, AWidth));
+    Result := Min(AMaximumHeight, Max(AMinimumHeight, Lines * 18 + 6));
+  end;
+
+  function FitButton(const AComponent: TComponent; const AControl: TControl;
+    const AText: string): Integer;
+  var
+    MaxWidth: Single;
+    NeededWidth: Single;
+    NewHeight: Single;
+    NewWidth: Single;
+  begin
+    Result := 0;
+    NeededWidth := EstimatedTextWidth(AText);
+    MaxWidth := Min(MaximumButtonWidth, AvailableWidthToParentRight(AControl));
+    NewWidth := Min(MaxWidth, Max(MinimumButtonWidth, NeededWidth));
+    if NewWidth > AControl.Width + 4 then
+    begin
+      AControl.Width := NewWidth;
+      Inc(Result);
+    end;
+    if NeededWidth > AControl.Width + 8 then
+    begin
+      if SetWordWrapIfSupported(AComponent) then
+        Inc(Result);
+      NewHeight := FitWrappedHeight(AText, AControl.Width, AControl.Height, 56);
+      if NewHeight > AControl.Height + 2 then
+      begin
+        AControl.Height := NewHeight;
+        Inc(Result);
+      end;
+    end;
+  end;
+
+  function FitLabel(const AComponent: TComponent; const AControl: TControl;
+    const AText: string): Integer;
+  var
+    HasRightNeighbor: Boolean;
+    MaxWidth: Single;
+    NeededHeight: Single;
+    NeededWidth: Single;
+    NewWidth: Single;
+    ParentWidth: Single;
+    RightLimitedWidth: Single;
+  begin
+    Result := 0;
+    NeededWidth := EstimatedTextWidth(AText);
+    ParentWidth := ParentClientWidth(AControl);
+    RightLimitedWidth := NearestSameRowRightEdgeLimit(AControl);
+    HasRightNeighbor := RightLimitedWidth < AvailableWidthToParentRight(AControl) - 1;
+
+    MaxWidth := Min(MaximumLabelWidth, RightLimitedWidth);
+    if ParentWidth > 0 then
+      MaxWidth := Min(MaxWidth, ParentWidth - AControl.Position.X -
+        HorizontalPadding);
+    MaxWidth := Max(MinimumLabelWidth, MaxWidth);
+
+    if (NeededWidth <= AControl.Width + 6) and
+      (RightEdge(AControl) <= AControl.Position.X + MaxWidth + 1) then
+      Exit;
+
+    if DisableAutoSizeIfSupported(AComponent) then
+      Inc(Result);
+    if SetWordWrapIfSupported(AComponent) then
+      Inc(Result);
+
+    if HasRightNeighbor then
+      NewWidth := MaxWidth
+    else
+      NewWidth := Min(MaxWidth, Max(AControl.Width, NeededWidth));
+    NewWidth := Max(MinimumLabelWidth, NewWidth);
+
+    if Abs(AControl.Width - NewWidth) > 2 then
+    begin
+      AControl.Width := NewWidth;
+      Inc(Result);
+    end;
+
+    NeededHeight := FitWrappedHeight(AText, AControl.Width,
+      MinimumLabelHeight, MaximumLabelHeight);
+    if NeededHeight > AControl.Height + 2 then
+    begin
+      AControl.Height := NeededHeight;
+      Inc(Result);
     end;
   end;
 
@@ -534,60 +711,23 @@ var
   var
     Control: TControl;
     CurrentText: string;
-    CurrentWidth: Single;
-    MaxWidth: Single;
-    NeededHeight: Single;
-    NeededWidth: Single;
-    NewWidth: Single;
   begin
     Result := 0;
     if not (AComponent is TTextControl) or not (AComponent is TControl) then
       Exit;
     Control := TControl(AComponent);
-    if Control.Align <> TAlignLayout.None then
+    if (Control.Align <> TAlignLayout.None) or not Control.Visible then
       Exit;
     CurrentText := Trim(TTextControl(AComponent).Text);
     if CurrentText = '' then
       Exit;
     if not APack.TryRestoreDynamicText(CurrentText, SourceText) then
       Exit;
-    CurrentWidth := Control.Width;
-    NeededWidth := EstimatedTextWidth(CurrentText);
-    if NeededWidth <= CurrentWidth + 6 then
-      Exit;
-    MaxWidth := AvailableWidth(Control);
+
     if AComponent is TButton then
-    begin
-      NewWidth := Min(Max(NeededWidth, MinimumButtonWidth),
-        Min(MaxWidth, MaximumButtonWidth));
-      if NewWidth > CurrentWidth + 4 then
-      begin
-        Control.Width := NewWidth;
-        Inc(Result);
-      end;
-      Exit;
-    end;
+      Exit(FitButton(AComponent, Control, CurrentText));
     if AComponent is TLabel then
-    begin
-      if SetWordWrapIfSupported(AComponent) then
-        Inc(Result);
-      NeededHeight := Min(MaximumLabelHeight,
-        Max(MinimumLabelHeight, Ceil(NeededWidth / Max(40, CurrentWidth)) * 20));
-      if NeededHeight > Control.Height + 2 then
-      begin
-        Control.Height := NeededHeight;
-        Inc(Result);
-      end;
-      if (CurrentWidth < 80) and (MaxWidth > CurrentWidth + 20) then
-      begin
-        NewWidth := Min(MaxWidth, Min(160, NeededWidth));
-        if NewWidth > CurrentWidth + 4 then
-        begin
-          Control.Width := NewWidth;
-          Inc(Result);
-        end;
-      end;
-    end;
+      Exit(FitLabel(AComponent, Control, CurrentText));
   end;
 begin
   Result := 0;
@@ -596,7 +736,6 @@ begin
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
     Inc(Result, FitComponent(AForm.Components[ComponentIndex]));
 end;
-
 function EditableTextComponent(const AComponent: TComponent): Boolean;
 begin
   Result := ((AComponent is TCustomEdit) and
@@ -1099,3 +1238,4 @@ finalization
   TFMXTranslationApplicator.FOriginalPositions := nil;
 
 end.
+
