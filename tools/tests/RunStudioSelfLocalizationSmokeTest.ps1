@@ -61,14 +61,14 @@ try {
                 Start-Sleep -Milliseconds 150
                 $Process.Refresh()
             }
-            while (($Process.MainWindowTitle -ne $ExpectedTitle) -and
+            while ((-not $Process.MainWindowTitle.StartsWith($ExpectedTitle)) -and
                 ((Get-Date) -lt $Deadline) -and (-not $Process.HasExited))
 
             $Results += [pscustomobject]@{
                 Platform = $Configuration.Platform
                 Configuration = $Configuration.Configuration
                 MainWindowTitle = $Process.MainWindowTitle
-                Passed = ($Process.MainWindowTitle -eq $ExpectedTitle)
+                Passed = $Process.MainWindowTitle.StartsWith($ExpectedTitle)
             }
         }
         finally {

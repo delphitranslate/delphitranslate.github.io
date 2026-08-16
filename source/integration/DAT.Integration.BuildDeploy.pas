@@ -99,10 +99,7 @@ class function TTargetBuildDeployer.FindBuildOutputDirectory(
   const AProjectFileName, AProjectName, APlatform, AConfiguration: string;
   ARequireExecutable: Boolean): string;
 var
-  BestCandidate: string;
-  BestWriteTime: TDateTime;
   Candidate: string;
-  CandidateFileName: string;
   CandidateList: TStringList;
   ExecutableName: string;
   Match: TMatch;
@@ -173,23 +170,16 @@ begin
       AConfiguration)));
     AddCandidate(TPath.Combine(APlatform, AConfiguration));
 
-    BestCandidate := '';
-    BestWriteTime := 0;
     for Candidate in CandidateList do
       if IsUsable(Candidate) then
       begin
-        if not ARequireExecutable then
-          Exit(Candidate);
-        CandidateFileName := TPath.Combine(Candidate, ExecutableName);
-        if (BestCandidate = '') or
-          (TFile.GetLastWriteTime(CandidateFileName) > BestWriteTime) then
-        begin
-          BestCandidate := Candidate;
-          BestWriteTime := TFile.GetLastWriteTime(CandidateFileName);
-        end;
+        { Candidate order is intentional: Delphi's DCC_ExeOutput comes first,
+          followed by the common bin\Platform\Config and Platform\Config
+          folders. Do not choose by newest timestamp; a stale executable in a
+          different candidate folder can be newer than the real configured
+          build output and would deploy the wrong EXE. }
+        Exit(Candidate);
       end;
-    if BestCandidate <> '' then
-      Exit(BestCandidate);
     if not ARequireExecutable then
       for Candidate in CandidateList do
         if TDirectory.Exists(Candidate) then

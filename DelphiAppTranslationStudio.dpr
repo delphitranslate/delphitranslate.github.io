@@ -32,7 +32,6 @@ uses
   DAT.Runtime.FMX in 'source\runtime\DAT.Runtime.FMX.pas',
   DAT.Integration.Package in 'source\integration\DAT.Integration.Package.pas',
   DAT.Integration.MenuResource in 'source\integration\DAT.Integration.MenuResource.pas',
-  DAT.Integration.DelphiSource in 'source\integration\DAT.Integration.DelphiSource.pas',
   DAT.Integration.BuildDeploy in 'source\integration\DAT.Integration.BuildDeploy.pas',
   DAT.Integration.ComponentPackage in 'source\integration\DAT.Integration.ComponentPackage.pas',
   DAT.Provider.Types in 'source\provider\DAT.Provider.Types.pas',

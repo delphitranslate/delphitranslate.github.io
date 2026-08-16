@@ -176,6 +176,7 @@ end;
 
 procedure TMockLanguageManager.RemoveOpenObject(const AObject: TObject);
 begin
+  RemoveManagedObject(AObject);
   FOpenObjects.Remove(AObject);
 end;
 

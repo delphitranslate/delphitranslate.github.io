@@ -986,7 +986,7 @@ object frmSetupWizard: TfrmSetupWizard
               Position.X = 8.000000000000000000
               Position.Y = 104.000000000000000000
               Size.Width = 360.000000000000000000
-              Size.Height = 92.000000000000000000
+              Size.Height = 76.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True
@@ -997,7 +997,7 @@ object frmSetupWizard: TfrmSetupWizard
               ShowHint = True
               StyledSettings = []
               Position.X = 8.000000000000000000
-              Position.Y = 204.000000000000000000
+              Position.Y = 188.000000000000000000
               Size.Width = 360.000000000000000000
               Size.Height = 36.000000000000000000
               Size.PlatformDefault = False
@@ -1013,7 +1013,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               WordWrap = True
               Position.X = 8.000000000000000000
-              Position.Y = 238.000000000000000000
+              Position.Y = 222.000000000000000000
               Size.Width = 360.000000000000000000
               Size.Height = 38.000000000000000000
               Size.PlatformDefault = False
@@ -1023,9 +1023,9 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object memCommands: TMemo
               Position.X = 8.000000000000000000
-              Position.Y = 280.000000000000000000
+              Position.Y = 264.000000000000000000
               Size.Width = 360.000000000000000000
-              Size.Height = 52.000000000000000000
+              Size.Height = 46.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True
@@ -1033,36 +1033,36 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnCopyCommands: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 342.000000000000000000
-              Size.Width = 170.000000000000000000
-              Size.Height = 40.000000000000000000
+              Position.Y = 320.000000000000000000
+              Size.Width = 176.000000000000000000
+              Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               Text = 'Copy Commands'
               OnClick = btnCopyCommandsClick
             end
             object btnOpenKitFolder: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 386.000000000000000000
-              Size.Width = 170.000000000000000000
-              Size.Height = 40.000000000000000000
+              Position.Y = 368.000000000000000000
+              Size.Width = 176.000000000000000000
+              Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               Text = 'Open Kit Folder'
               OnClick = btnOpenKitFolderClick
             end
             object btnRunDeployment: TButton
-              Position.X = 188.000000000000000000
-              Position.Y = 342.000000000000000000
-              Size.Width = 170.000000000000000000
-              Size.Height = 40.000000000000000000
+              Position.X = 192.000000000000000000
+              Position.Y = 320.000000000000000000
+              Size.Width = 176.000000000000000000
+              Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               Text = 'Redeploy Outputs'
               OnClick = btnRunDeploymentClick
             end
             object btnDeployApplicationFolder: TButton
-              Position.X = 188.000000000000000000
-              Position.Y = 386.000000000000000000
-              Size.Width = 170.000000000000000000
-              Size.Height = 40.000000000000000000
+              Position.X = 192.000000000000000000
+              Position.Y = 368.000000000000000000
+              Size.Width = 176.000000000000000000
+              Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               Text = 'Deploy to App Folder...'
               OnClick = btnDeployApplicationFolderClick

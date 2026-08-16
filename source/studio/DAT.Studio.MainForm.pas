@@ -49,6 +49,7 @@ type
     lblIntroText: TLabel;
     btnIntroRunWizard: TButton;
     btnIntroMaintenance: TButton;
+    btnIntroClose: TButton;
     ProjectCard: TRectangle;
     lblProjectCardTitle: TLabel;
     lblProjectCardDescription: TLabel;
@@ -177,6 +178,7 @@ type
     procedure btnOpenProjectClick(Sender: TObject);
     procedure btnGuidedSetupClick(Sender: TObject);
     procedure btnIntroMaintenanceClick(Sender: TObject);
+    procedure btnIntroCloseClick(Sender: TObject);
     procedure btnScanProjectClick(Sender: TObject);
     procedure lblNavigationProjectClick(Sender: TObject);
     procedure lblNavigationScanClick(Sender: TObject);
@@ -302,7 +304,7 @@ uses
 {$R *.fmx}
 
 const
-  StudioBuildLabel = 'Build 2026.08.15.1924';
+  StudioBuildLabel = 'Build 2026.08.15.2035';
 
 procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var
@@ -335,14 +337,21 @@ begin
 end;
 
 procedure TfrmTranslationStudio.FormCreate(Sender: TObject);
+var
+  BaseCaption: string;
+  BaseSubtitle: string;
 begin
   FIntroScreen := True;
   ApplyStudioTranslation(Self);
-  Caption := 'Delphi App Translation Studio - ' + StudioBuildLabel;
-  lblApplicationTitle.Text := 'Delphi App Translation Studio';
-  lblApplicationSubtitle.Text :=
-    'Offline language packs for Delphi VCL and FireMonkey applications - ' +
-    StudioBuildLabel;
+  BaseCaption := Trim(Caption);
+  if BaseCaption = '' then
+    BaseCaption := 'Delphi App Translation Studio';
+  Caption := BaseCaption + ' - ' + StudioBuildLabel;
+  BaseSubtitle := Trim(lblApplicationSubtitle.Text);
+  if BaseSubtitle = '' then
+    BaseSubtitle :=
+      'Offline language packs for Delphi VCL and FireMonkey applications';
+  lblApplicationSubtitle.Text := BaseSubtitle + ' - ' + StudioBuildLabel;
   SelectLanguageCode(cboSourceLanguage, 'en-US');
   cboTextDirection.ItemIndex := 0;
   cboBuildPlatform.ItemIndex := 0;
@@ -359,6 +368,11 @@ begin
   lblStatus.Text :=
     'Maintenance Studio selected. Open a project to continue.';
   SetWorkflowStep(1);
+end;
+
+procedure TfrmTranslationStudio.btnIntroCloseClick(Sender: TObject);
+begin
+  Close;
 end;
 
 function TfrmTranslationStudio.IsComponentIntegrationMode: Boolean;

@@ -260,7 +260,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.15.1924';
+  StudioBuildLabel = 'Build 2026.08.15.2035';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
@@ -1817,9 +1817,8 @@ begin
   end;
   FFinalProcessing := False;
   btnCancel.Enabled := not FCompleted;
-  btnFinish.Enabled := FCompleted and
-    ((not chkBuildNow.IsChecked) or FBuildCompleted);
   UpdateBuildChoice;
+  UpdateNavigation;
   UpdateRail;
 end;
 

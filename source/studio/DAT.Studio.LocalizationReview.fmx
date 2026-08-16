@@ -9,6 +9,7 @@ object frmLocalizationReview: TfrmLocalizationReview
   FormFactor.Height = 720
   FormFactor.Devices = [Desktop]
   Position = ScreenCenter
+  OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   object RootLayout: TLayout

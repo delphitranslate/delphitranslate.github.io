@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$expectedWindowTitle = 'Delphi App Translation Studio'
+$expectedWindowTitlePrefix = 'Delphi App Translation Studio'
 $studioExecutables = @(
     [PSCustomObject]@{
         Platform = 'Win32'
@@ -52,7 +52,7 @@ foreach ($studioExecutable in $studioExecutables) {
                 throw "$($studioExecutable.Path) opened a startup Error dialog."
             }
 
-            if ($lastWindowTitle -eq $expectedWindowTitle) {
+            if ($lastWindowTitle.StartsWith($expectedWindowTitlePrefix)) {
                 $startupPassed = $true
                 break
             }

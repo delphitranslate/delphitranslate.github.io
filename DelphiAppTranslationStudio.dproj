@@ -297,7 +297,6 @@
         <DCCReference Include="source\runtime\DAT.Runtime.FMX.pas"/>
         <DCCReference Include="source\integration\DAT.Integration.Package.pas"/>
         <DCCReference Include="source\integration\DAT.Integration.MenuResource.pas"/>
-        <DCCReference Include="source\integration\DAT.Integration.DelphiSource.pas"/>
         <DCCReference Include="source\integration\DAT.Integration.BuildDeploy.pas"/>
         <DCCReference Include="source\integration\DAT.Integration.ComponentPackage.pas"/>
         <DCCReference Include="source\provider\DAT.Provider.Types.pas"/>

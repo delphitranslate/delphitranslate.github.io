@@ -526,9 +526,13 @@ procedure TDATCustomLanguageManager.Notification(AComponent: TComponent;
   Operation: TOperation);
 begin
   { Component-removal notifications are only for component-reference
-    bookkeeping. Runtime form tracking is maintained by RemoveManagedObject
-    and TFormReleasedMessage; never mutate FAppliedGenerations here because
-    Delphi may be tearing down the owner and its notification graph. }
+    bookkeeping while the IDE designer is active. Runtime form tracking is
+    cleaned here for frameworks that do not publish a reliable form-released
+    message. Never mutate tracking during designer teardown because Delphi may
+    be tearing down the owner and its notification graph. }
+  if (Operation = opRemove) and not FDestroying and
+    not (csDesigning in ComponentState) and (FAppliedGenerations <> nil) then
+    FAppliedGenerations.Remove(AComponent);
   inherited Notification(AComponent, Operation);
 end;
 

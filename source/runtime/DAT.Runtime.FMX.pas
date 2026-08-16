@@ -1027,6 +1027,14 @@ var
   CandidateNumber: Extended;
   Superseded: Boolean;
   Value: string;
+
+  function IsSafeRuntimeLayoutProperty(const APropertyName: string): Boolean;
+  begin
+    Result :=
+      SameText(APropertyName, 'Width') or
+      SameText(APropertyName, 'Height') or
+      SameText(APropertyName, 'WordWrap');
+  end;
 begin
   Result := 0;
   if (AForm = nil) or (APack = nil) then
@@ -1034,6 +1042,14 @@ begin
   for Rule in APack.LayoutRules do
   begin
     if not SameText(Rule.FormName, AFormIdentity) then
+      Continue;
+    { Runtime localization must not rearrange a target form. Earlier layout
+      packs could contain positional proposals; those are too dangerous to
+      apply generically because they can scatter related controls. Keep the
+      runtime solver conservative: only expand/wrap controls to fit translated
+      text. The developer can still manually redesign the form if a language
+      needs a different layout. }
+    if not IsSafeRuntimeLayoutProperty(Rule.PropertyName) then
       Continue;
     { A catalog can contain more than one proposal for the same property
       when several translated entries share a control. For dimensions, keep

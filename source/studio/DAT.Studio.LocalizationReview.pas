@@ -7,6 +7,8 @@ uses
   System.Generics.Collections,
   FMX.Controls,
   FMX.Controls.Presentation,
+  FMX.Dialogs,
+  FMX.DialogService.Sync,
   FMX.Edit,
   FMX.Forms,
   FMX.Layouts,
@@ -74,6 +76,7 @@ type
     lblStatus: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure btnCloseClick(Sender: TObject);
     procedure btnAddTermClick(Sender: TObject);
     procedure btnNewTermClick(Sender: TObject);
@@ -100,12 +103,15 @@ type
     FProposalFileName: string;
     FReviewFileName: string;
     FGlossarySuggestions: TObjectList<TGlossarySuggestion>;
+    FGlossaryDirty: Boolean;
     procedure LoadGlossary;
     procedure RefreshGlossary;
     procedure RunAudit;
     procedure RefreshProposals;
     procedure RefreshSuggestions;
     procedure AddSuggestionToGlossary(const ASuggestion: TGlossarySuggestion);
+    procedure SetGlossaryDirty(const AValue: Boolean);
+    function ConfirmGlossarySaved: Boolean;
   public
     procedure Prepare(const AProfile: TProjectProfile;
       const ACatalog: TTranslationCatalog; const AOutputDirectory,
@@ -118,6 +124,7 @@ uses
   System.IOUtils,
   System.StrUtils,
   System.SysUtils,
+  System.UITypes,
   Winapi.ShellAPI,
   Winapi.Windows,
   System.Math;
@@ -135,6 +142,12 @@ begin
   FReview.Free;
   FGlossarySuggestions.Free;
   FGlossary.Free;
+end;
+
+procedure TfrmLocalizationReview.FormCloseQuery(Sender: TObject;
+  var CanClose: Boolean);
+begin
+  CanClose := ConfirmGlossarySaved;
 end;
 
 procedure TfrmLocalizationReview.Prepare(const AProfile: TProjectProfile;
@@ -165,8 +178,44 @@ begin
   FGlossary.ApplicationId := FProfile.ProjectName;
   FGlossary.SourceLanguage := FCatalog.SourceLanguage;
   FGlossary.TargetLanguage := FCatalog.Locale.LanguageCode;
+  SetGlossaryDirty(False);
   RefreshGlossary;
   RefreshSuggestions;
+end;
+
+procedure TfrmLocalizationReview.SetGlossaryDirty(const AValue: Boolean);
+begin
+  FGlossaryDirty := AValue;
+  if FGlossaryDirty then
+    lblStatus.Text := 'Project glossary has unsaved changes. Click Save Project Glossary before closing.'
+  else if FGlossary <> nil then
+    lblStatus.Text := Format('%d approved project terminology term(s).',
+      [FGlossary.Terms.Count]);
+end;
+
+function TfrmLocalizationReview.ConfirmGlossarySaved: Boolean;
+var
+  Response: Integer;
+begin
+  Result := True;
+  if not FGlossaryDirty then
+    Exit;
+  Response := TDialogServiceSync.MessageDialog(
+    'The project glossary has unsaved changes. Save them before closing?',
+    TMsgDlgType.mtConfirmation,
+    [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo, TMsgDlgBtn.mbCancel],
+    TMsgDlgBtn.mbCancel, 0);
+  case Response of
+    mrYes:
+      begin
+        btnSaveGlossaryClick(btnSaveGlossary);
+        Result := not FGlossaryDirty;
+      end;
+    mrNo:
+      Result := True;
+  else
+    Result := False;
+  end;
 end;
 
 procedure TfrmLocalizationReview.RefreshGlossary;
@@ -324,7 +373,7 @@ begin
   Term.CaseSensitive := chkCaseSensitive.IsChecked;
   Term.Approved := chkApprovedTerm.IsChecked;
   RefreshGlossary;
-  lblStatus.Text := 'Term added or updated. Click Save Project Glossary to persist it.';
+  SetGlossaryDirty(True);
 end;
 
 procedure TfrmLocalizationReview.btnNewTermClick(Sender: TObject);
@@ -347,6 +396,7 @@ begin
     Exit;
   FGlossary.Terms.Delete(lstGlossary.ItemIndex);
   RefreshGlossary;
+  SetGlossaryDirty(True);
 end;
 
 procedure TfrmLocalizationReview.btnSaveGlossaryClick(Sender: TObject);
@@ -357,6 +407,7 @@ begin
     Exit;
   end;
   FGlossary.SaveToFile(FGlossaryFileName);
+  SetGlossaryDirty(False);
   RefreshSuggestions;
   lblStatus.Text := 'Project glossary saved: ' + FGlossaryFileName;
 end;
@@ -499,12 +550,7 @@ begin
   for Proposal in FReview.Proposals do
     if SameText(Proposal.PropertyName, 'Width') or
       SameText(Proposal.PropertyName, 'Height') or
-      SameText(Proposal.PropertyName, 'WordWrap') or
-      SameText(Proposal.PropertyName, 'AutoSize') or
-      SameText(Proposal.PropertyName, 'Left') or
-      SameText(Proposal.PropertyName, 'Top') or
-      SameText(Proposal.PropertyName, 'Position.X') or
-      SameText(Proposal.PropertyName, 'Position.Y') then
+      SameText(Proposal.PropertyName, 'WordWrap') then
     begin
       Proposal.Decision := 'accepted';
       Inc(AcceptedCount);
