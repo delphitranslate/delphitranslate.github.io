@@ -232,6 +232,37 @@ begin
   end;
 end;
 
+{ Word wrap on an FMX text control lives in TextSettings, and while
+  TStyledSetting.Other stays in StyledSettings the platform style supplies
+  wrapping and trimming instead of the assigned values. Setting the published
+  WordWrap property alone therefore appears to succeed and changes nothing:
+  the control keeps rendering one styled line and trims it with an ellipsis.
+  Take the setting out of style control, then assign it, and stop trimming so
+  a control that has been given a fixed width shows its text on several lines
+  rather than clipping it. }
+function ApplyWordWrapSetting(const AComponent: TComponent;
+  const AValue: Boolean): Boolean;
+var
+  TextControl: TTextControl;
+begin
+  Result := False;
+  if not (AComponent is TTextControl) then
+    Exit;
+  TextControl := TTextControl(AComponent);
+  TextControl.StyledSettings := TextControl.StyledSettings -
+    [TStyledSetting.Other];
+  if TextControl.TextSettings.WordWrap <> AValue then
+  begin
+    TextControl.TextSettings.WordWrap := AValue;
+    Result := True;
+  end;
+  if AValue and (TextControl.TextSettings.Trimming <> TTextTrimming.None) then
+  begin
+    TextControl.TextSettings.Trimming := TTextTrimming.None;
+    Result := True;
+  end;
+end;
+
 function TrySetLayoutProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
 var
@@ -255,6 +286,15 @@ begin
       TControl(AComponent).Position.X := FloatValue
     else
       TControl(AComponent).Position.Y := FloatValue;
+    Exit(True);
+  end;
+  { Wrapping must go through TextSettings and leave style control, otherwise
+    the assignment is accepted and then ignored at paint time. This matters
+    most when AutoSize has just been switched off: without real wrapping the
+    control keeps its assigned width and clips the translated text. }
+  if SameText(APropertyName, 'WordWrap') and (AComponent is TTextControl) then
+  begin
+    ApplyWordWrapSetting(AComponent, SameText(AValue, 'True'));
     Exit(True);
   end;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName);
@@ -627,7 +667,8 @@ var
 
   function SetWordWrapIfSupported(const AComponent: TComponent): Boolean;
   begin
-    Result := SetBooleanPropertyIfSupported(AComponent, 'WordWrap', True);
+    Result := ApplyWordWrapSetting(AComponent, True) or
+      SetBooleanPropertyIfSupported(AComponent, 'WordWrap', True);
   end;
 
   function DisableAutoSizeIfSupported(const AComponent: TComponent): Boolean;
