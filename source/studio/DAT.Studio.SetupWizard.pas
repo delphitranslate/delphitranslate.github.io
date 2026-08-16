@@ -203,6 +203,9 @@ type
     function DesignBPLFileName: string;
     procedure BuildDeploymentCommands;
     procedure UpdateComponentInstructions;
+    procedure RebuildAllTargetConfigurations;
+    function PreferredDeploymentPlatforms: TArray<string>;
+    function PreferredDeploymentConfigurations: TArray<string>;
     function ExistingBuildOutputDirectories: TArray<string>;
     function DeployLanguagePacksToExistingOutputs: Integer;
     function DeployLanguagePacksToConfiguredDestinations: Integer;
@@ -260,7 +263,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.16.1230';
+  StudioBuildLabel = 'Build 2026.08.16.1305';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
@@ -1407,6 +1410,57 @@ begin
   end;
 end;
 
+function TfrmSetupWizard.PreferredDeploymentPlatforms: TArray<string>;
+begin
+  if cboBuildPlatform.ItemIndex = 1 then
+    Result := ['Win64', 'Win32']
+  else
+    Result := ['Win32', 'Win64'];
+end;
+
+function TfrmSetupWizard.PreferredDeploymentConfigurations: TArray<string>;
+begin
+  if cboBuildConfiguration.ItemIndex = 1 then
+    Result := ['Release', 'Debug']
+  else
+    Result := ['Debug', 'Release'];
+end;
+
+{ Deployment must never copy a stale executable. Rebuild every platform and
+  configuration that already has a build-output folder so each one matches the
+  runtime and language packs produced by this pass, before anything is copied
+  to build outputs or configured destinations. }
+procedure TfrmSetupWizard.RebuildAllTargetConfigurations;
+var
+  BuiltCount: Integer;
+  Configuration: string;
+  OutputDirectory: string;
+  Platform: string;
+begin
+  BuiltCount := 0;
+  for Platform in ['Win32', 'Win64'] do
+    for Configuration in ['Debug', 'Release'] do
+    begin
+      OutputDirectory := TTargetBuildDeployer.FindBuildOutputDirectory(
+        FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+        Platform, Configuration, False);
+      if (OutputDirectory = '') or not TDirectory.Exists(OutputDirectory) then
+        Continue;
+      AddProgress(Format('Rebuilding %s %s before deployment...',
+        [Platform, Configuration]));
+      Application.ProcessMessages;
+      AddProgress(TTargetBuildDeployer.BuildAndDeploy(
+        FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+        Platform, Configuration, FKitDirectory));
+      Inc(BuiltCount);
+    end;
+  if BuiltCount = 0 then
+    AddProgress('No existing build-output folders were found to rebuild.')
+  else
+    AddProgress(Format('%d target configuration(s) rebuilt with the current runtime.',
+      [BuiltCount]));
+end;
+
 function TfrmSetupWizard.DeployLanguagePacksToConfiguredDestinations: Integer;
 var
   ApplicationDirectory: string;
@@ -1430,11 +1484,14 @@ begin
     if ShouldDeployExecutable then
     begin
       ExecutableDeployed := False;
-      for Platform in ['Win32', 'Win64'] do
+      { Honour the platform and configuration chosen on the build page first so
+        the destination receives the executable the developer asked for, not
+        whichever output folder happens to come first alphabetically. }
+      for Platform in PreferredDeploymentPlatforms do
       begin
         if ExecutableDeployed then
           Break;
-        for Configuration in ['Debug', 'Release'] do
+        for Configuration in PreferredDeploymentConfigurations do
         begin
           if ExecutableDeployed then
             Break;
@@ -1443,6 +1500,8 @@ begin
             Platform, Configuration, True);
           if SourceExecutable <> '' then
           begin
+            AddProgress(Format('Deploying the %s %s executable to %s.',
+              [Platform, Configuration, ApplicationDirectory]));
             AddProgress(TTargetBuildDeployer.DeployBuildOutput(
               FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
               Platform, Configuration, ApplicationDirectory, FKitDirectory,
@@ -1741,6 +1800,7 @@ begin
       TPath.Combine(FindStudioRoot, 'source\components'));
     AddProgress('Component integration kit generated.');
     BuildDeploymentCommands;
+    RebuildAllTargetConfigurations;
     DeployedCount := DeployLanguagePacksToExistingOutputs;
     if DeployedCount = 0 then
       AddProgress('No existing build-output folders were found. The next build will deploy the packs automatically.')
