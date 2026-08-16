@@ -48,6 +48,7 @@ type
     FHeight: Double;
     FFontSize: Double;
     FAlign: string;
+    FHorzAlign: string;
     FWordWrap: Boolean;
     FAutoSize: Boolean;
     FHasPosition: Boolean;
@@ -72,6 +73,10 @@ type
     property Height: Double read FHeight write FHeight;
     property FontSize: Double read FFontSize write FFontSize;
     property Align: string read FAlign write FAlign;
+    { How the text sits inside the control. This decides which way the control
+      has to grow: a right-aligned caption must keep its right edge and extend
+      leftwards, or its text walks into whatever sits beside it. }
+    property HorzAlign: string read FHorzAlign write FHorzAlign;
     property WordWrap: Boolean read FWordWrap write FWordWrap;
     property AutoSize: Boolean read FAutoSize write FAutoSize;
     property HasPosition: Boolean read FHasPosition write FHasPosition;
@@ -452,6 +457,9 @@ begin
         end
         else if SameText(Prop, 'Align') then
           Frame.Control.Align := Value
+        else if MatchText(Prop, ['TextSettings.HorzAlign', 'HorzAlign',
+          'Alignment']) then
+          Frame.Control.HorzAlign := Value
         else if MatchText(Prop, ['WordWrap', 'AutoSize']) then
         begin
           BoolValue := SameText(Value, 'True');
@@ -563,7 +571,7 @@ var
   Pass: Integer;
   Moved: Boolean;
   Leader, Follower: TLayoutControl;
-  RequiredLeft, Surplus, ReducedWidth, ReducedFont: Double;
+  RequiredLeft, Surplus, ReducedWidth, ReducedFont, ShiftedLeft: Double;
 
   { Measure the translated text with the same engine that renders it at
     runtime. Character-count arithmetic cannot predict real glyph widths, so
@@ -602,6 +610,39 @@ var
         SameText(Candidate.ComponentName, AControl.ParentName) and
         Candidate.HasSize then
         Exit(Candidate.Width);
+  end;
+
+  { FireMonkey writes Trailing, the VCL writes taRightJustify, and either means
+    the text is anchored to the control's right edge. }
+  function IsRightAligned(const AControl: TLayoutControl): Boolean;
+  begin
+    Result := MatchText(Trim(AControl.HorzAlign),
+      ['Trailing', 'TTextAlign.Trailing', 'taRightJustify']);
+  end;
+
+  function IsCentreAligned(const AControl: TLayoutControl): Boolean;
+  begin
+    Result := MatchText(Trim(AControl.HorzAlign),
+      ['Center', 'TTextAlign.Center', 'taCenter']);
+  end;
+
+  { Apply a new width in the direction the text is anchored. Growing a
+    right-aligned caption rightwards moves its text into whatever sits beside
+    it, which on a form of captions and fields is always the field it labels. }
+  procedure SetPlannedWidthRespectingAlignment(const AControl: TLayoutControl;
+    const ANewWidth: Double);
+  var
+    DesignedRight: Double;
+  begin
+    DesignedRight := AControl.PlannedLeft + AControl.PlannedWidth;
+    AControl.PlannedWidth := ANewWidth;
+    if not AControl.HasPosition then
+      Exit;
+    if IsRightAligned(AControl) then
+      AControl.PlannedLeft := Max(0, DesignedRight - ANewWidth)
+    else if IsCentreAligned(AControl) then
+      AControl.PlannedLeft := Max(0, AControl.Left + AControl.Width / 2 -
+        ANewWidth / 2);
   end;
 
   function ShouldPreferWrap(const AControl: TLayoutControl): Boolean;
@@ -653,8 +694,17 @@ var
     Candidate: TLayoutControl;
     NearestLeft: Double;
     ParentWidth: Double;
+    GrowsLeftwards: Boolean;
+    NearestRight: Double;
+    OwnRight: Double;
   begin
+    { A right-aligned caption keeps its right edge and expands towards the
+      left, so the room it has is the gap back to the previous control, not
+      the gap forward to the next one. }
+    GrowsLeftwards := IsRightAligned(AControl);
+    OwnRight := AControl.PlannedLeft + AControl.PlannedWidth;
     NearestLeft := MaxDouble;
+    NearestRight := -MaxDouble;
     for Candidate in AReview.Controls do
     begin
       if (Candidate = AControl) or not Candidate.HasPosition or
@@ -662,8 +712,6 @@ var
         Continue;
       if not SameText(Candidate.FormName, AControl.FormName) or
         not SameText(Candidate.ParentName, AControl.ParentName) then
-        Continue;
-      if Candidate.PlannedLeft <= AControl.PlannedLeft + 2 then
         Continue;
       if (Candidate.PlannedTop >= AControl.PlannedTop +
             AControl.PlannedHeight) or
@@ -674,10 +722,24 @@ var
         this control may become; it will be stepped aside instead. }
       if CanMoveControl(Candidate) then
         Continue;
-      if Candidate.PlannedLeft < NearestLeft then
+      if GrowsLeftwards then
+      begin
+        if (Candidate.PlannedLeft + Candidate.PlannedWidth <= OwnRight - 2) and
+          (Candidate.PlannedLeft + Candidate.PlannedWidth > NearestRight) then
+          NearestRight := Candidate.PlannedLeft + Candidate.PlannedWidth;
+      end
+      else if (Candidate.PlannedLeft > AControl.PlannedLeft + 2) and
+        (Candidate.PlannedLeft < NearestLeft) then
         NearestLeft := Candidate.PlannedLeft;
     end;
-    if NearestLeft < MaxDouble then
+    if GrowsLeftwards then
+    begin
+      if NearestRight > -MaxDouble then
+        Result := OwnRight - NearestRight - ControlGap
+      else
+        Result := OwnRight;
+    end
+    else if NearestLeft < MaxDouble then
       Result := NearestLeft - AControl.PlannedLeft - ControlGap
     else
     begin
@@ -850,10 +912,7 @@ begin
         NewWidth := BoundedTextWidth(Control, RequiredWidth);
         if NewWidth > Ceil(Control.Width) then
         begin
-          Control.PlannedWidth := NewWidth;
-          if Control.HasPosition then
-            Control.PlannedLeft := Max(0, Control.Left + Control.Width / 2 -
-              Control.PlannedWidth / 2);
+          SetPlannedWidthRespectingAlignment(Control, NewWidth);
         end;
         if NewWidth < Ceil(RequiredWidth) then
         begin
@@ -891,7 +950,7 @@ begin
             RequiredWidth / MaximumComfortableLines);
           if NewWidth > Ceil(Control.Width) then
           begin
-            Control.PlannedWidth := NewWidth;
+            SetPlannedWidthRespectingAlignment(Control, NewWidth);
             LineCount := Max(1, Ceil(RequiredWidth / NewWidth));
           end;
         end;
@@ -910,7 +969,8 @@ begin
           RequiredWidth := RequiredWidth * ReducedFont / FontSize;
         end;
         if RequiredWidth > Control.Width * 1.05 then
-          Control.PlannedWidth := BoundedTextWidth(Control, RequiredWidth);
+          SetPlannedWidthRespectingAlignment(Control,
+            BoundedTextWidth(Control, RequiredWidth));
       end;
     end;
     if (Control.Height > 0) and (RequiredHeight > Control.Height * 1.10) then
@@ -965,7 +1025,32 @@ begin
           else
             Follower := Control;
           RequiredLeft := Leader.PlannedLeft + Leader.PlannedWidth + ControlGap;
-          if CanMoveControl(Follower) and
+          { A right-aligned caption cannot give way by moving right: its right
+            edge is pinned against the field it labels, and moving it would
+            walk its text into that field. When such a caption has grown back
+            towards a control on its left, it is that control which has to step
+            further left, into whatever free margin the form has. This is what
+            keeps a button clear of the caption beside it instead of the
+            caption being clipped to fit. }
+          if IsRightAligned(Follower) and CanMoveControl(Leader) and
+            (Leader.PlannedLeft > 0) then
+          begin
+            ShiftedLeft := Max(0, Follower.PlannedLeft - ControlGap -
+              Leader.PlannedWidth);
+            if ShiftedLeft < Leader.PlannedLeft - 1 then
+            begin
+              Leader.PlannedLeft := ShiftedLeft;
+              Moved := True;
+            end
+            else if Leader.PlannedWidth > Leader.Width then
+            begin
+              Leader.PlannedWidth := Max(Leader.Width,
+                Follower.PlannedLeft - ControlGap - Leader.PlannedLeft);
+              Leader.PlannedWordWrap := ShouldPreferWrap(Leader);
+              Moved := True;
+            end;
+          end
+          else if CanMoveControl(Follower) and
             (RequiredLeft + Follower.PlannedWidth <=
               ContentRightBound(Follower)) then
           begin
