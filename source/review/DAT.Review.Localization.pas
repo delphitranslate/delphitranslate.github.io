@@ -550,6 +550,8 @@ var
   IsWrappingText: Boolean;
   Pass: Integer;
   Moved: Boolean;
+  Leader, Follower: TLayoutControl;
+  RequiredLeft, Surplus, ReducedWidth: Double;
 
   { Measure the translated text with the same engine that renders it at
     runtime. Character-count arithmetic cannot predict real glyph widths, so
@@ -873,43 +875,61 @@ begin
             'Review the proposed move/size rule or adjust the designer layout manually.');
         if SamePlannedRow(Control, Other) then
         begin
-          { Push the right-hand control clear of the left-hand one. }
-          { Never push a control past the edge of the designed content: a
-            caption shoved off the form is worse than one sitting close to its
-            neighbour. }
-          if (Control.PlannedLeft <= Other.PlannedLeft) and
-            CanMoveControl(Other) and
-            (Control.PlannedLeft + Control.PlannedWidth + ControlGap +
-              Other.PlannedWidth <= ContentRightBound(Other)) then
+          { Which control gives way is decided by where the designer put them,
+            never by where they have been moved to. Judging by current position
+            lets a control that has been pushed along leapfrog its neighbour,
+            which silently reverses the reading order of a row: a pair of date
+            fields can end up showing the end date before the start date. }
+          if Control.Left <= Other.Left then
+            Leader := Control
+          else
+            Leader := Other;
+          if Leader = Control then
+            Follower := Other
+          else
+            Follower := Control;
+          RequiredLeft := Leader.PlannedLeft + Leader.PlannedWidth + ControlGap;
+          if CanMoveControl(Follower) and
+            (RequiredLeft + Follower.PlannedWidth <=
+              ContentRightBound(Follower)) then
           begin
-            Other.PlannedLeft := Control.PlannedLeft + Control.PlannedWidth +
-              ControlGap;
+            Follower.PlannedLeft := RequiredLeft;
             Moved := True;
           end
-          else if (Other.PlannedLeft < Control.PlannedLeft) and
-            CanMoveControl(Control) and
-            (Other.PlannedLeft + Other.PlannedWidth + ControlGap +
-              Control.PlannedWidth <= ContentRightBound(Control)) then
+          else if Leader.PlannedWidth > Leader.Width then
           begin
-            Control.PlannedLeft := Other.PlannedLeft + Other.PlannedWidth +
-              ControlGap;
-            Moved := True;
+            { There is no room to step aside, so the control that grew gives
+              width back instead. A row of buttons sized for a longer language
+              has nowhere to expand into, and shrinking each one to share the
+              space is far better than stacking them on top of each other. }
+            Surplus := RequiredLeft + Follower.PlannedWidth -
+              ContentRightBound(Follower);
+            ReducedWidth := Max(Leader.Width,
+              Leader.PlannedWidth - Max(Surplus, 1));
+            if ReducedWidth < Leader.PlannedWidth then
+            begin
+              Leader.PlannedWidth := ReducedWidth;
+              Leader.PlannedWordWrap := ShouldPreferWrap(Leader);
+              Moved := True;
+            end;
           end;
         end
         else
         begin
-          { Push the lower control clear of the upper one. }
-          if (Control.PlannedTop <= Other.PlannedTop) and
-            CanMoveControl(Other) then
+          { Stacking order comes from the designer's positions too, for the
+            same reason: a control pushed down must not end up above the one it
+            was beneath. }
+          if Control.Top <= Other.Top then
+            Leader := Control
+          else
+            Leader := Other;
+          if Leader = Control then
+            Follower := Other
+          else
+            Follower := Control;
+          if CanMoveControl(Follower) then
           begin
-            Other.PlannedTop := Control.PlannedTop + Control.PlannedHeight +
-              ControlGap;
-            Moved := True;
-          end
-          else if (Other.PlannedTop < Control.PlannedTop) and
-            CanMoveControl(Control) then
-          begin
-            Control.PlannedTop := Other.PlannedTop + Other.PlannedHeight +
+            Follower.PlannedTop := Leader.PlannedTop + Leader.PlannedHeight +
               ControlGap;
             Moved := True;
           end;
