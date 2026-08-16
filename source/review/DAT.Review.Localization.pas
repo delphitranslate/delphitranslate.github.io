@@ -787,11 +787,15 @@ var
       (AFirst.PlannedTop + AFirst.PlannedHeight > ASecond.PlannedTop);
   end;
 
+  { Row membership is a fact about the design, not about the working geometry.
+    Reading it from planned values lets a caption that has grown taller be
+    treated as sharing a row with the control beneath it, so a purely vertical
+    crowding problem is answered by shoving one of them sideways. }
   function SamePlannedRow(const AFirst, ASecond: TLayoutControl): Boolean;
   begin
-    Result := Abs((AFirst.PlannedTop + AFirst.PlannedHeight / 2) -
-      (ASecond.PlannedTop + ASecond.PlannedHeight / 2)) <=
-      Max(8, Max(AFirst.PlannedHeight, ASecond.PlannedHeight) * 0.55);
+    Result := Abs((AFirst.Top + AFirst.Height / 2) -
+      (ASecond.Top + ASecond.Height / 2)) <=
+      Max(8, Max(AFirst.Height, ASecond.Height) * 0.55);
   end;
 
 begin
@@ -836,7 +840,32 @@ begin
         2. If that needs an uncomfortable number of lines, reduce the font a
            little so it fits in fewer. This changes no geometry at all.
         3. Only when neither is enough, widen the control. }
-      if IsWrappingText and (Control.Width >= MinimumWrapWidth) then
+      { Widening only costs something when there is something beside the
+        control to disturb. A heading alone on its row has empty space either
+        side, and taking that space changes nothing else on the form, whereas
+        wrapping it doubles its height and can push it into the row below.
+        So where the row is genuinely clear, widen and stay on one line. }
+      if RowIsFree(Control, True, False) and RowIsFree(Control, False, False) then
+      begin
+        NewWidth := BoundedTextWidth(Control, RequiredWidth);
+        if NewWidth > Ceil(Control.Width) then
+        begin
+          Control.PlannedWidth := NewWidth;
+          if Control.HasPosition then
+            Control.PlannedLeft := Max(0, Control.Left + Control.Width / 2 -
+              Control.PlannedWidth / 2);
+        end;
+        if NewWidth < Ceil(RequiredWidth) then
+        begin
+          { Even the whole row was not enough, so fall back to wrapping. }
+          Control.PlannedWordWrap := IsWrappingText;
+          LineCount := Max(1, Ceil(RequiredWidth / Max(NewWidth, 24)));
+          if not IsButton then
+            Control.PlannedHeight := Max(Control.PlannedHeight,
+              Ceil(RequiredHeight * LineCount));
+        end;
+      end
+      else if IsWrappingText and (Control.Width >= MinimumWrapWidth) then
       begin
         Control.PlannedWordWrap := True;
         LineCount := Max(1, Ceil(RequiredWidth / Control.Width));
@@ -883,14 +912,6 @@ begin
         if RequiredWidth > Control.Width * 1.05 then
           Control.PlannedWidth := BoundedTextWidth(Control, RequiredWidth);
       end;
-      { A heading centred inside its own bounds keeps its apparent position
-        only if it grows about its centre. Pinning the left edge and extending
-        rightwards slides the caption away from where it was designed to sit.
-        This is safe only where nothing shares the row on either side. }
-      if (Control.PlannedWidth > Control.Width) and Control.HasPosition and
-        RowIsFree(Control, True, False) and RowIsFree(Control, False, False) then
-        Control.PlannedLeft := Max(0, Control.Left + Control.Width / 2 -
-          Control.PlannedWidth / 2);
     end;
     if (Control.Height > 0) and (RequiredHeight > Control.Height * 1.10) then
     begin
