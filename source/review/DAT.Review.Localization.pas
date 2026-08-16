@@ -52,6 +52,11 @@ type
     FAutoSize: Boolean;
     FHasPosition: Boolean;
     FHasSize: Boolean;
+    FPlannedLeft: Double;
+    FPlannedTop: Double;
+    FPlannedWidth: Double;
+    FPlannedHeight: Double;
+    FPlannedWordWrap: Boolean;
   public
     property FormName: string read FFormName write FFormName;
     property ParentName: string read FParentName write FParentName;
@@ -70,6 +75,14 @@ type
     property AutoSize: Boolean read FAutoSize write FAutoSize;
     property HasPosition: Boolean read FHasPosition write FHasPosition;
     property HasSize: Boolean read FHasSize write FHasSize;
+    { Working geometry used while proposals are being built. Every sizing and
+      separation decision reads and writes these values so later decisions see
+      the effect of earlier ones instead of the stale designer geometry. }
+    property PlannedLeft: Double read FPlannedLeft write FPlannedLeft;
+    property PlannedTop: Double read FPlannedTop write FPlannedTop;
+    property PlannedWidth: Double read FPlannedWidth write FPlannedWidth;
+    property PlannedHeight: Double read FPlannedHeight write FPlannedHeight;
+    property PlannedWordWrap: Boolean read FPlannedWordWrap write FPlannedWordWrap;
   end;
 
   TLayoutProposal = class
@@ -161,6 +174,7 @@ uses
   System.Math,
   System.StrUtils,
   System.SysUtils,
+  FMX.TextLayout,
   DAT.Core.CatalogJson,
   DAT.Scan.TextCodec;
 
@@ -511,92 +525,56 @@ end;
 
 class procedure TLocalizationReviewer.AnalyzeLayout(
   const AReview: TLocalizationReview);
+const
+  ControlGap = 8;
+  MaximumSeparationPasses = 6;
 var
   Control, Other: TLayoutControl;
   RequiredWidth, RequiredHeight, FontSize: Double;
   LineCount: Integer;
   NewWidth: Integer;
   IsButton: Boolean;
-  IsColumn: Boolean;
   IsWrappingText: Boolean;
+  Pass: Integer;
+  Moved: Boolean;
 
+  { Measure the translated text with the same engine that renders it at
+    runtime. Character-count arithmetic cannot predict real glyph widths, so
+    every sizing decision below starts from an actual measurement. }
   function TextWidthEstimate(const AControl: TLayoutControl): Double;
-  begin
-    Result := (Length(AControl.TranslatedText) * Max(AControl.FontSize, 9) *
-      0.58) + 18;
-  end;
-
-  function EffectiveWidth(const AControl: TLayoutControl): Double;
   var
-    Estimate: Double;
+    Layout: TTextLayout;
   begin
-    Result := AControl.Width;
-    if (AControl.TranslatedText = '') or (AControl.Width <= 0) then
-      Exit;
-    Estimate := TextWidthEstimate(AControl);
-    if ContainsText(AControl.ComponentClassName, 'Column') then
-      Result := Min(Max(Result, Estimate), 420)
-    else if ContainsText(AControl.ComponentClassName, 'Button') then
-      Result := Min(Max(Result, Estimate), Max(AControl.Width * 1.35, 160))
-    else if not (ContainsText(AControl.ComponentClassName, 'Edit') or
-      ContainsText(AControl.ComponentClassName, 'Combo') or
-      ContainsText(AControl.ComponentClassName, 'Grid')) then
-      Result := Min(Max(Result, Estimate), Max(AControl.Width * 1.50, 260));
-  end;
-
-  function EffectiveHeight(const AControl: TLayoutControl): Double;
-  var
-    Estimate: Double;
-    Lines: Integer;
-  begin
-    Result := AControl.Height;
-    if (AControl.TranslatedText = '') or (AControl.Width <= 0) then
-      Exit;
-    Estimate := TextWidthEstimate(AControl);
-    if Estimate > AControl.Width * 1.05 then
-    begin
-      Lines := Max(2, Ceil(Estimate / Max(AControl.Width, 24)));
-      Result := Max(Result, Max(AControl.FontSize, 9) * 1.7 * Lines + 8);
+    if Trim(AControl.TranslatedText) = '' then
+      Exit(0);
+    Layout := TTextLayoutManager.DefaultTextLayout.Create;
+    try
+      Layout.BeginUpdate;
+      Layout.Text := AControl.TranslatedText;
+      Layout.Font.Size := Max(AControl.FontSize, 9);
+      Layout.WordWrap := False;
+      Layout.EndUpdate;
+      Result := Layout.Width + 18;
+    finally
+      Layout.Free;
     end;
   end;
 
-  function SameVisualRow(const ALeft, ARight: TLayoutControl): Boolean;
+  function MeasuredLineHeight(const AControl: TLayoutControl): Double;
   begin
-    Result := Abs((ALeft.Top + ALeft.Height / 2) -
-      (ARight.Top + ARight.Height / 2)) <=
-      Max(8, Max(ALeft.Height, ARight.Height) * 0.55);
+    Result := Max(AControl.FontSize, 9) * 1.65;
   end;
 
-  function SameVisualColumn(const AUpper, ALower: TLayoutControl): Boolean;
-  begin
-    Result := (AUpper.Left < ALower.Left + ALower.Width) and
-      (AUpper.Left + AUpper.Width > ALower.Left);
-  end;
-
-  function BoundedTextWidth(const AControl: TLayoutControl;
-    const ARequiredWidth: Double): Integer;
+  function ParentWidthFor(const AControl: TLayoutControl): Double;
   var
-    GrowthCap: Double;
-    HardCap: Double;
+    Candidate: TLayoutControl;
   begin
-    if ContainsText(AControl.ComponentClassName, 'Column') then
-    begin
-      GrowthCap := Max(AControl.Width * 1.60, 160);
-      HardCap := 460;
-    end
-    else if ContainsText(AControl.ComponentClassName, 'Button') then
-    begin
-      GrowthCap := Max(AControl.Width * 1.20, 120);
-      HardCap := 220;
-    end
-    else
-    begin
-      GrowthCap := Max(AControl.Width * 1.35, 180);
-      HardCap := 360;
-    end;
-    Result := Ceil(Min(ARequiredWidth, Min(GrowthCap, HardCap)));
-    if Result < Ceil(AControl.Width) then
-      Result := Ceil(AControl.Width);
+    Result := 0;
+    for Candidate in AReview.Controls do
+      if SameText(Candidate.FormName, AControl.FormName) and
+        SameText(Candidate.ComponentName, AControl.ParentName) and
+        Candidate.HasSize then
+        Exit(Candidate.Width);
   end;
 
   function ShouldPreferWrap(const AControl: TLayoutControl): Boolean;
@@ -621,6 +599,75 @@ var
       not ContainsText(AControl.ComponentClassName, 'WebBrowser');
   end;
 
+  { The widest this control may become before it would cross either its
+    parent's right edge or the nearest planned neighbour on the same row. }
+  function AvailableWidth(const AControl: TLayoutControl): Double;
+  var
+    Candidate: TLayoutControl;
+    NearestLeft: Double;
+    ParentWidth: Double;
+  begin
+    NearestLeft := MaxDouble;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if Candidate.PlannedLeft <= AControl.PlannedLeft + 2 then
+        Continue;
+      if (Candidate.PlannedTop >= AControl.PlannedTop +
+            AControl.PlannedHeight) or
+         (Candidate.PlannedTop + Candidate.PlannedHeight <=
+            AControl.PlannedTop) then
+        Continue;
+      if Candidate.PlannedLeft < NearestLeft then
+        NearestLeft := Candidate.PlannedLeft;
+    end;
+    if NearestLeft < MaxDouble then
+      Result := NearestLeft - AControl.PlannedLeft - ControlGap
+    else
+    begin
+      ParentWidth := ParentWidthFor(AControl);
+      if ParentWidth > 0 then
+        Result := ParentWidth - AControl.PlannedLeft - ControlGap
+      else
+        Result := AControl.PlannedWidth;
+    end;
+    Result := Max(Result, 24);
+  end;
+
+  function BoundedTextWidth(const AControl: TLayoutControl;
+    const ARequiredWidth: Double): Integer;
+  var
+    GrowthCap: Double;
+    HardCap: Double;
+  begin
+    if ContainsText(AControl.ComponentClassName, 'Column') then
+    begin
+      GrowthCap := Max(AControl.Width * 1.60, 160);
+      HardCap := 460;
+    end
+    else if ContainsText(AControl.ComponentClassName, 'Button') then
+    begin
+      GrowthCap := Max(AControl.Width * 1.20, 120);
+      HardCap := 220;
+    end
+    else
+    begin
+      GrowthCap := Max(AControl.Width * 1.35, 180);
+      HardCap := 360;
+    end;
+    Result := Ceil(Min(ARequiredWidth, Min(GrowthCap, HardCap)));
+    { Never propose a width that would cross the parent edge or the next
+      control on the same row. Wrapping absorbs whatever will not fit. }
+    Result := Min(Result, Ceil(AvailableWidth(AControl)));
+    if Result < Ceil(AControl.Width) then
+      Result := Ceil(AControl.Width);
+  end;
+
   function PositionPropertyName(const AControl: TLayoutControl;
     const AAxis: string): string;
   begin
@@ -632,99 +679,64 @@ var
     Result := 'Position.' + AAxis;
   end;
 
-  function OverlapsHorizontally(const ALeft, ARight: TLayoutControl): Boolean;
+  function PlannedOverlap(const AFirst, ASecond: TLayoutControl): Boolean;
   begin
-    Result := (ALeft.Left < ARight.Left + EffectiveWidth(ARight)) and
-      (ALeft.Left + EffectiveWidth(ALeft) > ARight.Left);
+    Result :=
+      (AFirst.PlannedLeft < ASecond.PlannedLeft + ASecond.PlannedWidth) and
+      (AFirst.PlannedLeft + AFirst.PlannedWidth > ASecond.PlannedLeft) and
+      (AFirst.PlannedTop < ASecond.PlannedTop + ASecond.PlannedHeight) and
+      (AFirst.PlannedTop + AFirst.PlannedHeight > ASecond.PlannedTop);
   end;
 
-  function OverlapsVertically(const AUpper, ALower: TLayoutControl): Boolean;
+  function SamePlannedRow(const AFirst, ASecond: TLayoutControl): Boolean;
   begin
-    Result := (AUpper.Top < ALower.Top + EffectiveHeight(ALower)) and
-      (AUpper.Top + EffectiveHeight(AUpper) > ALower.Top);
-  end;
-
-  procedure ProposeVerticalSeparation(const AUpper, ALower: TLayoutControl);
-  var
-    NeededTop: Double;
-    MoveDistance: Double;
-  begin
-    if not CanMoveControl(ALower) then
-      Exit;
-    NeededTop := AUpper.Top + EffectiveHeight(AUpper) + 8;
-    MoveDistance := NeededTop - ALower.Top;
-    if (MoveDistance <= 1) or (MoveDistance > 140) then
-      Exit;
-    AddProposal(AReview, ALower, PositionPropertyName(ALower, 'Y'),
-      FloatToStr(ALower.Top), IntToStr(Ceil(NeededTop)),
-      Format('Move down %.0f pixels to clear translated text above it.',
-        [MoveDistance]));
-  end;
-
-  procedure ProposeHorizontalSeparation(const ALeft, ARight: TLayoutControl);
-  var
-    NeededLeft: Double;
-    MoveDistance: Double;
-  begin
-    if not CanMoveControl(ARight) then
-      Exit;
-    NeededLeft := ALeft.Left + EffectiveWidth(ALeft) + 8;
-    MoveDistance := NeededLeft - ARight.Left;
-    if (MoveDistance <= 1) or (MoveDistance > 180) then
-      Exit;
-    AddProposal(AReview, ARight, PositionPropertyName(ARight, 'X'),
-      FloatToStr(ARight.Left), IntToStr(Ceil(NeededLeft)),
-      Format('Move right %.0f pixels to clear translated text beside it.',
-        [MoveDistance]));
+    Result := Abs((AFirst.PlannedTop + AFirst.PlannedHeight / 2) -
+      (ASecond.PlannedTop + ASecond.PlannedHeight / 2)) <=
+      Max(8, Max(AFirst.PlannedHeight, ASecond.PlannedHeight) * 0.55);
   end;
 begin
+  { Phase 1 - start every control from its designer geometry. }
+  for Control in AReview.Controls do
+  begin
+    Control.PlannedLeft := Control.Left;
+    Control.PlannedTop := Control.Top;
+    Control.PlannedWidth := Control.Width;
+    Control.PlannedHeight := Control.Height;
+    Control.PlannedWordWrap := Control.WordWrap;
+  end;
+
+  { Phase 2 - size each control against its measured translated text, writing
+    the outcome back into the planned geometry. }
   for Control in AReview.Controls do
   begin
     if (Control.TranslatedText = '') or not Control.HasSize then
       Continue;
     FontSize := Max(Control.FontSize, 9);
     RequiredWidth := TextWidthEstimate(Control);
-    RequiredHeight := FontSize * 1.65;
+    RequiredHeight := MeasuredLineHeight(Control);
     IsButton := ContainsText(Control.ComponentClassName, 'Button');
-    IsColumn := ContainsText(Control.ComponentClassName, 'Column');
-    IsWrappingText := ContainsText(Control.ComponentClassName, 'Label') or
-      ContainsText(Control.ComponentClassName, 'CheckBox') or
-      ContainsText(Control.ComponentClassName, 'RadioButton') or
-      ContainsText(Control.ComponentClassName, 'GroupBox');
+    IsWrappingText := ShouldPreferWrap(Control);
     if (Control.Width > 0) and (RequiredWidth > Control.Width * 1.05) then
     begin
       AddFinding(AReview, lfsHighRisk, 'Layout',
         Control.FormName + '.' + Control.ComponentName,
-        Format('Estimated translated width %.0f exceeds the %.0f-pixel control.',
+        Format('Measured translated width %.0f exceeds the %.0f-pixel control.',
           [RequiredWidth, Control.Width]),
         'Review the proposed width, wrapping, or nearby control placement.');
-      if ShouldPreferWrap(Control) and (Control.Width >= 80) then
+      NewWidth := BoundedTextWidth(Control, RequiredWidth);
+      if IsWrappingText and (Control.Width >= 80) then
       begin
-        NewWidth := BoundedTextWidth(Control, RequiredWidth);
-        LineCount := Max(2, Ceil(RequiredWidth / Max(NewWidth, 24)));
-        if NewWidth > Ceil(Control.Width) then
-          AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
-            IntToStr(NewWidth),
-            'Bounded widening before wrapping; large horizontal growth is avoided so neighboring controls are preserved.');
-        if Control.AutoSize then
-          AddProposal(AReview, Control, 'AutoSize', 'True', 'False',
-            'Disable one-line automatic sizing so the translated text can wrap inside the designer width.');
-        if not Control.WordWrap then
-          AddProposal(AReview, Control, 'WordWrap', 'False', 'True',
-            'Wrap the translated text instead of expanding across neighboring controls.');
-        if (not IsButton) and (Control.Height < RequiredHeight * LineCount) then
-          AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
-            IntToStr(Ceil(RequiredHeight * LineCount)),
-            'Provide enough height for the estimated wrapped line count.');
+        Control.PlannedWidth := NewWidth;
+        Control.PlannedWordWrap := True;
+        { Line count is measured against the width the control will actually
+          have, so the height matches what the text will really occupy. }
+        LineCount := Max(1, Ceil(RequiredWidth / Max(NewWidth, 24)));
+        if not IsButton then
+          Control.PlannedHeight := Max(Control.PlannedHeight,
+            Ceil(RequiredHeight * LineCount));
       end
       else
-      begin
-        NewWidth := BoundedTextWidth(Control, RequiredWidth);
-        if NewWidth > Ceil(Control.Width) then
-          AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
-            IntToStr(NewWidth),
-            'Conservatively widen this control without moving surrounding controls.');
-      end;
+        Control.PlannedWidth := NewWidth;
     end;
     if (Control.Height > 0) and (RequiredHeight > Control.Height * 1.10) then
     begin
@@ -732,42 +744,112 @@ begin
         Control.FormName + '.' + Control.ComponentName,
         'The control may be too short for its translated text and font.',
         'Review the proposed height or enable automatic sizing.');
-      AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
-        IntToStr(Ceil(RequiredHeight)), 'Estimated font height plus padding.');
+      Control.PlannedHeight := Max(Control.PlannedHeight, Ceil(RequiredHeight));
     end;
   end;
 
-  for Control in AReview.Controls do
-    if Control.HasPosition and Control.HasSize and
-       (Control.TranslatedText <> '') then
+  { Phase 3 - resolve collisions against the planned geometry, repeatedly, so a
+    control moved on one pass is seen at its new place on the next. Every move
+    both reads and writes the planned values, which is what stops two rules
+    from being derived from stale positions and contradicting each other. }
+  for Pass := 1 to MaximumSeparationPasses do
+  begin
+    Moved := False;
+    for Control in AReview.Controls do
+    begin
+      if not Control.HasPosition or not Control.HasSize then
+        Continue;
       for Other in AReview.Controls do
-        if (CompareText(Other.ComponentName, Control.ComponentName) > 0) and
-           SameText(Other.FormName, Control.FormName) and
-           SameText(Other.ParentName, Control.ParentName) and
-           Other.HasPosition and Other.HasSize and
-           OverlapsHorizontally(Control, Other) and
-           OverlapsVertically(Control, Other) then
-        begin
+      begin
+        if (Other = Control) or not Other.HasPosition or not Other.HasSize then
+          Continue;
+        if not SameText(Other.FormName, Control.FormName) or
+          not SameText(Other.ParentName, Control.ParentName) then
+          Continue;
+        if not PlannedOverlap(Control, Other) then
+          Continue;
+        if Pass = 1 then
           AddFinding(AReview, lfsWarning, 'Overlap',
             Control.FormName + '.' + Control.ComponentName,
             'This control intersects ' + Other.ComponentName +
-              ' after estimated translated sizing.',
+              ' after measured translated sizing.',
             'Review the proposed move/size rule or adjust the designer layout manually.');
-          if SameVisualRow(Control, Other) then
+        if SamePlannedRow(Control, Other) then
+        begin
+          { Push the right-hand control clear of the left-hand one. }
+          if (Control.PlannedLeft <= Other.PlannedLeft) and
+            CanMoveControl(Other) then
           begin
-            if Control.Left <= Other.Left then
-              ProposeHorizontalSeparation(Control, Other)
-            else
-              ProposeHorizontalSeparation(Other, Control);
+            Other.PlannedLeft := Control.PlannedLeft + Control.PlannedWidth +
+              ControlGap;
+            Moved := True;
           end
-          else if SameVisualColumn(Control, Other) then
+          else if (Other.PlannedLeft < Control.PlannedLeft) and
+            CanMoveControl(Control) then
           begin
-            if Control.Top <= Other.Top then
-              ProposeVerticalSeparation(Control, Other)
-            else
-              ProposeVerticalSeparation(Other, Control);
+            Control.PlannedLeft := Other.PlannedLeft + Other.PlannedWidth +
+              ControlGap;
+            Moved := True;
+          end;
+        end
+        else
+        begin
+          { Push the lower control clear of the upper one. }
+          if (Control.PlannedTop <= Other.PlannedTop) and
+            CanMoveControl(Other) then
+          begin
+            Other.PlannedTop := Control.PlannedTop + Control.PlannedHeight +
+              ControlGap;
+            Moved := True;
+          end
+          else if (Other.PlannedTop < Control.PlannedTop) and
+            CanMoveControl(Control) then
+          begin
+            Control.PlannedTop := Other.PlannedTop + Other.PlannedHeight +
+              ControlGap;
+            Moved := True;
           end;
         end;
+      end;
+    end;
+    if not Moved then
+      Break;
+  end;
+
+  { Phase 4 - emit proposals from the settled geometry. Because every value
+    comes from the same resolved model, the exported rules agree with one
+    another instead of describing conflicting placements. }
+  for Control in AReview.Controls do
+  begin
+    if (Control.TranslatedText = '') or not Control.HasSize then
+      Continue;
+    if Ceil(Control.PlannedWidth) > Ceil(Control.Width) then
+      AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
+        IntToStr(Ceil(Control.PlannedWidth)),
+        'Width measured from the translated text and clamped to the space actually available.');
+    if Control.PlannedWordWrap and not Control.WordWrap then
+      AddProposal(AReview, Control, 'WordWrap', 'False', 'True',
+        'Wrap the translated text instead of expanding across neighboring controls.');
+    if Control.PlannedWordWrap and Control.AutoSize then
+      AddProposal(AReview, Control, 'AutoSize', 'True', 'False',
+        'Disable one-line automatic sizing so the translated text can wrap inside the planned width.');
+    if Ceil(Control.PlannedHeight) > Ceil(Control.Height) then
+      AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
+        IntToStr(Ceil(Control.PlannedHeight)),
+        'Height for the measured wrapped line count at the planned width.');
+    if not Control.HasPosition then
+      Continue;
+    if Abs(Control.PlannedLeft - Control.Left) > 1 then
+      AddProposal(AReview, Control, PositionPropertyName(Control, 'X'),
+        FloatToStr(Control.Left), IntToStr(Ceil(Control.PlannedLeft)),
+        Format('Move %.0f pixels horizontally to clear the neighbouring control.',
+          [Control.PlannedLeft - Control.Left]));
+    if Abs(Control.PlannedTop - Control.Top) > 1 then
+      AddProposal(AReview, Control, PositionPropertyName(Control, 'Y'),
+        FloatToStr(Control.Top), IntToStr(Ceil(Control.PlannedTop)),
+        Format('Move %.0f pixels vertically to clear the control above it.',
+          [Control.PlannedTop - Control.Top]));
+  end;
 end;
 
 class function TLocalizationReviewer.Analyze(
