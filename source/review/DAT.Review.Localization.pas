@@ -602,8 +602,28 @@ var
       not ContainsText(AControl.ComponentClassName, 'WebBrowser');
   end;
 
-  { The widest this control may become before it would cross either its
-    parent's right edge or the nearest planned neighbour on the same row. }
+  { The right-hand edge of the designed content on this control's parent. The
+    parent's own size is not always present in the scanned model, so fall back
+    to the furthest edge the designer actually placed something at. Growth and
+    separation stay inside this, which keeps a widened control on the form. }
+  function ContentRightBound(const AControl: TLayoutControl): Double;
+  var
+    Candidate: TLayoutControl;
+    ParentWidth: Double;
+  begin
+    ParentWidth := ParentWidthFor(AControl);
+    if ParentWidth > 0 then
+      Exit(ParentWidth);
+    Result := AControl.Left + AControl.Width;
+    for Candidate in AReview.Controls do
+      if SameText(Candidate.FormName, AControl.FormName) and
+        SameText(Candidate.ParentName, AControl.ParentName) and
+        Candidate.HasPosition and Candidate.HasSize then
+        Result := Max(Result, Candidate.Left + Candidate.Width);
+  end;
+
+  { The widest this control may become before it would cross either the edge of
+    the designed content or the nearest fixed neighbour on the same row. }
   function AvailableWidth(const AControl: TLayoutControl): Double;
   var
     Candidate: TLayoutControl;
@@ -626,6 +646,10 @@ var
          (Candidate.PlannedTop + Candidate.PlannedHeight <=
             AControl.PlannedTop) then
         Continue;
+      { A neighbour the separation pass can move is not a limit on how wide
+        this control may become; it will be stepped aside instead. }
+      if CanMoveControl(Candidate) then
+        Continue;
       if Candidate.PlannedLeft < NearestLeft then
         NearestLeft := Candidate.PlannedLeft;
     end;
@@ -637,20 +661,22 @@ var
       if ParentWidth > 0 then
         Result := ParentWidth - AControl.PlannedLeft - ControlGap
       else
-        { Nothing sits to the right and the parent size is unknown, so there is
-          no measured limit here. Returning the control's own width would pin
-          it to its source-language size and clip the translation. Report a
-          wide but finite allowance so the per-class caps decide instead, and
-          so the value stays safe to round into an integer. }
-        Result := UnboundedWidthAllowance;
+        { Nothing fixed sits to the right, so the only limit is the edge of the
+          designed content. Returning the control's own width would pin it to
+          its source-language size and clip the translation. }
+        Result := ContentRightBound(AControl) - AControl.PlannedLeft -
+          ControlGap;
     end;
+    Result := Min(Result, UnboundedWidthAllowance);
     Result := Max(Result, 24);
   end;
 
-  { True when no sibling shares this control's row on the given side, so
-    growing or recentring it there cannot collide with anything. }
+  { True when nothing shares this control's row on the given side. When
+    AIgnoreMovable is set, a sibling that the separation pass is free to move
+    is not treated as an obstruction: capping a control's width against a
+    neighbour that would simply step aside only clips the translation. }
   function RowIsFree(const AControl: TLayoutControl;
-    const ATowardsRight: Boolean): Boolean;
+    const ATowardsRight, AIgnoreMovable: Boolean): Boolean;
   var
     Candidate: TLayoutControl;
   begin
@@ -667,6 +693,8 @@ var
             AControl.PlannedHeight) or
          (Candidate.PlannedTop + Candidate.PlannedHeight <=
             AControl.PlannedTop) then
+        Continue;
+      if AIgnoreMovable and CanMoveControl(Candidate) then
         Continue;
       if ATowardsRight then
       begin
@@ -701,10 +729,11 @@ var
       HardCap := 360;
     end;
     { The proportional growth cap exists to stop a control expanding over its
-      neighbours. A control with an empty row beside it has no neighbour to
-      protect, and capping it there only clips the translation, so let it
-      reach the width its text actually needs up to the hard limit. }
-    if RowIsFree(AControl, True) then
+      neighbours. Where the only things beside it are siblings the separation
+      pass can move, there is nothing to protect, and capping here only clips
+      the translation, so let it reach the width its text actually needs up to
+      the hard limit. }
+    if RowIsFree(AControl, True, True) then
       GrowthCap := HardCap;
     Result := Ceil(Min(ARequiredWidth, Min(GrowthCap, HardCap)));
     { Never propose a width that would cross the parent edge or the next
@@ -770,7 +799,11 @@ begin
           [RequiredWidth, Control.Width]),
         'Review the proposed width, wrapping, or nearby control placement.');
       NewWidth := BoundedTextWidth(Control, RequiredWidth);
-      if IsWrappingText and (Control.Width >= 80) then
+      { Narrow captions need wrapping most of all: a control too small to hold
+        its translation on one line has to be allowed to break it, and must
+        have automatic sizing switched off, or it silently grows across its
+        neighbours instead. }
+      if IsWrappingText and (NewWidth >= 40) then
       begin
         Control.PlannedWidth := NewWidth;
         Control.PlannedWordWrap := True;
@@ -788,7 +821,7 @@ begin
         rightwards slides the caption away from where it was designed to sit.
         This is safe only where nothing shares the row on either side. }
       if (Control.PlannedWidth > Control.Width) and Control.HasPosition and
-        RowIsFree(Control, True) and RowIsFree(Control, False) then
+        RowIsFree(Control, True, False) and RowIsFree(Control, False, False) then
         Control.PlannedLeft := Max(0, Control.Left + Control.Width / 2 -
           Control.PlannedWidth / 2);
     end;
@@ -831,15 +864,22 @@ begin
         if SamePlannedRow(Control, Other) then
         begin
           { Push the right-hand control clear of the left-hand one. }
+          { Never push a control past the edge of the designed content: a
+            caption shoved off the form is worse than one sitting close to its
+            neighbour. }
           if (Control.PlannedLeft <= Other.PlannedLeft) and
-            CanMoveControl(Other) then
+            CanMoveControl(Other) and
+            (Control.PlannedLeft + Control.PlannedWidth + ControlGap +
+              Other.PlannedWidth <= ContentRightBound(Other)) then
           begin
             Other.PlannedLeft := Control.PlannedLeft + Control.PlannedWidth +
               ControlGap;
             Moved := True;
           end
           else if (Other.PlannedLeft < Control.PlannedLeft) and
-            CanMoveControl(Control) then
+            CanMoveControl(Control) and
+            (Other.PlannedLeft + Other.PlannedWidth + ControlGap +
+              Control.PlannedWidth <= ContentRightBound(Control)) then
           begin
             Control.PlannedLeft := Other.PlannedLeft + Other.PlannedWidth +
               ControlGap;
