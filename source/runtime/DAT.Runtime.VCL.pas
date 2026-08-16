@@ -28,11 +28,14 @@ uses
   System.SysUtils,
   System.TypInfo,
   Vcl.Controls,
+  Vcl.Graphics,
   Vcl.StdCtrls;
 
 function TrySetLayoutProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
 var
+  FloatValue: Extended;
+  FontObject: TObject;
   IntegerValue: Int64;
   OrdinalValue: NativeInt;
   PropertyInfo: PPropInfo;
@@ -48,6 +51,24 @@ begin
       TControl(AComponent).Left := IntegerValue
     else
       TControl(AComponent).Top := IntegerValue;
+    Exit(True);
+  end;
+  { VCL keeps the point size on the control's TFont rather than in a property
+    of its own, so a FontSize rule has to be routed there. Looking it up by
+    name finds nothing, and the reduction would be skipped in silence, leaving
+    the caption at its designed size and overflowing exactly as before. }
+  if SameText(APropertyName, 'FontSize') then
+  begin
+    if not TryStrToFloat(AValue, FloatValue, TFormatSettings.Invariant) or
+      (FloatValue <= 0) or (FloatValue > 400) then
+      Exit;
+    PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'Font');
+    if PropertyInfo = nil then
+      Exit;
+    FontObject := GetObjectProp(AComponent, PropertyInfo);
+    if not (FontObject is TFont) then
+      Exit;
+    TFont(FontObject).Size := Round(FloatValue);
     Exit(True);
   end;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName);
@@ -348,10 +369,20 @@ class function TVCLTranslationApplicator.ApplyLayoutToForm(
   const AForm: TCustomForm; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string;
   const AUseTranslatedValues: Boolean): Integer;
+const
+  { Order matters here for the same reason it does under FireMonkey. An
+    auto-sizing label recomputes its own bounds from one line of text and
+    discards an assigned Width, so AutoSize has to be cleared first. The font
+    size follows, so the width and height that come after are measured against
+    the size the text will really be, and positions are applied last, once
+    every control has its final size. }
+  OrderedLayoutProperties: array[0..6] of string = (
+    'AutoSize', 'FontSize', 'WordWrap', 'Width', 'Height', 'Left', 'Top');
 var
   CandidateRule: TRuntimeLayoutRule;
   Component: TComponent;
   CurrentNumber: Extended;
+  OrderedProperty: string;
   Rule: TRuntimeLayoutRule;
   CandidateNumber: Extended;
   Superseded: Boolean;
@@ -360,9 +391,12 @@ begin
   Result := 0;
   if (AForm = nil) or (APack = nil) then
     Exit;
+  for OrderedProperty in OrderedLayoutProperties do
   for Rule in APack.LayoutRules do
   begin
     if not SameText(Rule.FormName, AFormIdentity) then
+      Continue;
+    if not SameText(Rule.PropertyName, OrderedProperty) then
       Continue;
     Superseded := False;
     if (SameText(Rule.PropertyName, 'Width') or
