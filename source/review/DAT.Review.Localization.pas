@@ -161,7 +161,8 @@ uses
   System.Math,
   System.StrUtils,
   System.SysUtils,
-  DAT.Core.CatalogJson;
+  DAT.Core.CatalogJson,
+  DAT.Scan.TextCodec;
 
 type
   TObjectFrame = record
@@ -365,7 +366,7 @@ begin
     for FileName in Files do
     begin
       Stack.Clear;
-      Lines.LoadFromFile(FileName);
+      LoadDelphiTextFile(FileName, Lines);
       FormName := '';
       for I := 0 to Lines.Count - 1 do
       begin

@@ -38,7 +38,8 @@ uses
   System.Classes,
   System.IOUtils,
   System.StrUtils,
-  System.SysUtils;
+  System.SysUtils,
+  DAT.Scan.TextCodec;
 
 function ObjectDepthDelta(const ALine: string): Integer;
 var
@@ -276,7 +277,7 @@ begin
       begin
         FormLines := TStringList.Create;
         try
-          FormLines.LoadFromFile(FileName);
+          LoadDelphiTextFile(FileName, FormLines);
           if SameText(RootFormClassName(FormLines), MainFormClassName) then
             Exit(FileName);
         finally
@@ -464,7 +465,7 @@ begin
       Continue;
     FormLines := TStringList.Create;
     try
-      FormLines.LoadFromFile(FileName);
+      LoadDelphiTextFile(FileName, FormLines);
       MenuIndex := FindMenuObject(FormLines, AMenuName);
       if MenuIndex < 0 then
         Continue;
@@ -508,7 +509,7 @@ begin
   FileName := PrimaryFormResourceFileName(AProfile, Extension);
   FormLines := TStringList.Create;
   try
-    FormLines.LoadFromFile(FileName);
+    LoadDelphiTextFile(FileName, FormLines);
     MenuIndex := AddDesignerMenu(FormLines, AProfile.Framework,
       AMenuName, TextPropertyName);
     InsertIndex := FindObjectEnd(FormLines, MenuIndex);

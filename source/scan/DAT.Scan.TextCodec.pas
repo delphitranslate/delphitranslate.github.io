@@ -2,13 +2,52 @@ unit DAT.Scan.TextCodec;
 
 interface
 
+uses
+  System.Classes;
+
+procedure LoadDelphiTextFile(const AFileName: string; const ALines: TStrings);
+
 function TryDecodeDelphiStringExpression(const AExpression: string;
   out AValue: string): Boolean;
 
 implementation
 
 uses
+  System.IOUtils,
   System.SysUtils;
+
+procedure LoadDelphiTextFile(const AFileName: string; const ALines: TStrings);
+var
+  Bytes: TBytes;
+  Encoding: TEncoding;
+  PreambleLength: Integer;
+  Text: string;
+begin
+  if ALines = nil then
+    raise EArgumentNilException.Create('A target line list is required.');
+
+  Bytes := TFile.ReadAllBytes(AFileName);
+  if Length(Bytes) = 0 then
+  begin
+    ALines.Clear;
+    Exit;
+  end;
+
+  Encoding := nil;
+  PreambleLength := TEncoding.GetBufferEncoding(Bytes, Encoding, nil);
+  if Encoding <> nil then
+    Text := Encoding.GetString(Bytes, PreambleLength,
+      Length(Bytes) - PreambleLength)
+  else
+  begin
+    try
+      Text := TEncoding.UTF8.GetString(Bytes);
+    except
+      Text := TEncoding.Default.GetString(Bytes);
+    end;
+  end;
+  ALines.Text := Text;
+end;
 
 function TryDecodeDelphiStringExpression(const AExpression: string;
   out AValue: string): Boolean;

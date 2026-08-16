@@ -150,7 +150,7 @@ begin
   Lines := TStringList.Create;
   ContextStack := TList<TObjectContext>.Create;
   try
-    Lines.LoadFromFile(AFileName);
+    LoadDelphiTextFile(AFileName, Lines);
     if (Lines.Count = 0) or
       not StartsObjectDeclaration(Trim(Lines[0])) then
     begin

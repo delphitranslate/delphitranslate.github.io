@@ -616,7 +616,7 @@ var
 begin
   Lines := TStringList.Create;
   try
-    Lines.LoadFromFile(AFileName);
+    LoadDelphiTextFile(AFileName, Lines);
     UnitName := ReadUnitName(Lines, AFileName);
     InResourceStrings := False;
     Statement := '';

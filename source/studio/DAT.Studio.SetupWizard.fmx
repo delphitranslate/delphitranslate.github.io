@@ -434,9 +434,9 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object lstDeploymentDestinations: TListBox
               Position.X = 8.000000000000000000
-              Position.Y = 154.000000000000000000
+              Position.Y = 146.000000000000000000
               Size.Width = 670.000000000000000000
-              Size.Height = 184.000000000000000000
+              Size.Height = 138.000000000000000000
               Size.PlatformDefault = False
               ShowCheckboxes = False
               TabOrder = 0
@@ -444,7 +444,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnAddDeploymentDestination: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 352.000000000000000000
+              Position.Y = 298.000000000000000000
               Size.Width = 210.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
@@ -453,7 +453,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnRemoveDeploymentDestination: TButton
               Position.X = 232.000000000000000000
-              Position.Y = 352.000000000000000000
+              Position.Y = 298.000000000000000000
               Size.Width = 180.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
@@ -464,9 +464,9 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               WordWrap = True
               Position.X = 8.000000000000000000
-              Position.Y = 406.000000000000000000
+              Position.Y = 352.000000000000000000
               Size.Width = 670.000000000000000000
-              Size.Height = 54.000000000000000000
+              Size.Height = 58.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 13.000000000000000000
               TextSettings.FontColor = xFF365674
@@ -475,9 +475,9 @@ object frmSetupWizard: TfrmSetupWizard
             object chkReplaceDeployedExecutable: TCheckBox
               StyledSettings = []
               Position.X = 8.000000000000000000
-              Position.Y = 468.000000000000000000
+              Position.Y = 422.000000000000000000
               Size.Width = 670.000000000000000000
-              Size.Height = 44.000000000000000000
+              Size.Height = 54.000000000000000000
               Size.PlatformDefault = False
               TextSettings.FontColor = xFFB25400
               Text = 'Authorize creating or replacing the deployed application EXE in these folders'

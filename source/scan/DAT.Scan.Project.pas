@@ -28,7 +28,8 @@ uses
   DAT.Scan.Context,
   DAT.Scan.FormText,
   DAT.Scan.PascalResources,
-  DAT.Scan.Quality;
+  DAT.Scan.Quality,
+  DAT.Scan.TextCodec;
 
 function IsUnderDirectory(const ADirectory, AFileName: string): Boolean;
 var
@@ -100,7 +101,7 @@ begin
 
   Lines := TStringList.Create;
   try
-    Lines.LoadFromFile(AProjectFileName);
+    LoadDelphiTextFile(AProjectFileName, Lines);
     for Line in Lines do
     begin
       if not ContainsText(Line, '<DCCReference') then
@@ -301,10 +302,11 @@ begin
         if not IsExcludedPath(ProjectDirectory, FileName) then
           AddUniqueFileName(FormFiles, FileName);
 
-      { Source scanning is intentionally limited to units referenced by the
-        selected project. Walking every .pas file below the folder pulls in
-        converters, old tools, backups, samples, and unrelated utilities; that
-        was the main reason Carillon scans jumped into the thousands. }
+      FileNames := TDirectory.GetFiles(ProjectDirectory, '*.pas',
+        TSearchOption.soAllDirectories);
+      for FileName in FileNames do
+        if not IsExcludedPath(ProjectDirectory, FileName) then
+          AddUniqueFileName(SourceFiles, FileName);
 
       { Do not scan every standalone .htm/.html file in the project tree as
         application UI. Real projects often carry websites, help pages,

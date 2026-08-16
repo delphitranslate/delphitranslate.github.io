@@ -304,7 +304,7 @@ uses
 {$R *.fmx}
 
 const
-  StudioBuildLabel = 'Build 2026.08.16.0738';
+  StudioBuildLabel = 'Build 2026.08.16.0830';
 
 procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var
@@ -575,7 +575,7 @@ begin
   ComponentFileName := TPath.Combine(FIntegrationPackageDirectory,
     lstIntegrationPlan.Items[lstIntegrationPlan.ItemIndex]);
   if TFile.Exists(ComponentFileName) then
-    memIntegrationDiff.Lines.LoadFromFile(ComponentFileName)
+    memIntegrationDiff.Lines.LoadFromFile(ComponentFileName, TEncoding.UTF8)
   else
     memIntegrationDiff.Text := 'Generated file not found: ' +
       ComponentFileName;
