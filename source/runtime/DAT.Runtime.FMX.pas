@@ -46,8 +46,10 @@ uses
   FMX.Edit,
   FMX.Grid,
   FMX.Memo,
+  FMX.Graphics,
   FMX.StdCtrls,
   FMX.Types,
+  FMX.TextLayout,
   FMX.WebBrowser;
 
 type
@@ -499,9 +501,27 @@ const
 var
   ComponentIndex: Integer;
 
-  function EstimatedTextWidth(const AText: string): Single;
+  function MeasuredTextWidth(const AText: string; const AFont: TFont): Single;
+  var
+    CleanText: string;
+    Layout: TTextLayout;
   begin
-    Result := Max(0, Length(Trim(AText)) * 7.4 + 20);
+    CleanText := Trim(AText);
+    if CleanText = '' then
+      Exit(0);
+    if AFont = nil then
+      Exit(Length(CleanText) * 7.4 + 20);
+    Layout := TTextLayoutManager.DefaultTextLayout.Create;
+    try
+      Layout.BeginUpdate;
+      Layout.Text := CleanText;
+      Layout.Font := AFont;
+      Layout.WordWrap := False;
+      Layout.EndUpdate;
+      Result := Layout.Width + 20;
+    finally
+      Layout.Free;
+    end;
   end;
 
   function ParentClientWidth(const AControl: TControl): Single;
@@ -615,12 +635,12 @@ var
     Result := SetBooleanPropertyIfSupported(AComponent, 'AutoSize', False);
   end;
 
-  function FitWrappedHeight(const AText: string; const AWidth: Single;
-    const AMinimumHeight, AMaximumHeight: Single): Single;
+  function FitWrappedHeight(const AText: string; const AFont: TFont;
+    const AWidth: Single; const AMinimumHeight, AMaximumHeight: Single): Single;
   var
     Lines: Integer;
   begin
-    Lines := Ceil(EstimatedTextWidth(AText) / Max(40, AWidth));
+    Lines := Ceil(MeasuredTextWidth(AText, AFont) / Max(40, AWidth));
     Result := Min(AMaximumHeight, Max(AMinimumHeight, Lines * 18 + 6));
   end;
 
@@ -635,6 +655,19 @@ var
       Result := TCheckBox(AComponent).Text
     else if AComponent is TTextControl then
       Result := TTextControl(AComponent).Text;
+  end;
+
+  function ComponentFont(const AComponent: TComponent): TFont;
+  begin
+    Result := nil;
+    if AComponent is TLabel then
+      Result := TLabel(AComponent).Font
+    else if AComponent is TButton then
+      Result := TButton(AComponent).Font
+    else if AComponent is TCheckBox then
+      Result := TCheckBox(AComponent).Font
+    else if AComponent is TTextControl then
+      Result := TTextControl(AComponent).Font;
   end;
 
   function HasExplicitLayoutRule(const AComponent: TComponent): Boolean;
@@ -663,7 +696,7 @@ var
     NewWidth: Single;
   begin
     Result := 0;
-    NeededWidth := EstimatedTextWidth(AText);
+    NeededWidth := MeasuredTextWidth(AText, ComponentFont(AComponent));
     MaxWidth := Min(MaximumButtonWidth, AvailableWidthToParentRight(AControl));
     NewWidth := Min(MaxWidth, Max(MinimumButtonWidth, NeededWidth));
     if NewWidth > AControl.Width + 4 then
@@ -675,7 +708,8 @@ var
     begin
       if SetWordWrapIfSupported(AComponent) then
         Inc(Result);
-      NewHeight := FitWrappedHeight(AText, AControl.Width, AControl.Height, 56);
+      NewHeight := FitWrappedHeight(AText, ComponentFont(AComponent),
+        AControl.Width, AControl.Height, 56);
       if NewHeight > AControl.Height + 2 then
       begin
         AControl.Height := NewHeight;
@@ -693,7 +727,7 @@ var
     NewWidth: Single;
   begin
     Result := 0;
-    NeededWidth := EstimatedTextWidth(AText) + 22;
+    NeededWidth := MeasuredTextWidth(AText, ComponentFont(AComponent)) + 22;
     MaxWidth := Min(MaximumLabelWidth, NearestSameRowRightEdgeLimit(AControl));
     NewWidth := Min(MaxWidth, Max(AControl.Width, NeededWidth));
     if NewWidth > AControl.Width + 4 then
@@ -710,8 +744,8 @@ var
     begin
       if SetWordWrapIfSupported(AComponent) then
         Inc(Result);
-      NeededHeight := FitWrappedHeight(AText, AControl.Width,
-        MinimumLabelHeight, MaximumLabelHeight);
+      NeededHeight := FitWrappedHeight(AText, ComponentFont(AComponent),
+        AControl.Width, MinimumLabelHeight, MaximumLabelHeight);
       if NeededHeight > AControl.Height + 2 then
       begin
         AControl.Height := NeededHeight;
@@ -732,7 +766,7 @@ var
     RightLimitedWidth: Single;
   begin
     Result := 0;
-    NeededWidth := EstimatedTextWidth(AText);
+    NeededWidth := MeasuredTextWidth(AText, ComponentFont(AComponent));
     ParentWidth := ParentClientWidth(AControl);
     RightLimitedWidth := NearestSameRowRightEdgeLimit(AControl);
     HasRightNeighbor := RightLimitedWidth < AvailableWidthToParentRight(AControl) - 1;
@@ -764,8 +798,8 @@ var
       Inc(Result);
     end;
 
-    NeededHeight := FitWrappedHeight(AText, AControl.Width,
-      MinimumLabelHeight, MaximumLabelHeight);
+    NeededHeight := FitWrappedHeight(AText, ComponentFont(AComponent),
+      AControl.Width, MinimumLabelHeight, MaximumLabelHeight);
     if NeededHeight > AControl.Height + 2 then
     begin
       AControl.Height := NeededHeight;
@@ -773,10 +807,74 @@ var
     end;
   end;
 
+  function HorizontalOverlapRatio(const ALeft, ARight: TControl): Single;
+  var
+    MinWidth: Single;
+    OverlapWidth: Single;
+  begin
+    OverlapWidth := Min(RightEdge(ALeft), RightEdge(ARight)) -
+      Max(ALeft.Position.X, ARight.Position.X);
+    if OverlapWidth <= 0 then
+      Exit(0);
+    MinWidth := Min(ALeft.Width, ARight.Width);
+    if MinWidth <= 0 then
+      Exit(0);
+    Result := OverlapWidth / MinWidth;
+  end;
+
+  { A control that grows taller (because its translated text wrapped to more
+    lines) can push its own bottom edge into whatever control was originally
+    resting directly beneath it. This does not rearrange the form: it only
+    shifts a control that was already touching the grown control's original
+    bottom edge, straight down by exactly the growth amount, preserving the
+    original gap. It recurses so a short stack (label -> field -> note, all
+    touching) moves together, but never touches a control that was not
+    already adjacent. }
+  function CascadeStackedGrowth(const AControl: TControl; const AOldBottom,
+    ADelta: Single; const AVisited: TList<TControl>): Integer;
+  const
+    StackTouchTolerance = 6;
+    MinimumHorizontalOverlapRatio = 0.2;
+  var
+    Candidate: TComponent;
+    CandidateControl: TControl;
+    CandidateIndex: Integer;
+    CandidateOldBottom: Single;
+  begin
+    Result := 0;
+    for CandidateIndex := 0 to AForm.ComponentCount - 1 do
+    begin
+      Candidate := AForm.Components[CandidateIndex];
+      if (Candidate = AControl) or not (Candidate is TControl) then
+        Continue;
+      CandidateControl := TControl(Candidate);
+      if AVisited.IndexOf(CandidateControl) >= 0 then
+        Continue;
+      if (CandidateControl.Parent <> AControl.Parent) or
+        (CandidateControl.Align <> TAlignLayout.None) or
+        not CandidateControl.Visible then
+        Continue;
+      if Abs(CandidateControl.Position.Y - AOldBottom) > StackTouchTolerance then
+        Continue;
+      if HorizontalOverlapRatio(AControl, CandidateControl) <
+        MinimumHorizontalOverlapRatio then
+        Continue;
+      AVisited.Add(CandidateControl);
+      CandidateOldBottom := BottomEdge(CandidateControl);
+      CandidateControl.Position.Y := CandidateControl.Position.Y + ADelta;
+      Inc(Result);
+      Inc(Result, CascadeStackedGrowth(CandidateControl, CandidateOldBottom,
+        ADelta, AVisited));
+    end;
+  end;
+
   function FitComponent(const AComponent: TComponent): Integer;
   var
     Control: TControl;
     CurrentText: string;
+    GrowthDelta: Single;
+    OldBottom: Single;
+    Visited: TList<TControl>;
   begin
     Result := 0;
     if not (AComponent is TControl) then
@@ -793,190 +891,25 @@ var
     if CurrentText = '' then
       Exit;
 
+    OldBottom := BottomEdge(Control);
     if AComponent is TButton then
-      Exit(FitButton(AComponent, Control, CurrentText));
-    if AComponent is TCheckBox then
-      Exit(FitCheckBox(AComponent, Control, CurrentText));
-    if AComponent is TLabel then
-      Exit(FitLabel(AComponent, Control, CurrentText));
-  end;
+      Result := FitButton(AComponent, Control, CurrentText)
+    else if AComponent is TCheckBox then
+      Result := FitCheckBox(AComponent, Control, CurrentText)
+    else if AComponent is TLabel then
+      Result := FitLabel(AComponent, Control, CurrentText);
 
-  function IsMovableControl(const AComponent: TComponent): Boolean;
-  begin
-    Result := (AComponent is TControl) and
-      TControl(AComponent).Visible and
-      (TControl(AComponent).Align = TAlignLayout.None);
-  end;
-
-  function IsTextLayoutControl(const AComponent: TComponent): Boolean;
-  begin
-    Result := (AComponent is TLabel) or (AComponent is TButton) or
-      (AComponent is TCheckBox);
-  end;
-
-  function HorizontalOverlap(const ALeft, ARight: TControl): Single;
-  begin
-    Result := Min(RightEdge(ALeft), RightEdge(ARight)) -
-      Max(ALeft.Position.X, ARight.Position.X);
-    if Result < 0 then
-      Result := 0;
-  end;
-
-  procedure SortControlsTopLeft(const AControls: TList<TControl>);
-  begin
-    AControls.Sort(TComparer<TControl>.Construct(
-      function(const ALeft, ARight: TControl): Integer
-      begin
-        if Abs(ALeft.Position.Y - ARight.Position.Y) > 4 then
-          Result := Sign(ALeft.Position.Y - ARight.Position.Y)
-        else
-          Result := Sign(ALeft.Position.X - ARight.Position.X);
-      end));
-  end;
-
-  function CollectSameParentControls(const AParent: TFmxObject): TList<TControl>;
-  var
-    Candidate: TComponent;
-    CandidateControl: TControl;
-    CandidateIndex: Integer;
-  begin
-    Result := TList<TControl>.Create;
-    for CandidateIndex := 0 to AForm.ComponentCount - 1 do
+    GrowthDelta := BottomEdge(Control) - OldBottom;
+    if GrowthDelta > 1 then
     begin
-      Candidate := AForm.Components[CandidateIndex];
-      if not IsMovableControl(Candidate) then
-        Continue;
-      CandidateControl := TControl(Candidate);
-      if CandidateControl.Parent = AParent then
-        Result.Add(CandidateControl);
-    end;
-    SortControlsTopLeft(Result);
-  end;
-
-  function ResolveSiblingCollisionsForParent(const AParent: TFmxObject): Integer;
-  const
-    MinimumGap = 8;
-  var
-    Adjusted: Boolean;
-    AControl: TControl;
-    BControl: TControl;
-    Controls: TList<TControl>;
-    Horizontal: Single;
-    IndexA: Integer;
-    IndexB: Integer;
-    Iteration: Integer;
-    ParentWidth: Single;
-    RequiredX: Single;
-    RequiredY: Single;
-    Vertical: Single;
-  begin
-    Result := 0;
-    Controls := CollectSameParentControls(AParent);
-    try
-      ParentWidth := 0;
-      if AParent is TControl then
-        ParentWidth := TControl(AParent).Width
-      else if AForm <> nil then
-        ParentWidth := AForm.Width;
-
-      for Iteration := 1 to 8 do
-      begin
-        Adjusted := False;
-        SortControlsTopLeft(Controls);
-        for IndexA := 0 to Controls.Count - 2 do
-        begin
-          AControl := Controls[IndexA];
-          for IndexB := IndexA + 1 to Controls.Count - 1 do
-          begin
-            BControl := Controls[IndexB];
-            if BControl.Parent <> AControl.Parent then
-              Continue;
-            Horizontal := HorizontalOverlap(AControl, BControl);
-            Vertical := VerticalOverlap(AControl, BControl);
-            if (Horizontal <= 1) or (Vertical <= 1) then
-              Continue;
-
-            if BControl.Position.Y > AControl.Position.Y + 4 then
-            begin
-              RequiredY := BottomEdge(AControl) + MinimumGap;
-              if BControl.Position.Y < RequiredY then
-              begin
-                BControl.Position.Y := RequiredY;
-                Adjusted := True;
-                Inc(Result);
-              end;
-              Continue;
-            end;
-
-            if (BControl.Position.X > AControl.Position.X + 4) and
-              IsTextLayoutControl(AControl) then
-            begin
-              RequiredX := RightEdge(AControl) + MinimumGap;
-              if (ParentWidth <= 0) or
-                (RequiredX + BControl.Width <= ParentWidth - MinimumGap) then
-              begin
-                if BControl.Position.X < RequiredX then
-                begin
-                  BControl.Position.X := RequiredX;
-                  Adjusted := True;
-                  Inc(Result);
-                end;
-              end
-              else if AControl is TLabel then
-              begin
-                if DisableAutoSizeIfSupported(AControl) then
-                  Inc(Result);
-                if SetWordWrapIfSupported(AControl) then
-                  Inc(Result);
-                if AControl.Width > Max(MinimumLabelWidth,
-                  BControl.Position.X - AControl.Position.X - MinimumGap) then
-                begin
-                  AControl.Width := Max(MinimumLabelWidth,
-                    BControl.Position.X - AControl.Position.X - MinimumGap);
-                  AControl.Height := Max(AControl.Height,
-                    FitWrappedHeight(TTextControl(AControl).Text,
-                      AControl.Width, MinimumLabelHeight, MaximumLabelHeight));
-                  Adjusted := True;
-                  Inc(Result);
-                end;
-              end;
-            end;
-          end;
-        end;
-        if not Adjusted then
-          Break;
+      Visited := TList<TControl>.Create;
+      try
+        Visited.Add(Control);
+        Inc(Result, CascadeStackedGrowth(Control, OldBottom, GrowthDelta,
+          Visited));
+      finally
+        Visited.Free;
       end;
-    finally
-      Controls.Free;
-    end;
-  end;
-
-  function ResolveSiblingCollisions: Integer;
-  var
-    ParentIndex: Integer;
-    ParentObject: TFmxObject;
-    Parents: TList<TFmxObject>;
-    Candidate: TComponent;
-    CandidateControl: TControl;
-    CandidateIndex: Integer;
-  begin
-    Result := 0;
-    Parents := TList<TFmxObject>.Create;
-    try
-      for CandidateIndex := 0 to AForm.ComponentCount - 1 do
-      begin
-        Candidate := AForm.Components[CandidateIndex];
-        if not IsMovableControl(Candidate) then
-          Continue;
-        CandidateControl := TControl(Candidate);
-        ParentObject := CandidateControl.Parent;
-        if (ParentObject <> nil) and (Parents.IndexOf(ParentObject) < 0) then
-          Parents.Add(ParentObject);
-      end;
-      for ParentIndex := 0 to Parents.Count - 1 do
-        Inc(Result, ResolveSiblingCollisionsForParent(Parents[ParentIndex]));
-    finally
-      Parents.Free;
     end;
   end;
 
@@ -1075,8 +1008,8 @@ var
           ComponentControl.Width := NewWidth;
           Inc(Result);
         end;
-        NewHeight := FitWrappedHeight(TextValue, ComponentControl.Width,
-          MinimumLabelHeight, MaximumLabelHeight);
+        NewHeight := FitWrappedHeight(TextValue, ComponentFont(Component),
+          ComponentControl.Width, MinimumLabelHeight, MaximumLabelHeight);
         if NewHeight > ComponentControl.Height + 2 then
         begin
           ComponentControl.Height := NewHeight;
@@ -1502,7 +1435,7 @@ begin
     { Keep this fitting pass deliberately narrow: no source edits, no movement,
       and no broad rearrangement. It only gives translated labels/buttons a
       little breathing room when the text already came from the language pack. }
-    ApplyConservativeTextFit(AForm, APack, FormIdentity);
+    Inc(Result, ApplyConservativeTextFit(AForm, APack, FormIdentity));
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
   finally
     VisitedComponents.Free;
