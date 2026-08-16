@@ -1,4 +1,4 @@
-﻿unit DAT.Studio.MainForm;
+unit DAT.Studio.MainForm;
 
 interface
 
@@ -304,7 +304,7 @@ uses
 {$R *.fmx}
 
 const
-  StudioBuildLabel = 'Build 2026.08.16.0830';
+  StudioBuildLabel = 'Build 2026.08.16.1045';
 
 procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var
@@ -2331,3 +2331,4 @@ begin
 end;
 
 end.
+

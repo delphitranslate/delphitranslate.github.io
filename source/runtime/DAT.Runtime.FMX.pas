@@ -487,7 +487,7 @@ begin
 end;
 
 function ApplyConservativeTextFit(const AForm: TCommonCustomForm;
-  const APack: TRuntimeLanguagePack): Integer;
+  const APack: TRuntimeLanguagePack; const AFormIdentity: string): Integer;
 const
   HorizontalPadding = 10;
   MinimumButtonWidth = 96;
@@ -624,6 +624,36 @@ var
     Result := Min(AMaximumHeight, Max(AMinimumHeight, Lines * 18 + 6));
   end;
 
+  function ComponentDisplayText(const AComponent: TComponent): string;
+  begin
+    Result := '';
+    if AComponent is TLabel then
+      Result := TLabel(AComponent).Text
+    else if AComponent is TButton then
+      Result := TButton(AComponent).Text
+    else if AComponent is TCheckBox then
+      Result := TCheckBox(AComponent).Text
+    else if AComponent is TTextControl then
+      Result := TTextControl(AComponent).Text;
+  end;
+
+  function HasExplicitLayoutRule(const AComponent: TComponent): Boolean;
+  var
+    Rule: TRuntimeLayoutRule;
+  begin
+    Result := False;
+    if (APack = nil) or (AComponent = nil) or (Trim(AComponent.Name) = '') then
+      Exit;
+    for Rule in APack.LayoutRules do
+      if SameText(Rule.FormName, AFormIdentity) and
+        SameText(Rule.ComponentName, AComponent.Name) and
+        (SameText(Rule.PropertyName, 'Width') or
+         SameText(Rule.PropertyName, 'Height') or
+         SameText(Rule.PropertyName, 'Position.X') or
+         SameText(Rule.PropertyName, 'Position.Y')) then
+        Exit(True);
+  end;
+
   function FitButton(const AComponent: TComponent; const AControl: TControl;
     const AText: string): Integer;
   var
@@ -649,6 +679,42 @@ var
       if NewHeight > AControl.Height + 2 then
       begin
         AControl.Height := NewHeight;
+        Inc(Result);
+      end;
+    end;
+  end;
+
+  function FitCheckBox(const AComponent: TComponent; const AControl: TControl;
+    const AText: string): Integer;
+  var
+    MaxWidth: Single;
+    NeededHeight: Single;
+    NeededWidth: Single;
+    NewWidth: Single;
+  begin
+    Result := 0;
+    NeededWidth := EstimatedTextWidth(AText) + 22;
+    MaxWidth := Min(MaximumLabelWidth, NearestSameRowRightEdgeLimit(AControl));
+    NewWidth := Min(MaxWidth, Max(AControl.Width, NeededWidth));
+    if NewWidth > AControl.Width + 4 then
+    begin
+      AControl.Width := NewWidth;
+      Inc(Result);
+    end;
+    if AControl.Width > MaxWidth + 2 then
+    begin
+      AControl.Width := MaxWidth;
+      Inc(Result);
+    end;
+    if NeededWidth > AControl.Width + 8 then
+    begin
+      if SetWordWrapIfSupported(AComponent) then
+        Inc(Result);
+      NeededHeight := FitWrappedHeight(AText, AControl.Width,
+        MinimumLabelHeight, MaximumLabelHeight);
+      if NeededHeight > AControl.Height + 2 then
+      begin
+        AControl.Height := NeededHeight;
         Inc(Result);
       end;
     end;
@@ -713,17 +779,24 @@ var
     CurrentText: string;
   begin
     Result := 0;
-    if not (AComponent is TTextControl) or not (AComponent is TControl) then
+    if not (AComponent is TControl) then
       Exit;
     Control := TControl(AComponent);
     if (Control.Align <> TAlignLayout.None) or not Control.Visible then
       Exit;
-    CurrentText := Trim(TTextControl(AComponent).Text);
+    if not ((AComponent is TLabel) or (AComponent is TButton) or
+      (AComponent is TCheckBox) or (AComponent is TTextControl)) then
+      Exit;
+    if HasExplicitLayoutRule(AComponent) then
+      Exit;
+    CurrentText := Trim(ComponentDisplayText(AComponent));
     if CurrentText = '' then
       Exit;
 
     if AComponent is TButton then
       Exit(FitButton(AComponent, Control, CurrentText));
+    if AComponent is TCheckBox then
+      Exit(FitCheckBox(AComponent, Control, CurrentText));
     if AComponent is TLabel then
       Exit(FitLabel(AComponent, Control, CurrentText));
   end;
@@ -906,13 +979,119 @@ var
       Parents.Free;
     end;
   end;
+
+  function IsInputLikeControl(const AComponent: TComponent): Boolean;
+  begin
+    Result :=
+      (AComponent is TCustomEdit) or
+      ContainsText(AComponent.ClassName, 'Combo') or
+      ContainsText(AComponent.ClassName, 'Date') or
+      ContainsText(AComponent.ClassName, 'Time') or
+      ContainsText(AComponent.ClassName, 'Spin') or
+      ContainsText(AComponent.ClassName, 'Number');
+  end;
+
+  function SameTightRow(const ALeft, ARight: TControl): Boolean;
+  var
+    LeftCenter: Single;
+    RightCenter: Single;
+  begin
+    LeftCenter := ALeft.Position.Y + ALeft.Height / 2;
+    RightCenter := ARight.Position.Y + ARight.Height / 2;
+    Result := Abs(LeftCenter - RightCenter) <=
+      Max(12, Max(ALeft.Height, ARight.Height) * 0.65);
+  end;
+
+  function ApplyLabelInputGuards: Integer;
+  const
+    FieldGap = 8;
+    MinimumReadableLabelWidth = 60;
+  var
+    Candidate: TComponent;
+    CandidateControl: TControl;
+    Component: TComponent;
+    ComponentControl: TControl;
+    ComponentIndex: Integer;
+    CandidateIndex: Integer;
+    BestField: TControl;
+    BestFieldLeft: Single;
+    NewHeight: Single;
+    NewWidth: Single;
+    TextValue: string;
+  begin
+    Result := 0;
+    for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+    begin
+      Component := AForm.Components[ComponentIndex];
+      if not (Component is TLabel) or not (Component is TControl) then
+        Continue;
+      if HasExplicitLayoutRule(Component) then
+        Continue;
+      ComponentControl := TControl(Component);
+      if (ComponentControl.Align <> TAlignLayout.None) or
+        not ComponentControl.Visible then
+        Continue;
+      TextValue := Trim(ComponentDisplayText(Component));
+      if TextValue = '' then
+        Continue;
+
+      BestField := nil;
+      BestFieldLeft := MaxSingle;
+      for CandidateIndex := 0 to AForm.ComponentCount - 1 do
+      begin
+        Candidate := AForm.Components[CandidateIndex];
+        if (Candidate = Component) or not IsInputLikeControl(Candidate) or
+          not (Candidate is TControl) then
+          Continue;
+        CandidateControl := TControl(Candidate);
+        if (CandidateControl.Parent <> ComponentControl.Parent) or
+          (CandidateControl.Align <> TAlignLayout.None) or
+          not CandidateControl.Visible then
+          Continue;
+        if CandidateControl.Position.X <= ComponentControl.Position.X then
+          Continue;
+        if not SameTightRow(ComponentControl, CandidateControl) then
+          Continue;
+        if CandidateControl.Position.X < BestFieldLeft then
+        begin
+          BestField := CandidateControl;
+          BestFieldLeft := CandidateControl.Position.X;
+        end;
+      end;
+
+      if BestField = nil then
+        Continue;
+      NewWidth := BestField.Position.X - ComponentControl.Position.X - FieldGap;
+      if NewWidth < MinimumReadableLabelWidth then
+        Continue;
+      if RightEdge(ComponentControl) > BestField.Position.X - FieldGap then
+      begin
+        if DisableAutoSizeIfSupported(Component) then
+          Inc(Result);
+        if SetWordWrapIfSupported(Component) then
+          Inc(Result);
+        if Abs(ComponentControl.Width - NewWidth) > 2 then
+        begin
+          ComponentControl.Width := NewWidth;
+          Inc(Result);
+        end;
+        NewHeight := FitWrappedHeight(TextValue, ComponentControl.Width,
+          MinimumLabelHeight, MaximumLabelHeight);
+        if NewHeight > ComponentControl.Height + 2 then
+        begin
+          ComponentControl.Height := NewHeight;
+          Inc(Result);
+        end;
+      end;
+    end;
+  end;
 begin
   Result := 0;
   if (AForm = nil) or (APack = nil) then
     Exit;
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
     Inc(Result, FitComponent(AForm.Components[ComponentIndex]));
-  Inc(Result, ResolveSiblingCollisions);
+  Inc(Result, ApplyLabelInputGuards);
 end;
 function EditableTextComponent(const AComponent: TComponent): Boolean;
 begin
@@ -1323,7 +1502,7 @@ begin
     { Keep this fitting pass deliberately narrow: no source edits, no movement,
       and no broad rearrangement. It only gives translated labels/buttons a
       little breathing room when the text already came from the language pack. }
-    Inc(Result, ApplyConservativeTextFit(AForm, APack));
+    ApplyConservativeTextFit(AForm, APack, FormIdentity);
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
   finally
     VisitedComponents.Free;
