@@ -528,6 +528,9 @@ class procedure TLocalizationReviewer.AnalyzeLayout(
 const
   ControlGap = 8;
   MaximumSeparationPasses = 6;
+  { Stands in for "no measured limit" while staying small enough to round into
+    an integer safely. }
+  UnboundedWidthAllowance = 100000;
 var
   Control, Other: TLayoutControl;
   RequiredWidth, RequiredHeight, FontSize: Double;
@@ -634,9 +637,46 @@ var
       if ParentWidth > 0 then
         Result := ParentWidth - AControl.PlannedLeft - ControlGap
       else
-        Result := AControl.PlannedWidth;
+        { Nothing sits to the right and the parent size is unknown, so there is
+          no measured limit here. Returning the control's own width would pin
+          it to its source-language size and clip the translation. Report a
+          wide but finite allowance so the per-class caps decide instead, and
+          so the value stays safe to round into an integer. }
+        Result := UnboundedWidthAllowance;
     end;
     Result := Max(Result, 24);
+  end;
+
+  { True when no sibling shares this control's row on the given side, so
+    growing or recentring it there cannot collide with anything. }
+  function RowIsFree(const AControl: TLayoutControl;
+    const ATowardsRight: Boolean): Boolean;
+  var
+    Candidate: TLayoutControl;
+  begin
+    Result := True;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if (Candidate.PlannedTop >= AControl.PlannedTop +
+            AControl.PlannedHeight) or
+         (Candidate.PlannedTop + Candidate.PlannedHeight <=
+            AControl.PlannedTop) then
+        Continue;
+      if ATowardsRight then
+      begin
+        if Candidate.PlannedLeft > AControl.PlannedLeft then
+          Exit(False);
+      end
+      else
+        if Candidate.PlannedLeft < AControl.PlannedLeft then
+          Exit(False);
+    end;
   end;
 
   function BoundedTextWidth(const AControl: TLayoutControl;
@@ -660,6 +700,12 @@ var
       GrowthCap := Max(AControl.Width * 1.35, 180);
       HardCap := 360;
     end;
+    { The proportional growth cap exists to stop a control expanding over its
+      neighbours. A control with an empty row beside it has no neighbour to
+      protect, and capping it there only clips the translation, so let it
+      reach the width its text actually needs up to the hard limit. }
+    if RowIsFree(AControl, True) then
+      GrowthCap := HardCap;
     Result := Ceil(Min(ARequiredWidth, Min(GrowthCap, HardCap)));
     { Never propose a width that would cross the parent edge or the next
       control on the same row. Wrapping absorbs whatever will not fit. }
@@ -737,6 +783,14 @@ begin
       end
       else
         Control.PlannedWidth := NewWidth;
+      { A heading centred inside its own bounds keeps its apparent position
+        only if it grows about its centre. Pinning the left edge and extending
+        rightwards slides the caption away from where it was designed to sit.
+        This is safe only where nothing shares the row on either side. }
+      if (Control.PlannedWidth > Control.Width) and Control.HasPosition and
+        RowIsFree(Control, True) and RowIsFree(Control, False) then
+        Control.PlannedLeft := Max(0, Control.Left + Control.Width / 2 -
+          Control.PlannedWidth / 2);
     end;
     if (Control.Height > 0) and (RequiredHeight > Control.Height * 1.10) then
     begin
