@@ -571,6 +571,10 @@ const
   MaximumDrift = 120;
   { Padding a control keeps at the sides of wrapped text. }
   WrapSideAllowance = 6;
+  { Gap kept between a caption and the frame the designer drew around it. }
+  ContainerInset = 4;
+  { More lines than this and a caption has become a paragraph. }
+  MaximumWrappedLines = 4;
   { A reduction no deeper than this is preferable to wrapping a caption onto a
     second line, and no caption should ever be reduced further: past this the
     text reads as noticeably smaller than everything around it. }
@@ -593,7 +597,9 @@ var
   IsWrappingText: Boolean;
   Pass: Integer;
   Moved: Boolean;
-  Leader, Follower: TLayoutControl;
+  Leader, Follower, ClampContainer: TLayoutControl;
+  ClampLeft, ClampTop, ClampRight, ClampBottom: Double;
+  LinesThatFit: Integer;
   RequiredLeft, Surplus, ReducedWidth, ReducedFont, ShiftedLeft: Double;
   RequiredTop, ReducedHeight, EffectiveFont: Double;
   WrappedLines: Integer;
@@ -755,15 +761,94 @@ var
       not ContainsText(AControl.ComponentClassName, 'WebBrowser');
   end;
 
+  function IsVisualContainer(const AControl: TLayoutControl): Boolean;
+  begin
+    Result :=
+      ContainsText(AControl.ComponentClassName, 'Rectangle') or
+      ContainsText(AControl.ComponentClassName, 'Panel') or
+      ContainsText(AControl.ComponentClassName, 'GroupBox') or
+      ContainsText(AControl.ComponentClassName, 'Layout');
+  end;
+
+  { The smallest shape the designer drew around this control. A caption sitting
+    inside a rounded rectangle or a group box was framed deliberately, and that
+    frame is a boundary the caption must respect however long its translation
+    turns out to be.
+
+    Containment is judged from the designed bounds because that is what the eye
+    reads: in FireMonkey a control is frequently drawn inside a shape it does
+    not belong to in the object tree. Note the direction of this rule. It only
+    ever holds a caption in. Growing the frame to fit the caption is the same
+    reasoning run backwards, and it ends with a decorative layout swallowing
+    the form. }
+  function DesignedContainerOf(const AControl: TLayoutControl): TLayoutControl;
+  var
+    Candidate: TLayoutControl;
+    CandidateArea, SmallestArea: Double;
+  begin
+    Result := nil;
+    SmallestArea := MaxDouble;
+    if not AControl.HasPosition or not AControl.HasSize or
+      IsVisualContainer(AControl) then
+      Exit;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize or not IsVisualContainer(Candidate) then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) then
+        Continue;
+      if SameText(Candidate.ComponentName, Candidate.FormName) then
+        Continue;
+      if (AControl.Left < Candidate.Left - 1) or
+        (AControl.Top < Candidate.Top - 1) or
+        (AControl.Left + AControl.Width >
+           Candidate.Left + Candidate.Width + 1) or
+        (AControl.Top + AControl.Height >
+           Candidate.Top + Candidate.Height + 1) then
+        Continue;
+      CandidateArea := Candidate.Width * Candidate.Height;
+      if CandidateArea < SmallestArea then
+      begin
+        SmallestArea := CandidateArea;
+        Result := Candidate;
+      end;
+    end;
+  end;
+
+  { True when nothing else that carries text shares this frame, so widening the
+    control to fill it cannot land on a neighbour. }
+  function AloneInContainer(const AControl, AContainer: TLayoutControl): Boolean;
+  var
+    Candidate: TLayoutControl;
+  begin
+    Result := True;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or (Candidate = AContainer) or
+        not Candidate.HasPosition or not Candidate.HasSize then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) then
+        Continue;
+      if IsVisualContainer(Candidate) then
+        Continue;
+      if DesignedContainerOf(Candidate) = AContainer then
+        Exit(False);
+    end;
+  end;
+
   { The right-hand edge of the designed content on this control's parent. The
     parent's own size is not always present in the scanned model, so fall back
     to the furthest edge the designer actually placed something at. Growth and
     separation stay inside this, which keeps a widened control on the form. }
   function ContentRightBound(const AControl: TLayoutControl): Double;
   var
-    Candidate: TLayoutControl;
+    Candidate, Container: TLayoutControl;
     ParentWidth: Double;
   begin
+    Container := DesignedContainerOf(AControl);
+    if Container <> nil then
+      Exit(Container.Left + Container.Width - ContainerInset);
     ParentWidth := ParentWidthFor(AControl);
     if ParentWidth > 0 then
       Exit(ParentWidth);
@@ -779,14 +864,65 @@ var
     model does not record it. }
   function ContentBottomBound(const AControl: TLayoutControl): Double;
   var
-    Candidate: TLayoutControl;
+    Candidate, Container: TLayoutControl;
   begin
     Result := 0;
+    Container := DesignedContainerOf(AControl);
+    if Container <> nil then
+      Exit(Container.Top + Container.Height - ContainerInset);
     for Candidate in AReview.Controls do
       if SameText(Candidate.FormName, AControl.FormName) and
         SameText(Candidate.ComponentName, AControl.FormName) and
         Candidate.HasSize then
         Exit(Candidate.Height);
+  end;
+
+  { How many lines this control can grow to before reaching whatever sits below
+    it: the next control in its own column, the frame drawn around it, or the
+    bottom of the form. This is what decides whether wrapping is affordable.
+    Lines cost nothing where there is room for them; shrinking text to force a
+    fixed line count makes a caption read smaller than its neighbours to solve
+    a problem the form did not have. }
+  function LinesFittingBelow(const AControl: TLayoutControl): Integer;
+  var
+    Candidate: TLayoutControl;
+    Ceiling, Available, LineHeight, PointSize: Double;
+  begin
+    Ceiling := ContentBottomBound(AControl);
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if IsVisualContainer(Candidate) then
+        Continue;
+      if Candidate.Top < AControl.Top + AControl.Height - 1 then
+        Continue;
+      { Only something standing in this control's own column blocks it. }
+      if (Candidate.Left >= AControl.Left + AControl.Width) or
+         (Candidate.Left + Candidate.Width <= AControl.Left) then
+        Continue;
+      if (Ceiling <= 0) or (Candidate.Top - ControlGap < Ceiling) then
+        Ceiling := Candidate.Top - ControlGap;
+    end;
+    PointSize := AControl.PlannedFontSize;
+    if PointSize <= 0 then
+      PointSize := AControl.FontSize;
+    LineHeight := Max(PointSize, 9) * 1.65;
+    if Ceiling <= 0 then
+      Available := AControl.Height
+    else
+      Available := Ceiling - AControl.Top;
+    Available := Max(Available, AControl.Height);
+    Result := Max(1, Floor((Available - 2 * PaddingVertical(AControl)) /
+      Max(LineHeight, 1)));
+    { Never fewer than the design already tolerated, and never so many that a
+      caption turns into a paragraph. }
+    Result := Max(Result, MaximumComfortableLines);
+    Result := Min(Result, MaximumWrappedLines);
   end;
 
   { The widest this control may become before it would cross either the edge of
@@ -1240,12 +1376,18 @@ begin
         end;
         Control.PlannedWordWrap := True;
         LineCount := WrappedLineCount(Control, Control.Width);
-        if LineCount > MaximumComfortableLines then
+        { Lines cost nothing where there is room for them. Shrinking text to
+          force it into a fixed number of lines makes a caption read smaller
+          than everything around it in order to solve a problem the form did
+          not have. Count the lines that actually fit below the control and
+          only reduce the size when the text needs more than that. }
+        LinesThatFit := LinesFittingBelow(Control);
+        if LineCount > LinesThatFit then
         begin
           { Shrink the text just enough for the lines that will fit, never
             below the readable floor. }
           ReducedFont := Max(SmallestFontFor(Control),
-            FontSize * MaximumComfortableLines / LineCount);
+            FontSize * LinesThatFit / LineCount);
           if ReducedFont < FontSize then
           begin
             Control.PlannedFontSize := ReducedFont;
@@ -1254,12 +1396,12 @@ begin
             LineCount := WrappedLineCount(Control, Control.Width);
           end;
         end;
-        if LineCount > MaximumComfortableLines then
+        if LineCount > LinesThatFit then
         begin
           { Still cramped after shrinking, so widen as a last resort, only far
-            enough to reach a comfortable line count. }
+            enough to reach a line count that fits. }
           NewWidth := BoundedTextWidth(Control,
-            RequiredWidth / MaximumComfortableLines);
+            RequiredWidth / Max(LinesThatFit, 1));
           if NewWidth > Ceil(Control.Width) then
           begin
             SetPlannedWidthRespectingAlignment(Control, NewWidth);
@@ -1335,8 +1477,13 @@ begin
         begin
           { The row cannot have everything it wants, so share what there is
             evenly and let the text wrap or shrink inside it. }
+          { Round the shared width down. Dividing the space exactly leaves the
+            last button ending a fraction beyond the edge, and the pass that
+            holds controls inside their frame then pulls only that one back,
+            breaking the even pitch the row is supposed to keep. }
           UniformWidth := Max(0,
-            (Available - (Cluster.Count - 1) * ClusterGap) / Cluster.Count);
+            Floor((Available - (Cluster.Count - 1) * ClusterGap) /
+              Cluster.Count));
           UniformWidth := Max(UniformWidth, 24);
         end;
 
@@ -1553,6 +1700,76 @@ begin
     end;
     if not Moved then
       Break;
+  end;
+
+  { Phase 3b - hold every caption inside the frame the designer drew round it.
+    The sizing rules above each respect the frame, but they answer different
+    questions and a control can leave them a little outside it. This is the one
+    place that guarantees the invariant, and it only ever pulls a control in.
+
+    Note again the direction. Enlarging the frame instead would satisfy the same
+    arithmetic and is how a decorative layout ends up swallowing a form. }
+  for Control in AReview.Controls do
+  begin
+    if not Control.HasPosition or not Control.HasSize then
+      Continue;
+    ClampContainer := DesignedContainerOf(Control);
+    if ClampContainer = nil then
+      Continue;
+
+    { The inset is what a caption should keep from the frame, not a correction
+      to apply to the designer's own placement. A button drawn flush with the
+      edge of its group box was put there deliberately, so never hold a control
+      tighter than it was already drawn; only stop translation carrying it
+      further out than that. }
+    ClampLeft := Min(ClampContainer.Left + ContainerInset, Control.Left);
+    ClampTop := Min(ClampContainer.Top + ContainerInset, Control.Top);
+    ClampRight := Max(ClampContainer.Left + ClampContainer.Width -
+      ContainerInset, Control.Left + Control.Width);
+    ClampBottom := Max(ClampContainer.Top + ClampContainer.Height -
+      ContainerInset, Control.Top + Control.Height);
+
+    if Control.PlannedWidth > ClampRight - ClampLeft then
+      Control.PlannedWidth := ClampRight - ClampLeft;
+    if Control.PlannedHeight > ClampBottom - ClampTop then
+      Control.PlannedHeight := ClampBottom - ClampTop;
+
+    if Control.PlannedLeft < ClampLeft then
+      Control.PlannedLeft := ClampLeft;
+    if Control.PlannedTop < ClampTop then
+      Control.PlannedTop := ClampTop;
+    if Control.PlannedLeft + Control.PlannedWidth > ClampRight then
+      Control.PlannedLeft := ClampRight - Control.PlannedWidth;
+    if Control.PlannedTop + Control.PlannedHeight > ClampBottom then
+      Control.PlannedTop := ClampBottom - Control.PlannedHeight;
+
+    { The caption now has whatever room the frame allows. Where it is the only
+      thing in the frame, let it use the whole width before any thought of
+      shrinking the text; where it shares the frame, leave it where it is, or a
+      row of buttons would all be widened onto the same spot. }
+    if Control.TranslatedText = '' then
+      Continue;
+    if (TextWidthEstimate(Control) > Control.PlannedWidth) and
+      AloneInContainer(Control, ClampContainer) and
+      (Control.PlannedWidth < ClampRight - ClampLeft) then
+    begin
+      Control.PlannedWidth := ClampRight - ClampLeft;
+      Control.PlannedLeft := ClampLeft;
+    end;
+    EffectiveFont := Control.PlannedFontSize;
+    if EffectiveFont <= 0 then
+      EffectiveFont := Max(Control.FontSize, 9);
+    WrappedLines := WrappedLineCount(Control, Control.PlannedWidth);
+    while (WrappedLines * EffectiveFont * 1.65 + 2 * PaddingVertical(Control) >
+        Control.PlannedHeight) and
+      (EffectiveFont > SmallestFontFor(Control)) do
+    begin
+      EffectiveFont := EffectiveFont - 0.5;
+      Control.PlannedFontSize := Max(EffectiveFont, SmallestFontFor(Control));
+      EffectiveFont := Control.PlannedFontSize;
+      WrappedLines := WrappedLineCount(Control, Control.PlannedWidth);
+    end;
+    Control.PlannedWordWrap := Control.PlannedWordWrap or (WrappedLines > 1);
   end;
 
   { Phase 4 - emit proposals from the settled geometry. Because every value

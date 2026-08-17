@@ -1,0 +1,34 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 400
+  ClientWidth = 800
+  object layHeroArt: TLayout
+    Position.X = 40.000000000000000000
+    Position.Y = 10.000000000000000000
+    Size.Width = 500.000000000000000000
+    Size.Height = 60.000000000000000000
+    Size.PlatformDefault = False
+  end
+  object lblBadge: TLabel
+    StyledSettings = []
+    Position.X = 60.000000000000000000
+    Position.Y = 24.000000000000000000
+    Size.Width = 120.000000000000000000
+    Size.Height = 28.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Schedule'
+  end
+  object lblFarBelow: TLabel
+    StyledSettings = []
+    Position.X = 60.000000000000000000
+    Position.Y = 300.000000000000000000
+    Size.Width = 200.000000000000000000
+    Size.Height = 28.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Status line'
+  end
+end

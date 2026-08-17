@@ -276,6 +276,11 @@ begin
       Format('%s.%s top is %.0f, expected %.0f',
         [FormName, ControlName, Control.PlannedTop, Expected]));
 
+  if NumberOf(AExpectation, 'planned_height_equals', Expected) then
+    Check(Abs(Control.PlannedHeight - Expected) <= 1,
+      Format('%s.%s height is %.0f, expected %.0f',
+        [FormName, ControlName, Control.PlannedHeight, Expected]));
+
   if NumberOf(AExpectation, 'planned_width_equals', Expected) then
     Check(Abs(Control.PlannedWidth - Expected) <= 1,
       Format('%s.%s width is %.0f, expected %.0f',

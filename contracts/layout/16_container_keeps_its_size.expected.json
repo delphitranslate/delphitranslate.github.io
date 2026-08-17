@@ -1,0 +1,20 @@
+{
+  "description": "A container is a boundary, never a thing to be grown. A caption inside a decorative layout must not drag that layout outwards, and a caption far below must not affect it at all.",
+  "catalog_file": "16_container_keeps_its_size.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "layHeroArt",
+      "planned_left_equals": 40,
+      "planned_top_equals": 10,
+      "planned_width_equals": 500,
+      "planned_height_equals": 60
+    },
+    {
+      "form": "ContractForm",
+      "name": "lblBadge",
+      "text_fits": true,
+      "inside_control": "layHeroArt"
+    }
+  ]
+}
