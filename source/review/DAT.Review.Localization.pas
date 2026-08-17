@@ -1573,7 +1573,14 @@ begin
             BoundedTextWidth(Control, RequiredWidth));
       end;
     end;
-    if (Control.Height > 0) and (RequiredHeight > Control.Height) then
+    { Only a control whose text now needs more lines than the design allowed for
+      should get more height. Our idea of a line is a little taller than the
+      designer's, and growing every caption to match it quietly eats the gap
+      below each one: a row of navigator captions eighteen pixels tall becomes
+      twenty-two and closes on the grid above it, for text that still occupies
+      a single line. }
+    if (Control.Height > 0) and (RequiredHeight > Control.Height) and
+      (WrappedLineCount(Control, Control.PlannedWidth) > 1) then
     begin
       AddFinding(AReview, lfsWarning, 'Layout',
         Control.FormName + '.' + Control.ComponentName,
@@ -1691,9 +1698,10 @@ begin
       width reports fewer lines than will really appear and buys too little
       height for them. }
     WrappedLines := WrappedLineCount(Control, Control.PlannedWidth);
-    Control.PlannedHeight := Max(Control.PlannedHeight,
-      Ceil(WrappedLines * EffectiveFont * 1.65 +
-        2 * PaddingVertical(Control)));
+    if WrappedLines > 1 then
+      Control.PlannedHeight := Max(Control.PlannedHeight,
+        Ceil(WrappedLines * EffectiveFont * 1.65 +
+          2 * PaddingVertical(Control)));
   end;
 
   { Phase 3 - resolve collisions against the planned geometry, repeatedly, so a

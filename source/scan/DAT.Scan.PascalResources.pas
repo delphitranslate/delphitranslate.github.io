@@ -416,7 +416,13 @@ begin
             Literal := Copy(AStatement, Start + 1, Stop - Start - 1);
             if IsLikelyUserFacingLiteral(Literal) then
             begin
-              AddRuntimeItem(AResult, AFileName, AUnitName, 'Result',
+              { The key is built from the left side and the line, and a
+                conditional puts several returned values on one statement,
+                so every one of them would key the same and all but the
+                first be discarded as a duplicate. Name the value in the
+                left side to keep them apart. }
+              AddRuntimeItem(AResult, AFileName, AUnitName,
+                'Result(' + Literal + ')',
                 'RuntimeValue', Literal, ASourceLine, rtrStaticText);
               Result := True;
             end;

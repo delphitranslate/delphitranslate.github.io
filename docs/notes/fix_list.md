@@ -48,6 +48,19 @@ is why it reads as buried and has been clipped before. It should move up the
 deployment page, next to the destination list it governs. This is a change to
 `DAT.Studio.SetupWizard.fmx` geometry, so the page stays editable in the IDE.
 
+### 2b. Completion page: give the log more room
+**Reported:** 2026-08-17
+**Severity:** low, but it is the page the developer reads at the end of every run.
+
+On the Processing and completion page the four buttons (Copy Commands,
+Redeploy Outputs, Open Kit Folder, Deploy to App Folder) and the troubleshooting
+command box sit high enough to squeeze the progress log above them. The log is
+the part that matters, and it is currently a few lines tall.
+
+Move the command box and the four buttons as far down the page as the layout
+allows, and give the reclaimed height to the log. Geometry only, in
+`DAT.Studio.SetupWizard.fmx`, so the page stays editable in the IDE.
+
 ### 3. Build output folders outside the project tree are rejected
 **Reported:** 2026-08-17 (carried from the handoff, section 5.8a)
 **Severity:** high — silently deploys a stale executable.
