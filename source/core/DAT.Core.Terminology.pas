@@ -258,8 +258,12 @@ begin
       ATranslation := 'Tipo'
     else if SameText(TextValue, 'Song') then
       ATranslation := 'Canci' + #$00F3 + 'n'
+    else if SameText(TextValue, 'Scheduled song') then
+      ATranslation := 'Canci' + #$00F3 + 'n programada'
     else if SameText(TextValue, 'Song/Purpose') then
       ATranslation := 'Canci' + #$00F3 + 'n/Motivo'
+    else if SameText(TextValue, 'Purpose') then
+      ATranslation := 'Motivo'
     else if SameText(TextValue, 'Play Date From') then
       ATranslation := 'Fecha inicial'
     else if SameText(TextValue, 'Play Date To') then

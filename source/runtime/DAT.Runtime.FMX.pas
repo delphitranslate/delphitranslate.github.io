@@ -1525,10 +1525,9 @@ begin
       ApplyComponentTree(AForm.Components[ComponentIndex]);
     if AApplyLayout then
       Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
-    { Keep this fitting pass deliberately narrow: no source edits, no movement,
-      and no broad rearrangement. It only gives translated labels/buttons a
-      little breathing room when the text already came from the language pack. }
-    Inc(Result, ApplyConservativeTextFit(AForm, APack, FormIdentity));
+    { Do not run the broad geometry fitter here. Real target forms showed that
+      an automatic pass can damage carefully-authored layouts. The runtime now
+      applies only explicit, reviewed layout rules from the language pack. }
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
   finally
     VisitedComponents.Free;
