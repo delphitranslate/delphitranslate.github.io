@@ -582,6 +582,11 @@ const
   MaximumWrappedLines = 4;
   { Text at least this long is a sentence rather than a label. }
   ParagraphTextLength = 60;
+  { We measure with a default typeface; the application draws with whichever
+    one it was designed in. Allow for the difference before concluding that a
+    translation fits, since concluding wrongly leaves an auto-sizing control to
+    resize itself at run time and walk into its neighbour. }
+  MeasurementSafety = 1.08;
   { A reduction no deeper than this is preferable to wrapping a caption onto a
     second line, and no caption should ever be reduced further: past this the
     text reads as noticeably smaller than everything around it. }
@@ -853,6 +858,22 @@ var
 
   { True when nothing else that carries text shares this frame, so widening the
     control to fill it cannot land on a neighbour. }
+  { Controls a person types or chooses into. They anchor a form: a caption may
+    wrap, shrink or take the margin beside it, but it does not get to shove the
+    field it labels across the screen. }
+  function IsInputControl(const AControl: TLayoutControl): Boolean;
+  begin
+    Result :=
+      ContainsText(AControl.ComponentClassName, 'Edit') or
+      ContainsText(AControl.ComponentClassName, 'Combo') or
+      ContainsText(AControl.ComponentClassName, 'Memo') or
+      ContainsText(AControl.ComponentClassName, 'Spin') or
+      ContainsText(AControl.ComponentClassName, 'Date') or
+      ContainsText(AControl.ComponentClassName, 'Time') or
+      ContainsText(AControl.ComponentClassName, 'Number') or
+      ContainsText(AControl.ComponentClassName, 'Grid');
+  end;
+
   { The frame that governs this control, whether it owns the control in the
     object tree or merely encloses it on screen. Every rule about containment
     has to agree on this: asking one question of the parent and another of the
@@ -1076,8 +1097,9 @@ var
             AControl.PlannedTop) then
         Continue;
       { A neighbour the separation pass can move is not a limit on how wide
-        this control may become; it will be stepped aside instead. }
-      if CanMoveControl(Candidate) then
+        this control may become; it will be stepped aside instead. A field is
+        the exception: it stays where the designer put it. }
+      if CanMoveControl(Candidate) and not IsInputControl(Candidate) then
         Continue;
       if GrowsLeftwards then
       begin
@@ -1410,6 +1432,13 @@ begin
       Continue;
     FontSize := Max(Control.FontSize, 9);
     RequiredWidth := TextWidthEstimate(Control);
+    { The headroom is only wanted where being wrong is expensive. A control with
+      a fixed width that we measure slightly short simply sits a little tight;
+      one that sizes itself will grow around the text at run time, to whatever
+      width that takes, and walk into its neighbour. Give the second kind the
+      benefit of the doubt. }
+    if Control.AutoSize then
+      RequiredWidth := RequiredWidth * MeasurementSafety;
     RequiredHeight := MeasuredLineHeight(Control);
     IsButton := ContainsText(Control.ComponentClassName, 'Button');
     IsWrappingText := ShouldPreferWrap(Control);
@@ -1579,7 +1608,11 @@ begin
       below each one: a row of navigator captions eighteen pixels tall becomes
       twenty-two and closes on the grid above it, for text that still occupies
       a single line. }
+    { And only where the text will really wrap. Height bought for lines a
+      control is not going to draw leaves it standing taller than the captions
+      beside it, off their baseline, for no visible gain. }
     if (Control.Height > 0) and (RequiredHeight > Control.Height) and
+      Control.PlannedWordWrap and
       (WrappedLineCount(Control, Control.PlannedWidth) > 1) then
     begin
       AddFinding(AReview, lfsWarning, 'Layout',
@@ -1856,6 +1889,41 @@ begin
       Break;
   end;
 
+  { Phase 2d - captions drawn as a set keep one text size. A row of navigator
+    captions is read as a group, and one of them at a slightly smaller size
+    than its neighbours looks like a mistake even when every box lines up.
+    Where sibling captions share a row, a size and a designed height, give them
+    all the smallest size any of them needed. }
+  for Control in AReview.Controls do
+  begin
+    if (Control.TranslatedText = '') or not Control.HasPosition or
+      not Control.HasSize then
+      Continue;
+    if not ContainsText(Control.ComponentClassName, 'Label') then
+      Continue;
+    EffectiveFont := Control.PlannedFontSize;
+    if EffectiveFont <= 0 then
+      EffectiveFont := Control.FontSize;
+    for Other in AReview.Controls do
+    begin
+      if (Other = Control) or not Other.HasPosition or not Other.HasSize then
+        Continue;
+      if not SameText(Other.FormName, Control.FormName) or
+        not SameText(Other.ParentName, Control.ParentName) then
+        Continue;
+      if not ContainsText(Other.ComponentClassName, 'Label') then
+        Continue;
+      if (Abs(Other.Top - Control.Top) > 2) or
+        (Abs(Other.Height - Control.Height) > 2) or
+        (Abs(Other.FontSize - Control.FontSize) > 0.01) then
+        Continue;
+      if (Other.PlannedFontSize > 0) and (Other.PlannedFontSize < EffectiveFont) then
+        EffectiveFont := Other.PlannedFontSize;
+    end;
+    if (EffectiveFont > 0) and (EffectiveFont < Control.FontSize) then
+      Control.PlannedFontSize := EffectiveFont;
+  end;
+
   { Phase 3a - a frame drawn around a caption has to hold it. Where the caption
     inside has grown, give the frame the room, but only from the children it
     actually owns and only within a bound.
@@ -1999,16 +2067,27 @@ begin
       translated. }
     if Control.TranslatedText <> '' then
     begin
-      if Ceil(Control.PlannedWidth) > Ceil(Control.Width) then
+      { State the width whenever it changes, and also whenever automatic sizing
+        is being switched off. The runtime sets the text before the layout, so
+        an auto-sizing control has already stretched itself around the
+        translation by then; switching the sizing off at that point freezes it
+        at that stretched width, and without a width of its own it keeps it and
+        sits across whatever is beside it. }
+      if (Ceil(Control.PlannedWidth) > Ceil(Control.Width)) or
+        (Control.AutoSize and (Control.SourceText <> Control.TranslatedText)) then
         AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
           IntToStr(Ceil(Control.PlannedWidth)),
           'Width measured from the translated text and clamped to the space actually available.');
       if Control.PlannedWordWrap and not Control.WordWrap then
         AddProposal(AReview, Control, 'WordWrap', 'False', 'True',
           'Wrap the translated text instead of expanding across neighboring controls.');
-      if Control.PlannedWordWrap and Control.AutoSize then
+      { Any control that sizes itself has to be pinned once its text changes.
+        Left alone it grows around the new string at run time, to whatever
+        width that takes, across whatever is beside it. }
+      if Control.AutoSize and
+        (Control.PlannedWordWrap or (Control.SourceText <> Control.TranslatedText)) then
         AddProposal(AReview, Control, 'AutoSize', 'True', 'False',
-          'Disable one-line automatic sizing so the translated text can wrap inside the planned width.');
+          'Fix the size so the translated text cannot resize the control at run time.');
       if Ceil(Control.PlannedHeight) > Ceil(Control.Height) then
         AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
           IntToStr(Ceil(Control.PlannedHeight)),
