@@ -1,0 +1,42 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 180
+  ClientWidth = 480
+  object grpMedia: TGroupBox
+    Position.X = 40.000000000000000000
+    Position.Y = 40.000000000000000000
+    Size.Width = 360.000000000000000000
+    Size.Height = 72.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Media player control'
+  end
+  object btnPlay: TButton
+    Position.X = 74.000000000000000000
+    Position.Y = 64.000000000000000000
+    Size.Width = 86.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Play'
+  end
+  object btnPause: TButton
+    Position.X = 194.000000000000000000
+    Position.Y = 64.000000000000000000
+    Size.Width = 86.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Pause'
+  end
+  object btnStop: TButton
+    Position.X = 314.000000000000000000
+    Position.Y = 64.000000000000000000
+    Size.Width = 86.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Stop'
+  end
+end

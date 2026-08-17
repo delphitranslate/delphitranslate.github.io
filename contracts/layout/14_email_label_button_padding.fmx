@@ -1,0 +1,34 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 260
+  ClientWidth = 760
+  object lblAddress: TLabel
+    StyledSettings = []
+    Position.X = 420.000000000000000000
+    Position.Y = 86.000000000000000000
+    Size.Width = 190.000000000000000000
+    Size.Height = 22.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Email address'
+  end
+  object edtAddress: TEdit
+    Position.X = 420.000000000000000000
+    Position.Y = 112.000000000000000000
+    Size.Width = 285.000000000000000000
+    Size.Height = 32.000000000000000000
+    Size.PlatformDefault = False
+    Text = ''
+  end
+  object btnSend: TButton
+    Position.X = 420.000000000000000000
+    Position.Y = 150.000000000000000000
+    Size.Width = 190.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Send test message'
+  end
+end

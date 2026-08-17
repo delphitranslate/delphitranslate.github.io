@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "es-ES",
+    "nativeLanguageName": "Español",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblAddress.Text",
+      "sourceText": "Email address",
+      "translatedText": "Dirección de correo electrónico",
+      "formName": "ContractForm",
+      "componentName": "lblAddress",
+      "componentClassName": "TLabel",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\14_email_label_button_padding.fmx",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.btnSend.Text",
+      "sourceText": "Send test message",
+      "translatedText": "Enviar mensaje de prueba",
+      "formName": "ContractForm",
+      "componentName": "btnSend",
+      "componentClassName": "TButton",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\14_email_label_button_padding.fmx",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

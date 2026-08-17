@@ -1,0 +1,13 @@
+{
+  "description": "A right-aligned caption should move/grow left instead of unnecessarily shrinking its font.",
+  "catalog_file": "13_preserve_label_font.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblDateRange",
+      "text_fits": true,
+      "right_edge_unchanged": true,
+      "font_at_least": 13
+    }
+  ]
+}

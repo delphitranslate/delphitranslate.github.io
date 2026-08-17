@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "es-ES",
+    "nativeLanguageName": "Español",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.btnRecalc.Text",
+      "sourceText": "Recalculate dates for next year.",
+      "translatedText": "Recalcular las fechas para el próximo año.",
+      "formName": "ContractForm",
+      "componentName": "btnRecalc",
+      "componentClassName": "TButton",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\11_button_above_grid_padding.fmx",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

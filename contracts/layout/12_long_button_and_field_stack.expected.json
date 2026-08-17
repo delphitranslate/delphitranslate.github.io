@@ -1,0 +1,21 @@
+{
+  "description": "A long translated button wraps compactly and a date-row label does not underlap the edit fields.",
+  "catalog_file": "12_long_button_and_field_stack.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "btnEaster",
+      "text_fits": true,
+      "planned_width_at_most": 190,
+      "planned_height_at_most": 80,
+      "font_at_least": 12
+    },
+    {
+      "form": "ContractForm",
+      "name": "lblHolyWeek",
+      "text_fits": true,
+      "planned_right_at_most": 422,
+      "font_at_least": 13
+    }
+  ]
+}

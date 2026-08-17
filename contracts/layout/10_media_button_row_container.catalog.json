@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "es-ES",
+    "nativeLanguageName": "Español",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.btnPlay.Text",
+      "sourceText": "Play",
+      "translatedText": "Reproducir",
+      "formName": "ContractForm",
+      "componentName": "btnPlay",
+      "componentClassName": "TButton",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\10_media_button_row_container.fmx",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.btnPause.Text",
+      "sourceText": "Pause",
+      "translatedText": "Pausar",
+      "formName": "ContractForm",
+      "componentName": "btnPause",
+      "componentClassName": "TButton",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\10_media_button_row_container.fmx",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.btnStop.Text",
+      "sourceText": "Stop",
+      "translatedText": "Detener",
+      "formName": "ContractForm",
+      "componentName": "btnStop",
+      "componentClassName": "TButton",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\10_media_button_row_container.fmx",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

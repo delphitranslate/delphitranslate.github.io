@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "es-ES",
+    "nativeLanguageName": "Español",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblEnable.Text",
+      "sourceText": "Enable schedule",
+      "translatedText": "Habilitar programación",
+      "formName": "ContractForm",
+      "componentName": "lblEnable",
+      "componentClassName": "TLabel",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\09_checkbox_caption_inside_container.fmx",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

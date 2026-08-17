@@ -1161,6 +1161,49 @@ var
       (AFirst.PlannedTop + AFirst.PlannedHeight > ASecond.PlannedTop);
   end;
 
+  function IsVisualContainer(const AControl: TLayoutControl): Boolean;
+  begin
+    Result :=
+      ContainsText(AControl.ComponentClassName, 'Rectangle') or
+      ContainsText(AControl.ComponentClassName, 'Panel') or
+      ContainsText(AControl.ComponentClassName, 'GroupBox') or
+      ContainsText(AControl.ComponentClassName, 'Layout');
+  end;
+
+  procedure GrowVisualContainersForTranslatedCaptions;
+  var
+    CaptionControl, Container: TLayoutControl;
+  begin
+    for CaptionControl in AReview.Controls do
+    begin
+      if (CaptionControl.TranslatedText = '') or not CaptionControl.HasPosition or
+        not CaptionControl.HasSize then
+        Continue;
+      for Container in AReview.Controls do
+      begin
+        if (Container = CaptionControl) or not Container.HasPosition or
+          not Container.HasSize then
+          Continue;
+        if not SameText(Container.FormName, CaptionControl.FormName) then
+          Continue;
+        if not IsVisualContainer(Container) then
+          Continue;
+        if not DesignedOverlap(CaptionControl, Container) then
+          Continue;
+        if CaptionControl.PlannedLeft + CaptionControl.PlannedWidth >
+          Container.PlannedLeft + Container.PlannedWidth - 4 then
+          Container.PlannedWidth :=
+            Ceil(CaptionControl.PlannedLeft + CaptionControl.PlannedWidth -
+              Container.PlannedLeft + 4);
+        if CaptionControl.PlannedTop + CaptionControl.PlannedHeight >
+          Container.PlannedTop + Container.PlannedHeight - 4 then
+          Container.PlannedHeight :=
+            Ceil(CaptionControl.PlannedTop + CaptionControl.PlannedHeight -
+              Container.PlannedTop + 4);
+      end;
+    end;
+  end;
+
   { Row membership is a fact about the design, not about the working geometry.
     Reading it from planned values lets a caption that has grown taller be
     treated as sharing a row with the control beneath it, so a purely vertical
@@ -1228,12 +1271,41 @@ begin
         if ShiftedLeft > 2 then
           Control.PlannedLeft := Max(0, Control.PlannedLeft - ShiftedLeft);
       end;
+      { Small centered labels are commonly drawn over a visual container
+        (for example a white checkbox caption box). If they simply widen about
+        center, the text escapes the container. Treat those like contained
+        captions: preserve the designer's box, wrap inside it, and buy only
+        the height needed to keep the words visible. Larger centered headings
+        are handled by the normal row-free widening rule below. }
+      if IsCentreAligned(Control) and
+        ContainsText(Control.ComponentClassName, 'Label') and
+        (Control.Width < 180) and IsWrappingText and
+        (Control.Width >= MinimumWrapWidth) then
+      begin
+        Control.PlannedWordWrap := True;
+        LineCount := WrappedLineCount(Control, Control.Width);
+        Control.PlannedHeight := Max(Control.PlannedHeight,
+          Ceil(RequiredHeight * LineCount + 2 * PaddingVertical(Control)));
+      end
+      { Very long action-button captions should wrap inside a compact button
+        rather than shrinking into a tiny font or pushing the row apart. Short
+        compact buttons such as Play/Pause/Stop still stay one-line. }
+      else if IsButton and LooksLikeCompactButton(Control) and
+        IsWrappingText and (RequiredWidth > CompactButtonMaxWidth + 8) then
+      begin
+        Control.PlannedWidth := Max(Control.Width,
+          Min(LongButtonMaxWidth, Max(Control.Width, CompactButtonMaxWidth)));
+        Control.PlannedWordWrap := True;
+        LineCount := WrappedLineCount(Control, Control.PlannedWidth);
+        Control.PlannedHeight := Max(Control.PlannedHeight,
+          Ceil(RequiredHeight * LineCount + 2 * PaddingVertical(Control)));
+      end
       { Widening only costs something when there is something beside the
         control to disturb. A heading alone on its row has empty space either
         side, and taking that space changes nothing else on the form, whereas
         wrapping it doubles its height and can push it into the row below.
         So where the row is genuinely clear, widen and stay on one line. }
-      if RowIsFree(Control, True, False) and RowIsFree(Control, False, False) then
+      else if RowIsFree(Control, True, False) and RowIsFree(Control, False, False) then
       begin
         NewWidth := BoundedTextWidth(Control, RequiredWidth);
         if NewWidth > Ceil(Control.Width) then
@@ -1451,6 +1523,13 @@ begin
         2 * PaddingVertical(Control)));
   end;
 
+  { Phase 2c - when a translated caption is drawn on top of a shaped or white
+    visual container, the text box and the visual box are a unit. Growing only
+    the text produces exactly the ugly "text outside its box" failure the
+    contracts are meant to prevent. Expand the visual box enough to contain
+    the translated caption, but do not move unrelated target source. }
+  GrowVisualContainersForTranslatedCaptions;
+
   { Phase 3 - resolve collisions against the planned geometry, repeatedly, so a
     control moved on one pass is seen at its new place on the next. Every move
     both reads and writes the planned values, which is what stops two rules
@@ -1603,6 +1682,11 @@ begin
       Break;
   end;
 
+  { A separation pass can move a caption after the first containment pass.
+    Re-grow visual containers after positions settle so text remains inside
+    the white/outlined boxes the developer designed. }
+  GrowVisualContainersForTranslatedCaptions;
+
   { Phase 4 - emit proposals from the settled geometry. Because every value
     comes from the same resolved model, the exported rules agree with one
     another instead of describing conflicting placements. }
@@ -1635,6 +1719,17 @@ begin
           FormatFloat('0.##', Control.PlannedFontSize,
             TFormatSettings.Invariant),
           'Slightly smaller text so the translation fits the designed control without moving anything.');
+    end;
+    if (Control.TranslatedText = '') and IsVisualContainer(Control) then
+    begin
+      if Ceil(Control.PlannedWidth) > Ceil(Control.Width) then
+        AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
+          IntToStr(Ceil(Control.PlannedWidth)),
+          'Grow the visual container so translated text remains inside its box.');
+      if Ceil(Control.PlannedHeight) > Ceil(Control.Height) then
+        AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
+          IntToStr(Ceil(Control.PlannedHeight)),
+          'Grow the visual container so translated text remains inside its box.');
     end;
     { Movement is different. The separation pass steps a control aside to make
       room for a caption that grew, and that control is very often an edit box

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "es-ES",
+    "nativeLanguageName": "Español",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.btnEaster.Text",
+      "sourceText": "Recalculate Easter dates",
+      "translatedText": "Recalcular las fechas de Pascua y del Día de los Difuntos",
+      "formName": "ContractForm",
+      "componentName": "btnEaster",
+      "componentClassName": "TButton",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\12_long_button_and_field_stack.fmx",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.lblHolyWeek.Text",
+      "sourceText": "From Maundy Thursday until Saturday:",
+      "translatedText": "Desde el Jueves Santo hasta el sábado:",
+      "formName": "ContractForm",
+      "componentName": "lblHolyWeek",
+      "componentClassName": "TLabel",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\12_long_button_and_field_stack.fmx",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

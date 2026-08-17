@@ -1,0 +1,23 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 320
+  ClientWidth = 680
+  object btnRecalc: TButton
+    Position.X = 35.000000000000000000
+    Position.Y = 35.000000000000000000
+    Size.Width = 300.000000000000000000
+    Size.Height = 58.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Recalculate dates for next year.'
+  end
+  object gridGroups: TStringGrid
+    Position.X = 35.000000000000000000
+    Position.Y = 120.000000000000000000
+    Size.Width = 530.000000000000000000
+    Size.Height = 160.000000000000000000
+    Size.PlatformDefault = False
+  end
+end

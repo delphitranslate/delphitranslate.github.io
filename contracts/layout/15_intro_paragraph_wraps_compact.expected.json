@@ -1,0 +1,22 @@
+{
+  "description": "Wide explanatory text wraps inside a readable paragraph box rather than running off the form.",
+  "catalog_file": "15_intro_paragraph_wraps_compact.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblIntro1",
+      "text_fits": true,
+      "planned_width_at_most": 760,
+      "planned_height_at_least": 24,
+      "font_at_least": 13
+    },
+    {
+      "form": "ContractForm",
+      "name": "lblIntro2",
+      "text_fits": true,
+      "planned_width_at_most": 760,
+      "planned_height_at_least": 24,
+      "font_at_least": 13
+    }
+  ]
+}

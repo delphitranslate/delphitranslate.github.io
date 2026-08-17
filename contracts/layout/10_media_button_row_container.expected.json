@@ -1,0 +1,29 @@
+{
+  "description": "A compact three-button media row must stay inside its visual container and keep readable captions.",
+  "catalog_file": "10_media_button_row_container.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "btnPlay",
+      "text_fits": true,
+      "planned_height_at_most": 40,
+      "planned_right_at_most": 400
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnPause",
+      "text_fits": true,
+      "planned_height_at_most": 40,
+      "planned_right_at_most": 400
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnStop",
+      "text_fits": true,
+      "planned_height_at_most": 40,
+      "planned_right_at_most": 400
+    }
+  ],
+  "uniform_width_group": ["btnPlay", "btnPause", "btnStop"],
+  "even_pitch_group": ["btnPlay", "btnPause", "btnStop"]
+}

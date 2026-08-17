@@ -1,0 +1,13 @@
+{
+  "description": "A separate checkbox caption remains inside its visual white container after translation.",
+  "catalog_file": "09_checkbox_caption_inside_container.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblEnable",
+      "text_fits": true,
+      "inside_control": "rectEnable",
+      "font_at_least": 13
+    }
+  ]
+}

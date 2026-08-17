@@ -986,7 +986,7 @@ object frmSetupWizard: TfrmSetupWizard
               Position.X = 8.000000000000000000
               Position.Y = 104.000000000000000000
               Size.Width = 372.000000000000000000
-              Size.Height = 150.000000000000000000
+              Size.Height = 215.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True
@@ -995,6 +995,7 @@ object frmSetupWizard: TfrmSetupWizard
             object lblKitPath: TLabel
               Cursor = crHandPoint
               ShowHint = True
+              Visible = False
               StyledSettings = []
               Position.X = 8.000000000000000000
               Position.Y = 262.000000000000000000
@@ -1013,7 +1014,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               WordWrap = True
               Position.X = 8.000000000000000000
-              Position.Y = 292.000000000000000000
+              Position.Y = 326.000000000000000000
               Size.Width = 372.000000000000000000
               Size.Height = 36.000000000000000000
               Size.PlatformDefault = False
@@ -1023,7 +1024,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object memCommands: TMemo
               Position.X = 8.000000000000000000
-              Position.Y = 332.000000000000000000
+              Position.Y = 366.000000000000000000
               Size.Width = 372.000000000000000000
               Size.Height = 38.000000000000000000
               Size.PlatformDefault = False
@@ -1033,7 +1034,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnCopyCommands: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 378.000000000000000000
+              Position.Y = 412.000000000000000000
               Size.Width = 182.000000000000000000
               Size.Height = 36.000000000000000000
               Size.PlatformDefault = False
@@ -1042,7 +1043,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnOpenKitFolder: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 420.000000000000000000
+              Position.Y = 454.000000000000000000
               Size.Width = 182.000000000000000000
               Size.Height = 36.000000000000000000
               Size.PlatformDefault = False
@@ -1051,7 +1052,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnRunDeployment: TButton
               Position.X = 198.000000000000000000
-              Position.Y = 378.000000000000000000
+              Position.Y = 412.000000000000000000
               Size.Width = 182.000000000000000000
               Size.Height = 36.000000000000000000
               Size.PlatformDefault = False
@@ -1060,7 +1061,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnDeployApplicationFolder: TButton
               Position.X = 198.000000000000000000
-              Position.Y = 420.000000000000000000
+              Position.Y = 454.000000000000000000
               Size.Width = 182.000000000000000000
               Size.Height = 36.000000000000000000
               Size.PlatformDefault = False

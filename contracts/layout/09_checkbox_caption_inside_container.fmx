@@ -1,0 +1,33 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 160
+  ClientWidth = 360
+  object rectEnable: TRectangle
+    Position.X = 30.000000000000000000
+    Position.Y = 36.000000000000000000
+    Size.Width = 150.000000000000000000
+    Size.Height = 44.000000000000000000
+    Size.PlatformDefault = False
+  end
+  object chkEnable: TCheckBox
+    Position.X = 36.000000000000000000
+    Position.Y = 48.000000000000000000
+    Size.Width = 22.000000000000000000
+    Size.Height = 22.000000000000000000
+    Size.PlatformDefault = False
+    Text = ''
+  end
+  object lblEnable: TLabel
+    StyledSettings = []
+    Position.X = 62.000000000000000000
+    Position.Y = 44.000000000000000000
+    Size.Width = 110.000000000000000000
+    Size.Height = 30.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    TextSettings.HorzAlign = Center
+    Text = 'Enable schedule'
+  end
+end

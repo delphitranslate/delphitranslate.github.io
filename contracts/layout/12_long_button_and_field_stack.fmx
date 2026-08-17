@@ -1,0 +1,43 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 360
+  ClientWidth = 700
+  object btnEaster: TButton
+    Position.X = 40.000000000000000000
+    Position.Y = 180.000000000000000000
+    Size.Width = 150.000000000000000000
+    Size.Height = 38.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Recalculate Easter dates'
+  end
+  object lblHolyWeek: TLabel
+    StyledSettings = []
+    WordWrap = False
+    Position.X = 225.000000000000000000
+    Position.Y = 178.000000000000000000
+    Size.Width = 185.000000000000000000
+    Size.Height = 38.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'From Maundy Thursday until Saturday:'
+  end
+  object edtStart: TEdit
+    Position.X = 430.000000000000000000
+    Position.Y = 180.000000000000000000
+    Size.Width = 100.000000000000000000
+    Size.Height = 32.000000000000000000
+    Size.PlatformDefault = False
+    Text = ''
+  end
+  object edtEnd: TEdit
+    Position.X = 545.000000000000000000
+    Position.Y = 180.000000000000000000
+    Size.Width = 100.000000000000000000
+    Size.Height = 32.000000000000000000
+    Size.PlatformDefault = False
+    Text = ''
+  end
+end

@@ -570,6 +570,7 @@ const
   MaximumButtonWidth = 150;
   MaximumLongButtonWidth = 320;
   MaximumButtonHeight = 40;
+  MaximumWrappedButtonHeight = 70;
   MinimumLabelWidth = 42;
   MaximumLabelWidth = 420;
   MinimumLabelHeight = 22;
@@ -782,6 +783,9 @@ var
     else
       MaxWidth := Min(MaximumLongButtonWidth,
         AvailableWidthToParentRight(AControl));
+    if IsCompact and (NeededWidth > MaximumButtonWidth + 8) then
+      MaxWidth := Min(MaximumLongButtonWidth,
+        AvailableWidthToParentRight(AControl));
     NewWidth := Min(MaxWidth, Max(MinimumButtonWidth, NeededWidth));
     if NewWidth > AControl.Width + 4 then
     begin
@@ -790,14 +794,15 @@ var
     end;
     if NeededWidth > AControl.Width + 8 then
     begin
-      if (not IsCompact) and SetWordWrapIfSupported(AComponent) then
+      if ((not IsCompact) or (NeededWidth > MaximumButtonWidth + 8)) and
+        SetWordWrapIfSupported(AComponent) then
         Inc(Result);
       NewHeight := FitWrappedHeight(AText, ComponentFont(AComponent),
         AControl.Width, AControl.Height, Max(AControl.Height,
-        MaximumButtonHeight));
+        MaximumWrappedButtonHeight));
       if NewHeight > AControl.Height + 2 then
       begin
-        if IsCompact then
+        if IsCompact and (NeededWidth <= MaximumButtonWidth + 8) then
           AControl.Height := Min(NewHeight, MaximumButtonHeight)
         else
           AControl.Height := NewHeight;

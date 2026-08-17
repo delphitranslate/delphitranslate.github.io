@@ -1,0 +1,26 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 180
+  ClientWidth = 560
+  object lblDateRange: TLabel
+    StyledSettings = []
+    Position.X = 70.000000000000000000
+    Position.Y = 80.000000000000000000
+    Size.Width = 180.000000000000000000
+    Size.Height = 28.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    TextSettings.HorzAlign = Trailing
+    Text = 'Start and end time:'
+  end
+  object edtStart: TEdit
+    Position.X = 270.000000000000000000
+    Position.Y = 78.000000000000000000
+    Size.Width = 105.000000000000000000
+    Size.Height = 32.000000000000000000
+    Size.PlatformDefault = False
+    Text = ''
+  end
+end

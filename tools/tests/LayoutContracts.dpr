@@ -149,6 +149,88 @@ begin
   Result := (Value is TJSONBool) and TJSONBool(Value).AsBoolean;
 end;
 
+procedure CheckControlBoundsExpectation(const AReview: TLocalizationReview;
+  const AExpectation: TJSONObject; const AControl: TLayoutControl);
+var
+  BoundName: string;
+  BoundControl: TLayoutControl;
+  Expected: Double;
+begin
+  if NumberOf(AExpectation, 'planned_left_at_least', Expected) then
+    Check(AControl.PlannedLeft >= Expected - 1,
+      Format('%s.%s left is %.0f, expected at least %.0f',
+        [AControl.FormName, AControl.ComponentName, AControl.PlannedLeft,
+         Expected]));
+
+  if NumberOf(AExpectation, 'planned_top_at_least', Expected) then
+    Check(AControl.PlannedTop >= Expected - 1,
+      Format('%s.%s top is %.0f, expected at least %.0f',
+        [AControl.FormName, AControl.ComponentName, AControl.PlannedTop,
+         Expected]));
+
+  if NumberOf(AExpectation, 'planned_width_at_most', Expected) then
+    Check(AControl.PlannedWidth <= Expected + 1,
+      Format('%s.%s width is %.0f, expected no more than %.0f',
+        [AControl.FormName, AControl.ComponentName, AControl.PlannedWidth,
+         Expected]));
+
+  if NumberOf(AExpectation, 'planned_height_at_least', Expected) then
+    Check(AControl.PlannedHeight >= Expected - 1,
+      Format('%s.%s height is %.0f, expected at least %.0f',
+        [AControl.FormName, AControl.ComponentName, AControl.PlannedHeight,
+         Expected]));
+
+  if NumberOf(AExpectation, 'planned_height_at_most', Expected) then
+    Check(AControl.PlannedHeight <= Expected + 1,
+      Format('%s.%s height is %.0f, expected no more than %.0f',
+        [AControl.FormName, AControl.ComponentName, AControl.PlannedHeight,
+         Expected]));
+
+  if NumberOf(AExpectation, 'planned_right_at_most', Expected) then
+    Check(AControl.PlannedLeft + AControl.PlannedWidth <= Expected + 1,
+      Format('%s.%s right edge is %.0f, expected no more than %.0f',
+        [AControl.FormName, AControl.ComponentName,
+         AControl.PlannedLeft + AControl.PlannedWidth, Expected]));
+
+  if NumberOf(AExpectation, 'planned_bottom_at_most', Expected) then
+    Check(AControl.PlannedTop + AControl.PlannedHeight <= Expected + 1,
+      Format('%s.%s bottom edge is %.0f, expected no more than %.0f',
+        [AControl.FormName, AControl.ComponentName,
+         AControl.PlannedTop + AControl.PlannedHeight, Expected]));
+
+  BoundName := AExpectation.GetValue<string>('inside_control', '');
+  if BoundName <> '' then
+  begin
+    BoundControl := FindControl(AReview, AControl.FormName, BoundName);
+    if BoundControl = nil then
+      Failures.Add(Format('%s.%s inside bound %s was not found',
+        [AControl.FormName, AControl.ComponentName, BoundName]))
+    else
+    begin
+      Check(AControl.PlannedLeft >= BoundControl.PlannedLeft - 1,
+        Format('%s.%s left %.0f is outside %s left %.0f',
+          [AControl.FormName, AControl.ComponentName, AControl.PlannedLeft,
+           BoundName, BoundControl.PlannedLeft]));
+      Check(AControl.PlannedTop >= BoundControl.PlannedTop - 1,
+        Format('%s.%s top %.0f is outside %s top %.0f',
+          [AControl.FormName, AControl.ComponentName, AControl.PlannedTop,
+           BoundName, BoundControl.PlannedTop]));
+      Check(AControl.PlannedLeft + AControl.PlannedWidth <=
+          BoundControl.PlannedLeft + BoundControl.PlannedWidth + 1,
+        Format('%s.%s right %.0f is outside %s right %.0f',
+          [AControl.FormName, AControl.ComponentName,
+           AControl.PlannedLeft + AControl.PlannedWidth, BoundName,
+           BoundControl.PlannedLeft + BoundControl.PlannedWidth]));
+      Check(AControl.PlannedTop + AControl.PlannedHeight <=
+          BoundControl.PlannedTop + BoundControl.PlannedHeight + 1,
+        Format('%s.%s bottom %.0f is outside %s bottom %.0f',
+          [AControl.FormName, AControl.ComponentName,
+           AControl.PlannedTop + AControl.PlannedHeight, BoundName,
+           BoundControl.PlannedTop + BoundControl.PlannedHeight]));
+    end;
+  end;
+end;
+
 procedure CheckControlExpectation(const AReview: TLocalizationReview;
   const AExpectation: TJSONObject);
 var
@@ -204,14 +286,16 @@ begin
       Format('%s.%s left is %.0f, expected no more than %.0f',
         [FormName, ControlName, Control.PlannedLeft, Expected]));
 
-  if NumberOf(AExpectation, 'planned_height_at_most', Expected) then
-    Check(Control.PlannedHeight <= Expected + 1,
-      Format('%s.%s height is %.0f, expected no more than %.0f',
-        [FormName, ControlName, Control.PlannedHeight, Expected]));
+  CheckControlBoundsExpectation(AReview, AExpectation, Control);
 
   if NumberOf(AExpectation, 'font_at_least', Expected) then
     Check(PlannedFontOf(Control) >= Expected - 0.01,
       Format('%s.%s font is %.1f, expected at least %.1f',
+        [FormName, ControlName, PlannedFontOf(Control), Expected]));
+
+  if NumberOf(AExpectation, 'font_at_most', Expected) then
+    Check(PlannedFontOf(Control) <= Expected + 0.01,
+      Format('%s.%s font is %.1f, expected no more than %.1f',
         [FormName, ControlName, PlannedFontOf(Control), Expected]));
 end;
 
