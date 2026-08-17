@@ -80,7 +80,7 @@ object frmLocalizationReview: TfrmLocalizationReview
           TextSettings.Font.Size = 20.000000000000000000
           TextSettings.Font.StyleExt = {00070000000000000004000000}
           TextSettings.FontColor = xFF163A63
-          Text = 'Items Found by Automatic Review'
+          Text = 'Read-only layout and translation audit'
         end
         object lblAuditSummary: TLabel
           StyledSettings = []

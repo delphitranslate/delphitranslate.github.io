@@ -137,8 +137,12 @@ var
   end;
 
   function IsUsable(const ADirectory: string): Boolean;
+  var
+    FullDirectory: string;
   begin
-    Result := TDirectory.Exists(ADirectory) and
+    FullDirectory := IncludeTrailingPathDelimiter(TPath.GetFullPath(ADirectory));
+    Result := StartsText(IncludeTrailingPathDelimiter(ProjectDirectory),
+      FullDirectory) and TDirectory.Exists(ADirectory) and
       ((not ARequireExecutable) or TFile.Exists(
         TPath.Combine(ADirectory, ExecutableName)));
   end;

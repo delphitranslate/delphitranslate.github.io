@@ -47,7 +47,6 @@ type
     FWidth: Double;
     FHeight: Double;
     FFontSize: Double;
-    FFontFamily: string;
     FAlign: string;
     FHorzAlign: string;
     FWordWrap: Boolean;
@@ -73,7 +72,6 @@ type
     property Width: Double read FWidth write FWidth;
     property Height: Double read FHeight write FHeight;
     property FontSize: Double read FFontSize write FFontSize;
-    property FontFamily: string read FFontFamily write FFontFamily;
     property Align: string read FAlign write FAlign;
     { How the text sits inside the control. This decides which way the control
       has to grow: a right-aligned caption must keep its right edge and extend
@@ -222,17 +220,6 @@ begin
   Result := TryStrToFloat(Trim(AValue), AResult, Settings);
 end;
 
-function UnquoteDelphiString(const AValue: string): string;
-begin
-  Result := Trim(AValue);
-  if (Length(Result) >= 2) and (Result[1] = '''') and
-    (Result[Length(Result)] = '''') then
-  begin
-    Result := Copy(Result, 2, Length(Result) - 2);
-    Result := StringReplace(Result, '''''', '''', [rfReplaceAll]);
-  end;
-end;
-
 function ParseObject(const ALine: string; out AName, AClassName: string): Boolean;
 var
   Text: string;
@@ -350,7 +337,7 @@ begin
   else
     Proposal.Decision := 'pending';
   Proposal.SourceChecksum := THashSHA2.GetHashString(
-    AControl.SourceText + '|' + AControl.TranslatedText + '|' + ACurrent);
+    AControl.SourceText + '|' + ACurrent);
   AReview.Proposals.Add(Proposal);
 end;
 
@@ -473,8 +460,6 @@ begin
         else if MatchText(Prop, ['TextSettings.HorzAlign', 'HorzAlign',
           'Alignment']) then
           Frame.Control.HorzAlign := Value
-        else if MatchText(Prop, ['TextSettings.Font.Family', 'Font.Family']) then
-          Frame.Control.FontFamily := UnquoteDelphiString(Value)
         else if MatchText(Prop, ['WordWrap', 'AutoSize']) then
         begin
           BoolValue := SameText(Value, 'True');
@@ -599,10 +584,6 @@ const
   LabelPaddingVertical = 2;
   OtherPaddingHorizontal = 6;
   OtherPaddingVertical = 3;
-  CompactButtonMaxHeight = 40;
-  CompactButtonMinWidth = 86;
-  CompactButtonMaxWidth = 150;
-  LongButtonMaxWidth = 320;
 var
   Control, Other: TLayoutControl;
   RequiredWidth, RequiredHeight, FontSize: Double;
@@ -664,8 +645,6 @@ var
       Layout.BeginUpdate;
       Layout.Text := AControl.TranslatedText;
       Layout.Font.Size := Max(PointSize, 9);
-      if Trim(AControl.FontFamily) <> '' then
-        Layout.Font.Family := AControl.FontFamily;
       Layout.WordWrap := False;
       Layout.EndUpdate;
       { Ask for the room the text occupies plus the breathing room its class
@@ -929,17 +908,8 @@ var
     end
     else if ContainsText(AControl.ComponentClassName, 'Button') then
     begin
-      if (AControl.Width <= CompactButtonMaxWidth) and
-        (AControl.Height <= CompactButtonMaxHeight + 8) then
-      begin
-        GrowthCap := Max(AControl.Width * 1.15, CompactButtonMinWidth);
-        HardCap := CompactButtonMaxWidth;
-      end
-      else
-      begin
-        GrowthCap := Max(AControl.Width * 1.20, 140);
-        HardCap := LongButtonMaxWidth;
-      end;
+      GrowthCap := Max(AControl.Width * 1.20, 120);
+      HardCap := 220;
     end
     else
     begin
@@ -1063,13 +1033,6 @@ var
       not ContainsText(AControl.ComponentClassName, 'CheckBox');
   end;
 
-  function LooksLikeCompactButton(const AControl: TLayoutControl): Boolean;
-  begin
-    Result := IsButtonLike(AControl) and
-      (AControl.Width <= CompactButtonMaxWidth) and
-      (AControl.Height <= CompactButtonMaxHeight + 8);
-  end;
-
   { The buttons drawn as one row with this control: same parent, same designed
     row, and close enough together to have been laid out as a set rather than
     placed independently. Ordered the way the designer placed them. }
@@ -1161,49 +1124,6 @@ var
       (AFirst.PlannedTop + AFirst.PlannedHeight > ASecond.PlannedTop);
   end;
 
-  function IsVisualContainer(const AControl: TLayoutControl): Boolean;
-  begin
-    Result :=
-      ContainsText(AControl.ComponentClassName, 'Rectangle') or
-      ContainsText(AControl.ComponentClassName, 'Panel') or
-      ContainsText(AControl.ComponentClassName, 'GroupBox') or
-      ContainsText(AControl.ComponentClassName, 'Layout');
-  end;
-
-  procedure GrowVisualContainersForTranslatedCaptions;
-  var
-    CaptionControl, Container: TLayoutControl;
-  begin
-    for CaptionControl in AReview.Controls do
-    begin
-      if (CaptionControl.TranslatedText = '') or not CaptionControl.HasPosition or
-        not CaptionControl.HasSize then
-        Continue;
-      for Container in AReview.Controls do
-      begin
-        if (Container = CaptionControl) or not Container.HasPosition or
-          not Container.HasSize then
-          Continue;
-        if not SameText(Container.FormName, CaptionControl.FormName) then
-          Continue;
-        if not IsVisualContainer(Container) then
-          Continue;
-        if not DesignedOverlap(CaptionControl, Container) then
-          Continue;
-        if CaptionControl.PlannedLeft + CaptionControl.PlannedWidth >
-          Container.PlannedLeft + Container.PlannedWidth - 4 then
-          Container.PlannedWidth :=
-            Ceil(CaptionControl.PlannedLeft + CaptionControl.PlannedWidth -
-              Container.PlannedLeft + 4);
-        if CaptionControl.PlannedTop + CaptionControl.PlannedHeight >
-          Container.PlannedTop + Container.PlannedHeight - 4 then
-          Container.PlannedHeight :=
-            Ceil(CaptionControl.PlannedTop + CaptionControl.PlannedHeight -
-              Container.PlannedTop + 4);
-      end;
-    end;
-  end;
-
   { Row membership is a fact about the design, not about the working geometry.
     Reading it from planned values lets a caption that has grown taller be
     treated as sharing a row with the control beneath it, so a purely vertical
@@ -1213,216 +1133,6 @@ var
     Result := Abs((AFirst.Top + AFirst.Height / 2) -
       (ASecond.Top + ASecond.Height / 2)) <=
       Max(8, Max(AFirst.Height, ASecond.Height) * 0.55);
-  end;
-
-  function TextHas(const AControl: TLayoutControl;
-    const APhrase: string): Boolean;
-  begin
-    Result := ContainsText(AControl.SourceText, APhrase) or
-      ContainsText(AControl.TranslatedText, APhrase) or
-      ContainsText(AControl.ComponentName, APhrase);
-  end;
-
-  procedure RestoreDesignedFontIfShrunk(const AControl: TLayoutControl);
-  begin
-    if (AControl.FontSize > 0) and
-      (AControl.PlannedFontSize < AControl.FontSize) then
-      AControl.PlannedFontSize := AControl.FontSize;
-  end;
-
-  procedure KeepWithinRightEdge(const AControl: TLayoutControl;
-    const AMargin: Double);
-  var
-    RightEdge: Double;
-  begin
-    if not AControl.HasPosition or not AControl.HasSize then
-      Exit;
-    RightEdge := ContentRightBound(AControl) - AMargin;
-    if (RightEdge > AMargin) and
-      (AControl.PlannedLeft + AControl.PlannedWidth > RightEdge) then
-      AControl.PlannedLeft := Max(AMargin,
-        RightEdge - AControl.PlannedWidth);
-  end;
-
-  procedure FitWrappedControl(const AControl: TLayoutControl;
-    const AMinWidth, AMaxWidth, AMinHeight: Double);
-  var
-    TargetWidth: Double;
-    Lines: Integer;
-  begin
-    if not AControl.HasSize then
-      Exit;
-    TargetWidth := Max(AControl.Width, AMinWidth);
-    TargetWidth := Min(TargetWidth, Max(AMinWidth, AMaxWidth));
-    if AControl.HasPosition then
-      TargetWidth := Min(TargetWidth,
-        Max(AMinWidth, ContentRightBound(AControl) -
-          AControl.PlannedLeft - ControlGap));
-    AControl.PlannedWidth := Max(AControl.PlannedWidth, TargetWidth);
-    AControl.PlannedWordWrap := True;
-    AControl.PlannedHeight := Max(AControl.PlannedHeight, AMinHeight);
-    Lines := WrappedLineCount(AControl, AControl.PlannedWidth);
-    AControl.PlannedHeight := Max(AControl.PlannedHeight,
-      Ceil(Lines * MeasuredLineHeight(AControl) +
-        2 * PaddingVertical(AControl)));
-    KeepWithinRightEdge(AControl, ControlGap);
-  end;
-
-  procedure ApplyFocusedLayoutContracts;
-  var
-    ButtonRow: TList<TLayoutControl>;
-    FocusedControl: TLayoutControl;
-    ContainerControl: TLayoutControl;
-    RowLeft, RowTop, RowWidth, Gap, ButtonWidth: Double;
-    Index, RowCount: Integer;
-    RightEdge: Double;
-    LocalFont: Double;
-  begin
-    { These contracts are intentionally narrow. They address the recurring
-      failures seen in the test screens without letting the general layout
-      engine rearrange unrelated forms. }
-    for FocusedControl in AReview.Controls do
-    begin
-      if not FocusedControl.HasPosition or not FocusedControl.HasSize then
-        Continue;
-
-      { 1. Checkbox captions such as "Enable Schedule" must remain inside
-        their small white caption box and near the checkbox. }
-      if (TextHas(FocusedControl, 'Enable schedule') or
-          TextHas(FocusedControl, 'Enable Schedule') or
-          TextHas(FocusedControl, 'Habilitar programación')) and
-        not ContainsText(FocusedControl.ComponentClassName, 'CheckBox') then
-      begin
-        RestoreDesignedFontIfShrunk(FocusedControl);
-        FitWrappedControl(FocusedControl, 138, 160, 38);
-      end;
-
-      { 3/4. Recalculation action buttons should be wrapped, padded, and kept
-        slightly away from the grid or field row below them. }
-      if TextHas(FocusedControl, 'Recalculate') or TextHas(FocusedControl, 'Recalcular') or
-        TextHas(FocusedControl, 'Pascua') or TextHas(FocusedControl, 'Difuntos') then
-      begin
-        RestoreDesignedFontIfShrunk(FocusedControl);
-        if ContainsText(FocusedControl.ComponentClassName, 'Button') then
-        begin
-          FitWrappedControl(FocusedControl, 160, 190, 48);
-          if FocusedControl.PlannedTop > 10 then
-            FocusedControl.PlannedTop := Max(0, FocusedControl.PlannedTop - 8);
-        end
-        else
-          FitWrappedControl(FocusedControl, 180, 280, 42);
-      end;
-
-      { 4/5. Date/time labels on the system configuration screens should keep
-        their readable font, wrap where needed, and stay compact instead of
-        spreading over fields. }
-      if TextHas(FocusedControl, 'Jueves Santo') or TextHas(FocusedControl, 'sábado') or
-        TextHas(FocusedControl, 'funeral') or TextHas(FocusedControl, 'inicio/finalización') or
-        TextHas(FocusedControl, 'Miércoles de ceniza') then
-      begin
-        RestoreDesignedFontIfShrunk(FocusedControl);
-        FitWrappedControl(FocusedControl, 130, 230, 28);
-      end;
-
-      { 6. Email labels and test buttons need enough width and padding without
-        spilling beyond the edit controls below. }
-      if TextHas(FocusedControl, 'Dirección de correo electrónico') or
-        TextHas(FocusedControl, 'Email Address') then
-      begin
-        RestoreDesignedFontIfShrunk(FocusedControl);
-        FitWrappedControl(FocusedControl, 220, 300, 24);
-      end;
-      if TextHas(FocusedControl, 'Enviar mensaje de prueba') or
-        TextHas(FocusedControl, 'Test message') then
-      begin
-        RestoreDesignedFontIfShrunk(FocusedControl);
-        FitWrappedControl(FocusedControl, 165, 210, 44);
-      end;
-
-      { 7. Intro paragraphs should read as compact paragraphs, not run across
-        the full form width. }
-      if TextHas(FocusedControl, 'Seleccione una carpeta') or
-        TextHas(FocusedControl, 'La ranura') or
-        TextHas(FocusedControl, 'Select a folder') or
-        TextHas(FocusedControl, 'Slot 1') then
-      begin
-        RestoreDesignedFontIfShrunk(FocusedControl);
-        FitWrappedControl(FocusedControl, 560, 760, 34);
-      end;
-
-      { Compact navigator labels should not be truncated or collide. }
-      if ContainsText(FocusedControl.ComponentName, 'lblNavigator') or
-        TextHas(FocusedControl, 'Guardar') or TextHas(FocusedControl, 'Cancelar') then
-      begin
-        RestoreDesignedFontIfShrunk(FocusedControl);
-        FitWrappedControl(FocusedControl, 62, 92, 22);
-      end;
-    end;
-
-    { 2. Media Play/Pause/Stop rows: use a fixed, moderate button width and
-      repack the whole row inside the containing box. }
-    for FocusedControl in AReview.Controls do
-    begin
-      if not IsButtonLike(FocusedControl) or not FocusedControl.HasPosition or
-        not FocusedControl.HasSize or not CanMoveControl(FocusedControl) then
-        Continue;
-      if not (TextHas(FocusedControl, 'Play') or TextHas(FocusedControl, 'Reproducir') or
-        TextHas(FocusedControl, 'Pause') or TextHas(FocusedControl, 'Pausar') or
-        TextHas(FocusedControl, 'Stop') or TextHas(FocusedControl, 'Detener')) then
-        Continue;
-      ButtonRow := CollectButtonRow(FocusedControl);
-      try
-        if ButtonRow.Count < 3 then
-          Continue;
-        RowLeft := ButtonRow[0].Left;
-        RowTop := ButtonRow[0].Top;
-        RightEdge := ContentRightBound(ButtonRow[0]) - ControlGap;
-        for ContainerControl in AReview.Controls do
-          if (ContainerControl <> ButtonRow[0]) and
-            SameText(ContainerControl.FormName, ButtonRow[0].FormName) and
-            ContainerControl.HasPosition and ContainerControl.HasSize and
-            IsVisualContainer(ContainerControl) and
-            (ContainerControl.Left <= ButtonRow[0].Left) and
-            (ContainerControl.Left + ContainerControl.Width >=
-              ButtonRow[ButtonRow.Count - 1].Left +
-              ButtonRow[ButtonRow.Count - 1].Width) and
-            (ContainerControl.Top <= ButtonRow[0].Top) and
-            (ContainerControl.Top + ContainerControl.Height >=
-              ButtonRow[0].Top + ButtonRow[0].Height) then
-          begin
-            RowLeft := Max(RowLeft, ContainerControl.Left + ControlGap);
-            RightEdge := Min(RightEdge,
-              ContainerControl.Left + ContainerControl.Width - ControlGap);
-          end;
-        RowWidth := RightEdge - RowLeft;
-        RowCount := Max(1, ButtonRow.Count);
-        ButtonWidth := Min(94, (RowWidth - (RowCount - 1) * 8) / RowCount);
-        ButtonWidth := Max(78, ButtonWidth);
-        if RowCount > 1 then
-          Gap := Max(8, (RowWidth - RowCount * ButtonWidth) /
-            (RowCount - 1))
-        else
-          Gap := 0;
-        for Index := 0 to ButtonRow.Count - 1 do
-        begin
-          ButtonRow[Index].PlannedLeft := RowLeft + Index *
-            (ButtonWidth + Gap);
-          ButtonRow[Index].PlannedTop := RowTop;
-          ButtonRow[Index].PlannedWidth := ButtonWidth;
-          ButtonRow[Index].PlannedHeight := Max(ButtonRow[Index].Height, 34);
-          ButtonRow[Index].PlannedWordWrap := False;
-          LocalFont := ButtonRow[Index].FontSize;
-          if LocalFont <= 0 then
-            LocalFont := 12;
-          ButtonRow[Index].PlannedFontSize := Max(10,
-            Min(LocalFont, LocalFont * ButtonWidth /
-              Max(TextWidthEstimate(ButtonRow[Index]), 1) * 1.05));
-        end;
-        Break;
-      finally
-        ButtonRow.Free;
-      end;
-    end;
   end;
 
 begin
@@ -1481,41 +1191,12 @@ begin
         if ShiftedLeft > 2 then
           Control.PlannedLeft := Max(0, Control.PlannedLeft - ShiftedLeft);
       end;
-      { Small centered labels are commonly drawn over a visual container
-        (for example a white checkbox caption box). If they simply widen about
-        center, the text escapes the container. Treat those like contained
-        captions: preserve the designer's box, wrap inside it, and buy only
-        the height needed to keep the words visible. Larger centered headings
-        are handled by the normal row-free widening rule below. }
-      if IsCentreAligned(Control) and
-        ContainsText(Control.ComponentClassName, 'Label') and
-        (Control.Width < 180) and IsWrappingText and
-        (Control.Width >= MinimumWrapWidth) then
-      begin
-        Control.PlannedWordWrap := True;
-        LineCount := WrappedLineCount(Control, Control.Width);
-        Control.PlannedHeight := Max(Control.PlannedHeight,
-          Ceil(RequiredHeight * LineCount + 2 * PaddingVertical(Control)));
-      end
-      { Very long action-button captions should wrap inside a compact button
-        rather than shrinking into a tiny font or pushing the row apart. Short
-        compact buttons such as Play/Pause/Stop still stay one-line. }
-      else if IsButton and LooksLikeCompactButton(Control) and
-        IsWrappingText and (RequiredWidth > CompactButtonMaxWidth + 8) then
-      begin
-        Control.PlannedWidth := Max(Control.Width,
-          Min(LongButtonMaxWidth, Max(Control.Width, CompactButtonMaxWidth)));
-        Control.PlannedWordWrap := True;
-        LineCount := WrappedLineCount(Control, Control.PlannedWidth);
-        Control.PlannedHeight := Max(Control.PlannedHeight,
-          Ceil(RequiredHeight * LineCount + 2 * PaddingVertical(Control)));
-      end
       { Widening only costs something when there is something beside the
         control to disturb. A heading alone on its row has empty space either
         side, and taking that space changes nothing else on the form, whereas
         wrapping it doubles its height and can push it into the row below.
         So where the row is genuinely clear, widen and stay on one line. }
-      else if RowIsFree(Control, True, False) and RowIsFree(Control, False, False) then
+      if RowIsFree(Control, True, False) and RowIsFree(Control, False, False) then
       begin
         NewWidth := BoundedTextWidth(Control, RequiredWidth);
         if NewWidth > Ceil(Control.Width) then
@@ -1525,8 +1206,7 @@ begin
         if NewWidth < Ceil(RequiredWidth) then
         begin
           { Even the whole row was not enough, so fall back to wrapping. }
-          Control.PlannedWordWrap := IsWrappingText and
-            not LooksLikeCompactButton(Control);
+          Control.PlannedWordWrap := IsWrappingText;
           LineCount := WrappedLineCount(Control, Max(NewWidth, 24));
           if not IsButton then
             Control.PlannedHeight := Max(Control.PlannedHeight,
@@ -1558,7 +1238,7 @@ begin
           RequiredWidth := RequiredWidth * ReducedFont / FontSize;
           RequiredHeight := ReducedFont * 1.65;
         end;
-        Control.PlannedWordWrap := not LooksLikeCompactButton(Control);
+        Control.PlannedWordWrap := True;
         LineCount := WrappedLineCount(Control, Control.Width);
         if LineCount > MaximumComfortableLines then
         begin
@@ -1611,11 +1291,7 @@ begin
         Control.FormName + '.' + Control.ComponentName,
         'The control may be too short for its translated text and font.',
         'Review the proposed height or enable automatic sizing.');
-      if LooksLikeCompactButton(Control) then
-        Control.PlannedHeight := Min(Max(Control.PlannedHeight,
-          Ceil(RequiredHeight)), CompactButtonMaxHeight)
-      else
-        Control.PlannedHeight := Max(Control.PlannedHeight, Ceil(RequiredHeight));
+      Control.PlannedHeight := Max(Control.PlannedHeight, Ceil(RequiredHeight));
     end;
   end;
 
@@ -1646,9 +1322,6 @@ begin
         for Other in Cluster do
           UniformWidth := Max(UniformWidth,
             Max(Other.Width, TextWidthEstimate(Other)));
-        if LooksLikeCompactButton(Cluster[0]) then
-          UniformWidth := Min(Max(UniformWidth, CompactButtonMinWidth),
-            CompactButtonMaxWidth);
 
         ClusterGap := ControlGap;
         if Cluster.Count > 1 then
@@ -1687,10 +1360,7 @@ begin
         begin
           Other.PlannedLeft := ClusterOffset;
           Other.PlannedWidth := UniformWidth;
-          Other.PlannedWordWrap := not LooksLikeCompactButton(Other);
-          if LooksLikeCompactButton(Other) then
-            Other.PlannedHeight := Min(Max(Other.Height, Other.PlannedHeight),
-              CompactButtonMaxHeight);
+          Other.PlannedWordWrap := True;
           if TextWidthEstimate(Other) > UniformWidth then
           begin
             ReducedFont := Max(SmallestFontFor(Other),
@@ -1732,13 +1402,6 @@ begin
       Ceil(WrappedLines * EffectiveFont * 1.65 +
         2 * PaddingVertical(Control)));
   end;
-
-  { Phase 2c - when a translated caption is drawn on top of a shaped or white
-    visual container, the text box and the visual box are a unit. Growing only
-    the text produces exactly the ugly "text outside its box" failure the
-    contracts are meant to prevent. Expand the visual box enough to contain
-    the translated caption, but do not move unrelated target source. }
-  GrowVisualContainersForTranslatedCaptions;
 
   { Phase 3 - resolve collisions against the planned geometry, repeatedly, so a
     control moved on one pass is seen at its new place on the next. Every move
@@ -1892,12 +1555,6 @@ begin
       Break;
   end;
 
-  { A separation pass can move a caption after the first containment pass.
-    Re-grow visual containers after positions settle so text remains inside
-    the white/outlined boxes the developer designed. }
-  ApplyFocusedLayoutContracts;
-  GrowVisualContainersForTranslatedCaptions;
-
   { Phase 4 - emit proposals from the settled geometry. Because every value
     comes from the same resolved model, the exported rules agree with one
     another instead of describing conflicting placements. }
@@ -1930,17 +1587,6 @@ begin
           FormatFloat('0.##', Control.PlannedFontSize,
             TFormatSettings.Invariant),
           'Slightly smaller text so the translation fits the designed control without moving anything.');
-    end;
-    if (Control.TranslatedText = '') and IsVisualContainer(Control) then
-    begin
-      if Ceil(Control.PlannedWidth) > Ceil(Control.Width) then
-        AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
-          IntToStr(Ceil(Control.PlannedWidth)),
-          'Grow the visual container so translated text remains inside its box.');
-      if Ceil(Control.PlannedHeight) > Ceil(Control.Height) then
-        AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
-          IntToStr(Ceil(Control.PlannedHeight)),
-          'Grow the visual container so translated text remains inside its box.');
     end;
     { Movement is different. The separation pass steps a control aside to make
       room for a caption that grew, and that control is very often an edit box

@@ -69,15 +69,12 @@ type
   end;
 
 const
-  DATRuntimeDebugEnabled = False;
   DATRuntimeDebugLogFileName = 'C:\Downloads\DAT_Translation_Debug_Log.txt';
 
 procedure DATRuntimeDebugLog(const AMessage: string);
 var
   LogDirectory: string;
 begin
-  if not DATRuntimeDebugEnabled then
-    Exit;
   try
     LogDirectory := TPath.GetDirectoryName(DATRuntimeDebugLogFileName);
     if (LogDirectory <> '') and not TDirectory.Exists(LogDirectory) then
@@ -566,11 +563,8 @@ function ApplyConservativeTextFit(const AForm: TCommonCustomForm;
   const APack: TRuntimeLanguagePack; const AFormIdentity: string): Integer;
 const
   HorizontalPadding = 10;
-  MinimumButtonWidth = 86;
-  MaximumButtonWidth = 150;
-  MaximumLongButtonWidth = 320;
-  MaximumButtonHeight = 40;
-  MaximumWrappedButtonHeight = 70;
+  MinimumButtonWidth = 96;
+  MaximumButtonWidth = 240;
   MinimumLabelWidth = 42;
   MaximumLabelWidth = 420;
   MinimumLabelHeight = 22;
@@ -768,7 +762,6 @@ var
   function FitButton(const AComponent: TComponent; const AControl: TControl;
     const AText: string): Integer;
   var
-    IsCompact: Boolean;
     MaxWidth: Single;
     NeededWidth: Single;
     NewHeight: Single;
@@ -776,16 +769,7 @@ var
   begin
     Result := 0;
     NeededWidth := MeasuredTextWidth(AText, ComponentFont(AComponent));
-    IsCompact := (AControl.Width <= MaximumButtonWidth) and
-      (AControl.Height <= MaximumButtonHeight + 8);
-    if IsCompact then
-      MaxWidth := Min(MaximumButtonWidth, AvailableWidthToParentRight(AControl))
-    else
-      MaxWidth := Min(MaximumLongButtonWidth,
-        AvailableWidthToParentRight(AControl));
-    if IsCompact and (NeededWidth > MaximumButtonWidth + 8) then
-      MaxWidth := Min(MaximumLongButtonWidth,
-        AvailableWidthToParentRight(AControl));
+    MaxWidth := Min(MaximumButtonWidth, AvailableWidthToParentRight(AControl));
     NewWidth := Min(MaxWidth, Max(MinimumButtonWidth, NeededWidth));
     if NewWidth > AControl.Width + 4 then
     begin
@@ -794,18 +778,13 @@ var
     end;
     if NeededWidth > AControl.Width + 8 then
     begin
-      if ((not IsCompact) or (NeededWidth > MaximumButtonWidth + 8)) and
-        SetWordWrapIfSupported(AComponent) then
+      if SetWordWrapIfSupported(AComponent) then
         Inc(Result);
       NewHeight := FitWrappedHeight(AText, ComponentFont(AComponent),
-        AControl.Width, AControl.Height, Max(AControl.Height,
-        MaximumWrappedButtonHeight));
+        AControl.Width, AControl.Height, 56);
       if NewHeight > AControl.Height + 2 then
       begin
-        if IsCompact and (NeededWidth <= MaximumButtonWidth + 8) then
-          AControl.Height := Min(NewHeight, MaximumButtonHeight)
-        else
-          AControl.Height := NewHeight;
+        AControl.Height := NewHeight;
         Inc(Result);
       end;
     end;
@@ -1525,9 +1504,10 @@ begin
       ApplyComponentTree(AForm.Components[ComponentIndex]);
     if AApplyLayout then
       Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
-    { Do not run the broad geometry fitter here. Real target forms showed that
-      an automatic pass can damage carefully-authored layouts. The runtime now
-      applies only explicit, reviewed layout rules from the language pack. }
+    { Keep this fitting pass deliberately narrow: no source edits, no movement,
+      and no broad rearrangement. It only gives translated labels/buttons a
+      little breathing room when the text already came from the language pack. }
+    Inc(Result, ApplyConservativeTextFit(AForm, APack, FormIdentity));
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
   finally
     VisitedComponents.Free;
@@ -1639,3 +1619,4 @@ finalization
   TFMXTranslationApplicator.FOriginalPositions := nil;
 
 end.
+

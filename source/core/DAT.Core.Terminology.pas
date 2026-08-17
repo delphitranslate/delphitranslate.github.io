@@ -258,12 +258,8 @@ begin
       ATranslation := 'Tipo'
     else if SameText(TextValue, 'Song') then
       ATranslation := 'Canci' + #$00F3 + 'n'
-    else if SameText(TextValue, 'Scheduled song') then
-      ATranslation := 'Canci' + #$00F3 + 'n programada'
     else if SameText(TextValue, 'Song/Purpose') then
       ATranslation := 'Canci' + #$00F3 + 'n/Motivo'
-    else if SameText(TextValue, 'Purpose') then
-      ATranslation := 'Motivo'
     else if SameText(TextValue, 'Play Date From') then
       ATranslation := 'Fecha inicial'
     else if SameText(TextValue, 'Play Date To') then
@@ -271,21 +267,6 @@ begin
     else if MatchText(TextValue, ['Play Time', 'Play Time(s)', 'Time(s)',
       'Hours of play', 'Playback hours']) then
       ATranslation := 'Hora(s)'
-    else if SameText(TextValue, 'Last Song played:') then
-      ATranslation := #$00DA + 'ltima canci' + #$00F3 + 'n reproducida:'
-    else if SameText(TextValue, 'User Name:') then
-      ATranslation := 'Usuario:'
-    else if SameText(TextValue, 'User Name') then
-      ATranslation := 'Usuario'
-    else if SameText(TextValue, 'Name of User') then
-      ATranslation := 'Usuario'
-    else if SameText(TextValue, 'Play Date From:') then
-      ATranslation := 'Fecha inicial:'
-    else if SameText(TextValue, 'Play Date To:') then
-      ATranslation := 'Fecha final:'
-    else if MatchText(TextValue, ['Play Time:', 'Play Time(s):', 'Time(s):',
-      'Hours of play:', 'Playback hours:']) then
-      ATranslation := 'Hora(s):'
     else
       Exit(False);
     Exit(True);
