@@ -100,7 +100,12 @@ end;
   jammed, so these are what "fits" actually means. }
 function PaddingHorizontal(const AControl: TLayoutControl): Double;
 begin
-  if ContainsText(AControl.ComponentClassName, 'Button') then
+  { A tick box or radio dot is drawn beside the caption and takes room from the
+    same width, so the text has less of the control than its size suggests. }
+  if ContainsText(AControl.ComponentClassName, 'CheckBox') or
+    ContainsText(AControl.ComponentClassName, 'RadioButton') then
+    Result := 6 + 22
+  else if ContainsText(AControl.ComponentClassName, 'Button') then
     Result := 12
   else if ContainsText(AControl.ComponentClassName, 'Label') then
     Result := 4

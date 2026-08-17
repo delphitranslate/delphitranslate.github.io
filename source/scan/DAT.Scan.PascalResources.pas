@@ -365,6 +365,69 @@ begin
   Result := True;
 end;
 
+function ScanReturnedLiterals(const AResult: TProjectScanResult;
+  const AFileName, AUnitName, AStatement: string;
+  const ASourceLine: Integer): Boolean;
+var
+  Index, Start, Stop: Integer;
+  Literal: string;
+  Lower: string;
+begin
+  { A helper that labels rows usually writes them as a single conditional:
+
+      if Pos('STRIKE', ...) > 0 then Result := 'Time' else Result := 'Song';
+
+    Split on the first assignment and the left side reads 'if ... then
+    Result', which matches nothing, and the right side is the rest of the
+    conditional rather than a literal. Look through the statement for each
+    returned literal instead, so both arms are claimed. }
+  Result := False;
+  Lower := LowerCase(AStatement);
+  Index := 1;
+  while True do
+  begin
+    Index := PosEx('result', Lower, Index);
+    if Index = 0 then
+      Exit;
+    { A whole word, not the tail of some other identifier. }
+    if (Index = 1) or not CharInSet(AStatement[Index - 1],
+      ['a'..'z', 'A'..'Z', '0'..'9', '_', '.']) then
+    begin
+      Start := Index + Length('result');
+      while (Start <= Length(AStatement)) and
+        CharInSet(AStatement[Start], [' ', #9]) do
+        Inc(Start);
+      if (Start < Length(AStatement)) and (AStatement[Start] = ':') and
+        (AStatement[Start + 1] = '=') then
+      begin
+        Inc(Start, 2);
+        while (Start <= Length(AStatement)) and
+          CharInSet(AStatement[Start], [' ', #9]) do
+          Inc(Start);
+        if (Start <= Length(AStatement)) and
+          (AStatement[Start] = '''') then
+        begin
+          Stop := Start + 1;
+          while (Stop <= Length(AStatement)) and
+            (AStatement[Stop] <> '''') do
+            Inc(Stop);
+          if Stop <= Length(AStatement) then
+          begin
+            Literal := Copy(AStatement, Start + 1, Stop - Start - 1);
+            if IsLikelyUserFacingLiteral(Literal) then
+            begin
+              AddRuntimeItem(AResult, AFileName, AUnitName, 'Result',
+                'RuntimeValue', Literal, ASourceLine, rtrStaticText);
+              Result := True;
+            end;
+          end;
+        end;
+      end;
+    end;
+    Inc(Index, Length('result'));
+  end;
+end;
+
 function IsNonUiAssignment(const ALeftSide, ASourceText: string): Boolean;
 var
   LowerLeft: string;
@@ -606,6 +669,10 @@ begin
         scanned from .fmx/.dfm files; intentional runtime UI text should use
         explicit visual property assignment, resourcestring, or a dialog call. }
       AssignAt := Pos(':=', Statement.Text);
+      { Returned literals are scanned from the whole statement, because a
+        conditional puts more than one of them on a single line. }
+      ScanReturnedLiterals(AResult, AFileName, AUnitName, Statement.Text,
+        Statement.SourceLine);
       if AssignAt = 0 then
         Continue;
       LeftSide := Trim(Copy(Statement.Text, 1, AssignAt - 1));
@@ -624,7 +691,8 @@ begin
         end
         else if ExtractFormatTemplate(Expression, FormatTemplate) then
         begin
-          if not IsNonUiAssignment(LeftSide, FormatTemplate) then
+          if not IsNonUiAssignment(LeftSide, FormatTemplate) and
+            not SameText(PropertyName, 'RuntimeValue') then
             AddRuntimeItem(AResult, AFileName, AUnitName, LeftSide,
               PropertyName, FormatTemplate, Statement.SourceLine,
               rtrRuntimeTemplate);

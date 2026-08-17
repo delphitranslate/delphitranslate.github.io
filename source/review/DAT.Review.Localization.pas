@@ -573,6 +573,11 @@ const
   WrapSideAllowance = 6;
   { Gap kept between a caption and the frame the designer drew around it. }
   ContainerInset = 4;
+  { Room a tick box or radio dot takes from the caption beside it. }
+  TickBoxAllowance = 22;
+  { A frame may grow this much to hold its own children, and no more. Beyond it
+    the frame has stopped adjusting and started redesigning the form. }
+  MaximumContainerGrowth = 2.0;
   { More lines than this and a caption has become a paragraph. }
   MaximumWrappedLines = 4;
   { Text at least this long is a sentence rather than a label. }
@@ -604,6 +609,7 @@ var
   LinesThatFit: Integer;
   RequiredLeft, Surplus, ReducedWidth, ReducedFont, ShiftedLeft: Double;
   RequiredTop, ReducedHeight, EffectiveFont: Double;
+  NeededWidth, NeededHeight: Double;
   WrappedLines: Integer;
   PackedButtons, Cluster: TList<TLayoutControl>;
   UniformWidth, ClusterGap, ClusterLeft, ClusterOffset, Available, Total: Double;
@@ -617,7 +623,14 @@ var
   { Breathing room this class of control keeps between its text and its edge. }
   function PaddingHorizontal(const AControl: TLayoutControl): Double;
   begin
-    if ContainsText(AControl.ComponentClassName, 'Button') then
+    if ContainsText(AControl.ComponentClassName, 'CheckBox') or
+      ContainsText(AControl.ComponentClassName, 'RadioButton') then
+      { The tick box or dot is drawn beside the caption and takes its room from
+        the same width. Measuring the text against the whole control promises
+        it space the glyph is already using, and the caption then wraps to a
+        line the control was never given height for. }
+      Result := OtherPaddingHorizontal + TickBoxAllowance
+    else if ContainsText(AControl.ComponentClassName, 'Button') then
       Result := ButtonPaddingHorizontal
     else if ContainsText(AControl.ComponentClassName, 'Label') then
       Result := LabelPaddingHorizontal
@@ -1489,8 +1502,26 @@ begin
           RequiredWidth := RequiredWidth * ReducedFont / FontSize;
           RequiredHeight := ReducedFont * 1.65;
         end;
+        { A caption anchored to its right edge can still use whatever gap is
+          genuinely empty on its left. Taking that first often turns three
+          cramped lines into two comfortable ones, and it costs nothing: the
+          gap belongs to no one. }
+        if IsRightAligned(Control) and Control.HasPosition then
+        begin
+          { Take only what the line count needs. The gap beside a caption is
+            often the whole left margin of the form, and swallowing it drags a
+            short caption clear across the screen. }
+          LeftRoom := Min(SpaceToLeft(Control),
+            Max(0, RequiredWidth / Max(LinesFittingBelow(Control), 1) +
+              2 * PaddingHorizontal(Control) - Control.PlannedWidth));
+          if LeftRoom > 2 then
+          begin
+            Control.PlannedWidth := Control.PlannedWidth + LeftRoom;
+            Control.PlannedLeft := Control.PlannedLeft - LeftRoom;
+          end;
+        end;
         Control.PlannedWordWrap := True;
-        LineCount := WrappedLineCount(Control, Control.Width);
+        LineCount := WrappedLineCount(Control, Control.PlannedWidth);
         { Lines cost nothing where there is room for them. Shrinking text to
           force it into a fixed number of lines makes a caption read smaller
           than everything around it in order to solve a problem the form did
@@ -1815,6 +1846,54 @@ begin
     end;
     if not Moved then
       Break;
+  end;
+
+  { Phase 3a - a frame drawn around a caption has to hold it. Where the caption
+    inside has grown, give the frame the room, but only from the children it
+    actually owns and only within a bound.
+
+    This is deliberately narrower than it sounds. The frame grows for its own
+    children, taken from the scanned parentage, never for whatever happens to
+    overlap it on screen, and never past twice the size it was drawn. Judging
+    that by position instead is what turned a decorative header layout into
+    something covering its whole form. }
+  for Control in AReview.Controls do
+  begin
+    if not IsVisualContainer(Control) or not Control.HasSize then
+      Continue;
+    NeededWidth := 0;
+    NeededHeight := 0;
+    for Other in AReview.Controls do
+    begin
+      if (Other = Control) or not Other.HasPosition or not Other.HasSize then
+        Continue;
+      if not SameText(Other.FormName, Control.FormName) then
+        Continue;
+      if not SameText(Other.ParentName, Control.ComponentName) then
+        Continue;
+      NeededWidth := Max(NeededWidth,
+        Other.PlannedLeft + Other.PlannedWidth + ContainerInset);
+      NeededHeight := Max(NeededHeight,
+        Other.PlannedTop + Other.PlannedHeight + ContainerInset);
+    end;
+    { Never past the edge of what holds the frame itself. A frame pushed off
+      the form takes its children with it. }
+    if NeededWidth > Control.PlannedWidth then
+    begin
+      NeededWidth := Min(NeededWidth, Control.Width * MaximumContainerGrowth);
+      if ContentRightBound(Control) > 0 then
+        NeededWidth := Min(NeededWidth,
+          ContentRightBound(Control) - Control.PlannedLeft);
+      Control.PlannedWidth := Max(Control.PlannedWidth, NeededWidth);
+    end;
+    if NeededHeight > Control.PlannedHeight then
+    begin
+      NeededHeight := Min(NeededHeight, Control.Height * MaximumContainerGrowth);
+      if ContentBottomBound(Control) > 0 then
+        NeededHeight := Min(NeededHeight,
+          ContentBottomBound(Control) - Control.PlannedTop);
+      Control.PlannedHeight := Max(Control.PlannedHeight, NeededHeight);
+    end;
   end;
 
   { Phase 3b - hold every caption inside the frame the designer drew round it.
