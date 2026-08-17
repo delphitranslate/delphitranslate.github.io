@@ -599,6 +599,10 @@ const
   LabelPaddingVertical = 2;
   OtherPaddingHorizontal = 6;
   OtherPaddingVertical = 3;
+  CompactButtonMaxHeight = 40;
+  CompactButtonMinWidth = 86;
+  CompactButtonMaxWidth = 150;
+  LongButtonMaxWidth = 320;
 var
   Control, Other: TLayoutControl;
   RequiredWidth, RequiredHeight, FontSize: Double;
@@ -925,8 +929,17 @@ var
     end
     else if ContainsText(AControl.ComponentClassName, 'Button') then
     begin
-      GrowthCap := Max(AControl.Width * 1.20, 120);
-      HardCap := 220;
+      if (AControl.Width <= CompactButtonMaxWidth) and
+        (AControl.Height <= CompactButtonMaxHeight + 8) then
+      begin
+        GrowthCap := Max(AControl.Width * 1.15, CompactButtonMinWidth);
+        HardCap := CompactButtonMaxWidth;
+      end
+      else
+      begin
+        GrowthCap := Max(AControl.Width * 1.20, 140);
+        HardCap := LongButtonMaxWidth;
+      end;
     end
     else
     begin
@@ -1048,6 +1061,13 @@ var
     Result := ContainsText(AControl.ComponentClassName, 'Button') and
       not ContainsText(AControl.ComponentClassName, 'RadioButton') and
       not ContainsText(AControl.ComponentClassName, 'CheckBox');
+  end;
+
+  function LooksLikeCompactButton(const AControl: TLayoutControl): Boolean;
+  begin
+    Result := IsButtonLike(AControl) and
+      (AControl.Width <= CompactButtonMaxWidth) and
+      (AControl.Height <= CompactButtonMaxHeight + 8);
   end;
 
   { The buttons drawn as one row with this control: same parent, same designed
@@ -1223,7 +1243,8 @@ begin
         if NewWidth < Ceil(RequiredWidth) then
         begin
           { Even the whole row was not enough, so fall back to wrapping. }
-          Control.PlannedWordWrap := IsWrappingText;
+          Control.PlannedWordWrap := IsWrappingText and
+            not LooksLikeCompactButton(Control);
           LineCount := WrappedLineCount(Control, Max(NewWidth, 24));
           if not IsButton then
             Control.PlannedHeight := Max(Control.PlannedHeight,
@@ -1255,7 +1276,7 @@ begin
           RequiredWidth := RequiredWidth * ReducedFont / FontSize;
           RequiredHeight := ReducedFont * 1.65;
         end;
-        Control.PlannedWordWrap := True;
+        Control.PlannedWordWrap := not LooksLikeCompactButton(Control);
         LineCount := WrappedLineCount(Control, Control.Width);
         if LineCount > MaximumComfortableLines then
         begin
@@ -1308,7 +1329,11 @@ begin
         Control.FormName + '.' + Control.ComponentName,
         'The control may be too short for its translated text and font.',
         'Review the proposed height or enable automatic sizing.');
-      Control.PlannedHeight := Max(Control.PlannedHeight, Ceil(RequiredHeight));
+      if LooksLikeCompactButton(Control) then
+        Control.PlannedHeight := Min(Max(Control.PlannedHeight,
+          Ceil(RequiredHeight)), CompactButtonMaxHeight)
+      else
+        Control.PlannedHeight := Max(Control.PlannedHeight, Ceil(RequiredHeight));
     end;
   end;
 
@@ -1339,6 +1364,9 @@ begin
         for Other in Cluster do
           UniformWidth := Max(UniformWidth,
             Max(Other.Width, TextWidthEstimate(Other)));
+        if LooksLikeCompactButton(Cluster[0]) then
+          UniformWidth := Min(Max(UniformWidth, CompactButtonMinWidth),
+            CompactButtonMaxWidth);
 
         ClusterGap := ControlGap;
         if Cluster.Count > 1 then
@@ -1377,7 +1405,10 @@ begin
         begin
           Other.PlannedLeft := ClusterOffset;
           Other.PlannedWidth := UniformWidth;
-          Other.PlannedWordWrap := True;
+          Other.PlannedWordWrap := not LooksLikeCompactButton(Other);
+          if LooksLikeCompactButton(Other) then
+            Other.PlannedHeight := Min(Max(Other.Height, Other.PlannedHeight),
+              CompactButtonMaxHeight);
           if TextWidthEstimate(Other) > UniformWidth then
           begin
             ReducedFont := Max(SmallestFontFor(Other),

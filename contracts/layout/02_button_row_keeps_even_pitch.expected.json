@@ -6,17 +6,20 @@
     {
       "form": "ContractForm",
       "name": "btnFirst",
-      "text_fits": true
+      "text_fits": true,
+      "planned_height_at_most": 40
     },
     {
       "form": "ContractForm",
       "name": "btnPrior",
-      "text_fits": true
+      "text_fits": true,
+      "planned_height_at_most": 40
     },
     {
       "form": "ContractForm",
       "name": "btnNext",
-      "text_fits": true
+      "text_fits": true,
+      "planned_height_at_most": 40
     }
   ],
   "uniform_width_group": [

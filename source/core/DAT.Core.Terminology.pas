@@ -267,6 +267,21 @@ begin
     else if MatchText(TextValue, ['Play Time', 'Play Time(s)', 'Time(s)',
       'Hours of play', 'Playback hours']) then
       ATranslation := 'Hora(s)'
+    else if SameText(TextValue, 'Last Song played:') then
+      ATranslation := #$00DA + 'ltima canci' + #$00F3 + 'n reproducida:'
+    else if SameText(TextValue, 'User Name:') then
+      ATranslation := 'Usuario:'
+    else if SameText(TextValue, 'User Name') then
+      ATranslation := 'Usuario'
+    else if SameText(TextValue, 'Name of User') then
+      ATranslation := 'Usuario'
+    else if SameText(TextValue, 'Play Date From:') then
+      ATranslation := 'Fecha inicial:'
+    else if SameText(TextValue, 'Play Date To:') then
+      ATranslation := 'Fecha final:'
+    else if MatchText(TextValue, ['Play Time:', 'Play Time(s):', 'Time(s):',
+      'Hours of play:', 'Playback hours:']) then
+      ATranslation := 'Hora(s):'
     else
       Exit(False);
     Exit(True);

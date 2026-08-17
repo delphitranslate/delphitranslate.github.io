@@ -566,8 +566,10 @@ function ApplyConservativeTextFit(const AForm: TCommonCustomForm;
   const APack: TRuntimeLanguagePack; const AFormIdentity: string): Integer;
 const
   HorizontalPadding = 10;
-  MinimumButtonWidth = 96;
-  MaximumButtonWidth = 240;
+  MinimumButtonWidth = 86;
+  MaximumButtonWidth = 150;
+  MaximumLongButtonWidth = 320;
+  MaximumButtonHeight = 40;
   MinimumLabelWidth = 42;
   MaximumLabelWidth = 420;
   MinimumLabelHeight = 22;
@@ -765,6 +767,7 @@ var
   function FitButton(const AComponent: TComponent; const AControl: TControl;
     const AText: string): Integer;
   var
+    IsCompact: Boolean;
     MaxWidth: Single;
     NeededWidth: Single;
     NewHeight: Single;
@@ -772,7 +775,13 @@ var
   begin
     Result := 0;
     NeededWidth := MeasuredTextWidth(AText, ComponentFont(AComponent));
-    MaxWidth := Min(MaximumButtonWidth, AvailableWidthToParentRight(AControl));
+    IsCompact := (AControl.Width <= MaximumButtonWidth) and
+      (AControl.Height <= MaximumButtonHeight + 8);
+    if IsCompact then
+      MaxWidth := Min(MaximumButtonWidth, AvailableWidthToParentRight(AControl))
+    else
+      MaxWidth := Min(MaximumLongButtonWidth,
+        AvailableWidthToParentRight(AControl));
     NewWidth := Min(MaxWidth, Max(MinimumButtonWidth, NeededWidth));
     if NewWidth > AControl.Width + 4 then
     begin
@@ -781,13 +790,17 @@ var
     end;
     if NeededWidth > AControl.Width + 8 then
     begin
-      if SetWordWrapIfSupported(AComponent) then
+      if (not IsCompact) and SetWordWrapIfSupported(AComponent) then
         Inc(Result);
       NewHeight := FitWrappedHeight(AText, ComponentFont(AComponent),
-        AControl.Width, AControl.Height, 56);
+        AControl.Width, AControl.Height, Max(AControl.Height,
+        MaximumButtonHeight));
       if NewHeight > AControl.Height + 2 then
       begin
-        AControl.Height := NewHeight;
+        if IsCompact then
+          AControl.Height := Min(NewHeight, MaximumButtonHeight)
+        else
+          AControl.Height := NewHeight;
         Inc(Result);
       end;
     end;
