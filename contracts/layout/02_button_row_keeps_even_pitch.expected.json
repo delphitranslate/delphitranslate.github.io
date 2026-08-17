@@ -1,0 +1,32 @@
+{
+  "description": "A row of buttons is laid out as a set: equal widths at an even pitch, never overlapping each other.",
+  "catalog_file": "02_button_row_keeps_even_pitch.catalog.json",
+  "expect_clean": true,
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "btnFirst",
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnPrior",
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnNext",
+      "text_fits": true
+    }
+  ],
+  "uniform_width_group": [
+    "btnFirst",
+    "btnPrior",
+    "btnNext"
+  ],
+  "even_pitch_group": [
+    "btnFirst",
+    "btnPrior",
+    "btnNext"
+  ]
+}

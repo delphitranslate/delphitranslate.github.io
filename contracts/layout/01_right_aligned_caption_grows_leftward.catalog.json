@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "xx-XX",
+    "nativeLanguageName": "Contract",
+    "textDirection": "ltr",
+    "shortDateFormat": "dd/mm/yyyy",
+    "longDateFormat": "dddd, d mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "$"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblCaption.Text",
+      "sourceText": "Name:",
+      "translatedText": "Vollstaendiger Name des Teilnehmers:",
+      "formName": "ContractForm",
+      "componentName": "lblCaption",
+      "componentClassName": "TLabel",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\01_right_aligned_caption_grows_leftward.fmx",
+      "sourceLine": 10,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

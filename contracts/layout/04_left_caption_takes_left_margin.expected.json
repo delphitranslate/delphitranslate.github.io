@@ -1,0 +1,18 @@
+{
+  "description": "A left-aligned caption pinned against its field takes width from the unused left margin, leaving the field where it was drawn.",
+  "catalog_file": "04_left_caption_takes_left_margin.catalog.json",
+  "expect_clean": true,
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblUser",
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "edtUser",
+      "planned_left_equals": 200,
+      "planned_width_equals": 260
+    }
+  ]
+}

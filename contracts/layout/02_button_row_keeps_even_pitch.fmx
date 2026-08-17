@@ -1,0 +1,34 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 300
+  ClientWidth = 700
+  object btnFirst: TButton
+    Position.X = 40.000000000000000000
+    Position.Y = 200.000000000000000000
+    Size.Width = 80.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'First'
+  end
+  object btnPrior: TButton
+    Position.X = 130.000000000000000000
+    Position.Y = 200.000000000000000000
+    Size.Width = 80.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Prior'
+  end
+  object btnNext: TButton
+    Position.X = 220.000000000000000000
+    Position.Y = 200.000000000000000000
+    Size.Width = 80.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Next'
+  end
+end

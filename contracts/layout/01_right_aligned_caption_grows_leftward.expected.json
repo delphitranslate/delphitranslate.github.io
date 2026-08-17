@@ -1,0 +1,20 @@
+{
+  "description": "A right-aligned caption must keep its right edge and take the room it needs from the left, or its text walks into the field it labels.",
+  "catalog_file": "01_right_aligned_caption_grows_leftward.catalog.json",
+  "expect_clean": true,
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblCaption",
+      "right_edge_unchanged": true,
+      "planned_left_at_most": 119,
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "edtField",
+      "planned_left_equals": 228,
+      "planned_width_equals": 300
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "description": "Controls the designer deliberately stacked must not be pulled apart; only overlaps translation introduces are resolved.",
+  "catalog_file": "05_designed_overlap_is_left_alone.catalog.json",
+  "expect_clean": true,
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "btnOverlay",
+      "planned_left_equals": 60,
+      "planned_top_equals": 100
+    },
+    {
+      "form": "ContractForm",
+      "name": "pnlBackdrop",
+      "planned_left_equals": 40,
+      "planned_top_equals": 90
+    }
+  ]
+}

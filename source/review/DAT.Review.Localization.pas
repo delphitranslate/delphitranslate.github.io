@@ -916,12 +916,22 @@ var
       GrowthCap := Max(AControl.Width * 1.35, 180);
       HardCap := 360;
     end;
-    { The proportional growth cap exists to stop a control expanding over its
-      neighbours. Where the only things beside it are siblings the separation
-      pass can move, there is nothing to protect, and capping here only clips
-      the translation, so let it reach the width its text actually needs up to
-      the hard limit. }
-    if RowIsFree(AControl, True, True) then
+    { Both caps exist to stop a control expanding over its neighbours. Where
+      the only things beside it are siblings the separation pass can move,
+      there is nothing to protect, and the real limit is the space the row
+      actually has, which AvailableWidth measures below. A fixed ceiling here
+      makes a caption wrap on a wide form with an empty row beside it. }
+    if RowIsFree(AControl, True, False) and RowIsFree(AControl, False, False) then
+    begin
+      { Nothing at all shares this row, so the space really is the control's to
+        take and the only limit is the edge of the form. }
+      GrowthCap := UnboundedWidthAllowance;
+      HardCap := UnboundedWidthAllowance;
+    end
+    else if RowIsFree(AControl, True, True) then
+      { Only movable siblings sit beside it, so the proportional cap has
+        nothing to protect. The per-class ceiling still applies: the row is
+        shared, and taking all of it would displace whatever is there. }
       GrowthCap := HardCap;
     Result := Ceil(Min(ARequiredWidth, Min(GrowthCap, HardCap)));
     { Never propose a width that would cross the parent edge or the next

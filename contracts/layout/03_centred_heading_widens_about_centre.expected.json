@@ -1,0 +1,14 @@
+{
+  "description": "A heading alone on its row takes the empty space beside it and stays on one line, growing about its centre so it keeps its place.",
+  "catalog_file": "03_centred_heading_widens_about_centre.catalog.json",
+  "expect_clean": true,
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblHeading",
+      "text_fits": true,
+      "centre_unchanged": true,
+      "planned_height_at_most": 60
+    }
+  ]
+}

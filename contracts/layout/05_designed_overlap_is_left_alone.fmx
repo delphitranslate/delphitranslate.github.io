@@ -1,0 +1,23 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 300
+  ClientWidth = 600
+  object pnlBackdrop: TPanel
+    Position.X = 40.000000000000000000
+    Position.Y = 90.000000000000000000
+    Size.Width = 300.000000000000000000
+    Size.Height = 60.000000000000000000
+    Size.PlatformDefault = False
+  end
+  object btnOverlay: TButton
+    Position.X = 60.000000000000000000
+    Position.Y = 100.000000000000000000
+    Size.Width = 120.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Go'
+  end
+end
