@@ -975,7 +975,7 @@ object frmSetupWizard: TfrmSetupWizard
               WordWrap = True
               Position.X = 8.000000000000000000
               Position.Y = 54.000000000000000000
-              Size.Width = 420.000000000000000000
+              Size.Width = 460.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 14.000000000000000000
@@ -985,8 +985,8 @@ object frmSetupWizard: TfrmSetupWizard
             object memProgress: TMemo
               Position.X = 8.000000000000000000
               Position.Y = 92.000000000000000000
-              Size.Width = 420.000000000000000000
-              Size.Height = 164.000000000000000000
+              Size.Width = 460.000000000000000000
+              Size.Height = 150.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True
@@ -998,8 +998,8 @@ object frmSetupWizard: TfrmSetupWizard
               Visible = False
               StyledSettings = []
               Position.X = 8.000000000000000000
-              Position.Y = 262.000000000000000000
-              Size.Width = 420.000000000000000000
+              Position.Y = 250.000000000000000000
+              Size.Width = 460.000000000000000000
               Size.Height = 22.000000000000000000
               Size.PlatformDefault = False
               WordWrap = True
@@ -1014,9 +1014,9 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               WordWrap = True
               Position.X = 8.000000000000000000
-              Position.Y = 288.000000000000000000
-              Size.Width = 420.000000000000000000
-              Size.Height = 32.000000000000000000
+              Position.Y = 274.000000000000000000
+              Size.Width = 460.000000000000000000
+              Size.Height = 36.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 12.000000000000000000
               TextSettings.FontColor = xFF365674
@@ -1024,9 +1024,9 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object memCommands: TMemo
               Position.X = 8.000000000000000000
-              Position.Y = 322.000000000000000000
-              Size.Width = 420.000000000000000000
-              Size.Height = 52.000000000000000000
+              Position.Y = 314.000000000000000000
+              Size.Width = 460.000000000000000000
+              Size.Height = 48.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True
@@ -1034,8 +1034,8 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnCopyCommands: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 382.000000000000000000
-              Size.Width = 204.000000000000000000
+              Position.Y = 370.000000000000000000
+              Size.Width = 220.000000000000000000
               Size.Height = 32.000000000000000000
               Size.PlatformDefault = False
               Text = 'Copy Commands'
@@ -1043,26 +1043,26 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnOpenKitFolder: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 422.000000000000000000
-              Size.Width = 204.000000000000000000
+              Position.Y = 410.000000000000000000
+              Size.Width = 220.000000000000000000
               Size.Height = 32.000000000000000000
               Size.PlatformDefault = False
               Text = 'Open Kit Folder'
               OnClick = btnOpenKitFolderClick
             end
             object btnRunDeployment: TButton
-              Position.X = 224.000000000000000000
-              Position.Y = 382.000000000000000000
-              Size.Width = 204.000000000000000000
+              Position.X = 248.000000000000000000
+              Position.Y = 370.000000000000000000
+              Size.Width = 220.000000000000000000
               Size.Height = 32.000000000000000000
               Size.PlatformDefault = False
               Text = 'Redeploy Outputs'
               OnClick = btnRunDeploymentClick
             end
             object btnDeployApplicationFolder: TButton
-              Position.X = 224.000000000000000000
-              Position.Y = 422.000000000000000000
-              Size.Width = 204.000000000000000000
+              Position.X = 248.000000000000000000
+              Position.Y = 410.000000000000000000
+              Size.Width = 220.000000000000000000
               Size.Height = 32.000000000000000000
               Size.PlatformDefault = False
               Text = 'Deploy to App Folder...'
@@ -1080,10 +1080,10 @@ object frmSetupWizard: TfrmSetupWizard
               OnClick = btnLocalizationReviewClick
             end
             object BuildChoiceCard: TRectangle
-              Position.X = 442.000000000000000000
+              Position.X = 480.000000000000000000
               Position.Y = 8.000000000000000000
-              Size.Width = 226.000000000000000000
-              Size.Height = 354.000000000000000000
+              Size.Width = 188.000000000000000000
+              Size.Height = 392.000000000000000000
               Size.PlatformDefault = False
               Fill.Color = xFFEAF3FF
               Stroke.Color = xFFB7D5F5
@@ -1093,7 +1093,7 @@ object frmSetupWizard: TfrmSetupWizard
                 StyledSettings = []
                 Position.X = 18.000000000000000000
                 Position.Y = 18.000000000000000000
-                Size.Width = 190.000000000000000000
+                Size.Width = 152.000000000000000000
                 Size.Height = 34.000000000000000000
                 Size.PlatformDefault = False
                 TextSettings.Font.Size = 18.000000000000000000
@@ -1106,17 +1106,17 @@ object frmSetupWizard: TfrmSetupWizard
                 WordWrap = True
                 Position.X = 18.000000000000000000
                 Position.Y = 62.000000000000000000
-                Size.Width = 190.000000000000000000
+                Size.Width = 152.000000000000000000
                 Size.Height = 64.000000000000000000
                 Size.PlatformDefault = False
-                TextSettings.Font.Size = 13.000000000000000000
+                TextSettings.Font.Size = 12.000000000000000000
                 TextSettings.FontColor = xFF365674
                 Text = 'Select targets to compile and deploy the JSON language packs.'
               end
               object chkBuildNow: TCheckBox
                 Position.X = 18.000000000000000000
                 Position.Y = 134.000000000000000000
-                Size.Width = 190.000000000000000000
+                Size.Width = 152.000000000000000000
                 Size.Height = 28.000000000000000000
                 Size.PlatformDefault = False
                 Text = 'Build and deploy now'
@@ -1125,7 +1125,7 @@ object frmSetupWizard: TfrmSetupWizard
               object cboBuildPlatform: TComboBox
                 Position.X = 18.000000000000000000
                 Position.Y = 178.000000000000000000
-                Size.Width = 190.000000000000000000
+                Size.Width = 152.000000000000000000
                 Size.Height = 36.000000000000000000
                 Size.PlatformDefault = False
                 Items.Strings = ('Win32 only' 'Win64 only' 'Win32 and Win64')
@@ -1134,7 +1134,7 @@ object frmSetupWizard: TfrmSetupWizard
               object cboBuildConfiguration: TComboBox
                 Position.X = 18.000000000000000000
                 Position.Y = 224.000000000000000000
-                Size.Width = 190.000000000000000000
+                Size.Width = 152.000000000000000000
                 Size.Height = 36.000000000000000000
                 Size.PlatformDefault = False
                 Items.Strings = ('Debug only' 'Release only' 'Debug and Release')
@@ -1143,7 +1143,7 @@ object frmSetupWizard: TfrmSetupWizard
               object btnBuildNow: TButton
                 Position.X = 18.000000000000000000
                 Position.Y = 276.000000000000000000
-                Size.Width = 190.000000000000000000
+                Size.Width = 152.000000000000000000
                 Size.Height = 42.000000000000000000
                 Size.PlatformDefault = False
                 Text = 'Build and Deploy Selected Targets'
@@ -1153,11 +1153,11 @@ object frmSetupWizard: TfrmSetupWizard
                 StyledSettings = []
                 WordWrap = True
                 Position.X = 18.000000000000000000
-                Position.Y = 326.000000000000000000
-                Size.Width = 190.000000000000000000
-                Size.Height = 40.000000000000000000
+                Position.Y = 324.000000000000000000
+                Size.Width = 152.000000000000000000
+                Size.Height = 58.000000000000000000
                 Size.PlatformDefault = False
-                TextSettings.Font.Size = 11.000000000000000000
+                TextSettings.Font.Size = 10.000000000000000000
                 TextSettings.FontColor = xFF365674
                 Text = 'Checked: build selected targets and deploy packs/authorized EXE copies. Unchecked: finish now and build later in RAD Studio.'
               end
