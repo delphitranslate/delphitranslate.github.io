@@ -569,6 +569,11 @@ const
   { How far a control may be displaced from where it was drawn. Beyond this a
     chain of pushes has stopped being a correction and become a rearrangement. }
   MaximumDrift = 120;
+  { Padding a control keeps at the sides of wrapped text. }
+  WrapSideAllowance = 6;
+  { A reduction no deeper than this is preferable to wrapping a caption onto a
+    second line. }
+  ModestFontReduction = 0.82;
 var
   Control, Other: TLayoutControl;
   RequiredWidth, RequiredHeight, FontSize: Double;
@@ -580,7 +585,8 @@ var
   Moved: Boolean;
   Leader, Follower: TLayoutControl;
   RequiredLeft, Surplus, ReducedWidth, ReducedFont, ShiftedLeft: Double;
-  RequiredTop, ReducedHeight: Double;
+  RequiredTop, ReducedHeight, EffectiveFont: Double;
+  WrappedLines: Integer;
   PackedButtons, Cluster: TList<TLayoutControl>;
   UniformWidth, ClusterGap, ClusterLeft, ClusterOffset, Available, Total: Double;
   LeftRoom: Double;
@@ -593,14 +599,21 @@ var
   function TextWidthEstimate(const AControl: TLayoutControl): Double;
   var
     Layout: TTextLayout;
+    PointSize: Double;
   begin
     if Trim(AControl.TranslatedText) = '' then
       Exit(0);
+    { Measure at the size the text will actually be drawn. Measuring a caption
+      at its designed size after deciding to shrink it overstates the room it
+      needs and buys height it will not use. }
+    PointSize := AControl.PlannedFontSize;
+    if PointSize <= 0 then
+      PointSize := AControl.FontSize;
     Layout := TTextLayoutManager.DefaultTextLayout.Create;
     try
       Layout.BeginUpdate;
       Layout.Text := AControl.TranslatedText;
-      Layout.Font.Size := Max(AControl.FontSize, 9);
+      Layout.Font.Size := Max(PointSize, 9);
       Layout.WordWrap := False;
       Layout.EndUpdate;
       Result := Layout.Width + 18;
@@ -1103,6 +1116,19 @@ begin
       end
       else if IsWrappingText and (Control.Width >= MinimumWrapWidth) then
       begin
+        { Wrapping doubles a control's height, which is a heavy price for text
+          that only just overflows, and the extra height is often the thing
+          that will not fit. Where a small reduction in size keeps the caption
+          on the single line it was drawn for, take that instead. }
+        ReducedFont := FontSize * Control.Width / Max(RequiredWidth, 1);
+        if (RequiredWidth > Control.Width) and
+          (ReducedFont >= FontSize * ModestFontReduction) and
+          (ReducedFont >= MinimumReadableFontSize) then
+        begin
+          Control.PlannedFontSize := ReducedFont;
+          RequiredWidth := RequiredWidth * ReducedFont / FontSize;
+          RequiredHeight := ReducedFont * 1.65;
+        end;
         Control.PlannedWordWrap := True;
         LineCount := Max(1, Ceil(RequiredWidth / Control.Width));
         if LineCount > MaximumComfortableLines then
@@ -1158,6 +1184,26 @@ begin
         'Review the proposed height or enable automatic sizing.');
       Control.PlannedHeight := Max(Control.PlannedHeight, Ceil(RequiredHeight));
     end;
+  end;
+
+  { Phase 2a - make sure every planned box can actually hold its text. The
+    decisions above each answer one question, and a control can leave them
+    holding a width and a height that do not agree with the lines its text
+    breaks into: a button given wrapping but not the height to wrap into shows
+    its caption cut in half. Measure the settled box and give it the height the
+    text really needs. }
+  for Control in AReview.Controls do
+  begin
+    if (Control.TranslatedText = '') or not Control.HasSize or
+      not Control.PlannedWordWrap or (Control.PlannedWidth <= 0) then
+      Continue;
+    EffectiveFont := Control.PlannedFontSize;
+    if EffectiveFont <= 0 then
+      EffectiveFont := Max(Control.FontSize, 9);
+    WrappedLines := Max(1, Ceil(TextWidthEstimate(Control) /
+      Max(Control.PlannedWidth - WrapSideAllowance, 1)));
+    Control.PlannedHeight := Max(Control.PlannedHeight,
+      Ceil(WrappedLines * EffectiveFont * 1.65));
   end;
 
   { Phase 2b - a row of buttons is a set, not a collection of individuals.
@@ -1371,6 +1417,17 @@ begin
               Follower.PlannedTop - ControlGap - Leader.PlannedTop);
             if ReducedHeight < Leader.PlannedHeight then
             begin
+              { Taking the height back on its own would simply cut the text
+                off, so reduce the size to suit the height that is left. }
+              if Leader.PlannedHeight > 0 then
+              begin
+                EffectiveFont := Leader.PlannedFontSize;
+                if EffectiveFont <= 0 then
+                  EffectiveFont := Max(Leader.FontSize, 9);
+                EffectiveFont := Max(MinimumReadableFontSize,
+                  EffectiveFont * ReducedHeight / Leader.PlannedHeight);
+                Leader.PlannedFontSize := EffectiveFont;
+              end;
               Leader.PlannedHeight := ReducedHeight;
               Moved := True;
             end;

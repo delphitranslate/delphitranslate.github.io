@@ -27,6 +27,7 @@ uses
   System.StrUtils,
   System.SysUtils,
   FMX.Forms,
+  FMX.TextLayout,
   DAT.Core.Types in '..\..\source\core\DAT.Core.Types.pas',
   DAT.Core.CatalogJson in '..\..\source\core\DAT.Core.CatalogJson.pas',
   DAT.Scan.TextCodec in '..\..\source\scan\DAT.Scan.TextCodec.pas',
@@ -63,6 +64,76 @@ begin
     ASecond.PlannedWidth, ASecond.PlannedHeight);
 end;
 
+{ Width of this control's translated text at the size it is planned to be
+  drawn, measured with the same engine that will render it. }
+function MeasuredTextWidth(const AControl: TLayoutControl): Double;
+var
+  Layout: TTextLayout;
+  PointSize: Double;
+begin
+  if Trim(AControl.TranslatedText) = '' then
+    Exit(0);
+  PointSize := AControl.PlannedFontSize;
+  if PointSize <= 0 then
+    PointSize := AControl.FontSize;
+  if PointSize <= 0 then
+    PointSize := 12;
+  Layout := TTextLayoutManager.DefaultTextLayout.Create;
+  try
+    Layout.BeginUpdate;
+    Layout.Text := AControl.TranslatedText;
+    Layout.Font.Size := PointSize;
+    Layout.WordWrap := False;
+    Layout.EndUpdate;
+    Result := Layout.Width;
+  finally
+    Layout.Free;
+  end;
+end;
+
+{ True when the translated text cannot be shown inside the planned control.
+  Without wrapping that means the text is wider than the control; with wrapping
+  it means the lines it breaks into need more height than the control has. }
+function TextIsClipped(const AControl: TLayoutControl;
+  out ANeeded, AHave: Double; out AWhat: string): Boolean;
+var
+  TextWidth, LineHeight, PointSize: Double;
+  Lines: Integer;
+begin
+  ANeeded := 0;
+  AHave := 0;
+  AWhat := '';
+  Result := False;
+  if Trim(AControl.TranslatedText) = '' then
+    Exit;
+  if AControl.PlannedWidth <= 0 then
+    Exit;
+  TextWidth := MeasuredTextWidth(AControl);
+  if TextWidth <= 0 then
+    Exit;
+  PointSize := AControl.PlannedFontSize;
+  if PointSize <= 0 then
+    PointSize := AControl.FontSize;
+  if PointSize <= 0 then
+    PointSize := 12;
+  LineHeight := PointSize * 1.45;
+  if not AControl.PlannedWordWrap then
+  begin
+    AWhat := 'width';
+    ANeeded := TextWidth;
+    AHave := AControl.PlannedWidth;
+    Result := TextWidth > AControl.PlannedWidth + 2;
+  end
+  else
+  begin
+    Lines := Max(1, Ceil(TextWidth / Max(AControl.PlannedWidth - 6, 1)));
+    AWhat := 'height';
+    ANeeded := Lines * LineHeight;
+    AHave := AControl.PlannedHeight;
+    Result := ANeeded > AControl.PlannedHeight + 2;
+  end;
+end;
+
 function Positioned(const AControl: TLayoutControl): Boolean;
 begin
   Result := AControl.HasPosition and AControl.HasSize and
@@ -80,6 +151,8 @@ var
   Issues: TFormIssues;
   TotalNew, TotalBounds, TotalClipped: Integer;
   FormWidth, FormHeight: Double;
+  NeededSize, HaveSize: Double;
+  ClipWhat: string;
   Index, Scan, FormCount: Integer;
   Controls: TList<TLayoutControl>;
 begin
@@ -162,6 +235,15 @@ begin
                      Control.PlannedTop + Control.PlannedHeight, FormHeight]));
                 end;
 
+                if TextIsClipped(Control, NeededSize, HaveSize, ClipWhat) then
+                begin
+                  Inc(Issues.ClippedText);
+                  Writeln(Format('  CLIP    %s.%s needs %s %.0f but has %.0f%s  "%s"',
+                    [FormName, Control.ComponentName, ClipWhat, NeededSize,
+                     HaveSize, IfThen(Control.PlannedWordWrap, ' (wrapped)', ''),
+                     Copy(Control.TranslatedText, 1, 42)]));
+                end;
+
                 for Scan := Index + 1 to Controls.Count - 1 do
                 begin
                   Other := Controls[Scan];
@@ -209,7 +291,7 @@ begin
         Writeln('');
         Writeln(Format('Forms: %d   new overlaps: %d   out of bounds: %d',
           [FormCount, TotalNew, TotalBounds]));
-        if (TotalNew = 0) and (TotalBounds = 0) then
+        if (TotalNew = 0) and (TotalBounds = 0) and (TotalClipped = 0) then
         begin
           Writeln('RESULT: pass');
           ExitCode := 0;
