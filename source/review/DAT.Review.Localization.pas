@@ -577,6 +577,8 @@ var
   PackedButtons, Cluster: TList<TLayoutControl>;
   UniformWidth, ClusterGap, ClusterLeft, ClusterOffset, Available, Total: Double;
   LeftRoom: Double;
+  ClusterOverlaysDesign: Boolean;
+  Candidate: TLayoutControl;
 
   { Measure the translated text with the same engine that renders it at
     runtime. Character-count arithmetic cannot predict real glyph widths, so
@@ -866,6 +868,55 @@ var
     Result := Max(0, AControl.PlannedLeft - NearestRight - ControlGap);
   end;
 
+  { True when these two already sat on top of one another in the designer.
+    Overlapping controls are frequently deliberate: custom buttons laid over
+    the navigator they replace, a caption over a shaped background, a badge
+    over a graphic. Pulling those apart destroys the design, so only overlaps
+    that translation itself introduced are worth resolving. }
+  function DesignedOverlap(const AFirst, ASecond: TLayoutControl): Boolean;
+  begin
+    Result :=
+      (AFirst.Left < ASecond.Left + ASecond.Width) and
+      (AFirst.Left + AFirst.Width > ASecond.Left) and
+      (AFirst.Top < ASecond.Top + ASecond.Height) and
+      (AFirst.Top + AFirst.Height > ASecond.Top);
+  end;
+
+  { Room before the next control on this row, counting every neighbour. This is
+    deliberately stricter than AvailableWidth, which ignores neighbours the
+    separation pass could move: a caption should take the unused margin on its
+    left rather than expect the field beside it to shift along. }
+  function SpaceToRight(const AControl: TLayoutControl): Double;
+  var
+    Candidate: TLayoutControl;
+    NearestLeft: Double;
+  begin
+    NearestLeft := MaxDouble;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if (Candidate.PlannedTop >= AControl.PlannedTop +
+            AControl.PlannedHeight) or
+         (Candidate.PlannedTop + Candidate.PlannedHeight <=
+            AControl.PlannedTop) then
+        Continue;
+      if DesignedOverlap(AControl, Candidate) then
+        Continue;
+      if (Candidate.PlannedLeft > AControl.PlannedLeft + 2) and
+        (Candidate.PlannedLeft < NearestLeft) then
+        NearestLeft := Candidate.PlannedLeft;
+    end;
+    if NearestLeft < MaxDouble then
+      Result := Max(24, NearestLeft - AControl.PlannedLeft - ControlGap)
+    else
+      Result := UnboundedWidthAllowance;
+  end;
+
   function IsButtonLike(const AControl: TLayoutControl): Boolean;
   begin
     Result := ContainsText(AControl.ComponentClassName, 'Button') and
@@ -996,10 +1047,10 @@ begin
         which is better than wrapping the caption or shrinking its text. }
       if Control.HasPosition and not IsRightAligned(Control) and
         not IsCentreAligned(Control) and
-        (RequiredWidth > AvailableWidth(Control)) then
+        (RequiredWidth > SpaceToRight(Control)) then
       begin
         LeftRoom := SpaceToLeft(Control);
-        ShiftedLeft := Min(LeftRoom, RequiredWidth - AvailableWidth(Control));
+        ShiftedLeft := Min(LeftRoom, RequiredWidth - SpaceToRight(Control));
         if ShiftedLeft > 2 then
           Control.PlannedLeft := Max(0, Control.PlannedLeft - ShiftedLeft);
       end;
@@ -1129,6 +1180,21 @@ begin
           UniformWidth := Max(UniformWidth, 24);
         end;
 
+        { If the row was drawn over something else, its placement is
+          deliberate and repacking it would move the buttons off whatever they
+          were positioned against. Size them, but leave them where they are. }
+        ClusterOverlaysDesign := False;
+        for Other in Cluster do
+          for Candidate in AReview.Controls do
+            if (Candidate <> Other) and (Cluster.IndexOf(Candidate) < 0) and
+              Candidate.HasPosition and Candidate.HasSize and
+              SameText(Candidate.FormName, Other.FormName) and
+              SameText(Candidate.ParentName, Other.ParentName) and
+              DesignedOverlap(Other, Candidate) then
+              ClusterOverlaysDesign := True;
+        if ClusterOverlaysDesign then
+          Continue;
+
         ClusterOffset := ClusterLeft;
         for Other in Cluster do
         begin
@@ -1172,6 +1238,8 @@ begin
           not SameText(Other.ParentName, Control.ParentName) then
           Continue;
         if not PlannedOverlap(Control, Other) then
+          Continue;
+        if DesignedOverlap(Control, Other) then
           Continue;
         if Pass = 1 then
           AddFinding(AReview, lfsWarning, 'Overlap',
