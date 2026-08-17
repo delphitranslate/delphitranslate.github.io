@@ -1,0 +1,17 @@
+{
+  "description": "A label above a memo may widen or wrap, but must not run under the memo or out of the form.",
+  "catalog_file": "08_memo_label_pair.catalog.json",
+  "expect_clean": true,
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblRecipients",
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "memRecipients",
+      "planned_top_equals": 90
+    }
+  ]
+}

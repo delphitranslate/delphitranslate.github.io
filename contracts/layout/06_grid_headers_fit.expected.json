@@ -1,0 +1,17 @@
+{
+  "description": "Grid column headers are treated as visible text-bearing controls and must receive enough measured width to fit their translated captions.",
+  "catalog_file": "06_grid_headers_fit.catalog.json",
+  "expect_clean": true,
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "colTime",
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "colType",
+      "text_fits": true
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 260
+  ClientWidth = 760
+  object lblRecipients: TLabel
+    StyledSettings = []
+    Position.X = 120.000000000000000000
+    Position.Y = 60.000000000000000000
+    Size.Width = 140.000000000000000000
+    Size.Height = 22.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Email recipients:'
+  end
+  object memRecipients: TMemo
+    Position.X = 120.000000000000000000
+    Position.Y = 90.000000000000000000
+    Size.Width = 300.000000000000000000
+    Size.Height = 80.000000000000000000
+    Size.PlatformDefault = False
+  end
+end

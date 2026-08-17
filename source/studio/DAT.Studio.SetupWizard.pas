@@ -203,13 +203,8 @@ type
     function DesignBPLFileName: string;
     procedure BuildDeploymentCommands;
     procedure UpdateComponentInstructions;
-    procedure RebuildAllTargetConfigurations;
-    function PreferredDeploymentPlatforms: TArray<string>;
-    function PreferredDeploymentConfigurations: TArray<string>;
     function ExistingBuildOutputDirectories: TArray<string>;
     function DeployLanguagePacksToExistingOutputs: Integer;
-    function DeployLanguagePacksToConfiguredDestinations: Integer;
-    function DeployLanguagePacksDirect(const AApplicationDirectory: string): Boolean;
     function RunDeploymentScript(const AApplicationDirectory: string;
       const ASkipConfiguredDestinations: Boolean = True): Boolean;
     function ExistingCatalogFileName: string;
@@ -263,7 +258,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.17.1145';
+  StudioBuildLabel = 'Build 2026.08.17.1248';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
@@ -479,8 +474,8 @@ begin
   ForceDirectories(FReviewOutputDirectory);
   ProjectGlossary := TTranslationWorkspace.GlossaryFileName(FProjectProfile,
     FCatalog.Locale.LanguageCode);
-  if TFile.Exists(ProjectGlossary) and not TFile.Exists(StagedGlossaryFileName) then
-    TFile.Copy(ProjectGlossary, StagedGlossaryFileName, False);
+  if TFile.Exists(ProjectGlossary) then
+    TFile.Copy(ProjectGlossary, StagedGlossaryFileName, True);
   ReviewForm := TfrmLocalizationReview.Create(Self);
   try
     ReviewForm.Prepare(FProjectProfile, FCatalog, FReviewOutputDirectory,
@@ -527,9 +522,10 @@ begin
     '4. ApplicationId must be "' +
       ApplicationId + '". This value comes from the selected .dproj file. ' +
       'Leave LanguagesFolder as "Localization\Languages".' + sLineBreak +
-    '5. Build-output folders and every available application destination ' +
-      'entered on the Deployment page receive the current JSON packs ' +
-      'automatically.' + sLineBreak +
+    '5. Final processing creates the JSON packs and component kit. Use the ' +
+      'final Build and Deploy Selected Targets box to build Win32/Win64 and ' +
+      'deploy to any USB, portable, network, or installed application folder.' +
+      sLineBreak +
     'For Wizard-initiated builds, the Wizard passes ComponentSource to MSBuild ' +
       'without editing the target project file. For manual RAD Studio builds, ' +
       'add the generated ComponentSource folder to the project Search Path or ' +
@@ -545,10 +541,10 @@ begin
       'Select a Delphi project first. Build outputs require no entry here.'
   else if lstDeploymentDestinations.Items.Count = 0 then
     lblDeploymentSummary.Text :=
-      'No separate destinations are configured. Detected Win32 and Win64 build outputs will still deploy automatically.'
+      'No separate destinations are configured. The final build box can still build selected Win32/Win64 targets.'
   else
     lblDeploymentSummary.Text := Format(
-      '%d separate application destination(s) will be remembered and deployed automatically when available. Detected build outputs are included separately.',
+      '%d separate application destination(s) will be remembered. They are deployed only from the final Build and Deploy Selected Targets box.',
       [lstDeploymentDestinations.Items.Count]);
   if chkReplaceDeployedExecutable.IsChecked then
     lblDeploymentSummary.Text := lblDeploymentSummary.Text +
@@ -1234,9 +1230,9 @@ begin
       sLineBreak +
     'Search Path: passed temporarily to Wizard-initiated MSBuild commands.' +
       sLineBreak +
-    'Deployment: automatic during final processing and Wizard-initiated builds.' +
+    'Deployment: final processing saves destinations; the final build box performs configured destination deployment.' +
       sLineBreak +
-    Format('Separate application destinations: %d (automatically deployed when available).',
+    Format('Separate application destinations: %d (deployed from the final build box).',
       [lstDeploymentDestinations.Items.Count]) + sLineBreak +
     'RAD Studio: target project must be closed before final processing.' +
       sLineBreak +
@@ -1408,159 +1404,6 @@ begin
     Inc(Result);
     AddProgress('Language packs deployed to ' + ApplicationDirectory);
   end;
-end;
-
-function TfrmSetupWizard.PreferredDeploymentPlatforms: TArray<string>;
-begin
-  if cboBuildPlatform.ItemIndex = 1 then
-    Result := ['Win64', 'Win32']
-  else
-    Result := ['Win32', 'Win64'];
-end;
-
-function TfrmSetupWizard.PreferredDeploymentConfigurations: TArray<string>;
-begin
-  if cboBuildConfiguration.ItemIndex = 1 then
-    Result := ['Release', 'Debug']
-  else
-    Result := ['Debug', 'Release'];
-end;
-
-{ Deployment must never copy a stale executable. Rebuild every platform and
-  configuration that already has a build-output folder so each one matches the
-  runtime and language packs produced by this pass, before anything is copied
-  to build outputs or configured destinations. }
-procedure TfrmSetupWizard.RebuildAllTargetConfigurations;
-var
-  BuiltCount: Integer;
-  Configuration: string;
-  OutputDirectory: string;
-  Platform: string;
-begin
-  BuiltCount := 0;
-  for Platform in ['Win32', 'Win64'] do
-    for Configuration in ['Debug', 'Release'] do
-    begin
-      OutputDirectory := TTargetBuildDeployer.FindBuildOutputDirectory(
-        FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
-        Platform, Configuration, False);
-      if (OutputDirectory = '') or not TDirectory.Exists(OutputDirectory) then
-        Continue;
-      AddProgress(Format('Rebuilding %s %s before deployment...',
-        [Platform, Configuration]));
-      Application.ProcessMessages;
-      AddProgress(TTargetBuildDeployer.BuildAndDeploy(
-        FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
-        Platform, Configuration, FKitDirectory));
-      Inc(BuiltCount);
-    end;
-  if BuiltCount = 0 then
-    AddProgress('No existing build-output folders were found to rebuild.')
-  else
-    AddProgress(Format('%d target configuration(s) rebuilt with the current runtime.',
-      [BuiltCount]));
-end;
-
-function TfrmSetupWizard.DeployLanguagePacksToConfiguredDestinations: Integer;
-var
-  ApplicationDirectory: string;
-  Configuration: string;
-  DestinationExecutable: string;
-  ExecutableDeployed: Boolean;
-  ShouldDeployExecutable: Boolean;
-  Platform: string;
-  SourceExecutable: string;
-begin
-  Result := 0;
-  for ApplicationDirectory in lstDeploymentDestinations.Items do
-  begin
-    if not DeployLanguagePacksDirect(ApplicationDirectory) then
-      raise Exception.Create('Language-pack deployment failed for configured destination ' +
-        ApplicationDirectory + '. The drive may still be waking or may be read-only.');
-    DestinationExecutable := TPath.Combine(ApplicationDirectory,
-      FProjectProfile.ProjectName + '.exe');
-    ShouldDeployExecutable := chkReplaceDeployedExecutable.IsChecked or
-      not TFile.Exists(DestinationExecutable);
-    if ShouldDeployExecutable then
-    begin
-      ExecutableDeployed := False;
-      { Honour the platform and configuration chosen on the build page first so
-        the destination receives the executable the developer asked for, not
-        whichever output folder happens to come first alphabetically. }
-      for Platform in PreferredDeploymentPlatforms do
-      begin
-        if ExecutableDeployed then
-          Break;
-        for Configuration in PreferredDeploymentConfigurations do
-        begin
-          if ExecutableDeployed then
-            Break;
-          SourceExecutable := TTargetBuildDeployer.FindBuildOutputDirectory(
-            FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
-            Platform, Configuration, True);
-          if SourceExecutable <> '' then
-          begin
-            AddProgress(Format('Deploying the %s %s executable to %s.',
-              [Platform, Configuration, ApplicationDirectory]));
-            AddProgress(TTargetBuildDeployer.DeployBuildOutput(
-              FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
-              Platform, Configuration, ApplicationDirectory, FKitDirectory,
-              chkReplaceDeployedExecutable.IsChecked));
-            ExecutableDeployed := True;
-          end;
-        end;
-      end;
-      if not ExecutableDeployed then
-        AddProgress('Executable not copied to ' + ApplicationDirectory +
-          ': no current build output was found. Use Build and Deploy Selected Targets after final processing.');
-    end
-    else
-      AddProgress('Executable left unchanged at ' + DestinationExecutable +
-        ' (replace/create authorization was not selected).');
-    Inc(Result);
-    AddProgress('Language packs deployed to configured destination ' +
-      ApplicationDirectory);
-  end;
-end;
-
-function TfrmSetupWizard.DeployLanguagePacksDirect(
-  const AApplicationDirectory: string): Boolean;
-const
-  RetryCount = 15;
-  RetryDelayMilliseconds = 2000;
-var
-  DestinationDirectory: string;
-  FileName: string;
-  SourceDirectory: string;
-  Attempt: Integer;
-begin
-  Result := False;
-  SourceDirectory := TPath.Combine(FKitDirectory, 'Localization\Languages');
-  DestinationDirectory := TPath.Combine(AApplicationDirectory,
-    'Localization\Languages');
-  for Attempt := 1 to RetryCount do
-    try
-      { A removable drive may be mounted but not yet ready when the Wizard
-        reaches deployment. Create the root and destination on every retry. }
-      TDirectory.CreateDirectory(AApplicationDirectory);
-      TDirectory.CreateDirectory(DestinationDirectory);
-      for FileName in TDirectory.GetFiles(SourceDirectory, '*.json') do
-        TFile.Copy(FileName, TPath.Combine(DestinationDirectory,
-          TPath.GetFileName(FileName)), True);
-      Result := True;
-      Exit;
-    except
-      on E: Exception do
-      begin
-        if Attempt = RetryCount then
-          raise Exception.CreateFmt(
-            'Unable to write language packs to %s after %d attempts: %s',
-            [DestinationDirectory, RetryCount, E.Message]);
-        AddProgress(Format('Destination is not ready; retrying %s (%d/%d)...',
-          [AApplicationDirectory, Attempt, RetryCount]));
-        Sleep(RetryDelayMilliseconds);
-      end;
-    end;
 end;
 
 procedure TfrmSetupWizard.ExecuteFinalProcessing;
@@ -1800,22 +1643,9 @@ begin
       TPath.Combine(FindStudioRoot, 'source\components'));
     AddProgress('Component integration kit generated.');
     BuildDeploymentCommands;
-    RebuildAllTargetConfigurations;
-    DeployedCount := DeployLanguagePacksToExistingOutputs;
-    if DeployedCount = 0 then
-      AddProgress('No existing build-output folders were found. The next build will deploy the packs automatically.')
-    else
-      AddProgress(Format('Automatic deployment completed for %d existing build output(s).',
-        [DeployedCount]));
-    ConfiguredDestinationCount :=
-      DeployLanguagePacksToConfiguredDestinations;
-    if lstDeploymentDestinations.Items.Count = 0 then
-      AddProgress('No separate application destinations were configured.')
-    else
-      AddProgress(Format(
-        'Automatic deployment completed for %d of %d configured application destination(s).',
-        [ConfiguredDestinationCount,
-         lstDeploymentDestinations.Items.Count]));
+    DeployedCount := 0;
+    ConfiguredDestinationCount := 0;
+    AddProgress('Deployment has not been run yet. Use Build and Deploy Selected Targets to build the selected Win32/Win64 target(s) and deploy to configured application destinations.');
     FProjectConfigurationBackupDirectory := '';
     AddProgress('Target project source and project files were not modified.');
     lblKitPath.Text := FKitDirectory;
@@ -1862,7 +1692,7 @@ begin
     FCompleted := True;
     UpdateBuildChoice;
     lblFinishText.Text :=
-      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation, runtime-pack export, and component-kit generation. Existing build outputs and every available application destination were deployed automatically. Target Pascal, form, DPR, and DPROJ files were not edited. If needed, use the build panel to build and deploy selected targets now.';
+      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation, runtime-pack export, and component-kit generation. Target Pascal, form, DPR, and DPROJ files were not edited. Use the build panel to build and deploy selected targets and configured application destinations.';
     lblFooterStatus.Text := 'Setup Wizard completed successfully.';
   except
     on E: Exception do

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "xx-XX",
+    "nativeLanguageName": "Contract",
+    "textDirection": "ltr",
+    "shortDateFormat": "dd/mm/yyyy",
+    "longDateFormat": "dddd, d mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "$"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.chkEnable.Text",
+      "sourceText": "Enable logging",
+      "translatedText": "Ereignisprotokollierung aktivieren",
+      "formName": "ContractForm",
+      "componentName": "chkEnable",
+      "componentClassName": "TCheckBox",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\07_checkbox_caption_note.fmx",
+      "sourceLine": 12,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.lblNote.Text",
+      "sourceText": "Check this box to turn on logging.",
+      "translatedText": "Aktivieren Sie dieses Kontrollkaestchen, um die Ereignisprotokollierung einzuschalten.",
+      "formName": "ContractForm",
+      "componentName": "lblNote",
+      "componentClassName": "TLabel",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\07_checkbox_caption_note.fmx",
+      "sourceLine": 21,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

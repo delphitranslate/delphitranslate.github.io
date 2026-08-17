@@ -1,0 +1,17 @@
+{
+  "description": "A checkbox caption and its explanatory note must both fit without the note being pushed under the checkbox row.",
+  "catalog_file": "07_checkbox_caption_note.catalog.json",
+  "expect_clean": true,
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "chkEnable",
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "lblNote",
+      "text_fits": true
+    }
+  ]
+}

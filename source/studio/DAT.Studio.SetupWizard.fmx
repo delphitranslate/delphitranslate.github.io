@@ -426,17 +426,17 @@ object frmSetupWizard: TfrmSetupWizard
               Position.X = 8.000000000000000000
               Position.Y = 60.000000000000000000
               Size.Width = 670.000000000000000000
-              Size.Height = 82.000000000000000000
+              Size.Height = 74.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
               TextSettings.FontColor = xFF365674
-              Text = 'Build-output folders are detected automatically. Add any separate installed, portable, network, or USB application folders here. Final processing and Wizard-initiated builds deploy JSON language packs to every available destination. This step is optional.'
+              Text = 'Build-output folders are detected automatically. Add separate installed, portable, network, or USB application folders here. These destinations are deployed only when you use Build and Deploy Selected Targets on the final page.'
             end
             object lstDeploymentDestinations: TListBox
               Position.X = 8.000000000000000000
-              Position.Y = 146.000000000000000000
+              Position.Y = 138.000000000000000000
               Size.Width = 670.000000000000000000
-              Size.Height = 138.000000000000000000
+              Size.Height = 118.000000000000000000
               Size.PlatformDefault = False
               ShowCheckboxes = False
               TabOrder = 0
@@ -444,7 +444,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnAddDeploymentDestination: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 298.000000000000000000
+              Position.Y = 270.000000000000000000
               Size.Width = 210.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
@@ -453,7 +453,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnRemoveDeploymentDestination: TButton
               Position.X = 232.000000000000000000
-              Position.Y = 298.000000000000000000
+              Position.Y = 270.000000000000000000
               Size.Width = 180.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
@@ -464,9 +464,9 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               WordWrap = True
               Position.X = 8.000000000000000000
-              Position.Y = 352.000000000000000000
+              Position.Y = 324.000000000000000000
               Size.Width = 670.000000000000000000
-              Size.Height = 58.000000000000000000
+              Size.Height = 50.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 13.000000000000000000
               TextSettings.FontColor = xFF365674
@@ -475,12 +475,12 @@ object frmSetupWizard: TfrmSetupWizard
             object chkReplaceDeployedExecutable: TCheckBox
               StyledSettings = []
               Position.X = 8.000000000000000000
-              Position.Y = 422.000000000000000000
+              Position.Y = 386.000000000000000000
               Size.Width = 670.000000000000000000
               Size.Height = 54.000000000000000000
               Size.PlatformDefault = False
               TextSettings.FontColor = xFFB25400
-              Text = 'Authorize creating or replacing the deployed application EXE in these folders'
+              Text = 'Required for portable/USB deployment: authorize creating or replacing the deployed application EXE in these folders'
             end
           end
           object tabLanguages: TTabItem

@@ -69,12 +69,15 @@ type
   end;
 
 const
+  DATRuntimeDebugEnabled = False;
   DATRuntimeDebugLogFileName = 'C:\Downloads\DAT_Translation_Debug_Log.txt';
 
 procedure DATRuntimeDebugLog(const AMessage: string);
 var
   LogDirectory: string;
 begin
+  if not DATRuntimeDebugEnabled then
+    Exit;
   try
     LogDirectory := TPath.GetDirectoryName(DATRuntimeDebugLogFileName);
     if (LogDirectory <> '') and not TDirectory.Exists(LogDirectory) then
@@ -1619,4 +1622,3 @@ finalization
   TFMXTranslationApplicator.FOriginalPositions := nil;
 
 end.
-

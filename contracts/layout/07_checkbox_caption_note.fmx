@@ -1,0 +1,27 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 260
+  ClientWidth = 760
+  object chkEnable: TCheckBox
+    Position.X = 260.000000000000000000
+    Position.Y = 70.000000000000000000
+    Size.Width = 130.000000000000000000
+    Size.Height = 24.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Enable logging'
+  end
+  object lblNote: TLabel
+    StyledSettings = []
+    WordWrap = True
+    Position.X = 404.000000000000000000
+    Position.Y = 68.000000000000000000
+    Size.Width = 210.000000000000000000
+    Size.Height = 36.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Check this box to turn on logging.'
+  end
+end

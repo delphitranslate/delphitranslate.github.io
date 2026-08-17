@@ -1,0 +1,22 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 260
+  ClientWidth = 760
+  object grdSchedule: TGrid
+    Position.X = 40.000000000000000000
+    Position.Y = 50.000000000000000000
+    Size.Width = 680.000000000000000000
+    Size.Height = 150.000000000000000000
+    Size.PlatformDefault = False
+    object colTime: TStringColumn
+      Header = 'Time'
+      Width = 72.000000000000000000
+    end
+    object colType: TStringColumn
+      Header = 'Type'
+      Width = 72.000000000000000000
+    end
+  end
+end

@@ -47,6 +47,7 @@ type
     FWidth: Double;
     FHeight: Double;
     FFontSize: Double;
+    FFontFamily: string;
     FAlign: string;
     FHorzAlign: string;
     FWordWrap: Boolean;
@@ -72,6 +73,7 @@ type
     property Width: Double read FWidth write FWidth;
     property Height: Double read FHeight write FHeight;
     property FontSize: Double read FFontSize write FFontSize;
+    property FontFamily: string read FFontFamily write FFontFamily;
     property Align: string read FAlign write FAlign;
     { How the text sits inside the control. This decides which way the control
       has to grow: a right-aligned caption must keep its right edge and extend
@@ -220,6 +222,17 @@ begin
   Result := TryStrToFloat(Trim(AValue), AResult, Settings);
 end;
 
+function UnquoteDelphiString(const AValue: string): string;
+begin
+  Result := Trim(AValue);
+  if (Length(Result) >= 2) and (Result[1] = '''') and
+    (Result[Length(Result)] = '''') then
+  begin
+    Result := Copy(Result, 2, Length(Result) - 2);
+    Result := StringReplace(Result, '''''', '''', [rfReplaceAll]);
+  end;
+end;
+
 function ParseObject(const ALine: string; out AName, AClassName: string): Boolean;
 var
   Text: string;
@@ -337,7 +350,7 @@ begin
   else
     Proposal.Decision := 'pending';
   Proposal.SourceChecksum := THashSHA2.GetHashString(
-    AControl.SourceText + '|' + ACurrent);
+    AControl.SourceText + '|' + AControl.TranslatedText + '|' + ACurrent);
   AReview.Proposals.Add(Proposal);
 end;
 
@@ -460,6 +473,8 @@ begin
         else if MatchText(Prop, ['TextSettings.HorzAlign', 'HorzAlign',
           'Alignment']) then
           Frame.Control.HorzAlign := Value
+        else if MatchText(Prop, ['TextSettings.Font.Family', 'Font.Family']) then
+          Frame.Control.FontFamily := UnquoteDelphiString(Value)
         else if MatchText(Prop, ['WordWrap', 'AutoSize']) then
         begin
           BoolValue := SameText(Value, 'True');
@@ -645,6 +660,8 @@ var
       Layout.BeginUpdate;
       Layout.Text := AControl.TranslatedText;
       Layout.Font.Size := Max(PointSize, 9);
+      if Trim(AControl.FontFamily) <> '' then
+        Layout.Font.Family := AControl.FontFamily;
       Layout.WordWrap := False;
       Layout.EndUpdate;
       { Ask for the room the text occupies plus the breathing room its class
