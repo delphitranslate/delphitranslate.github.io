@@ -38,6 +38,7 @@ type
     NewOverlaps: Integer;
     OutOfBounds: Integer;
     ClippedText: Integer;
+    ShrunkText: Integer;
   end;
 
 function Overlaps(const ALeft, ATop, AWidth, AHeight,
@@ -94,6 +95,65 @@ end;
 { True when the translated text cannot be shown inside the planned control.
   Without wrapping that means the text is wider than the control; with wrapping
   it means the lines it breaks into need more height than the control has. }
+{ Breathing room a control of this class must keep between its text and its
+  edge. Text reaching within a pixel of the edge fits by arithmetic and looks
+  jammed, so these are what "fits" actually means. }
+function PaddingHorizontal(const AControl: TLayoutControl): Double;
+begin
+  if ContainsText(AControl.ComponentClassName, 'Button') then
+    Result := 12
+  else if ContainsText(AControl.ComponentClassName, 'Label') then
+    Result := 4
+  else
+    Result := 6;
+end;
+
+function PaddingVertical(const AControl: TLayoutControl): Double;
+begin
+  if ContainsText(AControl.ComponentClassName, 'Button') then
+    Result := 6
+  else if ContainsText(AControl.ComponentClassName, 'Label') then
+    Result := 2
+  else
+    Result := 3;
+end;
+
+{ Width of arbitrary text at a given size. }
+function WidthOfText(const AText: string; const APointSize: Double): Double;
+var
+  Layout: TTextLayout;
+begin
+  if Trim(AText) = '' then
+    Exit(0);
+  Layout := TTextLayoutManager.DefaultTextLayout.Create;
+  try
+    Layout.BeginUpdate;
+    Layout.Text := AText;
+    Layout.Font.Size := Max(APointSize, 1);
+    Layout.WordWrap := False;
+    Layout.EndUpdate;
+    Result := Layout.Width;
+  finally
+    Layout.Free;
+  end;
+end;
+
+{ True when the control was already too tight for its own source text in the
+  designer. Several forms letter their rows with labels barely wider than the
+  digit they hold, and a control that never had room to begin with is not
+  something translation broke. }
+function AlreadyTightByDesign(const AControl: TLayoutControl): Boolean;
+begin
+  Result := (Trim(AControl.SourceText) <> '') and (AControl.Width > 0) and
+    (WidthOfText(AControl.SourceText, Max(AControl.FontSize, 9)) +
+      2 * PaddingHorizontal(AControl) > AControl.Width);
+end;
+
+const
+  { How far short of the full padding a control may fall before it reads as
+    crowded. }
+  PaddingSlack = 2;
+
 function TextIsClipped(const AControl: TLayoutControl;
   out ANeeded, AHave: Double; out AWhat: string): Boolean;
 var
@@ -108,6 +168,8 @@ begin
     Exit;
   if AControl.PlannedWidth <= 0 then
     Exit;
+  if AlreadyTightByDesign(AControl) then
+    Exit;
   TextWidth := MeasuredTextWidth(AControl);
   if TextWidth <= 0 then
     Exit;
@@ -117,21 +179,41 @@ begin
   if PointSize <= 0 then
     PointSize := 12;
   LineHeight := PointSize * 1.45;
+  { The padding is a target rather than a hard edge, so allow a shortfall of a
+    pixel or two before calling it crowded. This is not the old hairline
+    tolerance: the requirement being tested already includes the full padding,
+    so falling a pixel short means slightly tight padding, not text against the
+    edge. }
   if not AControl.PlannedWordWrap then
   begin
     AWhat := 'width';
-    ANeeded := TextWidth;
+    ANeeded := TextWidth + 2 * PaddingHorizontal(AControl);
     AHave := AControl.PlannedWidth;
-    Result := TextWidth > AControl.PlannedWidth + 2;
+    Result := ANeeded > AControl.PlannedWidth + PaddingSlack;
   end
   else
   begin
-    Lines := Max(1, Ceil(TextWidth / Max(AControl.PlannedWidth - 6, 1)));
+    Lines := Max(1, Ceil(TextWidth /
+      Max(AControl.PlannedWidth - 2 * PaddingHorizontal(AControl), 1)));
     AWhat := 'height';
-    ANeeded := Lines * LineHeight;
+    ANeeded := Lines * LineHeight + 2 * PaddingVertical(AControl);
     AHave := AControl.PlannedHeight;
-    Result := ANeeded > AControl.PlannedHeight + 2;
+    Result := ANeeded > AControl.PlannedHeight + PaddingSlack;
   end;
+end;
+
+{ A caption reduced far below the size it was drawn at reads as noticeably
+  smaller than everything around it, which is a defect whether or not the text
+  happens to fit. }
+function FontReducedTooFar(const AControl: TLayoutControl;
+  out APlanned, ADesigned: Double): Boolean;
+const
+  MinimumRatio = 0.85;
+begin
+  APlanned := AControl.PlannedFontSize;
+  ADesigned := AControl.FontSize;
+  Result := (ADesigned > 0) and (APlanned > 0) and
+    (APlanned < ADesigned * MinimumRatio - 0.01);
 end;
 
 function Positioned(const AControl: TLayoutControl): Boolean;
@@ -149,7 +231,7 @@ var
   FormNames: TStringList;
   FormName: string;
   Issues: TFormIssues;
-  TotalNew, TotalBounds, TotalClipped: Integer;
+  TotalNew, TotalBounds, TotalClipped, TotalShrunk: Integer;
   FormWidth, FormHeight: Double;
   NeededSize, HaveSize: Double;
   ClipWhat: string;
@@ -184,6 +266,7 @@ begin
         TotalNew := 0;
         TotalBounds := 0;
         TotalClipped := 0;
+        TotalShrunk := 0;
 
         FormNames := TStringList.Create;
         try
@@ -244,6 +327,15 @@ begin
                      Copy(Control.TranslatedText, 1, 42)]));
                 end;
 
+                if FontReducedTooFar(Control, NeededSize, HaveSize) then
+                begin
+                  Inc(Issues.ShrunkText);
+                  Writeln(Format('  FONT    %s.%s reduced to %.1f from %.1f (%.0f%% of designed)  "%s"',
+                    [FormName, Control.ComponentName, NeededSize, HaveSize,
+                     100 * NeededSize / HaveSize,
+                     Copy(Control.TranslatedText, 1, 42)]));
+                end;
+
                 for Scan := Index + 1 to Controls.Count - 1 do
                 begin
                   Other := Controls[Scan];
@@ -282,6 +374,7 @@ begin
             Inc(TotalNew, Issues.NewOverlaps);
             Inc(TotalBounds, Issues.OutOfBounds);
             Inc(TotalClipped, Issues.ClippedText);
+            Inc(TotalShrunk, Issues.ShrunkText);
           end;
           FormCount := FormNames.Count;
         finally
@@ -291,7 +384,8 @@ begin
         Writeln('');
         Writeln(Format('Forms: %d   new overlaps: %d   out of bounds: %d',
           [FormCount, TotalNew, TotalBounds]));
-        if (TotalNew = 0) and (TotalBounds = 0) and (TotalClipped = 0) then
+        if (TotalNew = 0) and (TotalBounds = 0) and (TotalClipped = 0) and
+          (TotalShrunk = 0) then
         begin
           Writeln('RESULT: pass');
           ExitCode := 0;

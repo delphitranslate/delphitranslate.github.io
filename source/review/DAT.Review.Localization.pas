@@ -572,8 +572,18 @@ const
   { Padding a control keeps at the sides of wrapped text. }
   WrapSideAllowance = 6;
   { A reduction no deeper than this is preferable to wrapping a caption onto a
-    second line. }
-  ModestFontReduction = 0.82;
+    second line, and no caption should ever be reduced further: past this the
+    text reads as noticeably smaller than everything around it. }
+  ModestFontReduction = 0.85;
+  { Breathing room text keeps inside its control, each side. Text that reaches
+    within a pixel or two of the edge fits by arithmetic and looks jammed, so
+    a caption is only considered to fit when it clears these. }
+  ButtonPaddingHorizontal = 12;
+  ButtonPaddingVertical = 6;
+  LabelPaddingHorizontal = 4;
+  LabelPaddingVertical = 2;
+  OtherPaddingHorizontal = 6;
+  OtherPaddingVertical = 3;
 var
   Control, Other: TLayoutControl;
   RequiredWidth, RequiredHeight, FontSize: Double;
@@ -596,6 +606,27 @@ var
   { Measure the translated text with the same engine that renders it at
     runtime. Character-count arithmetic cannot predict real glyph widths, so
     every sizing decision below starts from an actual measurement. }
+  { Breathing room this class of control keeps between its text and its edge. }
+  function PaddingHorizontal(const AControl: TLayoutControl): Double;
+  begin
+    if ContainsText(AControl.ComponentClassName, 'Button') then
+      Result := ButtonPaddingHorizontal
+    else if ContainsText(AControl.ComponentClassName, 'Label') then
+      Result := LabelPaddingHorizontal
+    else
+      Result := OtherPaddingHorizontal;
+  end;
+
+  function PaddingVertical(const AControl: TLayoutControl): Double;
+  begin
+    if ContainsText(AControl.ComponentClassName, 'Button') then
+      Result := ButtonPaddingVertical
+    else if ContainsText(AControl.ComponentClassName, 'Label') then
+      Result := LabelPaddingVertical
+    else
+      Result := OtherPaddingVertical;
+  end;
+
   function TextWidthEstimate(const AControl: TLayoutControl): Double;
   var
     Layout: TTextLayout;
@@ -616,15 +647,45 @@ var
       Layout.Font.Size := Max(PointSize, 9);
       Layout.WordWrap := False;
       Layout.EndUpdate;
-      Result := Layout.Width + 18;
+      { Ask for the room the text occupies plus the breathing room its class
+        keeps, so a control sized from this reads properly rather than merely
+        fitting by arithmetic. }
+      Result := Layout.Width + 2 * PaddingHorizontal(AControl);
     finally
       Layout.Free;
     end;
   end;
 
-  function MeasuredLineHeight(const AControl: TLayoutControl): Double;
+  { The smallest this control's text may become. A caption reduced far below
+    the size it was drawn at reads as noticeably smaller than everything around
+    it, so the floor is a proportion of the designed size and not merely the
+    point at which text stops being legible on its own. }
+  function SmallestFontFor(const AControl: TLayoutControl): Double;
   begin
-    Result := Max(AControl.FontSize, 9) * 1.65;
+    Result := Max(MinimumReadableFontSize,
+      Max(AControl.FontSize, 9) * ModestFontReduction);
+  end;
+
+  { Lines the translated text breaks into inside a control of the given width.
+    Text wraps within the padding, so that is the room it has. }
+  function WrappedLineCount(const AControl: TLayoutControl;
+    const AWidth: Double): Integer;
+  var
+    BareText: Double;
+  begin
+    BareText := TextWidthEstimate(AControl) - 2 * PaddingHorizontal(AControl);
+    Result := Max(1, Ceil(BareText /
+      Max(AWidth - 2 * PaddingHorizontal(AControl), 1)));
+  end;
+
+  function MeasuredLineHeight(const AControl: TLayoutControl): Double;
+  var
+    PointSize: Double;
+  begin
+    PointSize := AControl.PlannedFontSize;
+    if PointSize <= 0 then
+      PointSize := AControl.FontSize;
+    Result := Max(PointSize, 9) * 1.65;
   end;
 
   function ParentWidthFor(const AControl: TLayoutControl): Double;
@@ -1016,6 +1077,34 @@ var
     Result := 'Position.' + AAxis;
   end;
 
+  { True when moving this control down to the given top would not put it on
+    top of anything else it does not already sit on. }
+  function DestinationIsClear(const AControl: TLayoutControl;
+    const ATop: Double): Boolean;
+  var
+    Candidate: TLayoutControl;
+  begin
+    Result := True;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if DesignedOverlap(AControl, Candidate) then
+        Continue;
+      if (AControl.PlannedLeft <
+            Candidate.PlannedLeft + Candidate.PlannedWidth) and
+         (AControl.PlannedLeft + AControl.PlannedWidth >
+            Candidate.PlannedLeft) and
+         (ATop < Candidate.PlannedTop + Candidate.PlannedHeight) and
+         (ATop + AControl.PlannedHeight > Candidate.PlannedTop) then
+        Exit(False);
+    end;
+  end;
+
   function PlannedOverlap(const AFirst, ASecond: TLayoutControl): Boolean;
   begin
     Result :=
@@ -1059,7 +1148,7 @@ begin
     RequiredHeight := MeasuredLineHeight(Control);
     IsButton := ContainsText(Control.ComponentClassName, 'Button');
     IsWrappingText := ShouldPreferWrap(Control);
-    if (Control.Width > 0) and (RequiredWidth > Control.Width * 1.05) then
+    if (Control.Width > 0) and (RequiredWidth > Control.Width) then
     begin
       AddFinding(AReview, lfsHighRisk, 'Layout',
         Control.FormName + '.' + Control.ComponentName,
@@ -1108,11 +1197,21 @@ begin
         begin
           { Even the whole row was not enough, so fall back to wrapping. }
           Control.PlannedWordWrap := IsWrappingText;
-          LineCount := Max(1, Ceil(RequiredWidth / Max(NewWidth, 24)));
+          LineCount := WrappedLineCount(Control, Max(NewWidth, 24));
           if not IsButton then
             Control.PlannedHeight := Max(Control.PlannedHeight,
               Ceil(RequiredHeight * LineCount));
         end;
+      end
+      else if IsWrappingText and (Control.Width >= MinimumWrapWidth) and
+        (BoundedTextWidth(Control, RequiredWidth) >= RequiredWidth - 1) then
+      begin
+        { There is room beside this control for the whole caption, so take it
+          and stay on one line. Wrapping here would ask for height the form
+          often has less of than width: a button in a stacked column has forty
+          pixels above the next one but most of the form to its right. }
+        SetPlannedWidthRespectingAlignment(Control,
+          BoundedTextWidth(Control, RequiredWidth));
       end
       else if IsWrappingText and (Control.Width >= MinimumWrapWidth) then
       begin
@@ -1130,19 +1229,19 @@ begin
           RequiredHeight := ReducedFont * 1.65;
         end;
         Control.PlannedWordWrap := True;
-        LineCount := Max(1, Ceil(RequiredWidth / Control.Width));
+        LineCount := WrappedLineCount(Control, Control.Width);
         if LineCount > MaximumComfortableLines then
         begin
           { Shrink the text just enough for the lines that will fit, never
             below the readable floor. }
-          ReducedFont := Max(MinimumReadableFontSize,
+          ReducedFont := Max(SmallestFontFor(Control),
             FontSize * MaximumComfortableLines / LineCount);
           if ReducedFont < FontSize then
           begin
             Control.PlannedFontSize := ReducedFont;
             RequiredWidth := RequiredWidth * ReducedFont / FontSize;
             RequiredHeight := ReducedFont * 1.65;
-            LineCount := Max(1, Ceil(RequiredWidth / Control.Width));
+            LineCount := WrappedLineCount(Control, Control.Width);
           end;
         end;
         if LineCount > MaximumComfortableLines then
@@ -1154,7 +1253,7 @@ begin
           if NewWidth > Ceil(Control.Width) then
           begin
             SetPlannedWidthRespectingAlignment(Control, NewWidth);
-            LineCount := Max(1, Ceil(RequiredWidth / NewWidth));
+            LineCount := WrappedLineCount(Control, NewWidth);
           end;
         end;
         if not IsButton then
@@ -1164,19 +1263,19 @@ begin
       else
       begin
         { A control that cannot wrap has only the two remaining options. }
-        ReducedFont := Max(MinimumReadableFontSize,
+        ReducedFont := Max(SmallestFontFor(Control),
           FontSize * Control.Width / RequiredWidth);
         if ReducedFont < FontSize then
         begin
           Control.PlannedFontSize := ReducedFont;
           RequiredWidth := RequiredWidth * ReducedFont / FontSize;
         end;
-        if RequiredWidth > Control.Width * 1.05 then
+        if RequiredWidth > Control.Width then
           SetPlannedWidthRespectingAlignment(Control,
             BoundedTextWidth(Control, RequiredWidth));
       end;
     end;
-    if (Control.Height > 0) and (RequiredHeight > Control.Height * 1.10) then
+    if (Control.Height > 0) and (RequiredHeight > Control.Height) then
     begin
       AddFinding(AReview, lfsWarning, 'Layout',
         Control.FormName + '.' + Control.ComponentName,
@@ -1184,26 +1283,6 @@ begin
         'Review the proposed height or enable automatic sizing.');
       Control.PlannedHeight := Max(Control.PlannedHeight, Ceil(RequiredHeight));
     end;
-  end;
-
-  { Phase 2a - make sure every planned box can actually hold its text. The
-    decisions above each answer one question, and a control can leave them
-    holding a width and a height that do not agree with the lines its text
-    breaks into: a button given wrapping but not the height to wrap into shows
-    its caption cut in half. Measure the settled box and give it the height the
-    text really needs. }
-  for Control in AReview.Controls do
-  begin
-    if (Control.TranslatedText = '') or not Control.HasSize or
-      not Control.PlannedWordWrap or (Control.PlannedWidth <= 0) then
-      Continue;
-    EffectiveFont := Control.PlannedFontSize;
-    if EffectiveFont <= 0 then
-      EffectiveFont := Max(Control.FontSize, 9);
-    WrappedLines := Max(1, Ceil(TextWidthEstimate(Control) /
-      Max(Control.PlannedWidth - WrapSideAllowance, 1)));
-    Control.PlannedHeight := Max(Control.PlannedHeight,
-      Ceil(WrappedLines * EffectiveFont * 1.65));
   end;
 
   { Phase 2b - a row of buttons is a set, not a collection of individuals.
@@ -1274,7 +1353,7 @@ begin
           Other.PlannedWordWrap := True;
           if TextWidthEstimate(Other) > UniformWidth then
           begin
-            ReducedFont := Max(MinimumReadableFontSize,
+            ReducedFont := Max(SmallestFontFor(Other),
               Max(Other.FontSize, 9) * UniformWidth /
               Max(TextWidthEstimate(Other), 1));
             if ReducedFont < Max(Other.FontSize, 9) then
@@ -1288,6 +1367,30 @@ begin
     end;
   finally
     PackedButtons.Free;
+  end;
+
+  { Phase 2a - make sure every planned box can actually hold its text. The
+    decisions above each answer one question, and a control can leave them
+    holding a width and a height that do not agree with the lines its text
+    breaks into: a button given wrapping but not the height to wrap into shows
+    its caption cut in half. Measure the settled box and give it the height the
+    text really needs. }
+  for Control in AReview.Controls do
+  begin
+    if (Control.TranslatedText = '') or not Control.HasSize or
+      not Control.PlannedWordWrap or (Control.PlannedWidth <= 0) then
+      Continue;
+    EffectiveFont := Control.PlannedFontSize;
+    if EffectiveFont <= 0 then
+      EffectiveFont := Max(Control.FontSize, 9);
+    { Text wraps inside the padding, not inside the whole control, so count the
+      lines against the room the text actually gets. Measuring against the full
+      width reports fewer lines than will really appear and buys too little
+      height for them. }
+    WrappedLines := WrappedLineCount(Control, Control.PlannedWidth);
+    Control.PlannedHeight := Max(Control.PlannedHeight,
+      Ceil(WrappedLines * EffectiveFont * 1.65 +
+        2 * PaddingVertical(Control)));
   end;
 
   { Phase 3 - resolve collisions against the planned geometry, repeatedly, so a
@@ -1401,12 +1504,15 @@ begin
           RequiredTop := Leader.PlannedTop + Leader.PlannedHeight + ControlGap;
           { A control pushed off the bottom of the form is gone, which is worse
             than one sitting close under its neighbour. Where there is no room
-            below, take the height back from whatever grew instead. }
+            below, take the height back from whatever grew instead. Landing it
+            on a third control is no better than leaving it alone either, so
+            check the destination is clear before using it. }
           if CanMoveControl(Follower) and
             (RequiredTop - Follower.Top <= MaximumDrift) and
             ((ContentBottomBound(Follower) <= 0) or
              (RequiredTop + Follower.PlannedHeight <=
-                ContentBottomBound(Follower))) then
+                ContentBottomBound(Follower))) and
+            DestinationIsClear(Follower, RequiredTop) then
           begin
             Follower.PlannedTop := RequiredTop;
             Moved := True;
@@ -1424,7 +1530,7 @@ begin
                 EffectiveFont := Leader.PlannedFontSize;
                 if EffectiveFont <= 0 then
                   EffectiveFont := Max(Leader.FontSize, 9);
-                EffectiveFont := Max(MinimumReadableFontSize,
+                EffectiveFont := Max(SmallestFontFor(Leader),
                   EffectiveFont * ReducedHeight / Leader.PlannedHeight);
                 Leader.PlannedFontSize := EffectiveFont;
               end;
