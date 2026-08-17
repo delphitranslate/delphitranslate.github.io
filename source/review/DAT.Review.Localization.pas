@@ -563,6 +563,12 @@ const
   MinimumReadableFontSize = 9;
   { Buttons further apart than this were never laid out as one row. }
   MaximumClusterGap = 40;
+  { Controls touching by less than this were placed side by side, not stacked
+    on purpose. }
+  DesignedOverlapTolerance = 3;
+  { How far a control may be displaced from where it was drawn. Beyond this a
+    chain of pushes has stopped being a correction and become a rearrangement. }
+  MaximumDrift = 120;
 var
   Control, Other: TLayoutControl;
   RequiredWidth, RequiredHeight, FontSize: Double;
@@ -574,6 +580,7 @@ var
   Moved: Boolean;
   Leader, Follower: TLayoutControl;
   RequiredLeft, Surplus, ReducedWidth, ReducedFont, ShiftedLeft: Double;
+  RequiredTop, ReducedHeight: Double;
   PackedButtons, Cluster: TList<TLayoutControl>;
   UniformWidth, ClusterGap, ClusterLeft, ClusterOffset, Available, Total: Double;
   LeftRoom: Double;
@@ -692,6 +699,20 @@ var
         SameText(Candidate.ParentName, AControl.ParentName) and
         Candidate.HasPosition and Candidate.HasSize then
         Result := Max(Result, Candidate.Left + Candidate.Width);
+  end;
+
+  { The bottom edge of the form holding this control, or zero when the scanned
+    model does not record it. }
+  function ContentBottomBound(const AControl: TLayoutControl): Double;
+  var
+    Candidate: TLayoutControl;
+  begin
+    Result := 0;
+    for Candidate in AReview.Controls do
+      if SameText(Candidate.FormName, AControl.FormName) and
+        SameText(Candidate.ComponentName, AControl.FormName) and
+        Candidate.HasSize then
+        Exit(Candidate.Height);
   end;
 
   { The widest this control may become before it would cross either the edge of
@@ -875,11 +896,15 @@ var
     that translation itself introduced are worth resolving. }
   function DesignedOverlap(const AFirst, ASecond: TLayoutControl): Boolean;
   begin
+    { Require a real overlap, not a hairline. Adjacent controls very often
+      touch by a pixel or two through rounding, and treating that as a
+      deliberate arrangement would excuse the analyser from separating them
+      however far apart the translation later drives them. }
     Result :=
-      (AFirst.Left < ASecond.Left + ASecond.Width) and
-      (AFirst.Left + AFirst.Width > ASecond.Left) and
-      (AFirst.Top < ASecond.Top + ASecond.Height) and
-      (AFirst.Top + AFirst.Height > ASecond.Top);
+      (Min(AFirst.Left + AFirst.Width, ASecond.Left + ASecond.Width) -
+        Max(AFirst.Left, ASecond.Left) > DesignedOverlapTolerance) and
+      (Min(AFirst.Top + AFirst.Height, ASecond.Top + ASecond.Height) -
+        Max(AFirst.Top, ASecond.Top) > DesignedOverlapTolerance);
   end;
 
   { Room before the next control on this row, counting every neighbour. This is
@@ -1290,7 +1315,8 @@ begin
           end
           else if CanMoveControl(Follower) and
             (RequiredLeft + Follower.PlannedWidth <=
-              ContentRightBound(Follower)) then
+              ContentRightBound(Follower)) and
+            (RequiredLeft - Follower.Left <= MaximumDrift) then
           begin
             Follower.PlannedLeft := RequiredLeft;
             Moved := True;
@@ -1326,11 +1352,28 @@ begin
             Follower := Other
           else
             Follower := Control;
-          if CanMoveControl(Follower) then
+          RequiredTop := Leader.PlannedTop + Leader.PlannedHeight + ControlGap;
+          { A control pushed off the bottom of the form is gone, which is worse
+            than one sitting close under its neighbour. Where there is no room
+            below, take the height back from whatever grew instead. }
+          if CanMoveControl(Follower) and
+            (RequiredTop - Follower.Top <= MaximumDrift) and
+            ((ContentBottomBound(Follower) <= 0) or
+             (RequiredTop + Follower.PlannedHeight <=
+                ContentBottomBound(Follower))) then
           begin
-            Follower.PlannedTop := Leader.PlannedTop + Leader.PlannedHeight +
-              ControlGap;
+            Follower.PlannedTop := RequiredTop;
             Moved := True;
+          end
+          else if Leader.PlannedHeight > Leader.Height then
+          begin
+            ReducedHeight := Max(Leader.Height,
+              Follower.PlannedTop - ControlGap - Leader.PlannedTop);
+            if ReducedHeight < Leader.PlannedHeight then
+            begin
+              Leader.PlannedHeight := ReducedHeight;
+              Moved := True;
+            end;
           end;
         end;
       end;
