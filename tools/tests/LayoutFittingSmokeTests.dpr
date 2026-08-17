@@ -235,6 +235,7 @@ var
   FormWidth, FormHeight: Double;
   NeededSize, HaveSize: Double;
   ClipWhat: string;
+  DumpFilter: string;
   Index, Scan, FormCount: Integer;
   Controls: TList<TLayoutControl>;
 begin
@@ -246,6 +247,13 @@ begin
         TPath.Combine(TPath.GetHomePath,
           'DelphiAppTranslationStudio\Workspaces\Carillon\Development'),
         'Carillon.es-ES.translation-project.json');
+
+    { An optional second argument names controls to describe rather than judge.
+      Seeing what the analyser decided for one control is usually the quickest
+      way to understand why a screen looks wrong. }
+    DumpFilter := '';
+    if ParamCount >= 2 then
+      DumpFilter := LowerCase(ParamStr(2));
 
     if not TFile.Exists(CatalogFileName) then
     begin
@@ -316,6 +324,23 @@ begin
                   Writeln(Format('  BOUNDS  %s.%s bottom edge %.0f exceeds form height %.0f',
                     [FormName, Control.ComponentName,
                      Control.PlannedTop + Control.PlannedHeight, FormHeight]));
+                end;
+
+                if (DumpFilter <> '') and
+                  (ContainsText(LowerCase(Control.ComponentName), DumpFilter) or
+                   ContainsText(LowerCase(FormName), DumpFilter)) then
+                begin
+                  Writeln(Format('  %s.%s (%s)', [FormName,
+                    Control.ComponentName, Control.ComponentClassName]));
+                  Writeln(Format('      designed %.0f,%.0f %.0fx%.0f  font %.1f  align %s',
+                    [Control.Left, Control.Top, Control.Width, Control.Height,
+                     Control.FontSize, Control.HorzAlign]));
+                  Writeln(Format('      planned  %.0f,%.0f %.0fx%.0f  font %.1f  wrap %s',
+                    [Control.PlannedLeft, Control.PlannedTop,
+                     Control.PlannedWidth, Control.PlannedHeight,
+                     Control.PlannedFontSize,
+                     IfThen(Control.PlannedWordWrap, 'yes', 'no')]));
+                  Writeln(Format('      text     %s', [Control.TranslatedText]));
                 end;
 
                 if TextIsClipped(Control, NeededSize, HaveSize, ClipWhat) then

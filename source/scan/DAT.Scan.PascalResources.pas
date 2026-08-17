@@ -181,6 +181,18 @@ begin
     APropertyName := 'Items';
     Exit(True);
   end;
+  { A short word returned from a helper function is very often a value the user
+    reads. Applications label rows this way rather than by assigning a control
+    property, so the text appears in no form file and never reaches the
+    catalog. A schedule classifying its rows as 'Time' or 'Song' had one of
+    them translated only because a column header happened to carry the same
+    word. Claim these, leaving the literal itself to decide whether it is
+    prose or plumbing. }
+  if SameText(Trim(ALeftSide), 'Result') then
+  begin
+    APropertyName := 'RuntimeValue';
+    Exit(True);
+  end;
 end;
 
 function RuntimeComponentClassName(const ALeftSide,
@@ -317,6 +329,40 @@ begin
     AddRuntimeItem(AResult, AFileName, AUnitName,
       ACallName, APropertyName, Phrase, AStatement.SourceLine,
       rtrRuntimeTemplate);
+end;
+
+function IsLikelyUserFacingLiteral(const AText: string): Boolean;
+var
+  Trimmed: string;
+  Index: Integer;
+  HasLetter: Boolean;
+begin
+  { A function returning a short word is a promising source of on-screen text,
+    but the same shape carries file names, keys and fragments of markup. Accept
+    only what reads as a word or a short phrase a person would actually see. }
+  Trimmed := Trim(AText);
+  Result := False;
+  if (Length(Trimmed) < 2) or (Length(Trimmed) > 40) then
+    Exit;
+  HasLetter := False;
+  for Index := 1 to Length(Trimmed) do
+  begin
+    if CharInSet(Trimmed[Index], ['a'..'z', 'A'..'Z']) then
+      HasLetter := True
+    else if not CharInSet(Trimmed[Index], [' ', '-', '/', '''', '.', ',',
+      ':', '(', ')', '0'..'9']) then
+      Exit;
+  end;
+  if not HasLetter then
+    Exit;
+  if ContainsText(Trimmed, '\') or ContainsText(Trimmed, '%') or
+    ContainsText(Trimmed, '..') then
+    Exit;
+  { A bare file extension, or a name carrying one, is plumbing. }
+  if (Pos('.', Trimmed) > 0) and
+    (Length(Trimmed) - LastDelimiter('.', Trimmed) <= 4) then
+    Exit;
+  Result := True;
 end;
 
 function IsNonUiAssignment(const ALeftSide, ASourceText: string): Boolean;
@@ -570,7 +616,9 @@ begin
       begin
         if TryDecodeDelphiStringExpression(Expression, ValueText) then
         begin
-          if not IsNonUiAssignment(LeftSide, ValueText) then
+          if not IsNonUiAssignment(LeftSide, ValueText) and
+            (not SameText(PropertyName, 'RuntimeValue') or
+             IsLikelyUserFacingLiteral(ValueText)) then
             AddRuntimeItem(AResult, AFileName, AUnitName, LeftSide,
               PropertyName, ValueText, Statement.SourceLine, rtrStaticText);
         end

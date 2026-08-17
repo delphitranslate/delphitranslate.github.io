@@ -575,6 +575,8 @@ const
   ContainerInset = 4;
   { More lines than this and a caption has become a paragraph. }
   MaximumWrappedLines = 4;
+  { Text at least this long is a sentence rather than a label. }
+  ParagraphTextLength = 60;
   { A reduction no deeper than this is preferable to wrapping a caption onto a
     second line, and no caption should ever be reduced further: past this the
     text reads as noticeably smaller than everything around it. }
@@ -770,6 +772,26 @@ var
       ContainsText(AControl.ComponentClassName, 'Layout');
   end;
 
+  { The control this one actually belongs to, when that is something with a
+    size of its own. A child's position is expressed relative to its parent, so
+    a checkbox at 2,4 inside a panel is nowhere near the coordinates of a shape
+    drawn at the same numbers on the form. }
+  function ParentContainerOf(const AControl: TLayoutControl): TLayoutControl;
+  var
+    Candidate: TLayoutControl;
+  begin
+    Result := nil;
+    if Trim(AControl.ParentName) = '' then
+      Exit;
+    if SameText(AControl.ParentName, AControl.FormName) then
+      Exit;
+    for Candidate in AReview.Controls do
+      if SameText(Candidate.FormName, AControl.FormName) and
+        SameText(Candidate.ComponentName, AControl.ParentName) and
+        Candidate.HasSize then
+        Exit(Candidate);
+  end;
+
   { The smallest shape the designer drew around this control. A caption sitting
     inside a rounded rectangle or a group box was framed deliberately, and that
     frame is a boundary the caption must respect however long its translation
@@ -818,6 +840,18 @@ var
 
   { True when nothing else that carries text shares this frame, so widening the
     control to fill it cannot land on a neighbour. }
+  { The frame that governs this control, whether it owns the control in the
+    object tree or merely encloses it on screen. Every rule about containment
+    has to agree on this: asking one question of the parent and another of the
+    geometry is how a button in a group of three came to be treated as the only
+    thing in its group box. }
+  function ContainerOf(const AControl: TLayoutControl): TLayoutControl;
+  begin
+    Result := ParentContainerOf(AControl);
+    if Result = nil then
+      Result := DesignedContainerOf(AControl);
+  end;
+
   function AloneInContainer(const AControl, AContainer: TLayoutControl): Boolean;
   var
     Candidate: TLayoutControl;
@@ -832,7 +866,7 @@ var
         Continue;
       if IsVisualContainer(Candidate) then
         Continue;
-      if DesignedContainerOf(Candidate) = AContainer then
+      if ContainerOf(Candidate) = AContainer then
         Exit(False);
     end;
   end;
@@ -846,6 +880,11 @@ var
     Candidate, Container: TLayoutControl;
     ParentWidth: Double;
   begin
+    { A child is measured against the inside of its parent, whose own position
+      does not enter into it. }
+    Container := ParentContainerOf(AControl);
+    if Container <> nil then
+      Exit(Container.Width - ContainerInset);
     Container := DesignedContainerOf(AControl);
     if Container <> nil then
       Exit(Container.Left + Container.Width - ContainerInset);
@@ -867,6 +906,9 @@ var
     Candidate, Container: TLayoutControl;
   begin
     Result := 0;
+    Container := ParentContainerOf(AControl);
+    if Container <> nil then
+      Exit(Container.Height - ContainerInset);
     Container := DesignedContainerOf(AControl);
     if Container <> nil then
       Exit(Container.Top + Container.Height - ContainerInset);
@@ -875,6 +917,70 @@ var
         SameText(Candidate.ComponentName, AControl.FormName) and
         Candidate.HasSize then
         Exit(Candidate.Height);
+  end;
+
+  { Prose, as opposed to a caption. Explanatory sentences want to wrap into a
+    block; widening them buys one very long line the eye has to track across
+    the form. Judge by the length of the text rather than by how much room the
+    control happens to occupy, since a short caption inside a small frame fills
+    its space too. }
+  function IsParagraphWidth(const AControl: TLayoutControl): Boolean;
+  begin
+    Result := Length(Trim(AControl.TranslatedText)) >= ParagraphTextLength;
+  end;
+
+  { True when a control that is not a caption sits just under this one, close
+    enough that the two read as a labelled field. }
+  function HasFieldDirectlyBelow(const AControl: TLayoutControl): Boolean;
+  const
+    CloseEnough = 30;
+  var
+    Candidate: TLayoutControl;
+    Gap: Double;
+  begin
+    Result := False;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize or IsVisualContainer(Candidate) then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if (Candidate.Left >= AControl.Left + AControl.Width) or
+         (Candidate.Left + Candidate.Width <= AControl.Left) then
+        Continue;
+      Gap := Candidate.Top - (AControl.Top + AControl.Height);
+      if (Gap > -AControl.Height) and (Gap < CloseEnough) then
+        Exit(True);
+    end;
+  end;
+
+  { The lowest edge anything above this control reaches, which is as far up as
+    it may grow. }
+  function RoomAbove(const AControl: TLayoutControl): Double;
+  var
+    Candidate: TLayoutControl;
+  begin
+    Result := 0;
+    for Candidate in AReview.Controls do
+    begin
+      { Everything above counts here, frames and grids included: growing a
+        caption up into a panel is no better than growing it down into a
+        field. }
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if (Candidate.Left >= AControl.Left + AControl.Width) or
+         (Candidate.Left + Candidate.Width <= AControl.Left) then
+        Continue;
+      if Candidate.Top + Candidate.Height > AControl.Top then
+        Continue;
+      Result := Max(Result, Candidate.Top + Candidate.Height + ControlGap);
+    end;
   end;
 
   { How many lines this control can grow to before reaching whatever sits below
@@ -1319,7 +1425,7 @@ begin
         the width it needs and leaves every field exactly where it was drawn,
         which is better than wrapping the caption or shrinking its text. }
       if Control.HasPosition and not IsRightAligned(Control) and
-        not IsCentreAligned(Control) and
+        not IsCentreAligned(Control) and not IsParagraphWidth(Control) and
         (RequiredWidth > SpaceToRight(Control)) then
       begin
         LeftRoom := SpaceToLeft(Control);
@@ -1332,7 +1438,8 @@ begin
         side, and taking that space changes nothing else on the form, whereas
         wrapping it doubles its height and can push it into the row below.
         So where the row is genuinely clear, widen and stay on one line. }
-      if RowIsFree(Control, True, False) and RowIsFree(Control, False, False) then
+      if RowIsFree(Control, True, False) and RowIsFree(Control, False, False) and
+        not IsParagraphWidth(Control) then
       begin
         NewWidth := BoundedTextWidth(Control, RequiredWidth);
         if NewWidth > Ceil(Control.Width) then
@@ -1350,12 +1457,20 @@ begin
         end;
       end
       else if IsWrappingText and (Control.Width >= MinimumWrapWidth) and
-        (BoundedTextWidth(Control, RequiredWidth) >= RequiredWidth - 1) then
+        not IsParagraphWidth(Control) and
+        (BoundedTextWidth(Control, RequiredWidth) >= RequiredWidth - 1) and
+        (not IsRightAligned(Control) or RowIsFree(Control, False, False)) then
       begin
-        { There is room beside this control for the whole caption, so take it
-          and stay on one line. Wrapping here would ask for height the form
-          often has less of than width: a button in a stacked column has forty
-          pixels above the next one but most of the form to its right. }
+        { There is room beside this control for the whole caption, and that room
+          is genuinely empty, so take it and stay on one line. Wrapping here
+          would ask for height the form often has less of than width: a button
+          in a stacked column has forty pixels above the next one but most of
+          the form to its right.
+
+          The room has to be empty rather than merely yielding. Taking space a
+          neighbour occupies buys one line at the cost of displacing something,
+          and where a caption can simply wrap instead, that trade is not worth
+          making: the buttons beside a date caption should keep their places. }
         SetPlannedWidthRespectingAlignment(Control,
           BoundedTextWidth(Control, RequiredWidth));
       end
@@ -1713,22 +1828,36 @@ begin
   begin
     if not Control.HasPosition or not Control.HasSize then
       Continue;
-    ClampContainer := DesignedContainerOf(Control);
-    if ClampContainer = nil then
-      Continue;
+    ClampContainer := ParentContainerOf(Control);
+    if ClampContainer <> nil then
+    begin
+      { Inside a parent the usable area starts at nothing, not at the parent's
+        own coordinates. }
+      ClampLeft := Min(ContainerInset, Control.Left);
+      ClampTop := Min(ContainerInset, Control.Top);
+      ClampRight := Max(ClampContainer.Width - ContainerInset,
+        Control.Left + Control.Width);
+      ClampBottom := Max(ClampContainer.Height - ContainerInset,
+        Control.Top + Control.Height);
+    end
+    else
+    begin
+      ClampContainer := DesignedContainerOf(Control);
+      if ClampContainer = nil then
+        Continue;
+      ClampLeft := Min(ClampContainer.Left + ContainerInset, Control.Left);
+      ClampTop := Min(ClampContainer.Top + ContainerInset, Control.Top);
+      ClampRight := Max(ClampContainer.Left + ClampContainer.Width -
+        ContainerInset, Control.Left + Control.Width);
+      ClampBottom := Max(ClampContainer.Top + ClampContainer.Height -
+        ContainerInset, Control.Top + Control.Height);
+    end;
 
     { The inset is what a caption should keep from the frame, not a correction
       to apply to the designer's own placement. A button drawn flush with the
-      edge of its group box was put there deliberately, so never hold a control
-      tighter than it was already drawn; only stop translation carrying it
-      further out than that. }
-    ClampLeft := Min(ClampContainer.Left + ContainerInset, Control.Left);
-    ClampTop := Min(ClampContainer.Top + ContainerInset, Control.Top);
-    ClampRight := Max(ClampContainer.Left + ClampContainer.Width -
-      ContainerInset, Control.Left + Control.Width);
-    ClampBottom := Max(ClampContainer.Top + ClampContainer.Height -
-      ContainerInset, Control.Top + Control.Height);
-
+      edge of its group box was put there deliberately, so no control is held
+      tighter than it was drawn; only translation carrying one further out is
+      prevented. }
     if Control.PlannedWidth > ClampRight - ClampLeft then
       Control.PlannedWidth := ClampRight - ClampLeft;
     if Control.PlannedHeight > ClampBottom - ClampTop then
