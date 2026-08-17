@@ -561,6 +561,8 @@ const
   MaximumComfortableLines = 2;
   { Never shrink text past the point where it stops being comfortable to read. }
   MinimumReadableFontSize = 9;
+  { Buttons further apart than this were never laid out as one row. }
+  MaximumClusterGap = 40;
 var
   Control, Other: TLayoutControl;
   RequiredWidth, RequiredHeight, FontSize: Double;
@@ -572,6 +574,9 @@ var
   Moved: Boolean;
   Leader, Follower: TLayoutControl;
   RequiredLeft, Surplus, ReducedWidth, ReducedFont, ShiftedLeft: Double;
+  PackedButtons, Cluster: TList<TLayoutControl>;
+  UniformWidth, ClusterGap, ClusterLeft, ClusterOffset, Available, Total: Double;
+  LeftRoom: Double;
 
   { Measure the translated text with the same engine that renders it at
     runtime. Character-count arithmetic cannot predict real glyph widths, so
@@ -829,6 +834,88 @@ var
       Result := Ceil(AControl.Width);
   end;
 
+  { Unused margin to the left of this control, back to the nearest neighbour on
+    its row or to the parent edge. A caption pinned against the field it labels
+    can often take the room it needs from here, which leaves every field where
+    the designer put it. }
+  function SpaceToLeft(const AControl: TLayoutControl): Double;
+  var
+    Candidate: TLayoutControl;
+    NearestRight: Double;
+  begin
+    NearestRight := 0;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if (Candidate.PlannedTop >= AControl.PlannedTop +
+            AControl.PlannedHeight) or
+         (Candidate.PlannedTop + Candidate.PlannedHeight <=
+            AControl.PlannedTop) then
+        Continue;
+      if Candidate.PlannedLeft + Candidate.PlannedWidth >
+        AControl.PlannedLeft then
+        Continue;
+      NearestRight := Max(NearestRight,
+        Candidate.PlannedLeft + Candidate.PlannedWidth);
+    end;
+    Result := Max(0, AControl.PlannedLeft - NearestRight - ControlGap);
+  end;
+
+  function IsButtonLike(const AControl: TLayoutControl): Boolean;
+  begin
+    Result := ContainsText(AControl.ComponentClassName, 'Button') and
+      not ContainsText(AControl.ComponentClassName, 'RadioButton') and
+      not ContainsText(AControl.ComponentClassName, 'CheckBox');
+  end;
+
+  { The buttons drawn as one row with this control: same parent, same designed
+    row, and close enough together to have been laid out as a set rather than
+    placed independently. Ordered the way the designer placed them. }
+  function CollectButtonRow(const AControl: TLayoutControl): TList<TLayoutControl>;
+  var
+    Candidate: TLayoutControl;
+    Index, Scan: Integer;
+    Swap: TLayoutControl;
+  begin
+    Result := TList<TLayoutControl>.Create;
+    for Candidate in AReview.Controls do
+    begin
+      if not IsButtonLike(Candidate) or not Candidate.HasPosition or
+        not Candidate.HasSize or not CanMoveControl(Candidate) then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if Abs((Candidate.Top + Candidate.Height / 2) -
+        (AControl.Top + AControl.Height / 2)) >
+        Max(8, Max(Candidate.Height, AControl.Height) * 0.55) then
+        Continue;
+      Result.Add(Candidate);
+    end;
+    for Index := 0 to Result.Count - 2 do
+      for Scan := 0 to Result.Count - 2 - Index do
+        if Result[Scan].Left > Result[Scan + 1].Left then
+        begin
+          Swap := Result[Scan];
+          Result[Scan] := Result[Scan + 1];
+          Result[Scan + 1] := Swap;
+        end;
+    { Only treat it as a row if the buttons sit close together. Two buttons at
+      opposite ends of a form were never a set. }
+    for Index := Result.Count - 1 downto 1 do
+      if Result[Index].Left -
+        (Result[Index - 1].Left + Result[Index - 1].Width) > MaximumClusterGap then
+      begin
+        Result.Clear;
+        Break;
+      end;
+  end;
+
   function PositionPropertyName(const AControl: TLayoutControl;
     const AAxis: string): string;
   begin
@@ -902,6 +989,20 @@ begin
         2. If that needs an uncomfortable number of lines, reduce the font a
            little so it fits in fewer. This changes no geometry at all.
         3. Only when neither is enough, widen the control. }
+      { A caption sitting immediately left of the field it labels has almost no
+        room on its right, but forms usually leave a margin on the far left
+        that nothing occupies. Sliding the caption back into that margin buys
+        the width it needs and leaves every field exactly where it was drawn,
+        which is better than wrapping the caption or shrinking its text. }
+      if Control.HasPosition and not IsRightAligned(Control) and
+        not IsCentreAligned(Control) and
+        (RequiredWidth > AvailableWidth(Control)) then
+      begin
+        LeftRoom := SpaceToLeft(Control);
+        ShiftedLeft := Min(LeftRoom, RequiredWidth - AvailableWidth(Control));
+        if ShiftedLeft > 2 then
+          Control.PlannedLeft := Max(0, Control.PlannedLeft - ShiftedLeft);
+      end;
       { Widening only costs something when there is something beside the
         control to disturb. A heading alone on its row has empty space either
         side, and taking that space changes nothing else on the form, whereas
@@ -981,6 +1082,75 @@ begin
         'Review the proposed height or enable automatic sizing.');
       Control.PlannedHeight := Max(Control.PlannedHeight, Ceil(RequiredHeight));
     end;
+  end;
+
+  { Phase 2b - a row of buttons is a set, not a collection of individuals.
+    Navigator and dialog rows are drawn as equal buttons at an even pitch, and
+    sizing each one on its own text breaks that pattern and pushes each into
+    the small gap beside it. Size the whole row to its widest member and lay it
+    out again at an even pitch, sharing the space the row actually has. }
+  PackedButtons := TList<TLayoutControl>.Create;
+  try
+    for Control in AReview.Controls do
+    begin
+      if PackedButtons.IndexOf(Control) >= 0 then
+        Continue;
+      if not IsButtonLike(Control) or not Control.HasPosition or
+        not Control.HasSize or not CanMoveControl(Control) then
+        Continue;
+      Cluster := CollectButtonRow(Control);
+      try
+        if Cluster.Count < 2 then
+          Continue;
+        for Other in Cluster do
+          PackedButtons.Add(Other);
+
+        { Every button takes the width of the hungriest, so the row stays
+          uniform the way it was drawn. }
+        UniformWidth := 0;
+        for Other in Cluster do
+          UniformWidth := Max(UniformWidth,
+            Max(Other.Width, TextWidthEstimate(Other)));
+
+        ClusterGap := ControlGap;
+        if Cluster.Count > 1 then
+          ClusterGap := Max(ControlGap,
+            Cluster[1].Left - (Cluster[0].Left + Cluster[0].Width));
+        ClusterLeft := Cluster[0].Left;
+        Available := ContentRightBound(Cluster[0]) - ClusterLeft;
+        Total := Cluster.Count * UniformWidth +
+          (Cluster.Count - 1) * ClusterGap;
+        if Total > Available then
+        begin
+          { The row cannot have everything it wants, so share what there is
+            evenly and let the text wrap or shrink inside it. }
+          UniformWidth := Max(0,
+            (Available - (Cluster.Count - 1) * ClusterGap) / Cluster.Count);
+          UniformWidth := Max(UniformWidth, 24);
+        end;
+
+        ClusterOffset := ClusterLeft;
+        for Other in Cluster do
+        begin
+          Other.PlannedLeft := ClusterOffset;
+          Other.PlannedWidth := UniformWidth;
+          Other.PlannedWordWrap := True;
+          if TextWidthEstimate(Other) > UniformWidth then
+          begin
+            ReducedFont := Max(MinimumReadableFontSize,
+              Max(Other.FontSize, 9) * UniformWidth /
+              Max(TextWidthEstimate(Other), 1));
+            if ReducedFont < Max(Other.FontSize, 9) then
+              Other.PlannedFontSize := ReducedFont;
+          end;
+          ClusterOffset := ClusterOffset + UniformWidth + ClusterGap;
+        end;
+      finally
+        Cluster.Free;
+      end;
+    end;
+  finally
+    PackedButtons.Free;
   end;
 
   { Phase 3 - resolve collisions against the planned geometry, repeatedly, so a
