@@ -62,6 +62,7 @@ type
     FApplicationId: string;
     FSourceLanguage: string;
     FTargetLanguage: string;
+    FOriginNote: string;
     FTerms: TObjectList<TProjectGlossaryTerm>;
     function TermMatches(const ATerm: TProjectGlossaryTerm;
       const AEntry: TTranslationEntry): Boolean;
@@ -75,6 +76,11 @@ type
     property ApplicationId: string read FApplicationId write FApplicationId;
     property SourceLanguage: string read FSourceLanguage write FSourceLanguage;
     property TargetLanguage: string read FTargetLanguage write FTargetLanguage;
+    { What the catalog records about where a translation came from. A shared
+      language dictionary and a project's own glossary both apply terms the
+      same way, and a reviewer reading the audit trail afterwards is entitled
+      to know which of the two spoke. }
+    property OriginNote: string read FOriginNote write FOriginNote;
     property Terms: TObjectList<TProjectGlossaryTerm> read FTerms;
   end;
 
@@ -185,6 +191,7 @@ end;
 constructor TProjectGlossary.Create;
 begin
   inherited Create;
+  FOriginNote := 'Applied from the approved project glossary.';
   FTerms := TObjectList<TProjectGlossaryTerm>.Create(True);
 end;
 
@@ -240,7 +247,7 @@ begin
     Entry.TranslatedText := Term.TargetText;
     Entry.TranslationOrigin := torProjectGlossary;
     Entry.TranslationConfidence := 'high';
-    Entry.TranslationReviewNote := 'Applied from the approved project glossary.';
+    Entry.TranslationReviewNote := FOriginNote;
     Entry.Status := tsMachineTranslated;
     Inc(Result);
   end;

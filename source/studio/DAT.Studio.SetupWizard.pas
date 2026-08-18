@@ -238,6 +238,7 @@ uses
   FMX.Platform,
   DAT.Core.CatalogJson,
   DAT.Core.Glossary,
+  DAT.Core.SharedDictionary,
   DAT.Core.ProjectDetection,
   DAT.Core.RuntimePack,
   DAT.Core.Terminology,
@@ -1569,6 +1570,8 @@ var
   Validation: TCatalogValidationResult;
   Glossary: TProjectGlossary;
   AppliedGlossaryCount: Integer;
+  SharedCount: Integer;
+  ContributedCount: Integer;
   ProjectGlossaryFileName: string;
 begin
   FFinalProcessing := True;
@@ -1619,12 +1622,28 @@ begin
         Glossary := TProjectGlossary.LoadFromFile(StagedGlossaryFileName)
       else if TFile.Exists(ProjectGlossaryFileName) then
         Glossary := TProjectGlossary.LoadFromFile(ProjectGlossaryFileName);
+      { The shared dictionary speaks first and the project glossary second, so
+        anything this project has settled for itself overrides what the shared
+        one believes. Everything already reviewed or approved is left alone by
+        both. }
+      SharedCount := TSharedDictionary.ApplyToCatalog(
+        FCatalog.Locale.LanguageCode, FCatalog);
+      if SharedCount > 0 then
+        AddProgress(Format('%d translation(s) applied from the shared %s dictionary.',
+          [SharedCount, FCatalog.Locale.LanguageCode]));
       if Glossary <> nil then
       begin
         AppliedGlossaryCount := Glossary.ApplyToCatalog(FCatalog);
         Glossary.SaveToFile(ProjectGlossaryFileName);
         AddProgress(Format('%d translation(s) applied from the approved project glossary.',
           [AppliedGlossaryCount]));
+        { Approved wording earned here becomes available to every later
+          application, which is the whole point of a shared dictionary. }
+        ContributedCount := TSharedDictionary.Contribute(
+          FCatalog.Locale.LanguageCode, Glossary);
+        if ContributedCount > 0 then
+          AddProgress(Format('%d approved term(s) contributed to the shared %s dictionary.',
+            [ContributedCount, FCatalog.Locale.LanguageCode]));
       end;
     finally
       Glossary.Free;
@@ -1749,6 +1768,13 @@ begin
         Glossary.SaveToFile(ProjectGlossaryFileName);
         AddProgress(Format('%d translation(s) applied from the completed in-Wizard review.',
           [AppliedGlossaryCount]));
+        { Terms approved during the review are the best-vetted wording the
+          product ever sees, so they travel too. }
+        ContributedCount := TSharedDictionary.Contribute(
+          FCatalog.Locale.LanguageCode, Glossary);
+        if ContributedCount > 0 then
+          AddProgress(Format('%d reviewed term(s) contributed to the shared %s dictionary.',
+            [ContributedCount, FCatalog.Locale.LanguageCode]));
       end;
     finally
       Glossary.Free;

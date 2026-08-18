@@ -119,6 +119,7 @@ type
   private
     FApplicationId: string;
     FLanguageCode: string;
+    FFramework: TTargetFramework;
     FControls: TObjectList<TLayoutControl>;
     FFindings: TObjectList<TLocalizationFinding>;
     FProposals: TObjectList<TLayoutProposal>;
@@ -137,6 +138,11 @@ type
     function Summary: string;
     property ApplicationId: string read FApplicationId write FApplicationId;
     property LanguageCode: string read FLanguageCode write FLanguageCode;
+    { Which framework will draw these controls. Text is measured the way that
+      framework measures it, so planning a VCL form with FireMonkey metrics -
+      which is what happened before this was carried through - sizes every
+      caption from the wrong ruler. }
+    property Framework: TTargetFramework read FFramework write FFramework;
     property Controls: TObjectList<TLayoutControl> read FControls;
     property Findings: TObjectList<TLocalizationFinding> read FFindings;
     property Proposals: TObjectList<TLayoutProposal> read FProposals;
@@ -184,8 +190,8 @@ uses
   System.StrUtils,
   System.SysUtils,
   System.UITypes,
-  FMX.TextLayout,
   DAT.Core.CatalogJson,
+  DAT.Review.TextMeasurement,
   DAT.Scan.TextCodec;
 
 type
@@ -370,6 +376,7 @@ end;
 constructor TLocalizationReview.Create;
 begin
   inherited Create;
+  FFramework := tfUnknown;
   FControls := TObjectList<TLayoutControl>.Create(True);
   FFindings := TObjectList<TLocalizationFinding>.Create(True);
   FProposals := TObjectList<TLayoutProposal>.Create(True);
@@ -490,7 +497,22 @@ begin
           else if MatchText(Prop, ['Height', 'Size.Height', 'ClientHeight']) then
           begin Frame.Control.Height := Number; Frame.Control.HasSize := True; end
           else if MatchText(Prop, ['TextSettings.Font.Size', 'Font.Size']) then
-            Frame.Control.FontSize := Number;
+            Frame.Control.FontSize := Number
+          { A VCL form records a font by height in pixels, negative to mean the
+            character height rather than the cell height, and that is what the
+            designer writes: Font.Size appears in a .dfm only when someone has
+            typed it. Reading only Font.Size meant every VCL control fell back
+            to the twelve point default above, so text was planned larger than
+            it is drawn and boxes were sized for something nobody sees. At the
+            standard ninety-six dots per inch a point is four thirds of a
+            pixel. }
+          else if MatchText(Prop, ['Font.Height']) then
+          begin
+            if Number < 0 then
+              Frame.Control.FontSize := -Number * 72 / 96
+            else if Number > 0 then
+              Frame.Control.FontSize := Number * 72 / 96;
+          end;
         end
         else if SameText(Prop, 'Align') then
           Frame.Control.Align := Value
@@ -719,11 +741,15 @@ var
       Result := [AText];
   end;
 
-  { Width of one run of text, without the control's padding. }
+  { Width of one run of text, without the control's padding.
+
+    Measured by whichever framework will draw it. Everything else in this
+    routine is arithmetic on top of this number, so this is the single point
+    where planning meets the thing that actually renders. }
   function MeasuredTextWidth(const AControl: TLayoutControl;
     const AText: string): Double;
   var
-    Layout: TTextLayout;
+    Measurer: ITextMeasurer;
     PointSize: Double;
   begin
     if Trim(AText) = '' then
@@ -731,24 +757,14 @@ var
     PointSize := AControl.PlannedFontSize;
     if PointSize <= 0 then
       PointSize := AControl.FontSize;
-    Layout := TTextLayoutManager.DefaultTextLayout.Create;
-    try
-      Layout.BeginUpdate;
-      Layout.Text := AText;
-      Layout.Font.Size := Max(PointSize, 9);
-      { Bold text is materially wider than regular at the same size, and
-        measuring it as regular reports a caption fitting a box it overruns.
-        The hero banner is the plain case: measured light it fits its width,
-        drawn bold it wraps to a second line inside a box built for one, and
-        loses the top and bottom of both. }
-      if AControl.FontBold then
-        Layout.Font.Style := Layout.Font.Style + [TFontStyle.fsBold];
-      Layout.WordWrap := False;
-      Layout.EndUpdate;
-      Result := Layout.Width;
-    finally
-      Layout.Free;
-    end;
+    Measurer := TTextMeasurement.Measurer(AReview.Framework);
+    { No measurer at all means no framework unit was linked into whatever is
+      running this. Returning zero would read as "every caption fits", which is
+      the one answer guaranteed to be wrong, so the estimate below stands in:
+      it is crude, but it is the right order of magnitude and it errs wide. }
+    if Measurer = nil then
+      Exit(Length(AText) * Max(PointSize, 9) * 0.6);
+    Result := Measurer.TextWidth(AText, PointSize, AControl.FontBold);
   end;
 
   function TextWidthEstimate(const AControl: TLayoutControl): Double;
@@ -2874,6 +2890,7 @@ begin
   try
     Result.ApplicationId := ACatalog.ApplicationId;
     Result.LanguageCode := ACatalog.Locale.LanguageCode;
+    Result.Framework := ACatalog.Framework;
     for Entry in ACatalog.Entries do
       case Entry.TextOwnership of
         tokRuntimeWired: Inc(Result.FRuntimeWiredCount);

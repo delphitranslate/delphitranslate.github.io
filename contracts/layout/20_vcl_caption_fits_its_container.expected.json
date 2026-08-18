@@ -1,0 +1,12 @@
+{
+  "description": "A VCL caption is measured the way Windows draws it, not the way FireMonkey does. The Spanish caption is far longer than the English one, so it must be given a box that holds it, and that box must stay inside the panel it lives in. Planned with FireMonkey metrics this caption reported as fitting a box it overran.",
+  "catalog_file": "20_vcl_caption_fits_its_container.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "chkEnable",
+      "text_fits": true,
+      "inside_control": "pnlOptions"
+    }
+  ]
+}

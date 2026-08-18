@@ -26,7 +26,10 @@ uses
   DAT.Core.Types in '..\..\source\core\DAT.Core.Types.pas',
   DAT.Core.CatalogJson in '..\..\source\core\DAT.Core.CatalogJson.pas',
   DAT.Scan.TextCodec in '..\..\source\scan\DAT.Scan.TextCodec.pas',
-  DAT.Review.Localization in '..\..\source\review\DAT.Review.Localization.pas';
+  DAT.Review.Localization in '..\..\source\review\DAT.Review.Localization.pas',
+  DAT.Review.TextMeasurement in '..\..\source\review\DAT.Review.TextMeasurement.pas',
+  DAT.Review.TextMeasurement.GDI in '..\..\source\review\DAT.Review.TextMeasurement.GDI.pas',
+  DAT.Review.TextMeasurement.FMX in '..\..\source\review\DAT.Review.TextMeasurement.FMX.pas';
 
 var
   Failures: TStringList;
@@ -51,23 +54,23 @@ begin
     Result := 3;
 end;
 
+{ Which framework the fixture under test describes. A contract that judged a
+  VCL layout with FireMonkey metrics would fail a correct plan and pass an
+  incorrect one, because the planner and the referee would be measuring with
+  different rulers. }
+var
+  ContractFramework: TTargetFramework = tfFireMonkey;
+
 function WidthOfText(const AText: string; const APointSize: Double): Double;
 var
-  Layout: TTextLayout;
+  Measurer: ITextMeasurer;
 begin
   if Trim(AText) = '' then
     Exit(0);
-  Layout := TTextLayoutManager.DefaultTextLayout.Create;
-  try
-    Layout.BeginUpdate;
-    Layout.Text := AText;
-    Layout.Font.Size := Max(APointSize, 1);
-    Layout.WordWrap := False;
-    Layout.EndUpdate;
-    Result := Layout.Width;
-  finally
-    Layout.Free;
-  end;
+  Measurer := TTextMeasurement.Measurer(ContractFramework);
+  if Measurer = nil then
+    Exit(0);
+  Result := Measurer.TextWidth(AText, Max(APointSize, 1), False);
 end;
 
 function PlannedFontOf(const AControl: TLayoutControl): Double;
@@ -237,6 +240,7 @@ var
   FormName, ControlName, Why: string;
   Control: TLayoutControl;
   Expected: Double;
+  Fits: Boolean;
 begin
   FormName := AExpectation.GetValue<string>('form', '');
   ControlName := AExpectation.GetValue<string>('name', '');
@@ -249,8 +253,13 @@ begin
   end;
 
   if FlagOf(AExpectation, 'text_fits') then
-    Check(TextFits(Control, Why),
-      Format('%s.%s does not hold its text: %s', [FormName, ControlName, Why]));
+  begin
+    { Called on its own line: as one expression the reason was read before the
+      test had written it, so every failure of this kind reported blank. }
+    Fits := TextFits(Control, Why);
+    Check(Fits, Format('%s.%s does not hold its text: %s',
+      [FormName, ControlName, Why]));
+  end;
 
   if FlagOf(AExpectation, 'right_edge_unchanged') then
     Check(Abs((Control.PlannedLeft + Control.PlannedWidth) -
@@ -479,6 +488,7 @@ begin
 
         Catalog := TCatalogJson.LoadFromFile(TemporaryCatalog);
         try
+          ContractFramework := Catalog.Framework;
           Review := TLocalizationReviewer.Analyze(Catalog);
           try
             FormName := '';

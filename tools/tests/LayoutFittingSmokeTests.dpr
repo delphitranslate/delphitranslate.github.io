@@ -31,7 +31,10 @@ uses
   DAT.Core.Types in '..\..\source\core\DAT.Core.Types.pas',
   DAT.Core.CatalogJson in '..\..\source\core\DAT.Core.CatalogJson.pas',
   DAT.Scan.TextCodec in '..\..\source\scan\DAT.Scan.TextCodec.pas',
-  DAT.Review.Localization in '..\..\source\review\DAT.Review.Localization.pas';
+  DAT.Review.Localization in '..\..\source\review\DAT.Review.Localization.pas',
+  DAT.Review.TextMeasurement in '..\..\source\review\DAT.Review.TextMeasurement.pas',
+  DAT.Review.TextMeasurement.GDI in '..\..\source\review\DAT.Review.TextMeasurement.GDI.pas',
+  DAT.Review.TextMeasurement.FMX in '..\..\source\review\DAT.Review.TextMeasurement.FMX.pas';
 
 type
   TFormIssues = record
