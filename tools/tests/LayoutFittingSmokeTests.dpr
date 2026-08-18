@@ -209,16 +209,51 @@ end;
 
 { A caption reduced far below the size it was drawn at reads as noticeably
   smaller than everything around it, which is a defect whether or not the text
-  happens to fit. }
+  happens to fit.
+
+  The comparison the reader actually makes is with the neighbours, so a row
+  that shrinks together does not trip this: six navigator captions all at the
+  same smaller size still read as one row, and holding them at a size that
+  clips their text would be the worse fault. What must never happen is a
+  control shrinking alone while the row around it keeps its size. Legibility
+  still has a floor, and that applies to a set as much as to a lone caption. }
 function FontReducedTooFar(const AControl: TLayoutControl;
+  const AControls: TList<TLayoutControl>;
   out APlanned, ADesigned: Double): Boolean;
 const
   MinimumRatio = 0.85;
+  RowTolerance = 3;
+  LegibilityFloor = 9;
+var
+  Other: TLayoutControl;
+  SharedWithRow: Boolean;
+  Neighbours: Integer;
 begin
   APlanned := AControl.PlannedFontSize;
   ADesigned := AControl.FontSize;
   Result := (ADesigned > 0) and (APlanned > 0) and
     (APlanned < ADesigned * MinimumRatio - 0.01);
+  if not Result then
+    Exit;
+  if APlanned < LegibilityFloor - 0.01 then
+    Exit;
+  SharedWithRow := True;
+  Neighbours := 0;
+  for Other in AControls do
+  begin
+    if (Other = AControl) or (Other.TranslatedText = '') then
+      Continue;
+    if not SameText(Other.ParentName, AControl.ParentName) then
+      Continue;
+    if (Abs(Other.Top - AControl.Top) > RowTolerance) or
+      (Abs(Other.Height - AControl.Height) > RowTolerance) then
+      Continue;
+    Inc(Neighbours);
+    if Abs(Other.PlannedFontSize - APlanned) > 0.05 then
+      SharedWithRow := False;
+  end;
+  if (Neighbours > 0) and SharedWithRow then
+    Result := False;
 end;
 
 function Positioned(const AControl: TLayoutControl): Boolean;
@@ -357,7 +392,7 @@ begin
                      Copy(Control.TranslatedText, 1, 42)]));
                 end;
 
-                if FontReducedTooFar(Control, NeededSize, HaveSize) then
+                if FontReducedTooFar(Control, Controls, NeededSize, HaveSize) then
                 begin
                   Inc(Issues.ShrunkText);
                   Writeln(Format('  FONT    %s.%s reduced to %.1f from %.1f (%.0f%% of designed)  "%s"',

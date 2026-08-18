@@ -558,7 +558,6 @@ const
   MinimumWrapWidth = 60;
   { More lines than this in a caption reads as a cramped block rather than a
     label, and is where shrinking the text becomes the better trade. }
-  MaximumComfortableLines = 2;
   { Never shrink text past the point where it stops being comfortable to read. }
   MinimumReadableFontSize = 9;
   { Buttons further apart than this were never laid out as one row. }
@@ -621,6 +620,10 @@ var
   LeftRoom: Double;
   ClusterOverlaysDesign: Boolean;
   Candidate: TLayoutControl;
+  SetFont, UniformFont, UniformHeight, DesignedPitch: Double;
+  SetFitsOneLine, RowCanWrap: Boolean;
+  CaptionRow: TList<TLayoutControl>;
+  PitchedCaptions: TList<TLayoutControl>;
 
   { Measure the translated text with the same engine that renders it at
     runtime. Character-count arithmetic cannot predict real glyph widths, so
@@ -713,6 +716,42 @@ var
       PointSize := AControl.FontSize;
     Result := Max(PointSize, 9) * 1.65;
   end;
+
+  { The height the translated text really occupies at the width and size we
+    have planned for it. Granting a control fewer lines than its text needs
+    does not shorten the text, it clips it, and a caption drawn right to left
+    loses its beginning rather than its end. }
+  function RequiredHeightFor(const AControl: TLayoutControl;
+    const AWidth: Double): Double;
+  begin
+    Result := WrappedLineCount(AControl, AWidth) * MeasuredLineHeight(AControl) +
+      2 * PaddingVertical(AControl);
+  end;
+
+  { The point size at which this control's text fits on one line inside the
+    given width. Only the glyphs shrink with the size: the padding either side
+    is fixed, so scaling the whole measured width leaves the text a fraction
+    too wide and it wraps anyway, which is how one button in a row came to be
+    twice the height of its neighbours. }
+  function FontFittingOneLine(const AControl: TLayoutControl;
+    const AWidth: Double): Double;
+  var
+    GlyphWidth, Room, Current: Double;
+  begin
+    Current := AControl.PlannedFontSize;
+    if Current <= 0 then
+      Current := AControl.FontSize;
+    Current := Max(Current, 9);
+    GlyphWidth := TextWidthEstimate(AControl) -
+      2 * PaddingHorizontal(AControl);
+    Room := AWidth - 2 * PaddingHorizontal(AControl);
+    if (GlyphWidth <= 0) or (Room <= 0) then
+      Exit(Current);
+    if GlyphWidth <= Room then
+      Exit(Current);
+    Result := Current * Room / GlyphWidth;
+  end;
+
 
   function ParentWidthFor(const AControl: TLayoutControl): Double;
   var
@@ -1059,9 +1098,19 @@ var
     Available := Max(Available, AControl.Height);
     Result := Max(1, Floor((Available - 2 * PaddingVertical(AControl)) /
       Max(LineHeight, 1)));
-    { Never fewer than the design already tolerated, and never so many that a
-      caption turns into a paragraph. }
-    Result := Max(Result, MaximumComfortableLines);
+    { Never fewer than the control's own box already holds: that height is
+      room it certainly has, whatever stands beneath it. A flat floor of two
+      lines instead claimed a second line existed wherever it was asked,
+      including directly above a row of buttons with eighteen pixels of
+      clearance, and every later decision believed it: the caption was given
+      wrapping on the strength of a line it could not have, the separation
+      pass took the height back to keep it off the buttons, and what remained
+      was a caption wrapped, shrunk and cut off at once. Measure the room and
+      report it. }
+    Result := Max(1, Max(Result,
+      Floor((AControl.Height - 2 * PaddingVertical(AControl)) /
+        Max(LineHeight, 1))));
+    { Never so many that a caption turns into a paragraph. }
     Result := Min(Result, MaximumWrappedLines);
   end;
 
@@ -1351,6 +1400,133 @@ var
         Result.Clear;
         Break;
       end;
+  end;
+
+  { The buttons drawn as a column with this control: same parent, same left
+    edge, and close enough one above the next to have been placed as a set.
+    A stacked pair is as much a set as a row is, and reads worse when its
+    members differ, because their left edges line up and their right edges
+    then visibly do not. Ordered top to bottom. }
+  function CollectButtonStack(const AControl: TLayoutControl): TList<TLayoutControl>;
+  var
+    Candidate: TLayoutControl;
+    Index, Scan: Integer;
+    Swap: TLayoutControl;
+  begin
+    Result := TList<TLayoutControl>.Create;
+    for Candidate in AReview.Controls do
+    begin
+      if not IsButtonLike(Candidate) or not Candidate.HasPosition or
+        not Candidate.HasSize or not CanMoveControl(Candidate) then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if Abs(Candidate.Left - AControl.Left) > DesignedOverlapTolerance then
+        Continue;
+      Result.Add(Candidate);
+    end;
+    for Index := 0 to Result.Count - 2 do
+      for Scan := 0 to Result.Count - 2 - Index do
+        if Result[Scan].Top > Result[Scan + 1].Top then
+        begin
+          Swap := Result[Scan];
+          Result[Scan] := Result[Scan + 1];
+          Result[Scan + 1] := Swap;
+        end;
+    { Two buttons at opposite ends of a form share a left edge by accident,
+      not by design. }
+    for Index := Result.Count - 1 downto 1 do
+      if Result[Index].Top -
+        (Result[Index - 1].Top + Result[Index - 1].Height) >
+        MaximumClusterGap then
+      begin
+        Result.Clear;
+        Break;
+      end;
+  end;
+
+  { The captions drawn as one evenly spaced row with this control: same
+    parent, same designed top and height, and a constant step from each to the
+    next. The even step is the evidence that they were positioned as a set
+    over something rather than placed one at a time. Returns them in the order
+    the designer placed them, and reports the step. }
+  { True when this control was drawn level with a field on its own row. The
+    pairing is how a reader tells which box a caption belongs to, and it is
+    read vertically: the words level with the box are the words for that box.
+    A caption with a partner therefore cannot be slid down the form to make
+    room for something above it, however much room there is below. }
+  function IsPairedWithField(const AControl: TLayoutControl): Boolean;
+  var
+    Candidate: TLayoutControl;
+  begin
+    Result := False;
+    if IsInputControl(AControl) or IsButtonLike(AControl) then
+      Exit;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize or not IsInputControl(Candidate) then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if Abs((Candidate.Top + Candidate.Height / 2) -
+        (AControl.Top + AControl.Height / 2)) <=
+        Max(8, Max(Candidate.Height, AControl.Height) * 0.55) then
+        Exit(True);
+    end;
+  end;
+
+  function CollectPitchedCaptionRow(const AControl: TLayoutControl;
+    out APitch: Double): TList<TLayoutControl>;
+  var
+    Candidate: TLayoutControl;
+    Index, Scan: Integer;
+    Swap: TLayoutControl;
+    Step: Double;
+  begin
+    APitch := 0;
+    Result := TList<TLayoutControl>.Create;
+    for Candidate in AReview.Controls do
+    begin
+      if not Candidate.HasPosition or not Candidate.HasSize or
+        IsButtonLike(Candidate) or IsInputControl(Candidate) then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if (Abs(Candidate.Top - AControl.Top) > DesignedOverlapTolerance) or
+        (Abs(Candidate.Height - AControl.Height) > DesignedOverlapTolerance) then
+        Continue;
+      Result.Add(Candidate);
+    end;
+    if Result.Count < 3 then
+      Exit;
+    for Index := 0 to Result.Count - 2 do
+      for Scan := 0 to Result.Count - 2 - Index do
+        if Result[Scan].Left > Result[Scan + 1].Left then
+        begin
+          Swap := Result[Scan];
+          Result[Scan] := Result[Scan + 1];
+          Result[Scan + 1] := Swap;
+        end;
+    APitch := Result[1].Left - Result[0].Left;
+    if APitch <= 0 then
+    begin
+      Result.Clear;
+      Exit;
+    end;
+    { One uneven step and this was never a pitched row. }
+    for Index := 1 to Result.Count - 1 do
+    begin
+      Step := Result[Index].Left - Result[Index - 1].Left;
+      if Abs(Step - APitch) > DesignedOverlapTolerance then
+      begin
+        Result.Clear;
+        Exit;
+      end;
+    end;
   end;
 
   function PositionPropertyName(const AControl: TLayoutControl;
@@ -1688,28 +1864,200 @@ begin
         if ClusterOverlaysDesign then
           Continue;
 
+        { A row of buttons is read as one control. One member a size smaller
+          than the rest, or twice the height because its caption wrapped,
+          reads as a fault however carefully the boxes line up. So the row
+          settles on a single size: the smallest any member needs to keep its
+          text on the one line it was drawn for. }
+        UniformFont := 0;
+        for Other in Cluster do
+        begin
+          SetFont := Max(FontFittingOneLine(Other, UniformWidth),
+            SmallestFontFor(Other));
+          if (UniformFont = 0) or (SetFont < UniformFont) then
+            UniformFont := SetFont;
+        end;
+
         ClusterOffset := ClusterLeft;
         for Other in Cluster do
         begin
           Other.PlannedLeft := ClusterOffset;
           Other.PlannedWidth := UniformWidth;
-          Other.PlannedWordWrap := True;
-          if TextWidthEstimate(Other) > UniformWidth then
-          begin
-            ReducedFont := Max(SmallestFontFor(Other),
-              Max(Other.FontSize, 9) * UniformWidth /
-              Max(TextWidthEstimate(Other), 1));
-            if ReducedFont < Max(Other.FontSize, 9) then
-              Other.PlannedFontSize := ReducedFont;
-          end;
+          if UniformFont < Max(Other.FontSize, 9) then
+            Other.PlannedFontSize := UniformFont;
           ClusterOffset := ClusterOffset + UniformWidth + ClusterGap;
         end;
+
+        { Wrapping belongs to the row, not to its longest caption. Where the
+          shared size keeps every member on one line the row keeps the height
+          it was drawn with; where one member still needs two lines they all
+          take the same height, so the row stays level either way. }
+        SetFitsOneLine := True;
+        for Other in Cluster do
+          if WrappedLineCount(Other, UniformWidth) > 1 then
+            SetFitsOneLine := False;
+        UniformHeight := 0;
+        for Other in Cluster do
+        begin
+          Other.PlannedWordWrap := not SetFitsOneLine;
+          if not SetFitsOneLine then
+            UniformHeight := Max(UniformHeight,
+              RequiredHeightFor(Other, UniformWidth));
+        end;
+        if not SetFitsOneLine then
+          for Other in Cluster do
+            Other.PlannedHeight := Max(Other.PlannedHeight,
+              Ceil(UniformHeight));
+      finally
+        Cluster.Free;
+      end;
+    end;
+
+    { The same courtesy for a stacked column. Its members share a left edge,
+      so any difference in width shows along their right edges as a ragged
+      step, and a column has the whole width beside it to grow into: there is
+      no reason for one button in it to be wider than the next. }
+    for Control in AReview.Controls do
+    begin
+      if PackedButtons.IndexOf(Control) >= 0 then
+        Continue;
+      if not IsButtonLike(Control) or not Control.HasPosition or
+        not Control.HasSize or not CanMoveControl(Control) then
+        Continue;
+      Cluster := CollectButtonStack(Control);
+      try
+        if Cluster.Count < 2 then
+          Continue;
+        for Other in Cluster do
+          PackedButtons.Add(Other);
+
+        UniformWidth := 0;
+        for Other in Cluster do
+          UniformWidth := Max(UniformWidth,
+            Max(Other.Width, TextWidthEstimate(Other)));
+        UniformWidth := Min(UniformWidth,
+          ContentRightBound(Cluster[0]) - Cluster[0].Left);
+
+        UniformFont := 0;
+        for Other in Cluster do
+        begin
+          SetFont := Max(FontFittingOneLine(Other, UniformWidth),
+            SmallestFontFor(Other));
+          if (UniformFont = 0) or (SetFont < UniformFont) then
+            UniformFont := SetFont;
+        end;
+
+        for Other in Cluster do
+        begin
+          Other.PlannedWidth := UniformWidth;
+          if UniformFont < Max(Other.FontSize, 9) then
+            Other.PlannedFontSize := UniformFont;
+        end;
+
+        SetFitsOneLine := True;
+        for Other in Cluster do
+          if WrappedLineCount(Other, UniformWidth) > 1 then
+            SetFitsOneLine := False;
+        UniformHeight := 0;
+        for Other in Cluster do
+        begin
+          Other.PlannedWordWrap := not SetFitsOneLine;
+          if not SetFitsOneLine then
+            UniformHeight := Max(UniformHeight,
+              RequiredHeightFor(Other, UniformWidth));
+        end;
+        if not SetFitsOneLine then
+          for Other in Cluster do
+            Other.PlannedHeight := Max(Other.PlannedHeight,
+              Ceil(UniformHeight));
       finally
         Cluster.Free;
       end;
     end;
   finally
     PackedButtons.Free;
+  end;
+
+  { Phase 2c - a row of captions laid out at an even pitch keeps that pitch.
+    Captions spaced evenly above a row of buttons are not placed where they
+    happen to fit, they are placed over the thing each one names, and the
+    reader checks them against the buttons rather than against each other.
+    Sizing them one at a time walks them off their marks and the drift
+    accumulates along the row, so the last caption ends up furthest from the
+    control it belongs to. Hold the whole row where it was drawn and let the
+    text size settle to fit the space each one has. }
+  PitchedCaptions := TList<TLayoutControl>.Create;
+  try
+    for Control in AReview.Controls do
+    begin
+      if PitchedCaptions.IndexOf(Control) >= 0 then
+        Continue;
+      if not Control.HasPosition or not Control.HasSize or
+        IsButtonLike(Control) or IsInputControl(Control) then
+        Continue;
+      CaptionRow := CollectPitchedCaptionRow(Control, DesignedPitch);
+      try
+        if CaptionRow.Count < 3 then
+          Continue;
+        for Other in CaptionRow do
+          PitchedCaptions.Add(Other);
+
+        { How far the shared size may fall. The modest floor protects a
+          control from reading smaller than everything around it, which is a
+          real risk when one caption shrinks alone and none of its neighbours
+          do. A row shrinking together does not have that problem: it stays
+          consistent with itself, which is the whole point of holding it as a
+          set. So keep the modest floor while another line is still available
+          and wrapping remains an option, and lift it when it is not. A
+          caption row sitting directly above the buttons it names has nowhere
+          to put a second line, and there the choice is between a slightly
+          smaller row and a clipped one. }
+        RowCanWrap := True;
+        for Other in CaptionRow do
+          if LinesFittingBelow(Other) < 2 then
+            RowCanWrap := False;
+        UniformFont := 0;
+        for Other in CaptionRow do
+        begin
+          SetFont := FontFittingOneLine(Other, Other.Width);
+          if RowCanWrap then
+            SetFont := Max(SetFont, SmallestFontFor(Other))
+          else
+            SetFont := Max(SetFont, MinimumReadableFontSize);
+          if (UniformFont = 0) or (SetFont < UniformFont) then
+            UniformFont := SetFont;
+        end;
+
+        for Other in CaptionRow do
+        begin
+          Other.PlannedLeft := Other.Left;
+          Other.PlannedWidth := Other.Width;
+          if UniformFont < Max(Other.FontSize, 9) then
+            Other.PlannedFontSize := UniformFont;
+        end;
+
+        SetFitsOneLine := True;
+        for Other in CaptionRow do
+          if WrappedLineCount(Other, Other.Width) > 1 then
+            SetFitsOneLine := False;
+        UniformHeight := 0;
+        for Other in CaptionRow do
+        begin
+          Other.PlannedWordWrap := not SetFitsOneLine;
+          if not SetFitsOneLine then
+            UniformHeight := Max(UniformHeight,
+              RequiredHeightFor(Other, Other.Width));
+        end;
+        if not SetFitsOneLine then
+          for Other in CaptionRow do
+            Other.PlannedHeight := Max(Other.PlannedHeight,
+              Ceil(UniformHeight));
+      finally
+        CaptionRow.Free;
+      end;
+    end;
+  finally
+    PitchedCaptions.Free;
   end;
 
   { Phase 2a - make sure every planned box can actually hold its text. The
@@ -1721,20 +2069,29 @@ begin
   for Control in AReview.Controls do
   begin
     if (Control.TranslatedText = '') or not Control.HasSize or
-      not Control.PlannedWordWrap or (Control.PlannedWidth <= 0) then
+      (Control.PlannedWidth <= 0) then
       Continue;
-    EffectiveFont := Control.PlannedFontSize;
-    if EffectiveFont <= 0 then
-      EffectiveFont := Max(Control.FontSize, 9);
+    { A control that sizes itself belongs here too. Switching that off is what
+      makes its height final, and a height left at the single line the form was
+      drawn for clips away everything the translation added below it. The
+      control had been quietly growing to fit; once it is pinned, the room has
+      to be granted deliberately. }
+    if not (Control.PlannedWordWrap or Control.AutoSize) then
+      Continue;
     { Text wraps inside the padding, not inside the whole control, so count the
       lines against the room the text actually gets. Measuring against the full
       width reports fewer lines than will really appear and buys too little
       height for them. }
     WrappedLines := WrappedLineCount(Control, Control.PlannedWidth);
     if WrappedLines > 1 then
+    begin
+      { Pinning a control to a width its text overruns, without letting the
+        text wrap, does not shorten the text: it cuts it off at the edge, and
+        a caption drawn right to left loses its beginning rather than its end. }
+      Control.PlannedWordWrap := True;
       Control.PlannedHeight := Max(Control.PlannedHeight,
-        Ceil(WrappedLines * EffectiveFont * 1.65 +
-          2 * PaddingVertical(Control)));
+        Ceil(RequiredHeightFor(Control, Control.PlannedWidth)));
+    end;
   end;
 
   { Phase 3 - resolve collisions against the planned geometry, repeatedly, so a
@@ -1851,7 +2208,7 @@ begin
             below, take the height back from whatever grew instead. Landing it
             on a third control is no better than leaving it alone either, so
             check the destination is clear before using it. }
-          if CanMoveControl(Follower) and
+          if CanMoveControl(Follower) and not IsPairedWithField(Follower) and
             (RequiredTop - Follower.Top <= MaximumDrift) and
             ((ContentBottomBound(Follower) <= 0) or
              (RequiredTop + Follower.PlannedHeight <=
