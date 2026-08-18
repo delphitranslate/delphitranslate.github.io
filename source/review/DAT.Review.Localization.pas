@@ -2697,9 +2697,18 @@ begin
         own coordinates. }
       ClampLeft := Min(ContainerInset, Control.Left);
       ClampTop := Min(ContainerInset, Control.Top);
-      ClampRight := Max(ClampContainer.Width - ContainerInset,
-        Control.Left + Control.Width);
-      ClampBottom := Max(ClampContainer.Height - ContainerInset,
+      { Against the frame as it will be, not as it was drawn. The pass above
+        enlarges a frame precisely so its contents fit; measuring the contents
+        against the old size here undoes that work in the same breath, and the
+        control is pulled back to a box that no longer exists. The scheduling
+        check box was the case: its panel was grown from thirty-three to
+        sixty-four to hold two lines of Spanish, and the check box was then
+        clamped to twenty-five because that is what fitted the panel before it
+        grew, so the second line was cut off inside a panel with room to spare. }
+      ClampRight := Max(Max(ClampContainer.PlannedWidth, ClampContainer.Width) -
+        ContainerInset, Control.Left + Control.Width);
+      ClampBottom := Max(Max(ClampContainer.PlannedHeight,
+        ClampContainer.Height) - ContainerInset,
         Control.Top + Control.Height);
     end
     else
@@ -2709,9 +2718,11 @@ begin
         Continue;
       ClampLeft := Min(ClampContainer.Left + ContainerInset, Control.Left);
       ClampTop := Min(ClampContainer.Top + ContainerInset, Control.Top);
-      ClampRight := Max(ClampContainer.Left + ClampContainer.Width -
+      ClampRight := Max(ClampContainer.Left +
+        Max(ClampContainer.PlannedWidth, ClampContainer.Width) -
         ContainerInset, Control.Left + Control.Width);
-      ClampBottom := Max(ClampContainer.Top + ClampContainer.Height -
+      ClampBottom := Max(ClampContainer.Top +
+        Max(ClampContainer.PlannedHeight, ClampContainer.Height) -
         ContainerInset, Control.Top + Control.Height);
     end;
 

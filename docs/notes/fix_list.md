@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.119.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.120.
 
 ## How to read the status of an item
 
@@ -313,6 +313,32 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### A frame was enlarged to hold its contents, then its contents were pulled back
+**Fixed:** 2026-08-18, build .120.
+**Raised:** 2026-08-18, "the habilitar programacion container needs to be
+enlarged in height to fit the text".
+
+Phase 3a enlarges a frame so that its contents fit. Phase 3b then holds every
+control inside its frame, and measured against `ClampContainer.Width` and
+`.Height` - the size the frame was *drawn* at, not the size it had just been
+given. The second pass undid the first in the same breath.
+
+The scheduling check box is the case. Its panel was grown from 33 to 64 to hold
+two lines of Spanish; the check box was then clamped back to 25, because that
+is what fitted the panel before it grew. The second line was cut off inside a
+panel with room to spare, and the pack shipped no height rule for the check box
+at all, so nothing at run time could have rescued it.
+
+Traced by instrumenting the phases rather than reasoning about them:
+
+```
+after phase 2   h=50   after 2a  h=56   after 3a  h=56   after 3b  h=25
+```
+
+The clamp now measures against the larger of the frame's planned and designed
+size. The check box comes out 144 by 56 at its full designed text size, inside
+a panel of 64.
 
 ### The runtime carries a second layout engine, and it was overruling the plan
 **Fixed:** 2026-08-18, build .119.
