@@ -36,6 +36,11 @@ const
     '"frmVCLSample.cmbDateRange.Items.Strings.4":"Dieses Jahr",' +
     '"frmVCLSample.memInstructions.Lines.Strings.0":"Erste Zeile",' +
     '"frmVCLSample.memInstructions.Lines.Strings.1":"Zweite Zeile"},' +
+    { The source text for each key, which is what a return to the original
+      language reads. Left empty, the words stay translated however well the
+      geometry is put back. }
+    '"sources":{"frmVCLSample.Caption":"VCL Sample",' +
+    '"frmVCLSample.lblHeading.Caption":"Customer details"},' +
     '"layout":[{"formName":"frmVCLSample",' +
     '"componentName":"lblHeading","propertyName":"Width",' +
     '"originalValue":"227","translatedValue":"327",' +
@@ -76,6 +81,26 @@ begin
       Require((frmVCLSample.memInstructions.Lines.Count = 2) and
         (frmVCLSample.memInstructions.Lines[1] = 'Zweite Zeile'),
         'The VCL memo lines were not translated.');
+
+      { Going back to the language the application was written in must give the
+        form back, not only its words. The edit is the point of it: nothing in
+        the pack mentions that control, so a restore built out of rule original
+        values has nothing to say about it, and before the snapshot there was
+        no record of what it had been. It is knocked out of shape by hand
+        first, standing in for whatever else may move a control. }
+      frmVCLSample.edtCustomerName.Width := 111;
+      frmVCLSample.edtCustomerName.Height := 44;
+      frmVCLSample.lblHeading.Left := 99;
+      TVCLTranslationApplicator.RestoreSourceLanguage(frmVCLSample, Pack,
+        frmVCLSample.Name);
+      Require(frmVCLSample.lblHeading.Caption = 'Customer details',
+        'Returning to the source language did not restore the text.');
+      Require(frmVCLSample.edtCustomerName.Width = 360,
+        'A control with no layout rule was not restored from the snapshot.');
+      Require(frmVCLSample.edtCustomerName.Height = 23,
+        'A control with no layout rule was not restored from the snapshot.');
+      Require(frmVCLSample.lblHeading.Left = 32,
+        'A position was not restored from the snapshot.');
     finally
       Pack.Free;
       frmVCLSample.Free;

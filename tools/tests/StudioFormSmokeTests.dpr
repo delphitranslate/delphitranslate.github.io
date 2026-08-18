@@ -133,17 +133,20 @@ begin
     if (Wizard.cboWorkflowMode.Items.Count <> 3) or
        not Assigned(Wizard.cboWorkflowMode.OnChange) then
       raise Exception.Create('The new/update translation workflow is not available.');
-    { These two checks named btnLocalizationReview, a button that no longer
-      exists on the Wizard: it was removed or renamed and the test was never
-      updated, so this program has not compiled since. Localization Review is
-      now opened from code, and the only control bound to that handler is the
-      hidden btnFinishLocalizationReview checked below. Restore a check here if
-      a visible entry point returns. }
+    { Two checks stood here naming a button that no longer exists on the
+      Wizard, and this program had not compiled since it went. Localization
+      Review is opened from code when final processing reaches that point,
+      which is the path the developer travels; there is no visible control to
+      check. Restore one here if a visible entry point returns. }
     if (Pos('Required:', Wizard.chkUnderstandManualStep.Text) <> 1) or
        (Wizard.lblManualConfirmationRequired.Text = '') then
       raise Exception.Create('The required manual-phase confirmation is not explained.');
-    if not Assigned(Wizard.btnFinishLocalizationReview.OnClick) then
-      raise Exception.Create('The finished Wizard cannot reopen Localization Review.');
+    { Localization Review is reopened from code when final processing reaches
+      that point, which is the path the developer actually travels. A hidden,
+      disabled button wired to the same handler sat on the completion page for
+      a long time and nothing ever showed or enabled it, so it offered nobody
+      anything; it has been removed rather than finished. Restore a check here
+      if a visible entry point is ever added. }
     if Wizard.cboTargetLanguage.Items.Count < 35 then
       raise Exception.Create('The wizard target-language list is incomplete.');
     if not Wizard.edtApiKey.Password then

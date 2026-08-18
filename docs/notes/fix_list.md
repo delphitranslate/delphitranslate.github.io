@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.124.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.125.
 
 ## How to read the status of an item
 
@@ -125,41 +125,6 @@ Two ways out, for the developer to pick:
   translated text alone. That is real work and it applies to any application
   that builds part of its interface in code.
 
-### 6b. Scanner coverage: Tier 2, and TDBGrid
-**Status:** open. **Severity:** low for this application, moderate for others.
-
-Tier 1 is done (see item 6 below). Still outstanding from
-`text_component_coverage_gaps.md`:
-
-- Tier 2 in full: `TListView.Items`, `TTreeView.Items`, `TMenu.Items`,
-  `TButtonGroup.Items` and similar runtime-populated collections, plus a few
-  low-value description properties.
-- `TDBGrid` column titles are **unverified**. `Vcl.DBGrids` is not shipped as
-  source, so the survey could not read it. A `TColumn.Title.Caption` rule is in
-  place on the strength of the documented property, but nothing has confirmed
-  it against a real data-aware grid. Item 8 would exercise it.
-
-### 9. An unfinished feature on the Wizard completion page
-**Status:** open, awaiting the developer's decision. **Severity:** cosmetic.
-
-**Correction, 2026-08-17.** This was recorded as an unreferenced dead control
-on the strength of grepping a single unit. It is wired:
-`btnFinishLocalizationReview` carries `OnClick = btnLocalizationReviewClick` in
-the form, and `StudioFormSmokeTests` asserts that wiring. Nothing in the
-application ever makes it visible or enabled, so it never reaches the
-developer, but that makes it an unfinished feature rather than dead code. It
-was briefly deleted on the strength of the wrong reading and put back once the
-wiring came to light.
-
-Either finish it, in which case something has to enable it when Localization
-Review closes, or remove it together with the assertion that guards it.
-
----
-
-## Verified by test, not yet confirmed on screen
-
-Everything in this section is waiting on the developer's next Wizard run.
-
 ### 1. Carillon.exe deployed twice to the outboard drive
 **Fixed:** 2026-08-17, build .111, commit `ea14c91`.
 
@@ -274,6 +239,38 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### Tier 2 coverage, the unfinished button, and the VCL round trip
+**Fixed:** 2026-08-18, build .125. Closes items 6b and 9, and the VCL half of
+the round-trip work.
+
+**Tier 2 collections are read.** `TListView.Items`, `TTreeView.Items`,
+`TButtonGroup.Items` and `TImageCollection.Items` are DFM collections, so they
+only became reachable once collections were walked properly. `Items` means a
+different thing to each owner, so the owner decides which: a list row, a tree
+node, a button, an image description. A fixture covers a list view with rows
+and columns, a status bar and a label after both, so the walking is proved as
+well as the reading.
+
+`TDBGrid` column titles remain **unverified**, as before. `Vcl.DBGrids` is not
+shipped as source, the rule was written from the documentation, and only a real
+data-aware grid can confirm it. That waits on item 8.
+
+**The unfinished button is gone.** `btnFinishLocalizationReview` sat hidden and
+disabled on the completion page, wired to reopen Localization Review, and
+nothing ever showed or enabled it. Review is reopened from code when final
+processing reaches that point, which is the path the developer actually
+travels, so the button offered nobody anything. Removed, with the assertion
+that guarded it.
+
+**The VCL runtime has the same snapshot the FireMonkey one got.** Position,
+size, font size and colour, automatic sizing and wrapping are taken before the
+first language is applied and restored on the way back, so a control the
+analyser never wrote a rule for is still returned to what it was. That side
+carries no fitting heuristics and so was less exposed, but the gap was the same
+gap. Its round trip is tested the same way, knocking a control the pack does
+not mention out of shape first; without the snapshot restore the test fails on
+that control.
 
 ### The runtime suite runs again, and had three wrong answers waiting
 **Fixed:** 2026-08-18, build .124. Closes item 10.

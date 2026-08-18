@@ -4,11 +4,45 @@ interface
 
 uses
   System.Classes,
+  System.Generics.Collections,
   Vcl.Forms,
   DAT.Runtime.LanguagePack;
 
 type
+  { What a control looked like before any translation touched it.
+
+    The same reasoning as on the FireMonkey side. Restoring by re-applying each
+    rule's original value reaches only the controls the analyser wrote a rule
+    for, and only the properties named in those rules; anything else a
+    translation changed has nothing to restore from, so returning to the
+    original language gives back the words and leaves the geometry where the
+    last language put it.
+
+    This side carries no fitting heuristics, so it is less exposed than the
+    other, but the gap is the same gap and it is worth closing in the same way.
+    Fields are plain types so that declaring this costs the interface nothing
+    beyond the dictionary itself. }
+  TDATVCLControlSnapshot = record
+    Left: Integer;
+    Top: Integer;
+    Width: Integer;
+    Height: Integer;
+    HasFont: Boolean;
+    FontSize: Integer;
+    FontColor: Cardinal;
+    HasAutoSize: Boolean;
+    AutoSize: Boolean;
+    HasWordWrap: Boolean;
+    WordWrap: Boolean;
+  end;
+
   TVCLTranslationApplicator = class
+  private
+    class var FOriginalGeometry: TDictionary<string, TDATVCLControlSnapshot>;
+    class procedure SnapshotOriginalGeometry(const AForm: TCustomForm;
+      const AFormIdentity: string); static;
+    class function RestoreOriginalGeometry(const AForm: TCustomForm;
+      const AFormIdentity: string): Integer; static;
   public
     class function ApplyToForm(const AForm: TCustomForm;
       const APack: TRuntimeLanguagePack): Integer; overload; static;
@@ -244,6 +278,171 @@ begin
   Result := ApplyToForm(AForm, APack, AForm.Name, True);
 end;
 
+function VCLSnapshotKey(const AFormIdentity: string;
+  const AComponent: TComponent): string;
+begin
+  if (AComponent = nil) or (Trim(AComponent.Name) = '') then
+    Exit('');
+  Result := AFormIdentity + '.' + AComponent.Name;
+end;
+
+{ True when this component publishes the named boolean, with its value. }
+function TryReadBoolean(const AComponent: TComponent;
+  const APropertyName: string; out AValue: Boolean): Boolean;
+var
+  PropertyInfo: PPropInfo;
+begin
+  Result := False;
+  if AComponent = nil then
+    Exit;
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName);
+  if (PropertyInfo = nil) or
+    (PropertyInfo.PropType^.Kind <> tkEnumeration) then
+    Exit;
+  AValue := GetOrdProp(AComponent, PropertyInfo) <> 0;
+  Result := True;
+end;
+
+procedure WriteBoolean(const AComponent: TComponent;
+  const APropertyName: string; const AValue: Boolean);
+var
+  PropertyInfo: PPropInfo;
+begin
+  if AComponent = nil then
+    Exit;
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName);
+  if (PropertyInfo = nil) or
+    (PropertyInfo.PropType^.Kind <> tkEnumeration) then
+    Exit;
+  SetOrdProp(AComponent, PropertyInfo, Ord(AValue));
+end;
+
+function TryGetFont(const AComponent: TComponent; out AFont: TFont): Boolean;
+var
+  FontObject: TObject;
+  PropertyInfo: PPropInfo;
+begin
+  Result := False;
+  AFont := nil;
+  if AComponent = nil then
+    Exit;
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'Font');
+  if (PropertyInfo = nil) or (PropertyInfo.PropType^.Kind <> tkClass) then
+    Exit;
+  FontObject := GetObjectProp(AComponent, PropertyInfo);
+  if not (FontObject is TFont) then
+    Exit;
+  AFont := TFont(FontObject);
+  Result := True;
+end;
+
+class procedure TVCLTranslationApplicator.SnapshotOriginalGeometry(
+  const AForm: TCustomForm; const AFormIdentity: string);
+var
+  ComponentIndex: Integer;
+
+  procedure SnapshotTree(const AComponent: TComponent);
+  var
+    ChildIndex: Integer;
+    Control: TControl;
+    Font: TFont;
+    Key: string;
+    Snapshot: TDATVCLControlSnapshot;
+  begin
+    if AComponent = nil then
+      Exit;
+    Key := VCLSnapshotKey(AFormIdentity, AComponent);
+    { Taken once, before the first language is applied, so that a second
+      language cannot quietly become the original. }
+    if (Key <> '') and (AComponent is TControl) and
+      not FOriginalGeometry.ContainsKey(Key) then
+    begin
+      Control := TControl(AComponent);
+      Snapshot := Default(TDATVCLControlSnapshot);
+      Snapshot.Left := Control.Left;
+      Snapshot.Top := Control.Top;
+      Snapshot.Width := Control.Width;
+      Snapshot.Height := Control.Height;
+      Snapshot.HasFont := TryGetFont(AComponent, Font);
+      if Snapshot.HasFont then
+      begin
+        Snapshot.FontSize := Font.Size;
+        Snapshot.FontColor := Cardinal(Font.Color);
+      end;
+      Snapshot.HasAutoSize := TryReadBoolean(AComponent, 'AutoSize',
+        Snapshot.AutoSize);
+      Snapshot.HasWordWrap := TryReadBoolean(AComponent, 'WordWrap',
+        Snapshot.WordWrap);
+      FOriginalGeometry.Add(Key, Snapshot);
+    end;
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      SnapshotTree(AComponent.Components[ChildIndex]);
+  end;
+begin
+  if (AForm = nil) or (FOriginalGeometry = nil) then
+    Exit;
+  for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+    SnapshotTree(AForm.Components[ComponentIndex]);
+end;
+
+class function TVCLTranslationApplicator.RestoreOriginalGeometry(
+  const AForm: TCustomForm; const AFormIdentity: string): Integer;
+var
+  ComponentIndex: Integer;
+  Restored: Integer;
+
+  procedure RestoreTree(const AComponent: TComponent);
+  var
+    ChildIndex: Integer;
+    Control: TControl;
+    Font: TFont;
+    Key: string;
+    Snapshot: TDATVCLControlSnapshot;
+  begin
+    if AComponent = nil then
+      Exit;
+    Key := VCLSnapshotKey(AFormIdentity, AComponent);
+    if (Key <> '') and (AComponent is TControl) and
+      FOriginalGeometry.TryGetValue(Key, Snapshot) then
+    begin
+      Control := TControl(AComponent);
+      { Automatic sizing off first and back on last, or a width will not stick,
+        and the text settings before the bounds, because both are read when the
+        control lays its text out. }
+      if Snapshot.HasAutoSize then
+        WriteBoolean(AComponent, 'AutoSize', False);
+      if Snapshot.HasFont and TryGetFont(AComponent, Font) then
+      begin
+        Font.Size := Snapshot.FontSize;
+        Font.Color := TColor(Snapshot.FontColor);
+        Inc(Restored);
+      end;
+      if Snapshot.HasWordWrap then
+        WriteBoolean(AComponent, 'WordWrap', Snapshot.WordWrap);
+      if (Control.Left <> Snapshot.Left) or (Control.Top <> Snapshot.Top) or
+        (Control.Width <> Snapshot.Width) or
+        (Control.Height <> Snapshot.Height) then
+      begin
+        Control.SetBounds(Snapshot.Left, Snapshot.Top, Snapshot.Width,
+          Snapshot.Height);
+        Inc(Restored);
+      end;
+      if Snapshot.HasAutoSize then
+        WriteBoolean(AComponent, 'AutoSize', Snapshot.AutoSize);
+    end;
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      RestoreTree(AComponent.Components[ChildIndex]);
+  end;
+begin
+  Result := 0;
+  if (AForm = nil) or (FOriginalGeometry = nil) then
+    Exit;
+  Restored := 0;
+  for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+    RestoreTree(AForm.Components[ComponentIndex]);
+  Result := Restored;
+end;
+
 class function TVCLTranslationApplicator.RestoreSourceLanguage(
   const AForm: TCustomForm; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string): Integer;
@@ -287,6 +486,10 @@ begin
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
     RestoreComponentTree(AForm.Components[ComponentIndex]);
   Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, False));
+  { Last, and after the text. The rules speak only for controls the analyser
+    wrote a rule for; the snapshot holds the form as it actually was and covers
+    every control, so it has the final word. }
+  Inc(Result, RestoreOriginalGeometry(AForm, FormIdentity));
 end;
 
 class function TVCLTranslationApplicator.ApplyToForm(
@@ -313,6 +516,7 @@ begin
   FormIdentity := Trim(AFormIdentity);
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
+  SnapshotOriginalGeometry(AForm, FormIdentity);
   SavedFocusedControl := nil;
   SavedFocusedState := False;
   if APreserveControlState then
@@ -432,5 +636,13 @@ begin
       Inc(Result);
   end;
 end;
+
+initialization
+  TVCLTranslationApplicator.FOriginalGeometry :=
+    TDictionary<string, TDATVCLControlSnapshot>.Create;
+
+finalization
+  TVCLTranslationApplicator.FOriginalGeometry.Free;
+  TVCLTranslationApplicator.FOriginalGeometry := nil;
 
 end.

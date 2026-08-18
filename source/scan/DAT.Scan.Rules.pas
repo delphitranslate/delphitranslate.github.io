@@ -109,11 +109,21 @@ begin
                and category button captions. }
              'TListColumn', 'TActionClientItem', 'TActionListItem',
              'TBaseButtonItem', 'TButtonCategory', 'TControlAction',
-             'TTaskDialog']));
+             'TTaskDialog',
+             { Designer-authored rows of a list view or a button group. These
+               are collection items, so they are only reachable at all because
+               collections are walked properly now. }
+             'TListItem', 'TGrpButtonItem']));
         if SameText(APropertyName, 'Text') then
           Exit(ClassMatches(AComponentClassName,
             ['TStatusPanel', 'THeaderSection', 'TCoolBand', 'TComboBoxEx',
-             'TButtonedEdit', 'TTaskDialog']));
+             'TButtonedEdit', 'TTaskDialog', 'TTreeNode']));
+        if SameText(APropertyName, 'Description') then
+          Exit(ClassMatches(AComponentClassName,
+            ['TImageCollectionItem']));
+        { A list-view row carries more than its first column. }
+        if SameText(APropertyName, 'SubItems.Strings') then
+          Exit(ClassMatches(AComponentClassName, ['TListItem']));
         if SameText(APropertyName, 'Header') then
           Exit(ClassMatches(AComponentClassName, ['TListGroup']));
         if SameText(APropertyName, 'FooterText') or

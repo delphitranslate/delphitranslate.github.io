@@ -1,0 +1,7 @@
+# Expected form-scan results: component | property | text
+frmTier2|Caption|Tier two
+lvFiles.Items[0]|Caption|First row
+lvFiles.Items[1]|Caption|Second row
+lvFiles.Columns[0]|Caption|Name column
+stbStatus.Panels[0]|Text|Ready to run
+lblAfter|Caption|Drawn after every collection

@@ -120,7 +120,6 @@ type
     btnRunDeployment: TButton;
     btnOpenKitFolder: TButton;
     btnDeployApplicationFolder: TButton;
-    btnFinishLocalizationReview: TButton;
     lblWorkflowMode: TLabel;
     cboWorkflowMode: TComboBox;
     lblWorkflowSummary: TLabel;
@@ -261,7 +260,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.18.124';
+  StudioBuildLabel = 'Build 2026.08.18.125';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin

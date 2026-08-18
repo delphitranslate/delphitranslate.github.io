@@ -92,9 +92,23 @@ begin
     Result := 'THeaderSection'
   else if SameText(APropertyName, 'Bands') then
     Result := 'TCoolBand'
-  else if SameText(APropertyName, 'ActionBars') or
-    SameText(APropertyName, 'Items') then
+  else if SameText(APropertyName, 'ActionBars') then
     Result := 'TActionClientItem'
+  else if SameText(APropertyName, 'Items') then
+  begin
+    { Items belongs to several owners and means something different in each,
+      so the owner decides. }
+    if SameText(AOwnerClassName, 'TListView') then
+      Result := 'TListItem'
+    else if SameText(AOwnerClassName, 'TTreeView') then
+      Result := 'TTreeNode'
+    else if SameText(AOwnerClassName, 'TButtonGroup') then
+      Result := 'TGrpButtonItem'
+    else if SameText(AOwnerClassName, 'TImageCollection') then
+      Result := 'TImageCollectionItem'
+    else
+      Result := 'TActionClientItem';
+  end
   else if SameText(APropertyName, 'Categories') then
     Result := 'TButtonCategory';
 end;
