@@ -5,9 +5,36 @@ says so.
 
 ---
 
+## Resolved on 2026-08-17 (build 2026.08.17.111)
+
+Kept here until the developer has seen each one working in the running
+application; nothing below is being worked on.
+
+- **1. Executable deployed twice to the outboard drive.** Final processing no
+  longer copies the executable at all: it deploys language packs and reports
+  what the build step did. The build step is the only path that copies, and it
+  now says so in the log. The hand-picked folder button still copies, because
+  clicking it is the request.
+- **2. Overwrite authorisation sat too low.** Moved up the deployment page to
+  sit directly beneath the destination list it governs, at Y=292 instead of
+  Y=422, with the buttons and summary below it.
+- **2b. Completion page log.** The command box and the four buttons moved to
+  the foot of the page and the progress log took the reclaimed height, 130
+  pixels instead of 76.
+- **3. Build outputs outside the project tree rejected.** The containment test
+  now applies only to the conventional folders the tool guesses at. A folder
+  the project file names is the project's own answer to where it builds, and a
+  project may legitimately build to another drive.
+- **4. Space between a grid's bottom edge and the controls beneath it.**
+  Genuinely fixed this time; the earlier claim was made on the strength of a
+  different form.
+
+---
+
 ## Deployment
 
 ### 1. Carillon.exe is deployed twice to the outboard drive
+**Status:** resolved 2026-08-17, awaiting the developer's confirmation in the running application.
 **Reported:** 2026-08-17 (returned; reported previously in the Codex handoff)
 **Severity:** high — it is a returning defect, and it wastes a test cycle each
 time it appears.
@@ -39,6 +66,7 @@ Check the reported byte count and timestamp against the source each time, and
 say plainly in the log which of the three paths performed the copy.
 
 ### 2. The overwrite authorisation control sits too low to be seen
+**Status:** resolved 2026-08-17, awaiting the developer's confirmation in the running application.
 **Reported:** 2026-08-17
 **Severity:** medium — the developer cannot reliably see what he is authorising.
 
@@ -49,6 +77,7 @@ deployment page, next to the destination list it governs. This is a change to
 `DAT.Studio.SetupWizard.fmx` geometry, so the page stays editable in the IDE.
 
 ### 2b. Completion page: give the log more room
+**Status:** resolved 2026-08-17, awaiting the developer's confirmation in the running application.
 **Reported:** 2026-08-17
 **Severity:** low, but it is the page the developer reads at the end of every run.
 
@@ -62,6 +91,7 @@ allows, and give the reclaimed height to the log. Geometry only, in
 `DAT.Studio.SetupWizard.fmx`, so the page stays editable in the IDE.
 
 ### 3. Build output folders outside the project tree are rejected
+**Status:** resolved 2026-08-17, awaiting the developer's confirmation in the running application.
 **Reported:** 2026-08-17 (carried from the handoff, section 5.8a)
 **Severity:** high — silently deploys a stale executable.
 
@@ -81,6 +111,7 @@ folder. This has cost at least two test cycles in this project alone.
 ## Layout
 
 ### 4. Space between a grid's bottom edge and the controls beneath it
+**Status:** resolved 2026-08-17, awaiting the developer's confirmation in the running application.
 **Reported:** 2026-08-17 (item 2 of that day's list)
 **Severity:** medium — cosmetic, but the developer has raised it twice.
 

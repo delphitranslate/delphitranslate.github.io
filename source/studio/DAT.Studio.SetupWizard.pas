@@ -204,8 +204,6 @@ type
     procedure BuildDeploymentCommands;
     procedure UpdateComponentInstructions;
     procedure RebuildAllTargetConfigurations;
-    function PreferredDeploymentPlatforms: TArray<string>;
-    function PreferredDeploymentConfigurations: TArray<string>;
     function ExistingBuildOutputDirectories: TArray<string>;
     function DeployLanguagePacksToExistingOutputs: Integer;
     function DeployLanguagePacksToConfiguredDestinations: Integer;
@@ -263,7 +261,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.17.110';
+  StudioBuildLabel = 'Build 2026.08.17.111';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
@@ -379,7 +377,11 @@ begin
             end;
           if DestinationReady then
             try
-              AddProgress(TTargetBuildDeployer.DeployBuildOutput(
+              { Named so the log says which step copied the executable. It is
+                the only step that does, and when two of them did, the log
+                gave the developer no way to tell them apart. }
+              AddProgress('Build step: ' +
+                TTargetBuildDeployer.DeployBuildOutput(
                 FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
                 Platform, Configuration, ApplicationDirectory, FKitDirectory,
                 chkReplaceDeployedExecutable.IsChecked));
@@ -1410,22 +1412,6 @@ begin
   end;
 end;
 
-function TfrmSetupWizard.PreferredDeploymentPlatforms: TArray<string>;
-begin
-  if cboBuildPlatform.ItemIndex = 1 then
-    Result := ['Win64', 'Win32']
-  else
-    Result := ['Win32', 'Win64'];
-end;
-
-function TfrmSetupWizard.PreferredDeploymentConfigurations: TArray<string>;
-begin
-  if cboBuildConfiguration.ItemIndex = 1 then
-    Result := ['Release', 'Debug']
-  else
-    Result := ['Debug', 'Release'];
-end;
-
 { Deployment must never copy a stale executable. Rebuild every platform and
   configuration that already has a build-output folder so each one matches the
   runtime and language packs produced by this pass, before anything is copied
@@ -1464,12 +1450,7 @@ end;
 function TfrmSetupWizard.DeployLanguagePacksToConfiguredDestinations: Integer;
 var
   ApplicationDirectory: string;
-  Configuration: string;
   DestinationExecutable: string;
-  ExecutableDeployed: Boolean;
-  ShouldDeployExecutable: Boolean;
-  Platform: string;
-  SourceExecutable: string;
 begin
   Result := 0;
   for ApplicationDirectory in lstDeploymentDestinations.Items do
@@ -1479,44 +1460,24 @@ begin
         ApplicationDirectory + '. The drive may still be waking or may be read-only.');
     DestinationExecutable := TPath.Combine(ApplicationDirectory,
       FProjectProfile.ProjectName + '.exe');
-    ShouldDeployExecutable := chkReplaceDeployedExecutable.IsChecked or
-      not TFile.Exists(DestinationExecutable);
-    if ShouldDeployExecutable then
-    begin
-      ExecutableDeployed := False;
-      { Honour the platform and configuration chosen on the build page first so
-        the destination receives the executable the developer asked for, not
-        whichever output folder happens to come first alphabetically. }
-      for Platform in PreferredDeploymentPlatforms do
-      begin
-        if ExecutableDeployed then
-          Break;
-        for Configuration in PreferredDeploymentConfigurations do
-        begin
-          if ExecutableDeployed then
-            Break;
-          SourceExecutable := TTargetBuildDeployer.FindBuildOutputDirectory(
-            FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
-            Platform, Configuration, True);
-          if SourceExecutable <> '' then
-          begin
-            AddProgress(Format('Deploying the %s %s executable to %s.',
-              [Platform, Configuration, ApplicationDirectory]));
-            AddProgress(TTargetBuildDeployer.DeployBuildOutput(
-              FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
-              Platform, Configuration, ApplicationDirectory, FKitDirectory,
-              chkReplaceDeployedExecutable.IsChecked));
-            ExecutableDeployed := True;
-          end;
-        end;
-      end;
-      if not ExecutableDeployed then
-        AddProgress('Executable not copied to ' + ApplicationDirectory +
-          ': no current build output was found. Use Build and Deploy Selected Targets after final processing.');
-    end
+    { Language packs deploy freely from here; the executable does not. Copying
+      it here as well as in the build step put two copies of the application on
+      the outboard drive in a single run, and the developer saw the second one
+      overwrite the first. Worse, a copy made outside the build step can only
+      be of whatever was built last time, so it is exactly how a stale
+      executable reaches the drive looking like a fresh one. The build step
+      owns the executable, and it is the only place that copies it. }
+    if FBuildCompleted then
+      AddProgress('Executable for ' + ApplicationDirectory +
+        ' was deployed by the build step and is not copied again.')
+    else if TFile.Exists(DestinationExecutable) then
+      AddProgress('Executable at ' + DestinationExecutable +
+        ' left as it stands: no build ran in this session, so the only copy ' +
+        'available would be from an earlier one.')
     else
-      AddProgress('Executable left unchanged at ' + DestinationExecutable +
-        ' (replace/create authorization was not selected).');
+      AddProgress('No executable deployed to ' + ApplicationDirectory +
+        ': no build ran in this session. Use Build and Deploy Selected ' +
+        'Targets to build and deploy one.');
     Inc(Result);
     AddProgress('Language packs deployed to configured destination ' +
       ApplicationDirectory);

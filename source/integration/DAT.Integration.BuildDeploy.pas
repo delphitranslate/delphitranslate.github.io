@@ -101,13 +101,16 @@ class function TTargetBuildDeployer.FindBuildOutputDirectory(
 var
   Candidate: string;
   CandidateList: TStringList;
+  CandidateIndex: Integer;
   ExecutableName: string;
   Match: TMatch;
   ProjectDirectory: string;
   ProjectText: string;
   OutputPattern: string;
 
-  procedure AddCandidate(const APattern: string);
+  { ADeclared marks a folder the project file itself names, as opposed to one
+    of the conventional folders we guess at below. }
+  procedure AddCandidate(const APattern: string; const ADeclared: Boolean);
   var
     Expanded: string;
   begin
@@ -133,16 +136,25 @@ var
       CharInSet(Expanded[Length(Expanded)], ['\', '/']) do
       Delete(Expanded, Length(Expanded), 1);
     if (Expanded <> '') and (CandidateList.IndexOf(Expanded) < 0) then
-      CandidateList.Add(Expanded);
+      CandidateList.AddObject(Expanded, TObject(Ord(ADeclared)));
   end;
 
-  function IsUsable(const ADirectory: string): Boolean;
+  function IsUsable(const ADirectory: string;
+    const ADeclared: Boolean): Boolean;
   var
     FullDirectory: string;
   begin
     FullDirectory := IncludeTrailingPathDelimiter(TPath.GetFullPath(ADirectory));
-    Result := StartsText(IncludeTrailingPathDelimiter(ProjectDirectory),
-      FullDirectory) and TDirectory.Exists(ADirectory) and
+    { A folder the project file names is the project's own answer to where it
+      builds, and a project may legitimately build to another drive. The
+      containment test belongs to the folders we guess at, where straying
+      outside the project tree would mean picking up an executable nobody
+      asked for; applied to a declared path it rejects the real output and
+      falls back silently to whatever stale copy sits in the tree, which is
+      the worse failure by far because it looks like success. }
+    Result := (ADeclared or
+      StartsText(IncludeTrailingPathDelimiter(ProjectDirectory),
+        FullDirectory)) and TDirectory.Exists(ADirectory) and
       ((not ARequireExecutable) or TFile.Exists(
         TPath.Combine(ADirectory, ExecutableName)));
   end;
@@ -161,24 +173,25 @@ begin
         [roIgnoreCase, roSingleLine]) do
       begin
         OutputPattern := Match.Groups[1].Value;
-        AddCandidate(OutputPattern);
+        AddCandidate(OutputPattern, True);
       end;
     end;
     { Some Delphi projects use the conventional bin tree; others use the
       project-root Platform\Configuration tree. Keep both supported. }
     AddCandidate(TPath.Combine('bin', TPath.Combine(APlatform,
-      AConfiguration)));
-    AddCandidate(TPath.Combine(APlatform, AConfiguration));
+      AConfiguration)), False);
+    AddCandidate(TPath.Combine(APlatform, AConfiguration), False);
 
-    for Candidate in CandidateList do
-      if IsUsable(Candidate) then
+    for CandidateIndex := 0 to CandidateList.Count - 1 do
+      if IsUsable(CandidateList[CandidateIndex],
+        CandidateList.Objects[CandidateIndex] <> nil) then
       begin
         { Candidate order is intentional: Delphi's DCC_ExeOutput comes first,
           followed by the common bin\Platform\Config and Platform\Config
           folders. Do not choose by newest timestamp; a stale executable in a
           different candidate folder can be newer than the real configured
           build output and would deploy the wrong EXE. }
-        Exit(Candidate);
+        Exit(CandidateList[CandidateIndex]);
       end;
     if not ARequireExecutable then
       for Candidate in CandidateList do

@@ -444,7 +444,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnAddDeploymentDestination: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 298.000000000000000000
+              Position.Y = 358.000000000000000000
               Size.Width = 210.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
@@ -453,7 +453,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnRemoveDeploymentDestination: TButton
               Position.X = 232.000000000000000000
-              Position.Y = 298.000000000000000000
+              Position.Y = 358.000000000000000000
               Size.Width = 180.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
@@ -464,7 +464,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               WordWrap = True
               Position.X = 8.000000000000000000
-              Position.Y = 352.000000000000000000
+              Position.Y = 412.000000000000000000
               Size.Width = 670.000000000000000000
               Size.Height = 58.000000000000000000
               Size.PlatformDefault = False
@@ -475,7 +475,7 @@ object frmSetupWizard: TfrmSetupWizard
             object chkReplaceDeployedExecutable: TCheckBox
               StyledSettings = []
               Position.X = 8.000000000000000000
-              Position.Y = 422.000000000000000000
+              Position.Y = 292.000000000000000000
               Size.Width = 670.000000000000000000
               Size.Height = 54.000000000000000000
               Size.PlatformDefault = False
@@ -986,7 +986,7 @@ object frmSetupWizard: TfrmSetupWizard
               Position.X = 8.000000000000000000
               Position.Y = 104.000000000000000000
               Size.Width = 360.000000000000000000
-              Size.Height = 76.000000000000000000
+              Size.Height = 130.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True
@@ -997,7 +997,7 @@ object frmSetupWizard: TfrmSetupWizard
               ShowHint = True
               StyledSettings = []
               Position.X = 8.000000000000000000
-              Position.Y = 188.000000000000000000
+              Position.Y = 240.000000000000000000
               Size.Width = 360.000000000000000000
               Size.Height = 36.000000000000000000
               Size.PlatformDefault = False
@@ -1013,7 +1013,7 @@ object frmSetupWizard: TfrmSetupWizard
               StyledSettings = []
               WordWrap = True
               Position.X = 8.000000000000000000
-              Position.Y = 222.000000000000000000
+              Position.Y = 280.000000000000000000
               Size.Width = 360.000000000000000000
               Size.Height = 38.000000000000000000
               Size.PlatformDefault = False
@@ -1023,7 +1023,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object memCommands: TMemo
               Position.X = 8.000000000000000000
-              Position.Y = 264.000000000000000000
+              Position.Y = 322.000000000000000000
               Size.Width = 360.000000000000000000
               Size.Height = 46.000000000000000000
               Size.PlatformDefault = False
@@ -1033,7 +1033,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnCopyCommands: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 320.000000000000000000
+              Position.Y = 378.000000000000000000
               Size.Width = 176.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
@@ -1042,7 +1042,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnOpenKitFolder: TButton
               Position.X = 8.000000000000000000
-              Position.Y = 368.000000000000000000
+              Position.Y = 424.000000000000000000
               Size.Width = 176.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
@@ -1051,7 +1051,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnRunDeployment: TButton
               Position.X = 192.000000000000000000
-              Position.Y = 320.000000000000000000
+              Position.Y = 378.000000000000000000
               Size.Width = 176.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
@@ -1060,7 +1060,7 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object btnDeployApplicationFolder: TButton
               Position.X = 192.000000000000000000
-              Position.Y = 368.000000000000000000
+              Position.Y = 424.000000000000000000
               Size.Width = 176.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
@@ -1071,9 +1071,9 @@ object frmSetupWizard: TfrmSetupWizard
               Enabled = False
               Visible = False
               Position.X = 8.000000000000000000
-              Position.Y = 410.000000000000000000
+              Position.Y = 470.000000000000000000
               Size.Width = 110.000000000000000000
-              Size.Height = 40.000000000000000000
+              Size.Height = 24.000000000000000000
               Size.PlatformDefault = False
               Text = 'Review Completed'
               OnClick = btnLocalizationReviewClick
