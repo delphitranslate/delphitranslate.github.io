@@ -120,11 +120,11 @@ type
     btnRunDeployment: TButton;
     btnOpenKitFolder: TButton;
     btnDeployApplicationFolder: TButton;
+    btnFinishLocalizationReview: TButton;
     lblWorkflowMode: TLabel;
     cboWorkflowMode: TComboBox;
     lblWorkflowSummary: TLabel;
     lblLocalizationReviewInfo: TLabel;
-    btnFinishLocalizationReview: TButton;
     BuildChoiceCard: TRectangle;
     lblBuildChoiceTitle: TLabel;
     lblBuildChoiceText: TLabel;
@@ -261,7 +261,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.17.112';
+  StudioBuildLabel = 'Build 2026.08.17.113';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
@@ -328,6 +328,8 @@ procedure TfrmSetupWizard.btnBuildNowClick(Sender: TObject);
 var
   Configurations: TArray<string>;
   Platforms: TArray<string>;
+  DeployPlatform: string;
+  DeployConfiguration: string;
   Configuration: string;
   Platform: string;
   ApplicationDirectory: string;
@@ -357,6 +359,9 @@ begin
       Configurations := ['Release']
     else
       Configurations := ['Debug', 'Release'];
+    { Build every selected combination first. Each build writes its own
+      output folder and its own language packs, and nothing leaves the project
+      tree while this runs. }
     for Platform in Platforms do
       for Configuration in Configurations do
       begin
@@ -364,39 +369,60 @@ begin
         AddProgress(TTargetBuildDeployer.BuildAndDeploy(
           FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
           Platform, Configuration, FKitDirectory));
-        for ApplicationDirectory in lstDeploymentDestinations.Items do
-        begin
-          DestinationReady := TDirectory.Exists(ApplicationDirectory);
-          if not DestinationReady then
-            for DestinationAttempt := 1 to 12 do
-            begin
-              Sleep(500);
-              DestinationReady := TDirectory.Exists(ApplicationDirectory);
-              if DestinationReady then
-                Break;
-            end;
-          if DestinationReady then
-            try
-              { Named so the log says which step copied the executable. It is
-                the only step that does, and when two of them did, the log
-                gave the developer no way to tell them apart. }
-              AddProgress('Build step: ' +
-                TTargetBuildDeployer.DeployBuildOutput(
-                FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
-                Platform, Configuration, ApplicationDirectory, FKitDirectory,
-                chkReplaceDeployedExecutable.IsChecked));
-            except
-              on E: EInOutError do
-                AddProgress(Format(
-                  'Executable deployment skipped for %s %s in %s: %s',
-                  [Platform, Configuration, ApplicationDirectory, E.Message]));
-            end
-          else
-            AddProgress(Format(
-              'Destination unavailable after waiting: %s',
-              [ApplicationDirectory]));
-        end;
       end;
+
+    { Then deploy once. A destination folder holds one executable, so copying
+      inside the loop above wrote it as many times as there were combinations
+      selected - twice for both platforms, four times for both platforms and
+      both configurations - and each copy silently overwrote the last. The
+      developer saw the file written repeatedly, and what finally sat on the
+      drive was whichever combination happened to finish last, which is not a
+      choice anyone made.
+
+      One combination is deployed, and the log names it. Where more than one
+      was built, the log also says plainly that the others were built but not
+      deployed, because a folder cannot hold them both. }
+    DeployPlatform := Platforms[0];
+    DeployConfiguration := Configurations[0];
+    if (Length(Platforms) > 1) or (Length(Configurations) > 1) then
+      AddProgress(Format(
+        'More than one target was built. A destination folder holds one ' +
+        'executable, so %s %s is the one deployed; the rest remain in their ' +
+        'build-output folders.', [DeployPlatform, DeployConfiguration]));
+
+    for ApplicationDirectory in lstDeploymentDestinations.Items do
+    begin
+      DestinationReady := TDirectory.Exists(ApplicationDirectory);
+      if not DestinationReady then
+        for DestinationAttempt := 1 to 12 do
+        begin
+          Sleep(500);
+          DestinationReady := TDirectory.Exists(ApplicationDirectory);
+          if DestinationReady then
+            Break;
+        end;
+      if DestinationReady then
+        try
+          { Named so the log says which step copied the executable. It is the
+            only step that does, and when two of them did, the log gave the
+            developer no way to tell them apart. }
+          AddProgress('Build step: ' +
+            TTargetBuildDeployer.DeployBuildOutput(
+            FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+            DeployPlatform, DeployConfiguration, ApplicationDirectory,
+            FKitDirectory, chkReplaceDeployedExecutable.IsChecked));
+        except
+          on E: EInOutError do
+            AddProgress(Format(
+              'Executable deployment skipped for %s %s in %s: %s',
+              [DeployPlatform, DeployConfiguration, ApplicationDirectory,
+               E.Message]));
+        end
+      else
+        AddProgress(Format(
+          'Destination unavailable after waiting: %s',
+          [ApplicationDirectory]));
+    end;
     FBuildCompleted := True;
     lblBuildStatus.Text := 'Build and deployment completed for every selected target.';
   except

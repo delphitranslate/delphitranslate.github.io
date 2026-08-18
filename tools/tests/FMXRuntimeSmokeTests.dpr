@@ -4,8 +4,11 @@ program FMXRuntimeSmokeTests;
 
 uses
   System.StartUpCopy,
+  System.Math,
+  System.TypInfo,
   System.SysUtils,
   FMX.Forms,
+  FMX.Controls,
   FMX.StdCtrls,
   FMX.Types,
   System.UITypes,
@@ -50,7 +53,35 @@ const
     '"sources":{},"layout":[{"formName":"frmFMXSample",' +
     '"componentName":"lblHeading","propertyName":"Width",' +
     '"originalValue":"360","translatedValue":"480",' +
-    '"sourceChecksum":"layout-test"}]}';
+    '"sourceChecksum":"layout-test"},' +
+    { The remaining six layout properties, on one control, in the arrangement
+      that kept reaching the screen broken: a label told to stop sizing itself
+      and then given a width, a height, wrapping and a smaller size. Order is
+      what makes it work. Switch the sizing off after the width is set and the
+      label springs back around its text; set the size after the height and
+      the height no longer suits the text it has to hold. Only Width was ever
+      asserted here, which is why none of that was caught. }
+    '{"formName":"frmFMXSample","componentName":"lblCustomerName",' +
+    '"propertyName":"AutoSize","originalValue":"True",' +
+    '"translatedValue":"False","sourceChecksum":"layout-test"},' +
+    '{"formName":"frmFMXSample","componentName":"lblCustomerName",' +
+    '"propertyName":"FontSize","originalValue":"14",' +
+    '"translatedValue":"11.5","sourceChecksum":"layout-test"},' +
+    '{"formName":"frmFMXSample","componentName":"lblCustomerName",' +
+    '"propertyName":"WordWrap","originalValue":"False",' +
+    '"translatedValue":"True","sourceChecksum":"layout-test"},' +
+    '{"formName":"frmFMXSample","componentName":"lblCustomerName",' +
+    '"propertyName":"Width","originalValue":"180",' +
+    '"translatedValue":"120","sourceChecksum":"layout-test"},' +
+    '{"formName":"frmFMXSample","componentName":"lblCustomerName",' +
+    '"propertyName":"Height","originalValue":"26",' +
+    '"translatedValue":"58","sourceChecksum":"layout-test"},' +
+    '{"formName":"frmFMXSample","componentName":"lblCustomerName",' +
+    '"propertyName":"Position.X","originalValue":"0",' +
+    '"translatedValue":"24","sourceChecksum":"layout-test"},' +
+    '{"formName":"frmFMXSample","componentName":"lblCustomerName",' +
+    '"propertyName":"Position.Y","originalValue":"66",' +
+    '"translatedValue":"70","sourceChecksum":"layout-test"}]}';
 begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
@@ -84,16 +115,45 @@ begin
     try
       AppliedCount := TFMXTranslationApplicator.ApplyToForm(
         frmFMXSample, Pack);
-      Require(AppliedCount = 19, 'Unexpected FMX applied-property count.');
+      Require(AppliedCount = 26, 'Unexpected FMX applied-property count.');
       Require(frmFMXSample.Caption = 'FMX Beispiel',
         'The FMX form caption was not translated.');
       Require(frmFMXSample.lblHeading.Text = 'Kundendaten',
         'The FMX label was not translated.');
       Require(Round(frmFMXSample.lblHeading.Width) = 480,
         'The FMX translated-language layout rule was not applied.');
+      { The other six properties, on the control carrying all of them. Each of
+        these was applied by the runtime and asserted by nobody, and each one
+        was a defect the developer had to find by looking at his screen. The
+        height matters most: a label pinned to a fixed size and told to wrap,
+        but left at the height of one line, does not shorten its text, it cuts
+        it off. }
+      Require(not frmFMXSample.lblCustomerName.AutoSize,
+        'Automatic sizing was not switched off.');
+      Require(Round(frmFMXSample.lblCustomerName.Width) = 120,
+        'The FMX width rule was not applied.');
+      Require(Round(frmFMXSample.lblCustomerName.Height) = 58,
+        'The FMX height rule was not applied, so wrapped text would be cut.');
+      Require(frmFMXSample.lblCustomerName.TextSettings.WordWrap,
+        'The FMX wrapping rule was not applied.');
+      Require(SameValue(frmFMXSample.lblCustomerName.TextSettings.Font.Size,
+        11.5, 0.01), 'The FMX text-size rule was not applied.');
+      Require(Round(frmFMXSample.lblCustomerName.Position.X) = 24,
+        'The FMX horizontal position rule was not applied.');
+      Require(Round(frmFMXSample.lblCustomerName.Position.Y) = 70,
+        'The FMX vertical position rule was not applied.');
+      { Assigning the size and the wrapping is not enough on its own: the
+        platform style overrides both unless it is told to stand aside, and it
+        does so silently. }
+      Require(not (TStyledSetting.Size in
+        frmFMXSample.lblCustomerName.StyledSettings),
+        'The platform style can still override the text size.');
+      Require(not (TStyledSetting.Other in
+        frmFMXSample.lblCustomerName.StyledSettings),
+        'The platform style can still override wrapping.');
       Require(TFMXTranslationApplicator.ApplyLayoutToForm(frmFMXSample,
-        Pack, 'frmFMXSample', False) = 1,
-        'The FMX source-layout restore rule was not applied.');
+        Pack, 'frmFMXSample', False) = 8,
+        'The FMX source-layout restore rules were not all applied.');
       Require(Round(frmFMXSample.lblHeading.Width) = 360,
         'The FMX source layout was not restored.');
       Require(frmFMXSample.mnuLanguage.Text = 'Sprache',

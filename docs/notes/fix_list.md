@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-17, build 2026.08.17.112.
+Last reconciled against the source: 2026-08-17, build 2026.08.17.113.
 
 ## How to read the status of an item
 
@@ -30,32 +30,15 @@ sounds.
 
 ## Open
 
-### 7. The runtime harness covers one layout property out of seven
-**Status:** open. **Severity:** medium, and it is the largest hole in the
-coverage.
+### 7b. The runtime harness covers one control on one sample form
+**Status:** open, much reduced. **Severity:** low.
 
-**Correction, 2026-08-17.** This item previously read "nothing verifies that
-the runtime applies the plan", and that was wrong. `FMXRuntimeSmokeTests` and
-`VCLRuntimeSmokeTests` both build a real sample form, apply a language pack to
-it and assert the resulting control geometry. Both pass today. The claim was
-repeated several times before anyone looked.
-
-What is true is narrower and still serious. Each harness exercises exactly one
-layout property:
-
-```
-"propertyName":"Width"
-```
-
-The runtime applies seven, in this order: `AutoSize`, `FontSize`, `WordWrap`,
-`Width`, `Height`, `Position.X`, `Position.Y`. Six of them are asserted
-nowhere. Every runtime defect reported on 2026-08-17 lived in those six — a
-control pinned with `AutoSize` but given no `Height`, wrapping that never took
-effect, a size applied in the wrong order — which is exactly why correct plans
-kept reaching the screen broken.
-
-The work is to extend the two existing harnesses to cover the remaining six
-properties and the order they are applied in, not to build something new.
+Item 7 is done: all seven layout properties are now asserted against a live
+form, and doing it uncovered the defect recorded under "Labels never received
+their text size" below. What remains is breadth of a different kind. The
+assertions run against one label on one purpose-built sample form. There is no
+equivalent for a grid column, a check box caption, or a control inside a styled
+container, and none for a form under a platform style other than the default.
 
 ### 8. No VCL application has been through the full pipeline
 **Status:** open. **Severity:** medium.
@@ -69,24 +52,27 @@ catalog, review, kit generation, build and deploy, then launched and looked at.
 
 `TDBGrid` column titles (item 6b) would be exercised by this.
 
-### 10. The runtime test suite cannot be run
-**Status:** open. **Severity:** medium — it is why item 7 went unexamined.
-**Found:** 2026-08-17.
+### 10. FoundationSmokeTests still references deleted units
+**Status:** open, reduced. **Severity:** low.
 
-`tools/tests/RunRuntimeSmokeTests.ps1` builds `FoundationSmokeTests.dpr`
-first, and that file still references units removed in commit `9b0b9e2`
-("Remove stale target-edit integration paths"): `DAT.Integration.Plan`,
-`.Engine`, `.Reset`, `.Transaction`, `.Types`. The compile fails immediately,
-so the runner never reaches the runtime tests below it and the whole suite has
-been unrunnable since that commit.
+`tools/tests/RunRuntimeSmokeTests.ps1` compiles `FoundationSmokeTests.dpr`
+first, and that file still uses units removed in commit `9b0b9e2` ("Remove
+stale target-edit integration paths"): `DAT.Integration.Plan`, `.Engine`,
+`.Reset`, `.Transaction`, `.Types`. It fails there and never reaches the tests
+below it.
 
-The runtime harnesses themselves are fine — compiled and run directly on
-2026-08-17, both pass. Either update `FoundationSmokeTests.dpr` to the units
-that still exist, or drop the removed ones from it.
+What needs those units is two whole procedures,
+`TestIntegrationPlanningAndPackage` and `TestTargetIntegration`, exercising the
+target-editing feature that commit removed. Deleting them is probably right,
+but it drops coverage on the strength of a guess about whether that feature is
+gone for good, so it is left for the developer to decide.
 
-Stale `.dcu` files for those deleted units are still sitting in
-`source/integration`. They are untracked leftovers, but they are the reason a
-missing source file does not always announce itself.
+Nothing is blocked by it: both runtime suites and `StudioFormSmokeTests` build
+and pass when built directly, which is how they are run today.
+
+Stale `.dcu` files for the deleted units still sit in `source/integration`.
+They are untracked leftovers, and they are why a missing source file does not
+always announce itself.
 
 ### 6b. Scanner coverage: Tier 2, and TDBGrid
 **Status:** open. **Severity:** low for this application, moderate for others.
@@ -102,14 +88,20 @@ Tier 1 is done (see item 6 below). Still outstanding from
   place on the strength of the documented property, but nothing has confirmed
   it against a real data-aware grid. Item 8 would exercise it.
 
-### 9. Unreferenced control on the Wizard completion page
+### 9. An unfinished feature on the Wizard completion page
 **Status:** open, awaiting the developer's decision. **Severity:** cosmetic.
 
-`btnFinishLocalizationReview` is declared in `DAT.Studio.SetupWizard.fmx` and
-never referenced anywhere in code: permanently hidden and disabled. It was
-moved clear of the rebuilt button rows on 2026-08-17 rather than deleted,
-because removing a control is more than the geometry work that was approved.
-Delete it or keep it, but it is dead weight either way.
+**Correction, 2026-08-17.** This was recorded as an unreferenced dead control
+on the strength of grepping a single unit. It is wired:
+`btnFinishLocalizationReview` carries `OnClick = btnLocalizationReviewClick` in
+the form, and `StudioFormSmokeTests` asserts that wiring. Nothing in the
+application ever makes it visible or enabled, so it never reaches the
+developer, but that makes it an unfinished feature rather than dead code. It
+was briefly deleted on the strength of the wrong reading and put back once the
+wiring came to light.
+
+Either finish it, in which case something has to enable it when Localization
+Review closes, or remove it together with the assertion that guards it.
 
 ---
 
@@ -188,6 +180,77 @@ was skipped in silence. Any VCL form with a status bar or list view near the
 top was quietly losing text below it.
 
 Remaining scope moved to item 6b above.
+
+### Labels never received their text size at run time
+**Fixed:** 2026-08-17, build .113.
+**Found by:** widening the runtime harness under item 7.
+
+The FireMonkey runtime reached wrapping, text size and font colour through
+`AComponent is TTextControl`. There are two families of text control in
+FireMonkey and a `TLabel` belongs to the other one: it descends from
+`TPresentedTextControl` and is not a `TTextControl` at all. The compiler
+refuses to compare those two types directly; written against a `TComponent` the
+test compiles and is quietly False for every label on every form.
+
+So for labels, which are most of the text on any form, the runtime read each
+font-size rule out of the pack and did nothing with it. The analyser would
+decide a caption needed to be a point smaller, write the rule, the runtime
+would load it, and the size on screen would not change. That is why font-size
+corrections were reported as not applied round after round while the plan was
+correct every time.
+
+Both families implement `ITextSettings`, so the runtime asks for the interface
+now. On the sample form this took the applied-property count from 24 to 26 and
+the restore count from 6 to 8: two rules per control that had been discarded in
+silence.
+
+### Wizard pages were laid out against a height they do not have
+**Fixed:** 2026-08-17, build .113.
+
+A page's real height is settled at run time, because the tab control fills its
+card, and it is nothing like the figure stored in the form file. Pages were
+laid out against the stored figure, so content ran past the bottom edge and was
+clipped. Both the deployment page and the completion page were over.
+
+`StudioFormSmokeTests` now measures the tab control that is actually there and
+fails any page whose content reaches past it, in absolute coordinates, with a
+count check so that a walk finding nothing cannot pass for a walk finding no
+faults. Verified by reintroducing the overflow and watching it fail.
+
+### The executable was still deployed more than once
+**Fixed:** 2026-08-17, build .113.
+
+The earlier fix stopped final processing copying the executable, but the copy
+inside the build loop remained, and that loop runs once per selected platform
+and configuration. With both platforms selected the same destination was
+written twice; with both platforms and both configurations, four times. Each
+copy overwrote the last, so what ended up on the drive was whichever
+combination finished last rather than anything anyone chose.
+
+Every combination is built first and one is deployed afterwards. The log names
+which, and says plainly that the others stayed in their build-output folders.
+
+### Screen defects reported 2026-08-17 (third round)
+**Fixed:** build .113.
+
+1. **Completion page buttons partially hidden.** The page-height fault above.
+2. **Executable still deployed twice.** The build-loop fault above.
+3. **A date caption still lost its first word.** It cannot wrap, because the
+   next control sits directly beneath it, and could not grow, so it overran a
+   one-line box and, being right-aligned, lost its beginning rather than its
+   end. Captions that cannot wrap are now sized against the width actually
+   planned, taking any free margin beside them first, with a floor so this
+   cannot make text illegible: applied without that floor it reduced a check
+   box to sixty per cent of its designed size.
+4. **The email caption was too long.** Shortened in the glossary to "Email del
+   destinatario:", which needs no layout change at all and sits level with the
+   field as drawn.
+5. **The folder note was still cut through the middle.** It is prose with
+   ninety pixels of empty space below it, and it was being shrunk to force it
+   onto one line instead of being allowed to wrap. A size chosen so the words
+   only just reach the edge depends on the measurement being exact; where it is
+   a shade optimistic the text wraps anyway, into a height fixed for one line.
+   Paragraphs with room below now wrap at their designed size.
 
 ### Screen defects reported 2026-08-17 (second round)
 **Fixed:** build .110, commit `b7cbb40`.

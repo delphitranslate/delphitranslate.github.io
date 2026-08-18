@@ -1699,7 +1699,16 @@ begin
           that will not fit. Where a small reduction in size keeps the caption
           on the single line it was drawn for, take that instead. }
         ReducedFont := FontSize * Control.Width / Max(RequiredWidth, 1);
+        { Not for a paragraph with room to wrap. Prose is written to run onto
+          another line, and shrinking it instead buys a single line at the cost
+          of making the whole block read smaller than the text around it. It is
+          also the more fragile choice: a size chosen so the words only just
+          reach the edge depends on our measurement being exact, and where it
+          is a shade optimistic the text wraps at run time anyway, into a
+          control whose height was fixed for one line. That is how the note on
+          the folder screen came to be cut through the middle. }
         if (RequiredWidth > Control.Width) and
+          not (IsParagraphWidth(Control) and (LinesFittingBelow(Control) > 1)) and
           (ReducedFont >= FontSize * ModestFontReduction) and
           (ReducedFont >= MinimumReadableFontSize) then
         begin
@@ -2091,6 +2100,78 @@ begin
       Control.PlannedWordWrap := True;
       Control.PlannedHeight := Max(Control.PlannedHeight,
         Ceil(RequiredHeightFor(Control, Control.PlannedWidth)));
+    end;
+  end;
+
+  { Phase 2f - a control with nowhere to put a second line must genuinely fit
+    on the one it has. Everything above prefers wrapping, and where a caption
+    sits directly above the next control there is no room to wrap into: the
+    text then overruns a box the height of one line and is cut off, and a
+    caption drawn right to left loses its beginning rather than its end, which
+    is why a date caption read "as del funeral" instead of "Fechas del
+    funeral". Where that is the situation, solve the size against the width
+    actually planned rather than reducing by a fixed proportion and hoping. }
+  for Control in AReview.Controls do
+  begin
+    if (Control.TranslatedText = '') or not Control.HasSize or
+      (Control.PlannedWidth <= 0) or IsParagraphWidth(Control) then
+      Continue;
+    { Right-aligned only. This is about the particular harm of a caption
+      pinned to its right edge, which loses its first words rather than its
+      last and so stops naming the thing beside it. Text that overruns to the
+      left keeps its beginning and reads as merely tight, and shrinking that
+      is not worth the cost: applied to everything, this reduced a check box
+      to sixty per cent of its size and a heading to sixty-five. }
+    if not IsRightAligned(Control) then
+      Continue;
+    if LinesFittingBelow(Control) > 1 then
+      Continue;
+    { Judged with the same headroom used elsewhere. We measure with a default
+      typeface and the application draws with its own, so a caption our
+      arithmetic calls a perfect fit is the one that wraps on screen. }
+    if WrappedLineCount(Control, Control.PlannedWidth / MeasurementSafety) <= 1 then
+      Continue;
+    { Width before size. Any margin still empty on the left is free: it costs
+      nothing, it disturbs no neighbour, and every pixel taken here is one the
+      text does not have to give up in size. Six pixels of unused margin was
+      the difference between a caption at eighty-four per cent of its designed
+      size and one at eighty-nine. }
+    { Ask for the width the caption wants at the size it was drawn at, not at
+      the reduced size an earlier pass already settled on. Measured against
+      the reduced size it asks for almost nothing, takes almost nothing, and
+      then has to give the size up anyway - which is how a caption ended up a
+      full point smaller than the two directly above it for want of six pixels
+      that were sitting there unused. }
+    EffectiveFont := Control.PlannedFontSize;
+    if EffectiveFont <= 0 then
+      EffectiveFont := Max(Control.FontSize, 9);
+    NeededWidth := (TextWidthEstimate(Control) -
+      2 * PaddingHorizontal(Control)) * Max(Control.FontSize, 9) /
+      Max(EffectiveFont, 1) * MeasurementSafety +
+      2 * PaddingHorizontal(Control);
+    LeftRoom := Min(SpaceToLeft(Control),
+      Max(0, NeededWidth - Control.PlannedWidth));
+    if LeftRoom > 1 then
+    begin
+      Control.PlannedWidth := Control.PlannedWidth + LeftRoom;
+      Control.PlannedLeft := Control.PlannedLeft - LeftRoom;
+    end;
+    EffectiveFont := FontFittingOneLine(Control,
+      Control.PlannedWidth / MeasurementSafety);
+    { A floor, because there is a point past which fitting the text is worse
+      than the text not fitting. Where even this will not do it, leave the
+      control as the passes above left it rather than shrink it to something
+      nobody can read. }
+    if (EffectiveFont < Max(Control.FontSize, 9) * 0.75) or
+      (EffectiveFont < MinimumReadableFontSize) then
+      Continue;
+    if EffectiveFont < Max(Control.FontSize, 9) then
+    begin
+      Control.PlannedFontSize := EffectiveFont;
+      { It fits on one line now, so it must not be told to wrap: wrapping a
+        line that no longer needs it only invites the renderer to break it. }
+      if WrappedLineCount(Control, Control.PlannedWidth) <= 1 then
+        Control.PlannedWordWrap := False;
     end;
   end;
 

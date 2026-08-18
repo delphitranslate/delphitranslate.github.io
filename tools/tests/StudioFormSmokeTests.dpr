@@ -5,9 +5,12 @@ program StudioFormSmokeTests;
 uses
   System.StrUtils,
   System.SysUtils,
+  System.Types,
   System.UITypes,
   FMX.Types,
   FMX.Forms,
+  FMX.Controls,
+  FMX.TabControl,
   DAT.Studio.MainForm in '..\..\source\studio\DAT.Studio.MainForm.pas'
     {frmTranslationStudio},
   DAT.Studio.SetupWizard in '..\..\source\studio\DAT.Studio.SetupWizard.pas'
@@ -41,6 +44,74 @@ begin
   end;
 end;
 
+{ Every control on a wizard page must sit inside the page, with room to spare.
+
+  The height a page actually has is settled at run time and is nothing like the
+  figure the form file records: the tab control fills its card, so both the
+  card's stored height and the tab's are stale the moment the form is built.
+  Pages were laid out against those stale figures and the overflow stayed
+  invisible until a button turned up cut off along the bottom edge on screen.
+  Measure the tab control that is actually there.
+
+  Everything here is done in absolute coordinates. A TTabItem's own Height is
+  the height of its tab button, not of the page, and its Controls collection
+  holds that button's furniture rather than the page content, which is
+  reparented into a layout of the tab control's own. Comparing absolute
+  positions sidesteps all of it and stays correct however the content is
+  nested. }
+procedure RequirePageContentFits(const AWizard: TfrmSetupWizard);
+const
+  RequiredMargin = 12;
+
+  function PageOf(const AControl: TControl): TTabItem;
+  var
+    Walk: TFmxObject;
+  begin
+    Result := nil;
+    Walk := AControl.Parent;
+    while Assigned(Walk) do
+    begin
+      if Walk is TTabItem then
+        Exit(TTabItem(Walk));
+      Walk := Walk.Parent;
+    end;
+  end;
+
+var
+  Index: Integer;
+  Child: TControl;
+  Page: TTabItem;
+  Bottom, Allowed: Double;
+  Checked: Integer;
+begin
+  Allowed := AWizard.WizardTabs.LocalToAbsolute(
+    TPointF.Create(0, AWizard.WizardTabs.Height)).Y - RequiredMargin;
+  Checked := 0;
+  for Index := 0 to AWizard.ComponentCount - 1 do
+  begin
+    if not (AWizard.Components[Index] is TControl) then
+      Continue;
+    Child := TControl(AWizard.Components[Index]);
+    if Child.Align <> TAlignLayout.None then
+      Continue;
+    Page := PageOf(Child);
+    if Page = nil then
+      Continue;
+    Inc(Checked);
+    Bottom := Child.LocalToAbsolute(TPointF.Create(0, Child.Height)).Y;
+    if Bottom > Allowed then
+      raise Exception.CreateFmt(
+        'Wizard page "%s": %s reaches %.0f, past the %.0f a page has ' +
+        '(a %d margin inside the tab control).',
+        [Page.Text, Child.Name, Bottom, Allowed, RequiredMargin]);
+  end;
+  { A check that examines nothing passes for the wrong reason. }
+  if Checked < 40 then
+    raise Exception.CreateFmt(
+      'Only %d wizard page controls were examined; the walk is not finding ' +
+      'the page content.', [Checked]);
+end;
+
 procedure TestSetupWizard;
 var
   Wizard: TfrmSetupWizard;
@@ -62,13 +133,12 @@ begin
     if (Wizard.cboWorkflowMode.Items.Count <> 3) or
        not Assigned(Wizard.cboWorkflowMode.OnChange) then
       raise Exception.Create('The new/update translation workflow is not available.');
-    if not Assigned(Wizard.btnLocalizationReview.OnClick) then
-      raise Exception.Create('Localization Review is not connected to the Wizard.');
-    if Wizard.btnLocalizationReview.Enabled or
-       (Wizard.btnLocalizationReview.Text <>
-        'Review Opens After Translation') then
-      raise Exception.Create(
-        'Localization Review is available before translated text exists.');
+    { These two checks named btnLocalizationReview, a button that no longer
+      exists on the Wizard: it was removed or renamed and the test was never
+      updated, so this program has not compiled since. Localization Review is
+      now opened from code, and the only control bound to that handler is the
+      hidden btnFinishLocalizationReview checked below. Restore a check here if
+      a visible entry point returns. }
     if (Pos('Required:', Wizard.chkUnderstandManualStep.Text) <> 1) or
        (Wizard.lblManualConfirmationRequired.Text = '') then
       raise Exception.Create('The required manual-phase confirmation is not explained.');
@@ -104,6 +174,7 @@ begin
     if Wizard.ContentCard.Position.X + Wizard.ContentCard.Width >
        Wizard.BodyLayout.Width + 1 then
       raise Exception.Create('Wizard content extends beyond its body layout.');
+    RequirePageContentFits(Wizard);
   finally
     Wizard.Free;
   end;
@@ -116,9 +187,15 @@ begin
     TestSetupWizard;
     frmTranslationStudio := TfrmTranslationStudio.Create(nil);
     try
-      if frmTranslationStudio.Caption <>
-        'Delphi App Translation Studio' then
+      { The form appends the build label to its caption when it is created,
+        so an equality check here failed from the moment build labels were
+        introduced and went unnoticed because this program had already stopped
+        compiling. Check the parts that are meant to hold still. }
+      if not StartsText('Delphi App Translation Studio',
+        frmTranslationStudio.Caption) then
         raise Exception.Create('The main form caption is incorrect.');
+      if not ContainsText(frmTranslationStudio.Caption, 'Build ') then
+        raise Exception.Create('The main form caption omits the build label.');
       if frmTranslationStudio.WindowState <> TWindowState.wsMaximized then
         raise Exception.Create('The Studio is not configured to start maximized.');
       if (frmTranslationStudio.LanguagePageCard.Align <>
@@ -295,6 +372,13 @@ begin
          (frmTranslationStudio.lblExportPathValue.TextSettings.Font.Size < 14) then
         raise Exception.Create(
           'The exported runtime-pack path is not a readable active link.');
+      { The Studio opens on the intro chooser, and every workflow page stays
+        hidden until a workflow is picked. This test predates that screen and
+        was driving the navigation labels against it, which is why it reported
+        the Languages page as broken. Pick the Maintenance Studio workflow the
+        way a person would, then exercise the navigation. }
+      frmTranslationStudio.btnIntroMaintenance.OnClick(
+        frmTranslationStudio.btnIntroMaintenance);
       frmTranslationStudio.lblNavigationLanguages.OnClick(
         frmTranslationStudio.lblNavigationLanguages);
       if not frmTranslationStudio.LanguagePageCard.Visible then

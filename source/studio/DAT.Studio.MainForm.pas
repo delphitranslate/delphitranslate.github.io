@@ -304,7 +304,7 @@ uses
 {$R *.fmx}
 
 const
-  StudioBuildLabel = 'Build 2026.08.17.112';
+  StudioBuildLabel = 'Build 2026.08.17.113';
 
 procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var

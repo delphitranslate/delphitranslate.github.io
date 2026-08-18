@@ -148,6 +148,27 @@ begin
     FTimer.Enabled := False;
 end;
 
+{ Text settings, reached the way FireMonkey means them to be reached.
+
+  TTextControl is only one of the two families of text control. A TLabel, and
+  everything else built on TPresentedTextControl, descends from the other and
+  is not a TTextControl at all: the compiler will not even permit the two to be
+  compared directly. Written against a TComponent the test compiles happily and
+  is simply False for every label, which is what it had been doing here.
+
+  The cost of that was invisible and large. Wrapping, text size and font colour
+  are the three properties this unit sets through the class, so for labels -
+  most of the text on any form - they were never set. The analyser would decide
+  a caption needed to be a point smaller, the rule would be written into the
+  pack, the runtime would read it, and nothing whatever would happen. Both
+  families implement ITextSettings, so ask for the interface. }
+function AsTextSettings(const AComponent: TComponent;
+  out ASettings: ITextSettings): Boolean;
+begin
+  Result := Supports(AComponent, ITextSettings, ASettings) and
+    Assigned(ASettings) and Assigned(ASettings.TextSettings);
+end;
+
 function ApplyFontColorsToForm(const AForm: TCommonCustomForm;
   const APack: TRuntimeLanguagePack; const AFormIdentity: string): Integer;
 var
@@ -155,6 +176,7 @@ var
   ColorText: string;
   ComponentKey: string;
   ComponentName: string;
+  ComponentTextSettings: ITextSettings;
   ParsedColor: TAlphaColor;
 
   function FindOwnedComponent(const ARoot: TComponent;
@@ -216,15 +238,15 @@ begin
       Continue;
     ComponentName := Copy(ComponentKey, Length(AFormIdentity) + 2, MaxInt);
     Component := FindOwnedComponent(AForm, ComponentName);
-    if not (Component is TTextControl) then
+    if not AsTextSettings(Component, ComponentTextSettings) then
       Continue;
     ColorText := APack.FontColors[ComponentKey];
     try
       if not TryParseColor(ColorText, ParsedColor) then
         Continue;
-      TTextControl(Component).StyledSettings :=
-        TTextControl(Component).StyledSettings - [TStyledSetting.FontColor];
-      TTextControl(Component).TextSettings.FontColor := ParsedColor;
+      ComponentTextSettings.StyledSettings :=
+        ComponentTextSettings.StyledSettings - [TStyledSetting.FontColor];
+      ComponentTextSettings.TextSettings.FontColor := ParsedColor;
       Inc(Result);
     except
       // Optional styling metadata must never block translation.
@@ -243,22 +265,21 @@ end;
 function ApplyWordWrapSetting(const AComponent: TComponent;
   const AValue: Boolean): Boolean;
 var
-  TextControl: TTextControl;
+  Settings: ITextSettings;
 begin
   Result := False;
-  if not (AComponent is TTextControl) then
+  if not AsTextSettings(AComponent, Settings) then
     Exit;
-  TextControl := TTextControl(AComponent);
-  TextControl.StyledSettings := TextControl.StyledSettings -
+  Settings.StyledSettings := Settings.StyledSettings -
     [TStyledSetting.Other];
-  if TextControl.TextSettings.WordWrap <> AValue then
+  if Settings.TextSettings.WordWrap <> AValue then
   begin
-    TextControl.TextSettings.WordWrap := AValue;
+    Settings.TextSettings.WordWrap := AValue;
     Result := True;
   end;
-  if AValue and (TextControl.TextSettings.Trimming <> TTextTrimming.None) then
+  if AValue and (Settings.TextSettings.Trimming <> TTextTrimming.None) then
   begin
-    TextControl.TextSettings.Trimming := TTextTrimming.None;
+    Settings.TextSettings.Trimming := TTextTrimming.None;
     Result := True;
   end;
 end;
@@ -271,17 +292,16 @@ end;
 function ApplyFontSizeSetting(const AComponent: TComponent;
   const AValue: Single): Boolean;
 var
-  TextControl: TTextControl;
+  Settings: ITextSettings;
 begin
   Result := False;
-  if not (AComponent is TTextControl) or (AValue <= 0) then
+  if (AValue <= 0) or not AsTextSettings(AComponent, Settings) then
     Exit;
-  TextControl := TTextControl(AComponent);
-  TextControl.StyledSettings := TextControl.StyledSettings -
+  Settings.StyledSettings := Settings.StyledSettings -
     [TStyledSetting.Size];
-  if not SameValue(TextControl.TextSettings.Font.Size, AValue, 0.01) then
+  if not SameValue(Settings.TextSettings.Font.Size, AValue, 0.01) then
   begin
-    TextControl.TextSettings.Font.Size := AValue;
+    Settings.TextSettings.Font.Size := AValue;
     Result := True;
   end;
 end;
@@ -315,12 +335,14 @@ begin
     the assignment is accepted and then ignored at paint time. This matters
     most when AutoSize has just been switched off: without real wrapping the
     control keeps its assigned width and clips the translated text. }
-  if SameText(APropertyName, 'WordWrap') and (AComponent is TTextControl) then
+  if SameText(APropertyName, 'WordWrap') and
+    Supports(AComponent, ITextSettings) then
   begin
     ApplyWordWrapSetting(AComponent, SameText(AValue, 'True'));
     Exit(True);
   end;
-  if SameText(APropertyName, 'FontSize') and (AComponent is TTextControl) then
+  if SameText(APropertyName, 'FontSize') and
+    Supports(AComponent, ITextSettings) then
   begin
     if not TryStrToFloat(AValue, FloatValue, TFormatSettings.Invariant) or
       (FloatValue <= 0) or (FloatValue > 400) then
