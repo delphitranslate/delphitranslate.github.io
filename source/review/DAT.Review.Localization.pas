@@ -628,6 +628,7 @@ const
     translation fits, since concluding wrongly leaves an auto-sizing control to
     resize itself at run time and walk into its neighbour. }
   MeasurementSafety = 1.08;
+  CaptionFieldGap = 28;
   { A reduction no deeper than this is preferable to wrapping a caption onto a
     second line, and no caption should ever be reduced further: past this the
     text reads as noticeably smaller than everything around it. }
@@ -663,6 +664,7 @@ var
   ClusterOverlaysDesign: Boolean;
   Candidate: TLayoutControl;
   SetFont, UniformFont, UniformHeight, DesignedPitch: Double;
+  SavedFontSize: Double;
   SetFitsOneLine, RowCanWrap: Boolean;
   CaptionRow: TList<TLayoutControl>;
   PitchedCaptions: TList<TLayoutControl>;
@@ -1544,6 +1546,52 @@ var
     next. The even step is the evidence that they were positioned as a set
     over something rather than placed one at a time. Returns them in the order
     the designer placed them, and reports the step. }
+  function EffectiveFontOf(const AControl: TLayoutControl): Double;
+  begin
+    Result := AControl.PlannedFontSize;
+    if Result <= 0 then
+      Result := Max(AControl.FontSize, 9);
+  end;
+
+  { The field this control captions from directly above it. A caption written
+    over its box, rather than beside it, is read down the column: the words and
+    the box below them line up on the left, and that shared left edge is what
+    ties the two together. Returns nil where there is no such field. }
+  function FieldDirectlyBelow(const AControl: TLayoutControl): TLayoutControl;
+  var
+    Candidate: TLayoutControl;
+    Nearest: Double;
+  begin
+    Result := nil;
+    Nearest := MaxDouble;
+    if IsInputControl(AControl) or IsButtonLike(AControl) then
+      Exit;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize or not IsInputControl(Candidate) then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      { Below the caption's top, and close enough underneath to be the thing it
+        names. Designers routinely let the two overlap by a few pixels, so the
+        test is against the caption's top rather than its bottom. }
+      if (Candidate.Top <= AControl.Top) or
+        (Candidate.Top > AControl.Top + AControl.Height + CaptionFieldGap) then
+        Continue;
+      { And in the same column: a field off to one side is somebody else's. }
+      if (Candidate.Left >= AControl.Left + AControl.Width) or
+        (Candidate.Left + Candidate.Width <= AControl.Left) then
+        Continue;
+      if Candidate.Top < Nearest then
+      begin
+        Nearest := Candidate.Top;
+        Result := Candidate;
+      end;
+    end;
+  end;
+
   { True when this control was drawn level with a field on its own row. The
     pairing is how a reader tells which box a caption belongs to, and it is
     read vertically: the words level with the box are the words for that box.
@@ -2085,6 +2133,94 @@ begin
     end;
   finally
     PackedButtons.Free;
+  end;
+
+  { Phase 2b2 - a caption written above its field shares that field's column.
+
+    Where a caption sits beside its field it keeps its right edge and takes the
+    empty margin on its left, because that is the edge the reader follows. A
+    caption written above its field is read the other way: down the column, and
+    the caption and the box beneath it line up on the left. Growing such a
+    caption leftwards walks it off the box it belongs to and out over whatever
+    is to the left, which is what the email settings page showed - a line of
+    words starting well left of the box it names and running past it.
+
+    So take the field's left edge and its width, and wrap inside them. The
+    height that needs is taken upwards, keeping the caption's bottom against
+    the box it labels; the passes below will take it back if the room above is
+    not there. }
+  for Control in AReview.Controls do
+  begin
+    if (Control.TranslatedText = '') or not Control.HasSize or
+      not Control.HasPosition or (Control.PlannedWidth <= 0) then
+      Continue;
+    Follower := FieldDirectlyBelow(Control);
+    if Follower = nil then
+      Continue;
+    SavedFontSize := Control.PlannedFontSize;
+    { Judged against the box the caption was drawn in, not the one an earlier
+      pass has already stretched it into. By this point a caption that would
+      not fit has usually been widened leftwards, which is precisely the
+      treatment being overruled here: measured against that new width it looks
+      settled, and the question of whether it ever fitted where it was drawn
+      has been lost. A caption that fits as drawn is left exactly alone. }
+    if WrappedLineCount(Control, Control.Width) <= 1 then
+      Continue;
+
+    { The band the caption has to live in: clear of whatever is above it in the
+      same column, and clear of the field itself. Growing onto the box is not
+      an option - the words would be drawn across the thing they name - so
+      where the band is too small the text is reduced to suit it rather than
+      the box being encroached on. }
+    ClampBottom := Follower.Top - ControlGap;
+    ClampTop := 0;
+    for Other in AReview.Controls do
+    begin
+      if (Other = Control) or (Other = Follower) or not Other.HasPosition or
+        not Other.HasSize then
+        Continue;
+      if not SameText(Other.FormName, Control.FormName) or
+        not SameText(Other.ParentName, Control.ParentName) then
+        Continue;
+      if IsVisualContainer(Other) then
+        Continue;
+      if (Other.Left >= Follower.Left + Follower.Width) or
+        (Other.Left + Other.Width <= Follower.Left) then
+        Continue;
+      if Other.Top + Other.Height > ClampBottom then
+        Continue;
+      ClampTop := Max(ClampTop, Other.Top + Other.Height + ControlGap);
+    end;
+
+    NeededHeight := Ceil(RequiredHeightFor(Control, Follower.Width));
+    { Where the band cannot hold the lines, reduce the size until it can, and
+      only then. A floor applies: past a point a caption nobody can read is
+      worse than one that sits tight. }
+    while (NeededHeight > ClampBottom - ClampTop) and
+      (EffectiveFontOf(Control) > SmallestFontFor(Control)) do
+    begin
+      Control.PlannedFontSize := Max(SmallestFontFor(Control),
+        EffectiveFontOf(Control) - 0.5);
+      NeededHeight := Ceil(RequiredHeightFor(Control, Follower.Width));
+    end;
+    { Where even a modest reduction will not fit the lines into the band, this
+      treatment is declined rather than forced. Squeezing the caption over its
+      box to a size nobody can read trades a tidy edge for an unreadable label,
+      and the passes above have already found it somewhere workable. A caption
+      that reaches this point is telling us the text is too long for the space
+      the form gives it, which is a matter for the wording, not the geometry. }
+    if NeededHeight > ClampBottom - ClampTop then
+    begin
+      Control.PlannedFontSize := SavedFontSize;
+      Continue;
+    end;
+
+    Control.PlannedLeft := Follower.Left;
+    Control.PlannedWidth := Follower.Width;
+    Control.PlannedWordWrap := True;
+    Control.PlannedHeight := Max(Control.PlannedHeight, NeededHeight);
+    { Bottom against the box it names, so the pairing reads down the column. }
+    Control.PlannedTop := ClampBottom - Control.PlannedHeight;
   end;
 
   { Phase 2c - a row of captions laid out at an even pitch keeps that pitch.

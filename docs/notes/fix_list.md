@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.116.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.117.
 
 ## How to read the status of an item
 
@@ -313,6 +313,36 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### A caption above its box was pushed away from it
+**Fixed:** 2026-08-18, build .117.
+**Proved by:** contract 17, `caption_above_field_takes_its_column`.
+**Raised:** 2026-08-18 by the developer, on the email settings page: "it needs
+to be wrapped and aligned with the left edge of the box".
+
+There are two ways a caption can sit against its field and they want opposite
+treatment. Beside the field, the caption keeps its right edge and takes the
+empty margin to its left, because the right edge is the one the reader follows
+across to the box. Above the field, the pairing is read down the column, and
+the caption and the box line up on the left.
+
+Only the first was implemented, so a caption written above its box was widened
+leftwards when the translation outgrew it, walking it off the box it names and
+out over whatever lay to the left. On the email page that produced a line of
+words beginning well left of the field and running past it.
+
+A caption directly above a field now takes that field's left edge and width and
+wraps inside them, with the height taken upwards so its bottom stays against
+the box. It is bounded on both sides: never onto the field, and never up into
+whatever sits above in the same column.
+
+Where the band between the two is too small to hold the lines at a modest size,
+the treatment is declined and the caption is left as the earlier passes placed
+it. That is the case on the email page itself with the full machine wording:
+the button above leaves about thirty pixels, and two lines will not fit them
+without dropping to two thirds of the designed size. A caption reaching that
+point is saying the text is too long for the space the form allows, which is a
+question for the wording. The shortened glossary term settles that one.
 
 ### A hard line break counted for nothing
 **Fixed:** 2026-08-18, build .116.

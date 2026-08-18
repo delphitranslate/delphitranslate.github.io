@@ -1,0 +1,20 @@
+{
+  "description": "A caption written above its field, rather than beside it, is read down the column: when the translation no longer fits the box it was drawn in, it takes the field's left edge and width and wraps inside them, instead of growing leftwards away from the box it names.",
+  "catalog_file": "17_caption_above_field_takes_its_column.catalog.json",
+  "expect_clean": true,
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblRecipient",
+      "planned_left_equals": 180,
+      "planned_width_equals": 300,
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "edtRecipient",
+      "planned_left_equals": 180,
+      "planned_width_equals": 300
+    }
+  ]
+}
