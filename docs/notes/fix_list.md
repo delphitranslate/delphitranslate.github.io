@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.127.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.128.
 
 ## How to read the status of an item
 
@@ -192,6 +192,40 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### The grid was being translated, and frames grew without saying so
+**Fixed:** 2026-08-18, build .128.
+**Raised:** 2026-08-18 by the developer: the playlist grid in Spanish, the
+scheduling check box clipped for the fifth time, and the note on the email page
+hanging out of its panel.
+
+**Grid cells are the application's data and are left alone now.** The runtime
+walked every cell of every string grid and translated anything it recognised.
+Song titles came back in Spanish, and a row reading
+`--Random Music Generator-1--Do Not Delete--` - a marker the application
+matches on by name - was rewritten. Worse, the substitution has no reliable
+inverse, so choosing English again did not bring the titles back: the developer
+was left with Spanish rows in an English application and no way to undo them.
+A column heading is interface text and is still translated. What sits beneath
+it belongs to whoever entered it.
+
+**A frame that grows now says so.** Position changes were emitted for any
+control the planner moved, but size changes only for controls with translated
+text. A frame enlarged to hold its contents carries no text of its own, so its
+growth was planned and never written down. The scheduling panel is the plain
+case: the check box was given the fifty-six pixels its two lines need and the
+panel kept the thirty-three it was drawn with, so the words were clipped by a
+container that had room to spare everywhere except in the pack. That is why
+this one came back five times - each fix corrected the plan, and the plan was
+never the problem. The note on the email page is the same fault: its panel now
+grows from 34 to 52.
+
+**And the contracts can see the pack at last.** They asserted the plan only,
+which is how a correct plan that reaches nobody passed twice - once for
+wrapping, once for this. A contract may now require that a property actually
+appears among the emitted proposals, and contract 19 does exactly that for a
+frame and the control inside it. With the emission removed it reports that the
+plan may be right and the pack still silent.
 
 ### The runtime harness reaches past a single label
 **Fixed:** 2026-08-18, build .127. Narrows item 7b to 7c.

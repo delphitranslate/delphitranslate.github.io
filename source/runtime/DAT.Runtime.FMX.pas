@@ -561,7 +561,6 @@ var
   GridKey: string;
   StringDictionary: TDictionary<string, string>;
   StringPairs: TArray<TPair<string, string>>;
-  RowIndex: Integer;
   TranslatedText: string;
 
   procedure TryGetHeaderTranslation(const AIndex: Integer;
@@ -616,16 +615,20 @@ begin
       TStringGrid(AComponent).Columns[ColumnIndex].Header := TranslatedText;
       Inc(Result);
     end;
-    for RowIndex := 0 to TStringGrid(AComponent).RowCount - 1 do
-    begin
-      CurrentText := TStringGrid(AComponent).Cells[ColumnIndex, RowIndex];
-      if APack.TryTranslateDynamicText(CurrentText, TranslatedText) and
-        (TranslatedText <> CurrentText) then
-      begin
-        TStringGrid(AComponent).Cells[ColumnIndex, RowIndex] := TranslatedText;
-        Inc(Result);
-      end;
-    end;
+    { The cells are deliberately left alone.
+
+      A column heading is interface text: the application chose those words and
+      they mean the same thing in every language. What sits under the heading is
+      the application's data - song titles, file names, durations, rows read
+      from a database - and it belongs to whoever entered it, not to us. A song
+      called Angelus is called Angelus in Spanish, and a row reading
+      "--Random Music Generator-1--Do Not Delete--" is a marker the application
+      matches on by name.
+
+      Translating them corrupted the grid twice over. The words on screen were
+      wrong, and because the substitution has no reliable inverse the rows did
+      not come back when the original language was chosen again: the developer
+      saw Spanish song titles in an English application with no way to undo it. }
   end;
 end;
 
@@ -1521,7 +1524,6 @@ var
   var
     ChildIndex: Integer;
     ColumnIndex: Integer;
-    RowIndex: Integer;
     CurrentText: string;
     SourceText: string;
     PropertyName: string;
@@ -1545,15 +1547,8 @@ var
           TStringGrid(AComponent).Columns[ColumnIndex].Header := SourceText;
           Inc(Result);
         end;
-        for RowIndex := 0 to TStringGrid(AComponent).RowCount - 1 do
-        begin
-          CurrentText := TStringGrid(AComponent).Cells[ColumnIndex, RowIndex];
-          if APack.TryRestoreDynamicText(CurrentText, SourceText) then
-          begin
-            TStringGrid(AComponent).Cells[ColumnIndex, RowIndex] := SourceText;
-            Inc(Result);
-          end;
-        end;
+        { Nothing to restore: the cells were never translated. See the note
+          beside the applying pass. }
       end;
     end;
     for ChildIndex := 0 to AComponent.ComponentCount - 1 do

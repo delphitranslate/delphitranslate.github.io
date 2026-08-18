@@ -305,6 +305,54 @@ begin
 end;
 
 { Every named control ends up the same width, and spaced at one even pitch. }
+{ What actually reaches the pack.
+
+  The expectations above describe the plan, and for a long time that was all
+  anything checked. The plan and the pack are not the same thing: a value is
+  planned, and then a separate pass decides whether to write it down. Twice now
+  a correct plan has been silently not written - wrapping that matched what the
+  framework was assumed to do, and a frame enlarged to hold its contents, which
+  carries no text of its own and so fell outside the rule that only controls
+  with translated text have their size stated. Both looked perfect in the plan
+  and did nothing on screen.
+
+  A contract may therefore carry a "proposals" array, each entry naming a
+  component and a property that must appear among the emitted proposals. }
+procedure CheckProposals(const AReview: TLocalizationReview;
+  const ARoot: TJSONObject; const AFormName: string);
+var
+  Expectations: TJSONArray;
+  Item: TJSONValue;
+  Expectation: TJSONObject;
+  ComponentName: string;
+  PropertyName: string;
+  Proposal: TLayoutProposal;
+  Found: Boolean;
+begin
+  Expectations := ARoot.GetValue('proposals') as TJSONArray;
+  if Expectations = nil then
+    Exit;
+  for Item in Expectations do
+  begin
+    if not (Item is TJSONObject) then
+      Continue;
+    Expectation := TJSONObject(Item);
+    ComponentName := Expectation.GetValue<string>('name', '');
+    PropertyName := Expectation.GetValue<string>('property', '');
+    Found := False;
+    for Proposal in AReview.Proposals do
+      if SameText(Proposal.ComponentName, ComponentName) and
+        SameText(Proposal.PropertyName, PropertyName) then
+      begin
+        Found := True;
+        Break;
+      end;
+    if not Found then
+      Failures.Add(Format('%s.%s has no %s proposal; the plan may be right and the ' +
+        'pack still silent.', [AFormName, ComponentName, PropertyName]));
+  end;
+end;
+
 procedure CheckGroups(const AReview: TLocalizationReview;
   const ARoot: TJSONObject; const AFormName: string);
 var
@@ -446,6 +494,7 @@ begin
                 end;
             if FormName = '' then
               FormName := 'ContractForm';
+            CheckProposals(Review, Root, FormName);
             CheckGroups(Review, Root, FormName);
           finally
             Review.Free;

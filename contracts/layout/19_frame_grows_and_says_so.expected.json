@@ -1,0 +1,27 @@
+{
+  "description": "A caption too long for its frame makes the frame grow, and the growth has to be written down as well as planned. A frame carries no text of its own, so the pass that states a new size for translated controls never speaks for it: the plan grew the panel and the pack said nothing, and the check box was clipped by a container with room to spare everywhere except where it counted.",
+  "catalog_file": "19_frame_grows_and_says_so.catalog.json",
+  "expect_clean": true,
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "chkEnable",
+      "planned_height_at_least": 40
+    },
+    {
+      "form": "ContractForm",
+      "name": "pnlHost",
+      "planned_height_at_least": 45
+    }
+  ],
+  "proposals": [
+    {
+      "name": "pnlHost",
+      "property": "Height"
+    },
+    {
+      "name": "chkEnable",
+      "property": "Height"
+    }
+  ]
+}

@@ -143,6 +143,11 @@ begin
     OriginalStyledSettings := DynamicLabel.StyledSettings;
     TemplateLabel := TLabel.Create(frmFMXSample);
     TemplateLabel.Text := 'Uptime: 2 years';
+    { A data row whose text happens to match something the pack can translate.
+      Grid cells are the application's data - song titles, file names, rows
+      from a database - and must come through a translation untouched. }
+    frmFMXSample.grdCustomers.RowCount := 1;
+    frmFMXSample.grdCustomers.Cells[0, 0] := 'Event';
     Pack := TestPack;
     try
       AppliedCount := TFMXTranslationApplicator.ApplyToForm(
@@ -200,6 +205,9 @@ begin
         'A wrapping rule was not applied to a check box.');
       Require(frmFMXSample.colCustomer.Header = 'Kunde',
         'The grid column heading was not translated.');
+      Require(frmFMXSample.grdCustomers.Cells[0, 0] = 'Event',
+        'A grid cell was translated. Cells carry the application''s data, ' +
+        'not its interface, and the substitution has no reliable inverse.');
       Require(Round(frmFMXSample.colCustomer.Width) = 240,
         'A width rule was not applied to a grid column.');
       Require(TFMXTranslationApplicator.ApplyLayoutToForm(frmFMXSample,

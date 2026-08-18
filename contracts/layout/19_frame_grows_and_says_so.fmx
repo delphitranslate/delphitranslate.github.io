@@ -1,0 +1,23 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 300
+  ClientWidth = 600
+  object pnlHost: TPanel
+    Position.X = 400.000000000000000000
+    Position.Y = 40.000000000000000000
+    Size.Width = 150.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    object chkEnable: TCheckBox
+      Position.X = 2.000000000000000000
+      Position.Y = 4.000000000000000000
+      Size.Width = 142.000000000000000000
+      Size.Height = 25.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 15.000000000000000000
+      Text = 'Enable schedule'
+    end
+  end
+end

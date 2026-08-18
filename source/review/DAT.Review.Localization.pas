@@ -2824,6 +2824,25 @@ begin
             TFormatSettings.Invariant),
           'Slightly smaller text so the translation fits the designed control without moving anything.');
     end;
+    { Size is the same story, and it was only half told. A frame enlarged to
+      hold its contents carries no text of its own, so the block above never
+      speaks for it: the growth was planned and then never written down. The
+      scheduling panel is the plain case - the check box inside it was given
+      the fifty-six pixels its two lines need, the panel kept the thirty-three
+      it was drawn with, and the words were clipped by a container that had
+      room to spare everywhere except in the pack. }
+    if Control.TranslatedText = '' then
+    begin
+      if Ceil(Control.PlannedWidth) > Ceil(Control.Width) then
+        AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
+          IntToStr(Ceil(Control.PlannedWidth)),
+          'Widened to hold the controls inside it.');
+      if Ceil(Control.PlannedHeight) > Ceil(Control.Height) then
+        AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
+          IntToStr(Ceil(Control.PlannedHeight)),
+          'Heightened to hold the controls inside it.');
+    end;
+
     { Movement is different. The separation pass steps a control aside to make
       room for a caption that grew, and that control is very often an edit box
       or a check box carrying no text of its own. Exporting only the growth and
