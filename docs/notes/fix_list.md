@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.122.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.123.
 
 ## How to read the status of an item
 
@@ -126,24 +126,6 @@ Suggested shape, for the developer to accept or change:
   is all that can land.
 - Give the "build a configuration I have never built" case its own control, or
   move it to the Build page where it belongs.
-
-### 14. The statement collector does not skip comments
-**Status:** open. **Severity:** medium, and silent.
-**Found:** 2026-08-18, while writing the scan fixture.
-
-`CollectRuntimeStatements` walks the source line by line without any notion of
-comments. An apostrophe inside one - `Carillon's log`, `don't` - opens a string
-literal as far as the collector is concerned, and it never closes, so every
-statement after that point in the file is swallowed into one enormous unclosed
-literal and nothing further is scanned.
-
-Nothing announces it. The unit simply yields fewer strings than it should, and
-which strings depend on where the apostrophe falls. Carillon's own units may be
-losing text this way today; the fixture only avoids it by having no apostrophes
-in its comments.
-
-The collector needs to skip `//` to end of line, `{ }` and `(* *)`, and to
-track quotes only outside them.
 
 ### 13. Controls the application builds in code get no layout attention
 **Status:** open. **Severity:** low, but it is visible to the developer today.
@@ -314,6 +296,34 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### An apostrophe in a comment silenced the rest of the file
+**Fixed:** 2026-08-18, build .123. Closes item 14, found the same day.
+**Proved by:** `contracts/pascalscan`.
+
+The statement collector walked the source line by line with no notion of
+comments. An apostrophe inside one - `Carillon's log`, `don't`, `the
+developer's choice` - opens a string literal as far as a naive reader is
+concerned, and it never closes, so every statement after that point in the file
+was swallowed into one unterminated literal and nothing further was scanned.
+
+Nothing announced it. The unit yielded fewer strings than it held, and which
+ones depended on where the apostrophe fell. It was found only because the
+fixture written to test something else had an apostrophe in its own comment and
+reported nothing at all.
+
+Comments are now understood: `//` to end of line, braces with their nesting
+carried across lines, and the older parenthesis-star form. Quotes and comments
+are tracked together, since each decides the other - a brace inside a string
+opens no comment, and a quote inside a comment opens no string. A literal still
+open at the end of a line yields nothing rather than running on into the rest of
+the file, so a construct this scanner does not understand costs one line
+instead of a unit.
+
+Also removed here: text was being claimed twice, once by the pass that reads
+returned values and once by the assignment pass, so the same words reached the
+review under two keys. The first pass exists for statements that return more
+than one value, and now declines where there is only one.
 
 ### The scanner was inventing strings, and discarding real ones
 **Fixed:** 2026-08-18, build .122. Closes item 12.

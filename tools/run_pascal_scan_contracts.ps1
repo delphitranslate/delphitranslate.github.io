@@ -57,6 +57,7 @@ $reported = & $HarnessExe $Fixture 2>&1
 # Text a person sees, which must be claimed.
 $mustClaim = @(
   'Enter information in these fields to silence the bell system on selected dates.',
+  'Caption after an apostrophe in a comment',
   'Time',
   'Song'
 )

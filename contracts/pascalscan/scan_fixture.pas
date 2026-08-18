@@ -47,4 +47,13 @@ begin
   if AByTime then Result := 'Time' else Result := 'Song';
 end;
 
+
+{ A block comment containing Carillon's apostrophe. Before comments were
+  understood this opened a string literal that never closed, and every
+  statement after it in the file was lost without a word. }
+function AfterApostropheComment: string;
+begin
+  Result := 'Caption after an apostrophe in a comment';
+end;
+
 end.

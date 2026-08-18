@@ -478,6 +478,34 @@ begin
   Result := True;
 end;
 
+{ How many times this statement assigns to Result. }
+function CountReturnedAssignments(const ALowerStatement: string): Integer;
+var
+  Index: Integer;
+  Cursor: Integer;
+begin
+  Result := 0;
+  Cursor := 1;
+  while True do
+  begin
+    Index := PosEx('result', ALowerStatement, Cursor);
+    if Index = 0 then
+      Exit;
+    Cursor := Index + Length('result');
+    if (Index > 1) and CharInSet(ALowerStatement[Index - 1],
+      ['a'..'z', 'A'..'Z', '0'..'9', '_', '.']) then
+      Continue;
+    Cursor := Index + Length('result');
+    while (Cursor <= Length(ALowerStatement)) and
+      CharInSet(ALowerStatement[Cursor], [' ', #9]) do
+      Inc(Cursor);
+    if (Cursor < Length(ALowerStatement)) and
+      (ALowerStatement[Cursor] = ':') and
+      (ALowerStatement[Cursor + 1] = '=') then
+      Inc(Result);
+  end;
+end;
+
 function ScanReturnedLiterals(const AResult: TProjectScanResult;
   const AFileName, AUnitName, AStatement: string;
   const ASourceLine: Integer): Boolean;
@@ -510,6 +538,13 @@ begin
   if ContainsText(AStatement, '+') then
     Exit;
   Lower := LowerCase(AStatement);
+  { This exists for the statement that returns more than one value, where
+    splitting on the first assignment sees only one of them. A statement with a
+    single returned value is already claimed by the assignment below, and
+    claiming it here as well puts the same words in front of the reviewer twice
+    under two different keys. }
+  if CountReturnedAssignments(Lower) < 2 then
+    Exit;
   Index := 1;
   while True do
   begin
@@ -718,9 +753,99 @@ begin
   AResult.Items.Add(ScanItem);
 end;
 
+{ The line with its comments taken out, so that what remains is program text.
+
+  The collector had no notion of comments at all. An apostrophe inside one -
+  Carillon's log, don't, the developer's choice - opens a string literal as far
+  as a naive reader is concerned, and it never closes, so every statement after
+  that point in the file is swallowed into one unterminated literal and nothing
+  further is scanned. Nothing announces it: the unit simply yields fewer
+  strings than it holds, and which ones depends on where the apostrophe falls.
+
+  Quotes are tracked as well as comments, because the two decide each other: a
+  brace inside a string opens no comment, and a quote inside a comment opens no
+  string. ABlockDepth carries brace nesting across lines, AInDirective carries
+  the older parenthesis-star form. }
+function StripPascalComments(const ALine: string; var ABlockDepth: Integer;
+  var AInDirective: Boolean): string;
+var
+  Index: Integer;
+  InString: Boolean;
+begin
+  Result := '';
+  InString := False;
+  Index := 1;
+  while Index <= Length(ALine) do
+  begin
+    if AInDirective then
+    begin
+      if (ALine[Index] = '*') and (Index < Length(ALine)) and
+        (ALine[Index + 1] = ')') then
+      begin
+        AInDirective := False;
+        Inc(Index, 2);
+      end
+      else
+        Inc(Index);
+      Continue;
+    end;
+    if ABlockDepth > 0 then
+    begin
+      if ALine[Index] = '}' then
+        Dec(ABlockDepth)
+      else if ALine[Index] = '{' then
+        Inc(ABlockDepth);
+      Inc(Index);
+      Continue;
+    end;
+    if InString then
+    begin
+      Result := Result + ALine[Index];
+      if ALine[Index] = '''' then
+        InString := False;
+      Inc(Index);
+      Continue;
+    end;
+    if ALine[Index] = '''' then
+    begin
+      InString := True;
+      Result := Result + ALine[Index];
+      Inc(Index);
+      Continue;
+    end;
+    if (ALine[Index] = '/') and (Index < Length(ALine)) and
+      (ALine[Index + 1] = '/') then
+      Break;
+    if ALine[Index] = '{' then
+    begin
+      Inc(ABlockDepth);
+      Inc(Index);
+      Continue;
+    end;
+    if (ALine[Index] = '(') and (Index < Length(ALine)) and
+      (ALine[Index + 1] = '*') then
+    begin
+      AInDirective := True;
+      Inc(Index, 2);
+      Continue;
+    end;
+    Result := Result + ALine[Index];
+    Inc(Index);
+  end;
+  { A literal left open at the end of a line is a line the reader has
+    misunderstood, or a construct this scanner does not handle. Either way the
+    safe answer is to claim nothing from it rather than to run on into the rest
+    of the file. }
+  if InString then
+    Result := '';
+  Result := Trim(Result);
+end;
+
 procedure CollectRuntimeStatements(const ALines: TStrings;
   const AStatements: TList<TRuntimeStatement>);
 var
+  BlockDepth: Integer;
+  InDirective: Boolean;
   LineIndex: Integer;
   SourceLine: Integer;
   Statement: string;
@@ -730,10 +855,13 @@ var
 begin
   Statement := '';
   SourceLine := 0;
+  BlockDepth := 0;
+  InDirective := False;
   for LineIndex := 0 to ALines.Count - 1 do
   begin
-    TrimmedLine := Trim(ALines[LineIndex]);
-    if (TrimmedLine = '') or StartsText('//', TrimmedLine) then
+    TrimmedLine := StripPascalComments(ALines[LineIndex], BlockDepth,
+      InDirective);
+    if TrimmedLine = '' then
       Continue;
     if (Statement = '') and
       (SameText(TrimmedLine, 'begin') or SameText(TrimmedLine, 'end') or

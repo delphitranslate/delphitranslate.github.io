@@ -261,7 +261,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.18.122';
+  StudioBuildLabel = 'Build 2026.08.18.123';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
