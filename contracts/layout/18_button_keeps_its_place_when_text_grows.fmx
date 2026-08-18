@@ -1,0 +1,34 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 300
+  ClientWidth = 600
+  object btnRecalculate: TButton
+    Position.X = 200.000000000000000000
+    Position.Y = 100.000000000000000000
+    Size.Width = 130.000000000000000000
+    Size.Height = 46.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    Text = 'Recalculate'
+  end
+  object lblWhen: TLabel
+    StyledSettings = []
+    Position.X = 340.000000000000000000
+    Position.Y = 106.000000000000000000
+    Size.Width = 120.000000000000000000
+    Size.Height = 22.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 13.000000000000000000
+    TextSettings.HorzAlign = Trailing
+    Text = 'Date:'
+  end
+  object edtWhen: TEdit
+    Position.X = 470.000000000000000000
+    Position.Y = 102.000000000000000000
+    Size.Width = 110.000000000000000000
+    Size.Height = 28.000000000000000000
+    Size.PlatformDefault = False
+  end
+end

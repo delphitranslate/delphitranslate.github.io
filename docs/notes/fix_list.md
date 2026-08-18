@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.117.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.118.
 
 ## How to read the status of an item
 
@@ -313,6 +313,42 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### Two buttons were carried across the page into the left margin
+**Fixed:** 2026-08-18, build .118.
+**Proved by:** contract 18, `button_keeps_its_place_when_text_grows`.
+**Raised:** 2026-08-18 by the developer, on the liturgical silence page, after
+three rounds of my looking at the wrong thing in the picture.
+
+The misalignment was not in the captions at all. Measured against the design:
+
+```
+BtnRecalcEaster     drawn 134,413  right edge 263   planned  8,413  right edge 137
+btnClearOtherDates  drawn 156,510  right edge 263   planned 14,510  right edge 121
+```
+
+Two buttons drawn as a pair against a shared right edge of 263, carried 126 and
+142 pixels to the left margin, arriving ragged against each other and attached
+to nothing, while the space they left behind went unused.
+
+The cause is a Phase 2 treatment written for captions: a caption pinned against
+the field it names has no room on its right, and forms usually leave a margin
+on the far left that nothing occupies, so it slides back into that margin to
+find its width. Sound for a caption. A button names nothing to its right, so
+sliding it towards a field moves it away from whatever it was drawn against and
+buys nothing at all. The treatment is now captions only.
+
+One other thing turned up while looking, and is fixed with it. The guard meant
+to stop a control drifting too far read
+
+```pascal
+RequiredLeft - Follower.Left <= MaximumDrift
+```
+
+which is a subtraction, not a distance. Pushed to the right it restrains;
+pushed to the left the difference is negative and the test passes however far
+the control travels. It is a magnitude now. That guard did not cause this - the
+slide above did - but it is why nothing caught it on the way past.
 
 ### A caption above its box was pushed away from it
 **Fixed:** 2026-08-18, build .117.

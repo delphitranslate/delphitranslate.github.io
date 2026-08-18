@@ -1790,8 +1790,17 @@ begin
         that nothing occupies. Sliding the caption back into that margin buys
         the width it needs and leaves every field exactly where it was drawn,
         which is better than wrapping the caption or shrinking its text. }
+      { Captions only. A button is not a caption: it has no field to its right
+        that it is naming, so sliding it towards one moves it away from the
+        thing it was drawn against and buys nothing. Two buttons drawn as a
+        pair against a shared right edge on the settings page were carried a
+        hundred and twenty six and a hundred and forty two pixels to the left
+        margin by this, arriving ragged and attached to nothing, while the
+        space they left behind went unused. A button whose text has outgrown it
+        wraps or takes a smaller size, as the passes below arrange. }
       if Control.HasPosition and not IsRightAligned(Control) and
         not IsCentreAligned(Control) and not IsParagraphWidth(Control) and
+        not IsButtonLike(Control) and not IsInputControl(Control) and
         (RequiredWidth > SpaceToRight(Control)) then
       begin
         LeftRoom := SpaceToLeft(Control);
@@ -2483,7 +2492,15 @@ begin
           else if CanMoveControl(Follower) and
             (RequiredLeft + Follower.PlannedWidth <=
               ContentRightBound(Follower)) and
-            (RequiredLeft - Follower.Left <= MaximumDrift) then
+            { Distance, not direction. Written as a subtraction this only ever
+              restrained a control being pushed to the right: pushed left the
+              difference is negative and the test passes however far it goes.
+              Two buttons drawn as a pair against a shared right edge were
+              carried a hundred and twenty six and a hundred and forty two
+              pixels across the settings page to the left margin, arriving
+              ragged and attached to nothing, because no one was measuring how
+              far they had come. }
+            (Abs(RequiredLeft - Follower.Left) <= MaximumDrift) then
           begin
             Follower.PlannedLeft := RequiredLeft;
             Moved := True;

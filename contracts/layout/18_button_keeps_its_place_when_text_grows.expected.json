@@ -1,0 +1,17 @@
+{
+  "description": "A button whose translated text outgrows it stays where it was drawn, even with a caption crowding it on the right and an empty margin beckoning on the left. Sliding a control into that margin is a treatment for a caption reaching towards the field it names; a button names nothing to its right, so moving it only detaches it from the layout it belongs to. Width is left out deliberately: how the button absorbs the longer text is a separate question from where it sits.",
+  "catalog_file": "18_button_keeps_its_place_when_text_grows.catalog.json",
+  "expect_clean": true,
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "btnRecalculate",
+      "planned_left_equals": 200
+    },
+    {
+      "form": "ContractForm",
+      "name": "edtWhen",
+      "planned_left_equals": 470
+    }
+  ]
+}
