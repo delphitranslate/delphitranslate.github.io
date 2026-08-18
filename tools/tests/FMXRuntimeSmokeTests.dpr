@@ -46,6 +46,8 @@ const
     '"frmFMXSample.cmbDateRange.Items.Strings.2":"Letzte 28 Tage",' +
     '"frmFMXSample.cmbDateRange.Items.Strings.3":"Letzte 90 Tage",' +
     '"frmFMXSample.cmbDateRange.Items.Strings.4":"Dieses Jahr",' +
+    '"frmFMXSample.chkSendCopy.Text":"Kopie senden",' +
+    '"frmFMXSample.colCustomer.Header":"Kunde",' +
     '"frmFMXSample.memInstructions.Lines.Strings.0":"Erste Zeile",' +
     '"frmFMXSample.memInstructions.Lines.Strings.1":"Zweite Zeile"},' +
     '"sourceStrings":{"Close":"Schlie' + #$00DF + 'en","Event":"Evento"},' +
@@ -98,7 +100,20 @@ const
       for a smaller size and must come through with the width it was drawn at. }
     '{"formName":"frmFMXSample","componentName":"btnSave",' +
     '"propertyName":"FontSize","originalValue":"14",' +
-    '"translatedValue":"12","sourceChecksum":"layout-test"}]}';
+    '"translatedValue":"12","sourceChecksum":"layout-test"},' +
+    { Two kinds of control the assertions had never reached. A check box
+      carries its caption beside a tick box, so its width means something
+      different from a label's; a grid column is not a control at all in the
+      usual sense and is reached through the grid that owns it. }
+    '{"formName":"frmFMXSample","componentName":"chkSendCopy",' +
+    '"propertyName":"Width","originalValue":"200",' +
+    '"translatedValue":"260","sourceChecksum":"layout-test"},' +
+    '{"formName":"frmFMXSample","componentName":"chkSendCopy",' +
+    '"propertyName":"WordWrap","originalValue":"False",' +
+    '"translatedValue":"True","sourceChecksum":"layout-test"},' +
+    '{"formName":"frmFMXSample","componentName":"colCustomer",' +
+    '"propertyName":"Width","originalValue":"180",' +
+    '"translatedValue":"240","sourceChecksum":"layout-test"}]}';
 begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
@@ -132,7 +147,7 @@ begin
     try
       AppliedCount := TFMXTranslationApplicator.ApplyToForm(
         frmFMXSample, Pack);
-      Require(AppliedCount = 27, 'Unexpected FMX applied-property count.');
+      Require(AppliedCount = 32, 'Unexpected FMX applied-property count.');
       Require(frmFMXSample.Caption = 'FMX Beispiel',
         'The FMX form caption was not translated.');
       Require(frmFMXSample.lblHeading.Text = 'Kundendaten',
@@ -175,8 +190,20 @@ begin
         'The runtime fitting resized a button the analyser had ruled on.');
       Require(SameValue(frmFMXSample.btnSave.TextSettings.Font.Size, 12,
         0.01), 'The button text size rule was not applied.');
+      { A check box and a grid column, neither of which the assertions had
+        ever reached. }
+      Require(frmFMXSample.chkSendCopy.Text = 'Kopie senden',
+        'The check box caption was not translated.');
+      Require(Round(frmFMXSample.chkSendCopy.Width) = 260,
+        'A width rule was not applied to a check box.');
+      Require(frmFMXSample.chkSendCopy.TextSettings.WordWrap,
+        'A wrapping rule was not applied to a check box.');
+      Require(frmFMXSample.colCustomer.Header = 'Kunde',
+        'The grid column heading was not translated.');
+      Require(Round(frmFMXSample.colCustomer.Width) = 240,
+        'A width rule was not applied to a grid column.');
       Require(TFMXTranslationApplicator.ApplyLayoutToForm(frmFMXSample,
-        Pack, 'frmFMXSample', False) = 9,
+        Pack, 'frmFMXSample', False) = 12,
         'The FMX source-layout restore rules were not all applied.');
       Require(Round(frmFMXSample.lblHeading.Width) = 360,
         'The FMX source layout was not restored.');

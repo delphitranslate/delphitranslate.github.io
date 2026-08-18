@@ -7,6 +7,8 @@ uses
   FMX.Types,
   FMX.Controls,
   FMX.Forms,
+  FMX.Grid,
+  FMX.Grid.Style,
   FMX.StdCtrls,
   FMX.Edit,
   FMX.Memo,
@@ -32,6 +34,9 @@ type
     btnSave: TButton;
     memInstructions: TMemo;
     cmbDateRange: TComboBox;
+    chkSendCopy: TCheckBox;
+    grdCustomers: TStringGrid;
+    colCustomer: TStringColumn;
     procedure btnSaveClick(Sender: TObject);
     procedure mnuExitClick(Sender: TObject);
   end;

@@ -78,6 +78,26 @@ object frmFMXSample: TfrmFMXSample
       Text = '&Save Customer'
       OnClick = btnSaveClick
     end
+    object chkSendCopy: TCheckBox
+      Position.X = 0.000000000000000000
+      Position.Y = 150.000000000000000000
+      Size.Width = 200.000000000000000000
+      Size.Height = 24.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 14.000000000000000000
+      Text = 'Send a copy'
+    end
+    object grdCustomers: TStringGrid
+      Position.X = 0.000000000000000000
+      Position.Y = 190.000000000000000000
+      Size.Width = 390.000000000000000000
+      Size.Height = 90.000000000000000000
+      Size.PlatformDefault = False
+      object colCustomer: TStringColumn
+        Header = 'Customer'
+        Size.Width = 180.000000000000000000
+      end
+    end
     object memInstructions: TMemo
       Position.X = 0.000000000000000000
       Position.Y = 170.000000000000000000

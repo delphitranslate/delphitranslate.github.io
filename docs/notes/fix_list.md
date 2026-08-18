@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.126.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.127.
 
 ## How to read the status of an item
 
@@ -30,15 +30,21 @@ sounds.
 
 ## Open
 
-### 7b. The runtime harness covers one control on one sample form
-**Status:** open, much reduced. **Severity:** low.
+### 7c. The runtime harness does not cover styled containers or a non-default style
+**Status:** open, narrowed twice. **Severity:** low.
 
-Item 7 is done: all seven layout properties are now asserted against a live
-form, and doing it uncovered the defect recorded under "Labels never received
-their text size" below. What remains is breadth of a different kind. The
-assertions run against one label on one purpose-built sample form. There is no
-equivalent for a grid column, a check box caption, or a control inside a styled
-container, and none for a form under a platform style other than the default.
+The harness asserted one label. It now asserts a label, a button, a check box
+and a grid column, across all seven layout properties, plus the round trip back
+to the source language. A check box carries its caption beside a tick box, so
+its width means something different from a label's; a grid column is not a
+control in the ordinary sense and is reached through the grid that owns it.
+Both are now exercised.
+
+What remains: a control inside a styled container, and a form running under a
+platform style other than the default. The second is the more interesting, as
+the style is what silently overrides a font size or a wrapping setting when the
+styled settings are not cleared - the trap behind two of the defects fixed on
+2026-08-18.
 
 ### 8. No VCL application has been through the full pipeline
 **Status:** open. **Severity:** medium.
@@ -186,6 +192,17 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### The runtime harness reaches past a single label
+**Fixed:** 2026-08-18, build .127. Narrows item 7b to 7c.
+
+A check box and a grid column were added to the sample form and are asserted
+through the same seven layout properties as the label: the caption translated,
+a width applied, wrapping applied, a column heading translated and its width
+applied. Neither had ever been exercised, and they fail differently from a
+label - a check box has a tick box taking room beside its text, and a column is
+reached through the grid that owns it rather than as a control in its own
+right.
 
 ### The last step says what it does now
 **Fixed:** 2026-08-18, build .126. Closes item 11.
