@@ -1,0 +1,16 @@
+# Expected form-scan results: component | property | text
+# Lines beginning with # are comments.
+frmVclCoverage|Caption|Coverage form
+pnlHeader|Caption|Panel used as a header
+tbrMain|Caption|Main toolbar
+btnNewRecord|Caption|New record
+stbStatus.Panels[0]|Text|Ready
+stbStatus.Panels[1]|Text|No document loaded
+lvFiles.Columns[0]|Caption|File name
+lvFiles.Columns[1]|Caption|Size on disk
+lblAfterCollection|Caption|Drawn after the collections
+tabMain|Tabs.Strings|First tab
+tabMain|Tabs.Strings|Second tab
+edSearch|TextHint|Search the catalogue
+lnkHelp|Caption|Open the help topic
+lblLast|Caption|Last control on the form

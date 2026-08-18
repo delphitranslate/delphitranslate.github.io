@@ -28,6 +28,11 @@ application; nothing below is being worked on.
 - **4. Space between a grid's bottom edge and the controls beneath it.**
   Genuinely fixed this time; the earlier claim was made on the strength of a
   different form.
+- **6. Text-bearing components the scanner does not read.** Every Tier 1 class
+  is now read, on both frameworks, with fixtures in `contracts/formscan` to
+  prove it. The larger find was structural: DFM collections were not understood
+  at all, so the `end` closing a collection item closed the component that
+  owned it and the rest of the form was misattributed or skipped in silence.
 - **5. A caption above its field grows down into it.** Fixed as a consequence
   of the rule that a caption drawn level with its field keeps that pairing.
   `lblTestRecipient` takes the empty margin on its left instead of growing
@@ -146,6 +151,7 @@ above it, and to move only when the whole growth fits.
 ## Coverage
 
 ### 6. Text-bearing components the scanner does not read
+**Status:** resolved 2026-08-17 for Tier 1, awaiting the developer's confirmation. Tier 2 and the unverified `TDBGrid` column titles remain open; see `text_component_coverage_gaps.md`.
 **Reported:** 2026-08-17
 **Severity:** low for this application, high for anyone else's.
 

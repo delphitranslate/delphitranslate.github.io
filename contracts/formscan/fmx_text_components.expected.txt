@@ -1,0 +1,11 @@
+# Expected form-scan results: component | property | text
+frmFmxCoverage|Caption|Coverage form
+txtHeading|Text|Graphic heading
+btnCorner|Text|Corner button
+expSection|Text|Collapsible section
+lbiFirst|Text|First entry
+lbiSecond|Text|Second entry
+tviRoot|Text|Root node
+dlgOpen|Title|Choose a music folder
+edMasked|TextPrompt|Enter a code
+colCustom|Header|Custom column

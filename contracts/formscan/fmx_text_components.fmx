@@ -1,0 +1,36 @@
+object frmFmxCoverage: TForm
+  Caption = 'Coverage form'
+  object txtHeading: TText
+    Text = 'Graphic heading'
+  end
+  object btnCorner: TCornerButton
+    Text = 'Corner button'
+  end
+  object expSection: TExpander
+    Text = 'Collapsible section'
+  end
+  object lstItems: TListBox
+    object lbiFirst: TListBoxItem
+      Text = 'First entry'
+    end
+    object lbiSecond: TListBoxItem
+      Text = 'Second entry'
+    end
+  end
+  object trvNodes: TTreeView
+    object tviRoot: TTreeViewItem
+      Text = 'Root node'
+    end
+  end
+  object dlgOpen: TOpenDialog
+    Title = 'Choose a music folder'
+  end
+  object edMasked: TMaskEdit
+    TextPrompt = 'Enter a code'
+  end
+  object grdData: TStringGrid
+    object colCustom: TColumn
+      Header = 'Custom column'
+    end
+  end
+end

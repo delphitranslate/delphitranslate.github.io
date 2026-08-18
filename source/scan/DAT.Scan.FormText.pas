@@ -68,6 +68,37 @@ begin
     (AContext.ComponentClassName <> '');
 end;
 
+{ The class of the objects inside a DFM collection property. A collection is
+  written as Columns = <item ... end item ... end>, and the items carry no
+  class of their own, so the owner and the property name are what identify
+  them. Returning a blank means the items are not text-bearing as far as we
+  know, and they are then walked for structure only. }
+function CollectionItemClassName(const AOwnerClassName,
+  APropertyName: string): string;
+begin
+  Result := '';
+  if SameText(APropertyName, 'Panels') then
+    Result := 'TStatusPanel'
+  else if SameText(APropertyName, 'Columns') then
+  begin
+    if SameText(AOwnerClassName, 'TListView') then
+      Result := 'TListColumn'
+    else
+      Result := 'TColumn';
+  end
+  else if SameText(APropertyName, 'Groups') then
+    Result := 'TListGroup'
+  else if SameText(APropertyName, 'Sections') then
+    Result := 'THeaderSection'
+  else if SameText(APropertyName, 'Bands') then
+    Result := 'TCoolBand'
+  else if SameText(APropertyName, 'ActionBars') or
+    SameText(APropertyName, 'Items') then
+    Result := 'TActionClientItem'
+  else if SameText(APropertyName, 'Categories') then
+    Result := 'TButtonCategory';
+end;
+
 function ScanKey(const AFormName, AComponentName, APropertyName: string;
   const ACollectionIndex: Integer): string;
 begin
@@ -129,6 +160,12 @@ class procedure TTextFormScanner.ScanFile(const AFileName: string;
   const AFramework: TTargetFramework; const AResult: TProjectScanResult);
 var
   CollectionIndex: Integer;
+  ItemContext: TObjectContext;
+  ItemClassName: string;
+  ItemCollectionProperty: string;
+  ItemIndex: Integer;
+  InItemCollection: Boolean;
+  InCollectionItem: Boolean;
   CloseCollectionAfterLine: Boolean;
   Context: TObjectContext;
   ContextStack: TList<TObjectContext>;
@@ -162,9 +199,71 @@ begin
 
     FormName := '';
     LineIndex := 0;
+    InItemCollection := False;
+    InCollectionItem := False;
+    ItemIndex := 0;
+    ItemClassName := '';
+    ItemCollectionProperty := '';
     while LineIndex < Lines.Count do
     begin
       TrimmedLine := Trim(Lines[LineIndex]);
+
+      { A collection is walked before anything else, because its items are
+        delimited by the same 'end' that closes an object. Left unhandled,
+        the first item's 'end' closed the component that owned the collection
+        and every property after it was recorded against the wrong parent. }
+      if InItemCollection then
+      begin
+        if SameText(TrimmedLine, 'item') then
+        begin
+          ItemContext.ComponentName := Format('%s.%s[%d]',
+            [ContextStack[ContextStack.Count - 1].ComponentName,
+             ItemCollectionProperty, ItemIndex]);
+          ItemContext.ComponentClassName := ItemClassName;
+          ItemContext.FontColor := '';
+          InCollectionItem := True;
+          Inc(LineIndex);
+          Continue;
+        end;
+        if StartsText('end', TrimmedLine) or StartsText('>', TrimmedLine) then
+        begin
+          if InCollectionItem then
+          begin
+            InCollectionItem := False;
+            Inc(ItemIndex);
+          end;
+          if EndsText('>', TrimmedLine) then
+            InItemCollection := False;
+          Inc(LineIndex);
+          Continue;
+        end;
+        EqualsPosition := Pos('=', TrimmedLine);
+        if (EqualsPosition > 0) and InCollectionItem and
+          (ItemClassName <> '') then
+        begin
+          PropertyName := Trim(Copy(TrimmedLine, 1, EqualsPosition - 1));
+          Expression := Trim(Copy(TrimmedLine, EqualsPosition + 1, MaxInt));
+          if TScanRuleSet.IsTranslatableProperty(AFramework, ItemClassName,
+            PropertyName, False) then
+          begin
+            SourceLine := LineIndex + 1;
+            while ((Expression = '') or EndsText('+', Expression)) and
+              (LineIndex + 1 < Lines.Count) do
+            begin
+              Inc(LineIndex);
+              if Expression = '' then
+                Expression := Trim(Lines[LineIndex])
+              else
+                Expression := Expression + ' ' + Trim(Lines[LineIndex]);
+            end;
+            if TryDecodeDelphiStringExpression(Expression, ValueText) then
+              AddScanItem(AResult, AFramework, AFileName, FormName,
+                ItemContext, PropertyName, ValueText, SourceLine, -1);
+          end;
+        end;
+        Inc(LineIndex);
+        Continue;
+      end;
 
       if TryParseObjectDeclaration(TrimmedLine, Context) then
       begin
@@ -213,6 +312,21 @@ begin
             SameText(ExistingItem.ComponentName, Context.ComponentName) then
             ExistingItem.FontColor := Context.FontColor;
       end;
+      { Entered before the translatability test, because the collection has to
+        be walked whether or not its items carry text: it is the structure
+        that must stay straight. }
+      if StartsText('<', Expression) and (ContextStack.Count > 0) then
+      begin
+        ItemCollectionProperty := PropertyName;
+        ItemClassName := CollectionItemClassName(
+          Context.ComponentClassName, PropertyName);
+        ItemIndex := 0;
+        InCollectionItem := False;
+        InItemCollection := not EndsText('>', Expression);
+        Inc(LineIndex);
+        Continue;
+      end;
+
       IsRootObject := ContextStack.Count = 1;
       if not TScanRuleSet.IsTranslatableProperty(AFramework,
         Context.ComponentClassName, PropertyName, IsRootObject) then

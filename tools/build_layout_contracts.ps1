@@ -32,6 +32,7 @@ $searchPath = @(
 $programs = @(
   Join-Path $ProjectRoot 'tools\tests\LayoutContracts.dpr'
   Join-Path $ProjectRoot 'tools\tests\LayoutFittingSmokeTests.dpr'
+  Join-Path $ProjectRoot 'tools\tests\FormScanContracts.dpr'
 )
 
 foreach ($program in $programs) {

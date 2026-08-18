@@ -10,6 +10,38 @@ The shipped source is better evidence in any case: it is the exact version the
 translator compiles against, and it shows properties as declared rather than as
 documented.
 
+## What was done about it, 2026-08-17 (build 2026.08.17.112)
+
+Every class in the Tier 1 tables below is now read. The rules live in
+`source\scan\DAT.Scan.Rules.pas` and are proved by fixtures in
+`contracts/formscan`, run by `tools/run_form_scan_contracts.ps1`.
+
+One structural fault surfaced while adding them, and it mattered more than the
+missing classes. A DFM collection is written as
+
+```
+Columns = <
+  item
+    Caption = 'File name'
+  end>
+```
+
+The scanner had no idea what a collection was, so it read `item` as nothing in
+particular and `end` as the end of the *component that owned the collection*.
+Every property after the first collection on a form was therefore recorded
+against the wrong parent, and once the stack unwound past the form itself the
+remainder of the file was skipped in silence. No diagnostic, no error: a form
+with a status bar or a list view near the top simply gave up part of its text.
+Collections are now walked properly, which is what makes `TStatusPanel`,
+`TListColumn`, `THeaderSection`, `TListGroup` and `TCoolBand` readable at all.
+
+Still outstanding from the survey below: Tier 2 in full, and `TDBGrid` column
+titles remain **unverified** because `Vcl.DBGrids` is not shipped as source.
+A `TColumn.Title.Caption` rule is in place on the strength of the documented
+property, but nothing has confirmed it against a real data-aware grid.
+
+---
+
 ## Headline numbers
 
 | Framework | Classes publishing text | We scan | We miss | Of which mainstream |

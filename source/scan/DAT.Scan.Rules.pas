@@ -85,6 +85,14 @@ begin
   if AIsRootObject and SameText(APropertyName, 'Caption') then
     Exit(True);
 
+  { Dialog captions are user-visible and were staying English in every
+    application we scanned. The property is spelled the same either way. }
+  if SameText(APropertyName, 'Title') then
+    Exit(ClassMatches(AComponentClassName,
+      ['TOpenDialog', 'TSaveDialog', 'TOpenPictureDialog',
+       'TSavePictureDialog', 'TFileOpenDialog', 'TFileSaveDialog',
+       'TTaskDialog', 'TMetropolisUIListBoxItem']));
+
   case AFramework of
     tfVCL:
       begin
@@ -92,34 +100,73 @@ begin
           Exit(ClassMatches(AComponentClassName,
             ['TLabel', 'TButton', 'TBitBtn', 'TSpeedButton', 'TMenuItem',
              'TCheckBox', 'TRadioButton', 'TGroupBox', 'TTabSheet', 'TAction',
-             'TStaticText']));
+             'TStaticText',
+             { Panels are routinely used as captioned headers, and this is the
+               single most common VCL class we were not reading. }
+             'TPanel', 'TCategoryPanel', 'TFlowPanel', 'TGridPanel', 'TPage',
+             'TLinkLabel', 'TBoundLabel', 'TToolButton', 'TToolBar',
+             { Collection items: list-view columns and groups, action manager
+               and category button captions. }
+             'TListColumn', 'TActionClientItem', 'TActionListItem',
+             'TBaseButtonItem', 'TButtonCategory', 'TControlAction',
+             'TTaskDialog']));
+        if SameText(APropertyName, 'Text') then
+          Exit(ClassMatches(AComponentClassName,
+            ['TStatusPanel', 'THeaderSection', 'TCoolBand', 'TComboBoxEx',
+             'TButtonedEdit', 'TTaskDialog']));
+        if SameText(APropertyName, 'Header') then
+          Exit(ClassMatches(AComponentClassName, ['TListGroup']));
+        if SameText(APropertyName, 'FooterText') or
+          SameText(APropertyName, 'ExpandedText') then
+          Exit(ClassMatches(AComponentClassName, ['TTaskDialog']));
+        { A data-aware grid column publishes its heading one level down. }
+        if SameText(APropertyName, 'Title.Caption') then
+          Exit(ClassMatches(AComponentClassName, ['TColumn']));
         if SameText(APropertyName, 'TextHint') then
           Exit(ClassMatches(AComponentClassName,
-            ['TEdit', 'TMaskEdit', 'TComboBox', 'TLabeledEdit']));
+            ['TEdit', 'TMaskEdit', 'TComboBox', 'TLabeledEdit',
+             'TButtonedEdit', 'TNumberBox']));
         if SameText(APropertyName, 'Lines.Strings') then
           Exit(ClassMatches(AComponentClassName, ['TMemo', 'TRichEdit']));
         if SameText(APropertyName, 'Items.Strings') then
           Exit(ClassMatches(AComponentClassName,
             ['TListBox', 'TComboBox', 'TCheckListBox', 'TRadioGroup']));
+        { A whole string list of tab captions, authored in the designer. }
+        if SameText(APropertyName, 'Tabs.Strings') then
+          Exit(ClassMatches(AComponentClassName,
+            ['TTabControl', 'TTabSet']));
       end;
     tfFireMonkey:
       begin
         if SameText(APropertyName, 'Header') then
           Exit(ClassMatches(AComponentClassName,
             ['TStringColumn', 'TCheckColumn', 'TDateColumn', 'TTimeColumn',
-             'TProgressColumn', 'TImageColumn', 'TPopupColumn']));
+             'TProgressColumn', 'TImageColumn', 'TPopupColumn',
+             { The base class too, so a column type we have not listed, or one
+               the application defines itself, is still read. }
+             'TColumn']));
         if SameText(APropertyName, 'Text') then
           Exit(ClassMatches(AComponentClassName,
             ['TLabel', 'TButton', 'TSpeedButton', 'TMenuItem', 'TTabItem',
-             'TCheckBox', 'TRadioButton', 'TGroupBox', 'TAction']));
+             'TCheckBox', 'TRadioButton', 'TGroupBox', 'TAction',
+             { A graphic text primitive used constantly on styled forms in
+               place of TLabel, and previously invisible to us. }
+             'TText', 'TCornerButton', 'TExpander', 'TExpanderButton',
+             'TEditButton', 'TControlAction', 'TMaskEdit',
+             { Items placed at design time. We read the string lists of a list
+               box already, but not item objects. }
+             'TListBoxItem', 'TTreeViewItem', 'THeaderItem']));
+        if SameText(APropertyName, 'Description') then
+          Exit(ClassMatches(AComponentClassName,
+            ['TMetropolisUIListBoxItem']));
         if SameText(APropertyName, 'TextPrompt') then
           Exit(ClassMatches(AComponentClassName,
-            ['TEdit', 'TClearingEdit', 'TComboEdit']));
+            ['TEdit', 'TClearingEdit', 'TComboEdit', 'TMaskEdit']));
         if SameText(APropertyName, 'Lines.Strings') then
           Exit(ClassMatches(AComponentClassName, ['TMemo']));
         if SameText(APropertyName, 'Items.Strings') then
           Exit(ClassMatches(AComponentClassName,
-            ['TListBox', 'TComboBox', 'TPopupBox']));
+            ['TListBox', 'TComboBox', 'TPopupBox', 'TComboEdit']));
       end;
   end;
 end;
