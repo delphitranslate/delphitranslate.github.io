@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.121.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.122.
 
 ## How to read the status of an item
 
@@ -127,25 +127,23 @@ Suggested shape, for the developer to accept or change:
 - Give the "build a configuration I have never built" case its own control, or
   move it to the Build page where it belongs.
 
-### 12. A filename is being translated
-**Status:** open. **Severity:** high, and no longer conditional.
-**Found:** 2026-08-17, while tracing an unrelated label. **Confirmed** by the
-developer on 2026-08-18: "carillon does read that file, that is the log file
-and should not be translated, since it is a true file name". The file exists
-and is written to - `F:\logs\CarillonPlayLog.txt`, updated the same day.
+### 14. The statement collector does not skip comments
+**Status:** open. **Severity:** medium, and silent.
+**Found:** 2026-08-18, while writing the scan fixture.
 
-The pack contains:
+`CollectRuntimeStatements` walks the source line by line without any notion of
+comments. An apostrophe inside one - `Carillon's log`, `don't` - opens a string
+literal as far as the collector is concerned, and it never closes, so every
+statement after that point in the file is swallowed into one enormous unclosed
+literal and nothing further is scanned.
 
-```
-LogManager.Runtime.Result.60 = registrosCarillonPlayLog.txt
-```
+Nothing announces it. The unit simply yields fewer strings than it should, and
+which strings depend on where the apostrophe falls. Carillon's own units may be
+losing text this way today; the fixture only avoids it by having no apostrophes
+in its comments.
 
-A word has been prepended to what looks like a log filename. Whatever the
-source literal was, a name ending `.txt` returned from a function is a path,
-not a caption, and translating it will send the application looking for a file
-that does not exist. The scanner's runtime-literal classification needs a rule
-that a literal carrying a file extension is not user-facing text, and the
-existing entry needs correcting.
+The collector needs to skip `//` to end of line, `{ }` and `(* *)`, and to
+track quotes only outside them.
 
 ### 13. Controls the application builds in code get no layout attention
 **Status:** open. **Severity:** low, but it is visible to the developer today.
@@ -316,6 +314,56 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### The scanner was inventing strings, and discarding real ones
+**Fixed:** 2026-08-18, build .122. Closes item 12.
+**Proved by:** `contracts/pascalscan`, `tools/run_pascal_scan_contracts.ps1`.
+
+Four faults, all in how literals were judged, and they compounded.
+
+**Literals were glued across whatever sat between them.** `ExtractLiteralPhrase`
+picked every quoted run out of an expression and concatenated them:
+
+```pascal
+Result := 'logs' + PathDelim + 'CarillonPlayLog.txt';
+```
+
+became `logsCarillonPlayLog.txt` - a file name with its separator missing,
+which is neither a path nor a caption and so passes the very guard written to
+reject both. Carillon's play log was translated on the strength of it, and the
+application reads that file by name. At scale the same fault swallowed 4,874
+characters of Pascal, every literal in a long run of code glued end to end, and
+sent it to the translator, which rendered `begin`, `end` and `then` into
+Spanish and put the result in the shipped pack. Literals are now joined only
+when the expression is literals and the addition operator and nothing else.
+
+**Fragments of an assembled string were claimed as captions.** With the gluing
+stopped, the first literal alone was taken instead - `logs` from the path above,
+`Total: ` from `'Total: ' + IntToStr(N) + ' items'`. Where a statement builds
+its value from more than one term, the words a person sees are the assembled
+whole and no piece of it is a caption. Nothing is claimed from such a statement
+now.
+
+**The guard was never consulted on the joining branch.** The branch that
+decodes a plain literal asks whether the text reads as something a person would
+see; the branch that joined literals did not ask at all. It does now.
+
+**And the file-name test was rejecting ordinary sentences.** Written as a count
+of characters after the final dot, it rejected anything ending in a full stop,
+because nothing is fewer than four characters. Every explanatory note written
+as a proper sentence was silently discarded - invisibly, since the words simply
+never reached the catalogue. A file name is now identified as what it is: no
+whitespace, and a short run of letters or digits after its last dot. The
+length limit was widened to suit at the same time, because a short cap is right
+for a token and wrong for prose.
+
+Across the whole of Carillon the scanner now claims no file names and no
+oversized captures.
+
+**Found while writing the fixture, and worth knowing:** the statement collector
+does not skip comments, so an apostrophe inside one - `Carillon's` - opens a
+string literal that never closes and silently swallows the rest of the file.
+The fixture avoids apostrophes for that reason. It is recorded as item 14.
 
 ### Returning to the original language gave back the words but not the form
 **Fixed:** 2026-08-18, build .121. **FireMonkey only.**

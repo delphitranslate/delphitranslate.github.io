@@ -261,6 +261,28 @@ begin
   end;
 end;
 
+{ One string written across several lines, joined back into the one string the
+  program actually builds.
+
+  The joining is only legitimate when the expression is literals and nothing
+  else. Written to pick every quoted run out of an expression and glue them
+  together regardless of what sat between them, this produced strings that
+  exist nowhere in the program and that no guard downstream could recognise.
+
+    Result := 'logs' + PathDelim + 'CarillonPlayLog.txt';
+
+  yields logsCarillonPlayLog.txt, a file name with its separator missing, which
+  then passes the very test that rejects paths and file names because it is
+  neither any more. Carillon's play log was translated on the strength of it.
+
+  The same fault at scale swallowed the best part of five thousand characters
+  of Pascal - every literal in a long run of code, glued end to end - and sent
+  it to the translator, which rendered begin, end and then into Spanish and put
+  the result in the shipped language pack.
+
+  So: literals separated by the addition operator, and nothing else. Where any
+  other term appears between them the pieces are not one string, and the answer
+  is to claim none of it rather than to invent something. }
 function ExtractLiteralPhrase(const AExpression: string;
   out APhrase: string): Boolean;
 var
@@ -269,8 +291,11 @@ var
   Index: Integer;
   Segment: string;
   StartAt: Integer;
+  Between: string;
+  SeenLiteral: Boolean;
 begin
   APhrase := '';
+  SeenLiteral := False;
   Index := 1;
   while Index <= Length(AExpression) do
   begin
@@ -279,6 +304,18 @@ begin
       Inc(Index);
       Continue;
     end;
+    { What separated this literal from the one before it. Only whitespace and a
+      single addition operator may. }
+    if SeenLiteral then
+    begin
+      Between := Trim(Copy(AExpression, EndAt + 1, Index - EndAt - 1));
+      if Between <> '+' then
+        Exit(False);
+    end
+    else if Trim(Copy(AExpression, 1, Index - 1)) <> '' then
+      { Something stands before the first literal, so the expression is not a
+        string written out in pieces. }
+      Exit(False);
     StartAt := Index;
     Inc(Index);
     while Index <= Length(AExpression) do
@@ -295,10 +332,15 @@ begin
     end;
     EndAt := Index;
     Segment := Copy(AExpression, StartAt, EndAt - StartAt + 1);
-    if TryDecodeDelphiStringExpression(Segment, Decoded) then
-      APhrase := APhrase + Decoded;
+    if not TryDecodeDelphiStringExpression(Segment, Decoded) then
+      Exit(False);
+    APhrase := APhrase + Decoded;
+    SeenLiteral := True;
     Inc(Index);
   end;
+  { And nothing may follow the last literal either. }
+  if not SeenLiteral or (Trim(Copy(AExpression, EndAt + 1, MaxInt)) <> '') then
+    Exit(False);
   APhrase := Trim(APhrase);
   Result := APhrase <> '';
 end;
@@ -331,6 +373,51 @@ begin
       rtrRuntimeTemplate);
 end;
 
+{ A file name, as opposed to a sentence that happens to contain a dot. Both
+  tests matter: the extension must be a short run of letters or digits, and the
+  text must carry no whitespace, because no file name written in a program does
+  and every sentence does. }
+function LooksLikeFileName(const AText: string): Boolean;
+var
+  DotAt: Integer;
+  Extension: string;
+  Index: Integer;
+begin
+  Result := False;
+  DotAt := LastDelimiter('.', AText);
+  if DotAt = 0 then
+    Exit;
+  for Index := 1 to Length(AText) do
+    if CharInSet(AText[Index], [' ', #9]) then
+      Exit;
+  Extension := Copy(AText, DotAt + 1, MaxInt);
+  if (Extension = '') or (Length(Extension) > 4) then
+    Exit;
+  for Index := 1 to Length(Extension) do
+    if not CharInSet(Extension[Index],
+      ['a'..'z', 'A'..'Z', '0'..'9']) then
+      Exit;
+  Result := True;
+end;
+
+function WordCount(const AText: string): Integer;
+var
+  Index: Integer;
+  InWord: Boolean;
+begin
+  Result := 0;
+  InWord := False;
+  for Index := 1 to Length(AText) do
+    if CharInSet(AText[Index], [' ', #9]) then
+      InWord := False
+    else
+    begin
+      if not InWord then
+        Inc(Result);
+      InWord := True;
+    end;
+end;
+
 function IsLikelyUserFacingLiteral(const AText: string): Boolean;
 var
   Trimmed: string;
@@ -342,7 +429,20 @@ begin
     only what reads as a word or a short phrase a person would actually see. }
   Trimmed := Trim(AText);
   Result := False;
-  if (Length(Trimmed) < 2) or (Length(Trimmed) > 40) then
+  if Length(Trimmed) < 2 then
+    Exit;
+  { Length is judged against what the text reads as. A short cap is right for
+    a single token, where anything long is almost always a key, a path or a
+    fragment of markup. It is wrong for prose: a sentence a person reads can
+    run to a couple of hundred characters and still be a caption, and capping
+    it at forty lost the note explaining the silence dates. Several words with
+    spaces between them is the difference. }
+  if WordCount(Trimmed) >= 4 then
+  begin
+    if Length(Trimmed) > 240 then
+      Exit;
+  end
+  else if Length(Trimmed) > 40 then
     Exit;
   HasLetter := False;
   for Index := 1 to Length(Trimmed) do
@@ -358,9 +458,22 @@ begin
   if ContainsText(Trimmed, '\') or ContainsText(Trimmed, '%') or
     ContainsText(Trimmed, '..') then
     Exit;
-  { A bare file extension, or a name carrying one, is plumbing. }
-  if (Pos('.', Trimmed) > 0) and
-    (Length(Trimmed) - LastDelimiter('.', Trimmed) <= 4) then
+  { Program text, never shown to anybody. A run of literals glued out of a
+    stretch of source once reached the translator this way and came back with
+    begin, end and then rendered into Spanish. }
+  if ContainsText(Trimmed, ':=') or ContainsText(Trimmed, ';') then
+    Exit;
+  { A bare file extension, or a name carrying one, is plumbing.
+
+    Written as a count of the characters after the final dot, this rejected
+    every sentence that ends in a full stop, because a full stop at the end
+    leaves nothing after it and nothing is fewer than four. Any explanatory
+    note written as a proper sentence was quietly discarded, and nobody could
+    see that it had been: the words simply never reached the catalogue.
+
+    A file name is what is meant, so say so. It carries no spaces, and what
+    follows its last dot is a short run of letters or digits. }
+  if LooksLikeFileName(Trimmed) then
     Exit;
   Result := True;
 end;
@@ -382,6 +495,20 @@ begin
     conditional rather than a literal. Look through the statement for each
     returned literal instead, so both arms are claimed. }
   Result := False;
+  { Where the statement assembles its value from more than one term, the words
+    a person sees are the assembled whole, not any one piece of it, and the
+    pieces are frequently not words at all.
+
+      Result := 'logs' + PathDelim + 'CarillonPlayLog.txt';
+      Result := 'Total: ' + IntToStr(ACount) + ' items';
+
+    Claiming the first literal of either gives a path fragment and a dangling
+    label, both offered for translation and neither ever displayed. Where the
+    terms really are all literals - one caption written across several source
+    lines - the assembling branch elsewhere claims the whole of it, so nothing
+    is lost by declining here. }
+  if ContainsText(AStatement, '+') then
+    Exit;
   Lower := LowerCase(AStatement);
   Index := 1;
   while True do
@@ -706,7 +833,12 @@ begin
         else if ContainsText(Expression, '+') and
           ExtractLiteralPhrase(Expression, ValueText) then
         begin
-          if not IsNonUiAssignment(LeftSide, ValueText) then
+          { The same test the decoded branch above applies. A value a function
+            returns is as likely to be a path or a key as a caption, and this
+            branch was accepting whatever it had joined without asking. }
+          if not IsNonUiAssignment(LeftSide, ValueText) and
+            (not SameText(PropertyName, 'RuntimeValue') or
+             IsLikelyUserFacingLiteral(ValueText)) then
             AddRuntimeItem(AResult, AFileName, AUnitName, LeftSide,
               PropertyName, ValueText, Statement.SourceLine,
               rtrRuntimeTemplate);

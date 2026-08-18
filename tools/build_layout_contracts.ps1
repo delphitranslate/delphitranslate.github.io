@@ -33,6 +33,7 @@ $programs = @(
   Join-Path $ProjectRoot 'tools\tests\LayoutContracts.dpr'
   Join-Path $ProjectRoot 'tools\tests\LayoutFittingSmokeTests.dpr'
   Join-Path $ProjectRoot 'tools\tests\FormScanContracts.dpr'
+  Join-Path $ProjectRoot 'tools\tests\ScannerSmokeTests.dpr'
 )
 
 foreach ($program in $programs) {
