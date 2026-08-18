@@ -629,6 +629,7 @@ const
     resize itself at run time and walk into its neighbour. }
   MeasurementSafety = 1.08;
   CaptionFieldGap = 28;
+  CentredRowTolerance = 12;
   { A reduction no deeper than this is preferable to wrapping a caption onto a
     second line, and no caption should ever be reduced further: past this the
     text reads as noticeably smaller than everything around it. }
@@ -2043,6 +2044,21 @@ begin
           if (UniformFont = 0) or (SetFont < UniformFont) then
             UniformFont := SetFont;
         end;
+
+        { A row drawn with equal margins either side of it was centred in its
+          frame, and it should still look centred once its buttons have grown.
+          Holding the left edge and letting the row extend to the right leaves
+          it lopsided: the media controls kept a margin of thirty-eight on the
+          left and were left with five on the right, which reads as a row that
+          has slipped rather than one that was placed. }
+        Total := Cluster.Count * UniformWidth + (Cluster.Count - 1) * ClusterGap;
+        DesignedPitch := Cluster[Cluster.Count - 1].Left +
+          Cluster[Cluster.Count - 1].Width;
+        Available := ContentRightBound(Cluster[0]);
+        if (Available > 0) and
+          (Abs(Cluster[0].Left - (Available - DesignedPitch)) <=
+            CentredRowTolerance) then
+          ClusterLeft := Max(0, (Available - Total) / 2);
 
         ClusterOffset := ClusterLeft;
         for Other in Cluster do

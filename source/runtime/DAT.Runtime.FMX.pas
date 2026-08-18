@@ -87,6 +87,26 @@ begin
   end;
 end;
 
+{ The layout properties the runtime is willing to apply. One list, consulted
+  both by the pass that applies them and by the guard that decides whether the
+  fitting heuristics should keep their hands off a control. Two lists drifted
+  apart once already, with the guard counting four of the nine, so a control
+  the analyser had spoken about still fell to the heuristics and was quietly
+  resized against the plan. }
+function IsRuntimeLayoutProperty(const APropertyName: string): Boolean;
+begin
+  Result :=
+    SameText(APropertyName, 'Width') or
+    SameText(APropertyName, 'Height') or
+    SameText(APropertyName, 'WordWrap') or
+    SameText(APropertyName, 'AutoSize') or
+    SameText(APropertyName, 'Left') or
+    SameText(APropertyName, 'Top') or
+    SameText(APropertyName, 'Position.X') or
+    SameText(APropertyName, 'Position.Y') or
+    SameText(APropertyName, 'FontSize');
+end;
+
 function PositionKey(const AFormIdentity: string;
   const AComponent: TComponent): string;
 begin
@@ -771,13 +791,24 @@ var
     Result := False;
     if (APack = nil) or (AComponent = nil) or (Trim(AComponent.Name) = '') then
       Exit;
+    { Any rule at all, not only the four that name a size or a place.
+
+      This guard exists so the fitting below leaves alone any control the
+      analyser has already decided about. Counting only geometry meant a
+      control the analyser had spoken about in other terms looked untouched:
+      a caption given wrapping, or a button given a size, still fell to the
+      fitting, which measures the text afresh and reaches its own conclusion.
+
+      The two disagree, and the fitting runs second. A caption told to stay on
+      one line was clamped to the gap between it and the box overlapping its
+      row - twenty seven pixels - and wrapped into a column one word wide. A
+      button told to take a smaller size was widened instead until it covered
+      the caption beside it. In both cases the plan was right and was quietly
+      overruled, which is why correcting the plan changed nothing on screen. }
     for Rule in APack.LayoutRules do
       if SameText(Rule.FormName, AFormIdentity) and
         SameText(Rule.ComponentName, AComponent.Name) and
-        (SameText(Rule.PropertyName, 'Width') or
-         SameText(Rule.PropertyName, 'Height') or
-         SameText(Rule.PropertyName, 'Position.X') or
-         SameText(Rule.PropertyName, 'Position.Y')) then
+        IsRuntimeLayoutProperty(Rule.PropertyName) then
         Exit(True);
   end;
 
@@ -1564,16 +1595,7 @@ var
 
   function IsSafeRuntimeLayoutProperty(const APropertyName: string): Boolean;
   begin
-    Result :=
-      SameText(APropertyName, 'Width') or
-      SameText(APropertyName, 'Height') or
-      SameText(APropertyName, 'WordWrap') or
-      SameText(APropertyName, 'AutoSize') or
-      SameText(APropertyName, 'Left') or
-      SameText(APropertyName, 'Top') or
-      SameText(APropertyName, 'Position.X') or
-      SameText(APropertyName, 'Position.Y') or
-      SameText(APropertyName, 'FontSize');
+    Result := IsRuntimeLayoutProperty(APropertyName);
   end;
 begin
   Result := 0;

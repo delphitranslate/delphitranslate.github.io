@@ -81,7 +81,17 @@ const
     '"translatedValue":"24","sourceChecksum":"layout-test"},' +
     '{"formName":"frmFMXSample","componentName":"lblCustomerName",' +
     '"propertyName":"Position.Y","originalValue":"66",' +
-    '"translatedValue":"70","sourceChecksum":"layout-test"}]}';
+    '"translatedValue":"70","sourceChecksum":"layout-test"},' +
+    { A rule that names neither a size nor a place. The runtime carries its own
+      fitting heuristics, which measure the text afresh and resize a control to
+      suit; they are meant to stand aside wherever the analyser has already
+      decided something. The guard that arranges that once counted only the
+      four geometry properties, so a control spoken about in any other terms
+      looked untouched and was resized against the plan. This button asks only
+      for a smaller size and must come through with the width it was drawn at. }
+    '{"formName":"frmFMXSample","componentName":"btnSave",' +
+    '"propertyName":"FontSize","originalValue":"14",' +
+    '"translatedValue":"12","sourceChecksum":"layout-test"}]}';
 begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
@@ -115,7 +125,7 @@ begin
     try
       AppliedCount := TFMXTranslationApplicator.ApplyToForm(
         frmFMXSample, Pack);
-      Require(AppliedCount = 26, 'Unexpected FMX applied-property count.');
+      Require(AppliedCount = 27, 'Unexpected FMX applied-property count.');
       Require(frmFMXSample.Caption = 'FMX Beispiel',
         'The FMX form caption was not translated.');
       Require(frmFMXSample.lblHeading.Text = 'Kundendaten',
@@ -151,8 +161,15 @@ begin
       Require(not (TStyledSetting.Other in
         frmFMXSample.lblCustomerName.StyledSettings),
         'The platform style can still override wrapping.');
+      { The button keeps the width the designer gave it. Its translated caption
+        is longer than the original, so the fitting would widen it if it were
+        allowed to look. }
+      Require(Round(frmFMXSample.btnSave.Width) = 150,
+        'The runtime fitting resized a button the analyser had ruled on.');
+      Require(SameValue(frmFMXSample.btnSave.TextSettings.Font.Size, 12,
+        0.01), 'The button text size rule was not applied.');
       Require(TFMXTranslationApplicator.ApplyLayoutToForm(frmFMXSample,
-        Pack, 'frmFMXSample', False) = 8,
+        Pack, 'frmFMXSample', False) = 9,
         'The FMX source-layout restore rules were not all applied.');
       Require(Round(frmFMXSample.lblHeading.Width) = 360,
         'The FMX source layout was not restored.');

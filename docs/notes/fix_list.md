@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.118.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.119.
 
 ## How to read the status of an item
 
@@ -313,6 +313,53 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### The runtime carries a second layout engine, and it was overruling the plan
+**Fixed:** 2026-08-18, build .119.
+**Severity:** this is the reason a corrected plan so often changed nothing on
+screen, or made things worse.
+
+`DAT.Runtime.FMX.pas` has its own fitting heuristics - `FitLabel`, `FitButton`,
+`FitCheckBox` - which measure the translated text afresh at run time and resize
+the control to suit. They are meant to stand aside wherever the analyser has
+already decided something, and `HasExplicitLayoutRule` is the guard that
+arranges it.
+
+That guard counted four properties: `Width`, `Height`, `Position.X`,
+`Position.Y`. The runtime applies nine. So a control the analyser had spoken
+about in any other terms - wrapping, a text size - looked untouched to the
+guard, and the heuristics resized it against the plan.
+
+Two of the developer's reports were this, and nothing else:
+
+- The test-recipient caption was shipped `WordWrap = False` and nothing more,
+  because at its designed width the shortened text fits on one line. `FitLabel`
+  clamps a label to `NearestSameRowRightEdgeLimit`, and the edit box overlapping
+  its row starts twenty-seven pixels away, so the caption was squeezed to the
+  minimum label width and wrapped into a column one word wide: "Email / del /
+  destin / atario:".
+- `BtnRecalcEaster` was shipped a smaller `FontSize` and nothing more.
+  `FitButton` widened it instead, until it covered the caption beside it.
+
+The guard now consults the same list the applying pass uses, held in one place
+so the two cannot drift apart again.
+
+**Not yet covered by a test.** A fixture reproducing the fitting's intervention
+needs a particular geometry - a neighbour close enough on the row to clamp
+against - and the sample form has not got one. The evidence for this fix is the
+measurement above, not a failing test, so it is worth re-reading if these
+symptoms return.
+
+### A button row drawn centred stays centred
+**Fixed:** 2026-08-18, build .119.
+**Raised:** 2026-08-18, "buttons not centered in multimedia box".
+
+The media controls were drawn with thirty-eight pixels to the left of the row
+and thirty-five to the right of it, which is centred in a group box 361 wide.
+Once the buttons grew for the longer Spanish captions the row was held by its
+left edge and allowed to extend rightwards, ending with thirty-eight on the
+left and five on the right: a row that reads as having slipped rather than one
+that was placed. A row drawn with equal margins is centred again after packing.
 
 ### Two buttons were carried across the page into the left margin
 **Fixed:** 2026-08-18, build .118.
