@@ -698,40 +698,74 @@ var
       Result := OtherPaddingVertical;
   end;
 
-  function TextWidthEstimate(const AControl: TLayoutControl): Double;
+  { The lines the author wrote, as opposed to the lines wrapping will produce.
+    A caption holding a hard break occupies at least as many lines as it has
+    pieces, however wide the control is, and measuring the whole string as one
+    run reports neither the width it needs nor the height. The silencing note
+    on the settings page is two sentences separated by a break: measured as one
+    run it was given the height of two lines and drew four, losing the top and
+    bottom of the block. }
+  function TextSegments(const AText: string): TArray<string>;
+  var
+    Normalised: string;
+  begin
+    Normalised := StringReplace(AText, #13#10, #10, [rfReplaceAll]);
+    Normalised := StringReplace(Normalised, #13, #10, [rfReplaceAll]);
+    Result := Normalised.Split([#10]);
+    if Length(Result) = 0 then
+      Result := [AText];
+  end;
+
+  { Width of one run of text, without the control's padding. }
+  function MeasuredTextWidth(const AControl: TLayoutControl;
+    const AText: string): Double;
   var
     Layout: TTextLayout;
     PointSize: Double;
   begin
-    if Trim(AControl.TranslatedText) = '' then
+    if Trim(AText) = '' then
       Exit(0);
-    { Measure at the size the text will actually be drawn. Measuring a caption
-      at its designed size after deciding to shrink it overstates the room it
-      needs and buys height it will not use. }
     PointSize := AControl.PlannedFontSize;
     if PointSize <= 0 then
       PointSize := AControl.FontSize;
     Layout := TTextLayoutManager.DefaultTextLayout.Create;
     try
       Layout.BeginUpdate;
-      Layout.Text := AControl.TranslatedText;
+      Layout.Text := AText;
       Layout.Font.Size := Max(PointSize, 9);
-    { Bold text is materially wider than regular at the same size, and
-      measuring it as regular reports a caption fitting a box it overruns.
-      The hero banner is the plain case: measured light it fits its width,
-      drawn bold it wraps to a second line inside a box built for one, and
-      loses the top and bottom of both. }
-    if AControl.FontBold then
-      Layout.Font.Style := Layout.Font.Style + [TFontStyle.fsBold];
+      { Bold text is materially wider than regular at the same size, and
+        measuring it as regular reports a caption fitting a box it overruns.
+        The hero banner is the plain case: measured light it fits its width,
+        drawn bold it wraps to a second line inside a box built for one, and
+        loses the top and bottom of both. }
+      if AControl.FontBold then
+        Layout.Font.Style := Layout.Font.Style + [TFontStyle.fsBold];
       Layout.WordWrap := False;
       Layout.EndUpdate;
-      { Ask for the room the text occupies plus the breathing room its class
-        keeps, so a control sized from this reads properly rather than merely
-        fitting by arithmetic. }
-      Result := Layout.Width + 2 * PaddingHorizontal(AControl);
+      Result := Layout.Width;
     finally
       Layout.Free;
     end;
+  end;
+
+  function TextWidthEstimate(const AControl: TLayoutControl): Double;
+  var
+    Segment: string;
+    Widest: Double;
+  begin
+    if Trim(AControl.TranslatedText) = '' then
+      Exit(0);
+    { The width a control needs is the width of its longest authored line.
+      Measuring every line end to end reports a caption needing the room of a
+      paragraph, and the passes above would then widen or shrink it to suit a
+      line that is never drawn. }
+    Widest := 0;
+    for Segment in TextSegments(AControl.TranslatedText) do
+      Widest := Max(Widest, MeasuredTextWidth(AControl, Segment));
+    { Ask for the room the text occupies plus the breathing room its class
+      keeps, so a control sized from this reads properly rather than merely
+      fitting by arithmetic. }
+    Result := Widest + 2 * PaddingHorizontal(AControl);
   end;
 
   { The smallest this control's text may become. A caption reduced far below
@@ -749,11 +783,21 @@ var
   function WrappedLineCount(const AControl: TLayoutControl;
     const AWidth: Double): Integer;
   var
-    BareText: Double;
+    Room: Double;
+    Segment: string;
   begin
-    BareText := TextWidthEstimate(AControl) - 2 * PaddingHorizontal(AControl);
-    Result := Max(1, Ceil(BareText /
-      Max(AWidth - 2 * PaddingHorizontal(AControl), 1)));
+    Room := Max(AWidth - 2 * PaddingHorizontal(AControl), 1);
+    { Each line the author wrote wraps on its own and cannot share a line with
+      the next, so the count is the sum over them rather than one division of
+      the total. A note written as two sentences with a break between them
+      needs four lines in a box that fits two of its words across, and being
+      told it needs two is how it came to be drawn with its head and feet cut
+      off. }
+    Result := 0;
+    for Segment in TextSegments(AControl.TranslatedText) do
+      Result := Result + Max(1,
+        Ceil(MeasuredTextWidth(AControl, Segment) / Room));
+    Result := Max(1, Result);
   end;
 
   function MeasuredLineHeight(const AControl: TLayoutControl): Double;

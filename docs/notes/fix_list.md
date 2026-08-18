@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.115.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.116.
 
 ## How to read the status of an item
 
@@ -313,6 +313,31 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### A hard line break counted for nothing
+**Fixed:** 2026-08-18, build .116.
+**Raised:** 2026-08-17 by the developer as "image 3, text not aligned", on the
+liturgical silence page.
+
+The silencing note beside its check box is two sentences with a line break
+between them, written into the form file as one string carrying `#13#10`. Both
+measurements treated it as a single run of text, so the analyser asked how wide
+that run was and divided by the control's width to count lines. That answers a
+question the control never asks. A line the author wrote cannot share a line
+with the next one, however much room is left over.
+
+The note was planned at two lines and drawn at four, which is why it appeared
+with its head and feet cut off: 240 by 47 pixels where it needed 240 by 90.
+
+Both measurements now split on the breaks the author wrote. Width is the widest
+authored line rather than all of them end to end, which would report a caption
+needing the room of a paragraph. Line count is the sum over the pieces, each
+wrapping on its own.
+
+Worth noting for anything similar: `lblLogNote` on the same page reads as two
+sentences but has no break in it, only a space, so it wraps as one run and its
+three-line plan was right all along. The two look identical on screen and are
+not the same thing at all.
 
 ### Deployment sent the debug build to the drive
 **Fixed:** 2026-08-18, build .115.
