@@ -51,6 +51,7 @@ type
     FHorzAlign: string;
     FWordWrap: Boolean;
     FAutoSize: Boolean;
+    FFontBold: Boolean;
     FHasPosition: Boolean;
     FHasSize: Boolean;
     FPlannedLeft: Double;
@@ -72,6 +73,7 @@ type
     property Width: Double read FWidth write FWidth;
     property Height: Double read FHeight write FHeight;
     property FontSize: Double read FFontSize write FFontSize;
+    property FontBold: Boolean read FFontBold write FFontBold;
     property Align: string read FAlign write FAlign;
     { How the text sits inside the control. This decides which way the control
       has to grow: a right-aligned caption must keep its right edge and extend
@@ -181,6 +183,7 @@ uses
   System.Math,
   System.StrUtils,
   System.SysUtils,
+  System.UITypes,
   FMX.TextLayout,
   DAT.Core.CatalogJson,
   DAT.Scan.TextCodec;
@@ -210,6 +213,29 @@ begin
   Result := StringReplace(Result, '<', '&lt;', [rfReplaceAll]);
   Result := StringReplace(Result, '>', '&gt;', [rfReplaceAll]);
   Result := StringReplace(Result, '"', '&quot;', [rfReplaceAll]);
+end;
+
+{ FireMonkey writes a font weight as a binary record, so boldness arrives as
+  a run of hex rather than a readable set. The second byte carries the weight
+  on the TFontWeight scale, where Regular is four and Bold is seven, and it
+  is the only part of the record that concerns measurement. The VCL writes a
+  readable set instead, handled beside this. }
+function IsBoldStyleExt(const AValue: string): Boolean;
+var
+  Digits: string;
+  Weight: Integer;
+begin
+  Result := False;
+  Digits := AValue;
+  Digits := StringReplace(Digits, '{', '', [rfReplaceAll]);
+  Digits := StringReplace(Digits, '}', '', [rfReplaceAll]);
+  Digits := Trim(StringReplace(Digits, ' ', '', [rfReplaceAll]));
+  if Length(Digits) < 4 then
+    Exit;
+  if not TryStrToInt('$' + Copy(Digits, 3, 2), Weight) then
+    Exit;
+  { Semi-bold and heavier are wide enough to matter. }
+  Result := Weight >= 6;
 end;
 
 function InvariantFloat(const AValue: string; out AResult: Double): Boolean;
@@ -412,6 +438,17 @@ begin
           Frame.Control.ComponentClassName := ClassName;
           Frame.Control.SourceFileName := FileName;
           Frame.Control.FontSize := 12;
+          { A property absent from a form file is not a property set to False:
+            it is the framework's default, and the two frameworks disagree. A
+            FireMonkey label wraps unless told otherwise; a VCL one does not.
+            Reading the absence as False meant every FireMonkey caption was
+            believed not to wrap, so a plan that kept text on one line was
+            never written down - there was nothing to change - and the label
+            wrapped anyway at run time. That is how the hero banner came to be
+            drawn on two lines inside a box built for one, losing the top and
+            bottom of both. }
+          Frame.Control.WordWrap := SameText(TPath.GetExtension(FileName),
+            '.fmx');
           if Stack.Count = 0 then
             FormName := Name
           else
@@ -460,6 +497,11 @@ begin
         else if MatchText(Prop, ['TextSettings.HorzAlign', 'HorzAlign',
           'Alignment']) then
           Frame.Control.HorzAlign := Value
+        else if MatchText(Prop, ['TextSettings.Font.Style', 'Font.Style']) then
+          Frame.Control.FontBold := ContainsText(Value, 'fsBold')
+        else if MatchText(Prop, ['TextSettings.Font.StyleExt',
+          'Font.StyleExt']) then
+          Frame.Control.FontBold := IsBoldStyleExt(Value)
         else if MatchText(Prop, ['WordWrap', 'AutoSize']) then
         begin
           BoolValue := SameText(Value, 'True');
@@ -674,6 +716,13 @@ var
       Layout.BeginUpdate;
       Layout.Text := AControl.TranslatedText;
       Layout.Font.Size := Max(PointSize, 9);
+    { Bold text is materially wider than regular at the same size, and
+      measuring it as regular reports a caption fitting a box it overruns.
+      The hero banner is the plain case: measured light it fits its width,
+      drawn bold it wraps to a second line inside a box built for one, and
+      loses the top and bottom of both. }
+    if AControl.FontBold then
+      Layout.Font.Style := Layout.Font.Style + [TFontStyle.fsBold];
       Layout.WordWrap := False;
       Layout.EndUpdate;
       { Ask for the room the text occupies plus the breathing room its class
@@ -1596,7 +1645,14 @@ begin
     Control.PlannedTop := Control.Top;
     Control.PlannedWidth := Control.Width;
     Control.PlannedHeight := Control.Height;
-    Control.PlannedWordWrap := Control.WordWrap;
+    { The plan starts from not wrapping, whatever the framework would do left
+      to itself. Wrapping is something the passes below decide to ask for when
+      the text needs it; seeding the plan with the framework default would mean
+      every FireMonkey caption began life asking to wrap, and be granted the
+      height of two lines it does not need. Control.WordWrap still records what
+      the framework really does, which is what decides whether a rule has to be
+      written. }
+    Control.PlannedWordWrap := False;
     Control.PlannedFontSize := Control.FontSize;
   end;
 
@@ -2518,7 +2574,13 @@ begin
           'Width measured from the translated text and clamped to the space actually available.');
       if Control.PlannedWordWrap and not Control.WordWrap then
         AddProposal(AReview, Control, 'WordWrap', 'False', 'True',
-          'Wrap the translated text instead of expanding across neighboring controls.');
+          'Wrap the translated text instead of expanding across neighboring controls.')
+      else if Control.WordWrap and not Control.PlannedWordWrap then
+        { Switching wrapping off has to be stated too. A control left wrapping
+          because nobody said otherwise will break its line wherever the text
+          happens to reach, into whatever height it already had. }
+        AddProposal(AReview, Control, 'WordWrap', 'True', 'False',
+          'Keep the translated text on the single line the control was drawn for.');
       { Any control that sizes itself has to be pinned once its text changes.
         Left alone it grows around the new string at run time, to whatever
         width that takes, across whatever is beside it. }

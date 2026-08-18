@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-17, build 2026.08.17.113.
+Last reconciled against the source: 2026-08-17, build 2026.08.17.114.
 
 ## How to read the status of an item
 
@@ -127,6 +127,43 @@ Suggested shape, for the developer to accept or change:
 - Give the "build a configuration I have never built" case its own control, or
   move it to the Build page where it belongs.
 
+### 12. A filename is being translated
+**Status:** open. **Severity:** high if the application opens that file by name.
+**Found:** 2026-08-17, while tracing an unrelated label.
+
+The pack contains:
+
+```
+LogManager.Runtime.Result.60 = registrosCarillonPlayLog.txt
+```
+
+A word has been prepended to what looks like a log filename. Whatever the
+source literal was, a name ending `.txt` returned from a function is a path,
+not a caption, and translating it will send the application looking for a file
+that does not exist. The scanner's runtime-literal classification needs a rule
+that a literal carrying a file extension is not user-facing text, and the
+existing entry needs correcting.
+
+### 13. Controls the application builds in code get no layout attention
+**Status:** open. **Severity:** low, but it is visible to the developer today.
+**Raised:** 2026-08-17 by the developer, "very tiny script; needs to be 1-2 pts
+larger".
+
+`LogViewerForm.FHeaderLabel` and `FStatusLabel` are created in code, not drawn
+on a form, so they reach the catalog as `Runtime.` entries and their text is
+translated correctly. They have no designed geometry, so the layout analyser
+never sees them and no size, width or wrapping rule is ever written for them.
+Their appearance is entirely the application's own choice.
+
+Two ways out, for the developer to pick:
+
+- Have the application draw them at a larger size, which is a change to
+  Carillon rather than to the translator.
+- Teach the runtime to accept layout rules for controls it can find by name
+  even when the analyser has no designed geometry for them, sized from the
+  translated text alone. That is real work and it applies to any application
+  that builds part of its interface in code.
+
 ### 6b. Scanner coverage: Tier 2, and TDBGrid
 **Status:** open. **Severity:** low for this application, moderate for others.
 
@@ -233,6 +270,49 @@ was skipped in silence. Any VCL form with a status bar or list view near the
 top was quietly losing text below it.
 
 Remaining scope moved to item 6b above.
+
+### FireMonkey labels wrap unless told not to, and we assumed the opposite
+**Fixed:** 2026-08-17, build .114.
+
+A property absent from a form file is not a property set to False: it is the
+framework's default, and the two frameworks disagree. A FireMonkey label wraps
+unless told otherwise; a VCL one does not. The analyser read the absence as
+False, so every FireMonkey caption was believed not to wrap.
+
+The consequence was silent. A plan that kept a caption on one line matched what
+we thought the form already did, so no rule was written - there was nothing to
+change - and the label wrapped at run time regardless, into whatever height it
+already had. The hero banner is the clearest case: planned as one line at 27.2
+points, drawn as two inside a box built for one, losing the top and bottom of
+both. The same fault explains a navigator caption sitting higher than its
+neighbours: "Cancelar" is the only word in that row long enough to reach the
+edge of its 63-pixel box, and two lines centred in eighteen pixels ride up.
+
+The default is now taken from the file extension, and switching wrapping off is
+stated explicitly rather than left to be inferred.
+
+### Bold text was measured as though it were regular
+**Fixed:** 2026-08-17, build .114.
+
+Every measurement went through a layout with the point size set and the weight
+left alone, so a bold caption was measured light and reported as fitting a box
+it overruns. FireMonkey writes the weight as a binary record rather than a
+readable set; the second byte carries it on the TFontWeight scale, where
+Regular is four and Bold is seven. The VCL writes a readable set. Both are read
+now, and semi-bold and heavier are measured as bold.
+
+### The glossary fix was written where the Wizard overwrites it
+**Fixed:** 2026-08-17, build .114.
+
+The shortened email caption was put into the workspace glossary under AppData
+and lost on the next run, because the Wizard prefers a staged glossary in
+`export/localization-review/<project>/<language>/project-glossary.json` and
+saves that over the workspace copy. The staged file is the durable one, and it
+is in the repository where it belongs.
+
+The term also named a semantic concept. A term that names one only matches an
+entry carrying the same concept, and this entry carries none, so it would never
+have matched even had it survived. Left blank now.
 
 ### Labels never received their text size at run time
 **Fixed:** 2026-08-17, build .113.
