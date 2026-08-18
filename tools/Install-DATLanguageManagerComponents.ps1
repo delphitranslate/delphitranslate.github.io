@@ -14,6 +14,50 @@ param(
     [string]$PackageSource = ''
 )
 
+# ---------------------------------------------------------------------------
+# DISABLED 2026-08-18 by the developer's instruction. Do not re-enable without
+# saying so.
+#
+# This script damaged a working developer machine. Line 154 below reads
+#
+#     New-Item -ItemType Directory -Force -Path $KnownPackages
+#
+# and -Force on a registry key that already exists does not ensure the key is
+# there: it deletes the key and creates it again, empty. The script then
+# repopulates it from the machine-wide package list, so the only registrations
+# that survive are the ones that happen to appear there too.
+#
+# On this machine that destroyed six per-user registrations - Subversion
+# integration among them - and replaced forty-nine descriptions. On somebody
+# else's it would take whatever components they had bought and installed, in
+# silence, during an install that then reported success. The verification at
+# the end does not catch it, because it only asks whether the packages it wanted
+# are present, never whether anything was lost.
+#
+# The components are to be installed the ordinary way instead: build the
+# packages, then Component > Install Packages, or open the design .dproj and
+# choose Install. RAD Studio maintains that registry key correctly on its own,
+# which is a guarantee no script of ours can match.
+#
+# Left in place rather than deleted so the history and the intent survive.
+# To re-enable, remove this block - and fix the wipe first.
+# ---------------------------------------------------------------------------
+throw @'
+Install-DATLanguageManagerComponents.ps1 is disabled and must not be run.
+
+It rebuilds the per-user Known Packages registry key from the machine-wide
+list, which destroys any registration that exists only for this user -
+third-party components included - without reporting it.
+
+Install the components through the IDE instead:
+  1. Build the packages with tools/tests/RunLanguageManagerPackageTests.ps1
+  2. Component > Install Packages > Add, and select
+     DATLanguageManagerFMXDesign.bpl and DATLanguageManagerVCLDesign.bpl,
+     or open each design .dproj and choose Install.
+  3. Tools > Options > Library: add the folder holding the compiled units to
+     the Library path.
+'@
+
 $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
