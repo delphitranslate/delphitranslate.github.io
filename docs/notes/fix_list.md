@@ -74,6 +74,59 @@ Stale `.dcu` files for the deleted units still sit in `source/integration`.
 They are untracked leftovers, and they are why a missing source file does not
 always announce itself.
 
+### 11. The final build card duplicates work already done, and is misnamed
+**Status:** open. **Severity:** medium. Nothing is broken, but the step is
+confusing at exactly the point the developer is deciding what reaches the drive.
+**Raised:** 2026-08-17 by the developer, from a Wizard log.
+
+Final processing already compiles everything. `RebuildAllTargetConfigurations`
+walks all four platform and configuration pairs that have an output folder and
+calls the same `BuildAndDeploy` the card would:
+
+```
+22:04:27  Rebuilding Win32 Debug before deployment...
+22:04:30  Win32 Debug built. Language packs deployed to ...\Win32\Debug\...
+          (and the same for Win32 Release, Win64 Debug, Win64 Release)
+22:04:36  4 target configuration(s) rebuilt with the current runtime.
+```
+
+The completion page then presents "Build the application now?" with platform
+and configuration selectors and a Build and Deploy Selected Targets button.
+Ticking it recompiles those same four configurations a second time.
+
+The card does have one job nothing else does. After final processing the
+position is: four configurations compiled, language packs in all four build
+outputs, language packs in the configured destinations, and the new executable
+**nowhere but its build folder**. Copying the executable to the folders on the
+Deployment page happens only here, behind the authorisation control. That is
+what the card is for, and its title says nothing about it.
+
+Three separate faults, in order of how much they mislead:
+
+1. **It is named for the half that is redundant.** Its unique function is
+   deploying the executable. The build step repeats work finished seconds
+   earlier.
+2. **It offers four builds where one executable can land.** A destination
+   folder holds one `Carillon.exe`. Copying all four over each other was fixed
+   on 2026-08-17 - one is deployed and the log names it - but offering the
+   choice at all still suggests four outcomes that cannot exist.
+3. **Its selectors are the only way to build a configuration that has never
+   been built.** `RebuildAllTargetConfigurations` skips any pair without an
+   existing output folder, so a genuinely new configuration can only be
+   produced here. That is a second, unrelated job sharing one control, and it
+   is why the card cannot simply be deleted.
+
+Suggested shape, for the developer to accept or change:
+
+- Rename it for what it does: deploying the built application to the folders
+  entered in Step 3.
+- Replace the build step with a "rebuild first" tick, off by default, since
+  final processing has already built everything in the ordinary case.
+- Reduce the two selectors to one choice of which build to deploy, because one
+  is all that can land.
+- Give the "build a configuration I have never built" case its own control, or
+  move it to the Build page where it belongs.
+
 ### 6b. Scanner coverage: Tier 2, and TDBGrid
 **Status:** open. **Severity:** low for this application, moderate for others.
 
