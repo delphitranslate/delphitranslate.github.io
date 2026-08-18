@@ -1,4 +1,4 @@
-unit DAT.Scan.PascalResources;
+﻿unit DAT.Scan.PascalResources;
 
 interface
 
@@ -255,7 +255,17 @@ begin
     else if not InString then
       case AExpression[Index] of
         '(', '[': Inc(Depth);
-        ')', ']': if Depth > 0 then Dec(Depth);
+        { A closing bracket at the outer level is the end of the call, and so
+          the end of its first argument. Reading past it returned the argument
+          with its own punctuation still attached - 'text'); rather than 'text'
+          - which any careful reader of the expression then refuses, correctly.
+          The looser reader this replaced simply ignored the trailing
+          characters, which hid the fault until the reader was tightened. }
+        ')', ']':
+          if Depth > 0 then
+            Dec(Depth)
+          else
+            Exit(Trim(Copy(AExpression, 1, Index - 1)));
         ',': if Depth = 0 then Exit(Trim(Copy(AExpression, 1, Index - 1)));
       end;
   end;
@@ -296,6 +306,7 @@ var
 begin
   APhrase := '';
   SeenLiteral := False;
+  EndAt := 0;
   Index := 1;
   while Index <= Length(AExpression) do
   begin
@@ -628,6 +639,58 @@ begin
     ContainsText(LowerText, 'apps.googleusercontent.com');
 end;
 
+{ Every literal in a statement, run together, regardless of what lies between.
+
+  This is the reading that must never be used on an assignment: it invents
+  strings that appear nowhere in the program, and it is how a file name lost
+  its separator and a run of Pascal reached the translator. It is right for one
+  caller only. Markup is genuinely built in pieces across a statement, and what
+  is done with the result here - taking only the text that sits between tags -
+  cannot mistake code for a caption even when the joining is careless, because
+  code carries no tags. }
+function JoinAllLiterals(const AExpression: string;
+  out APhrase: string): Boolean;
+var
+  Decoded: string;
+  EndAt: Integer;
+  Index: Integer;
+  Segment: string;
+  StartAt: Integer;
+begin
+  APhrase := '';
+  Index := 1;
+  while Index <= Length(AExpression) do
+  begin
+    if AExpression[Index] <> '''' then
+    begin
+      Inc(Index);
+      Continue;
+    end;
+    StartAt := Index;
+    Inc(Index);
+    while Index <= Length(AExpression) do
+    begin
+      if AExpression[Index] = '''' then
+      begin
+        if (Index < Length(AExpression)) and
+          (AExpression[Index + 1] = '''') then
+          Inc(Index, 2)
+        else
+          Break;
+      end
+      else
+        Inc(Index);
+    end;
+    EndAt := Index;
+    Segment := Copy(AExpression, StartAt, EndAt - StartAt + 1);
+    if TryDecodeDelphiStringExpression(Segment, Decoded) then
+      APhrase := APhrase + Decoded;
+    Inc(Index);
+  end;
+  APhrase := Trim(APhrase);
+  Result := APhrase <> '';
+end;
+
 procedure ScanHtmlText(const AStatement: TRuntimeStatement;
   const AResult: TProjectScanResult; const AFileName, AUnitName: string);
 var
@@ -640,7 +703,7 @@ var
   TextValue: string;
 begin
   if not ContainsText(AStatement.Text, '<') or
-    not ExtractLiteralPhrase(AStatement.Text, Decoded) then
+    not JoinAllLiterals(AStatement.Text, Decoded) then
     Exit;
   SegmentIndex := 0;
   StartAt := 1;

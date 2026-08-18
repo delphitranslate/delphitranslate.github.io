@@ -206,9 +206,6 @@ try {
         Invoke-SmokeExecutable -Platform $Target.Platform `
             -ProgramName 'FoundationSmokeTests'
 
-        Invoke-GeneratedUnitCompiler @Target -PackageName 'SampleVCLApp'
-        Invoke-GeneratedUnitCompiler @Target -PackageName 'SampleFMXApp'
-
         Invoke-Compiler @Target -SourceFile 'VCLRuntimeSmokeTests.dpr'
         Invoke-Compiler @Target -SourceFile 'FMXRuntimeSmokeTests.dpr'
         Invoke-SmokeExecutable -Platform $Target.Platform `
@@ -217,45 +214,13 @@ try {
             -ProgramName 'FMXRuntimeSmokeTests'
     }
 
-    foreach ($Target in @(
-        @{ Compiler = 'dcc32'; Platform = 'Win32' },
-        @{ Compiler = 'dcc64'; Platform = 'Win64' }
-    )) {
-        Invoke-IntegratedProjectBuild `
-            -ProjectDirectory (Join-Path $TargetIntegrationSmokeDirectory `
-                'VCLBasic') `
-            -ProjectFileName 'SampleVCLApp.dproj' `
-            -Platform $Target.Platform
-        Invoke-IntegratedProjectBuild `
-            -ProjectDirectory (Join-Path $TargetIntegrationSmokeDirectory `
-                'VCLWithoutMenu') `
-            -ProjectFileName 'SampleVCLApp.dproj' `
-            -Platform $Target.Platform
-        Invoke-IntegratedProjectBuild `
-            -ProjectDirectory (Join-Path $TargetIntegrationSmokeDirectory `
-                'FMXBasic') `
-            -ProjectFileName 'SampleFMXApp.dproj' `
-            -Platform $Target.Platform
-        Invoke-IntegratedProjectBuild `
-            -ProjectDirectory (Join-Path $TargetIntegrationSmokeDirectory `
-                'FMXWithoutMenu') `
-            -ProjectFileName 'SampleFMXApp.dproj' `
-            -Platform $Target.Platform
-        Deploy-PilotLanguagePacks -PackageName 'SampleVCLApp' `
-            -ApplicationDirectory (Join-Path $ProjectRoot `
-                "export\bin\Samples\VCLBasic\$($Target.Platform)\Debug")
-        Deploy-PilotLanguagePacks -PackageName 'SampleFMXApp' `
-            -ApplicationDirectory (Join-Path $ProjectRoot `
-                "export\bin\Samples\FMXBasic\$($Target.Platform)\Debug")
-        Test-IntegratedApplicationWindow -Executable (Join-Path $ProjectRoot `
-            "export\bin\Samples\VCLBasic\$($Target.Platform)\Debug\SampleVCLApp.exe") `
-            -ExpectedTitle 'Gestione clienti'
-        Test-IntegratedApplicationWindow -Executable (Join-Path $ProjectRoot `
-            "export\bin\Samples\FMXBasic\$($Target.Platform)\Debug\SampleFMXApp.exe") `
-            -ExpectedTitle 'Gestione clienti'
-    }
+    # The phase that stood here built four generated sample projects, deployed
+    # pilot language packs into them and opened each one to read its window
+    # title. All of it exercised the target-editing feature removed in 9b0b9e2,
+    # and the kits it worked on were produced by the tests removed with it, so
+    # it had nothing left to run against.
 
-    Write-Host 'Offline runtime and integration smoke tests passed.'
+    Write-Host 'Offline runtime smoke tests passed.'
 }
 finally {
     foreach ($Preference in $PilotPreferences) {

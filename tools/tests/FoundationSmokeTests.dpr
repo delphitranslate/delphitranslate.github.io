@@ -22,15 +22,10 @@ uses
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
-  DAT.Integration.Plan in '..\..\source\integration\DAT.Integration.Plan.pas',
   DAT.Integration.Package in '..\..\source\integration\DAT.Integration.Package.pas',
   DAT.Integration.ComponentPackage in '..\..\source\integration\DAT.Integration.ComponentPackage.pas',
-  DAT.Integration.Types in '..\..\source\integration\DAT.Integration.Types.pas',
   DAT.Integration.MenuResource in '..\..\source\integration\DAT.Integration.MenuResource.pas',
   DAT.Integration.DelphiSource in '..\..\source\integration\DAT.Integration.DelphiSource.pas',
-  DAT.Integration.Transaction in '..\..\source\integration\DAT.Integration.Transaction.pas',
-  DAT.Integration.Reset in '..\..\source\integration\DAT.Integration.Reset.pas',
-  DAT.Integration.Engine in '..\..\source\integration\DAT.Integration.Engine.pas',
   DAT.Scan.Types in '..\..\source\scan\DAT.Scan.Types.pas',
   DAT.Scan.Rules in '..\..\source\scan\DAT.Scan.Rules.pas',
   DAT.Scan.Context in '..\..\source\scan\DAT.Scan.Context.pas',
@@ -524,6 +519,21 @@ begin
   end;
 end;
 
+{ The opposite, and just as much worth stating. A scanner that claims too much
+  is the harder fault to see: the extra strings look like work rather than like
+  a mistake, and they reach the translator and are paid for. }
+procedure RequireNoSourceText(const AResult: TProjectScanResult;
+  const AUnwantedText: string);
+var
+  Item: TScanItem;
+begin
+  for Item in AResult.Items do
+    if Item.SourceText = AUnwantedText then
+      raise Exception.Create(
+        'Scanned source text that should have been left alone: ' +
+        AUnwantedText);
+end;
+
 procedure RequireSourceText(const AResult: TProjectScanResult;
   const AExpectedText: string; const AExpectedKind: TScannedTextKind);
 var
@@ -586,11 +596,23 @@ begin
     RequireSourceText(ScanResult, 'Play Time', stkRuntimeAssignment);
     RequireSourceText(ScanResult, ' Uptime: %d years %d seconds',
       stkRuntimeAssignment);
-    RequireSourceText(ScanResult, 'Close window', stkRuntimeAssignment);
+    { Deliberately not claimed. Items.Add, Lines.Add and Strings.Add carry data
+      rows, log lines, file names and generated markup far more often than they
+      carry a caption, and harvesting them produced thousands of false
+      translatable strings on this application. Designer-authored items are
+      still read from the form file; runtime interface text is expected to go
+      through a visible property, a resourcestring or a dialog call.
+
+      This expectation used to require the opposite. The decision changed and
+      the test did not, and nothing noticed because this suite had not compiled
+      since the units it referenced were deleted. }
+    RequireNoSourceText(ScanResult, 'Close window');
     RequireSourceText(ScanResult, 'Unable to open the selected file.',
       stkRuntimeAssignment);
-    RequireSourceText(ScanResult, 'Owner drawn heading',
-      stkRuntimeAssignment);
+    { Deliberately not claimed either, and for the same reason as the item
+      above: what a canvas draws is usually a data row or a runtime value, not
+      a caption that holds still. No drawing call is registered for scanning. }
+    RequireNoSourceText(ScanResult, 'Owner drawn heading');
     ScanItem := nil;
     for ScanItem in ScanResult.Items do
       if ScanItem.SourceText = 'Eventoooooooooooooooo' then
@@ -988,11 +1010,16 @@ begin
     Profile, 'de-DE');
   RuntimeFileName := TTranslationWorkspace.RuntimePackFileName(
     Profile, 'de-DE');
+  { The workspace lives beside the user's other application data now, not
+    inside the project under a Localization folder, so a project tree is
+    never written to merely by opening it. These expectations still
+    described the old shape; nothing noticed, because this suite had not
+    compiled since the units it referenced were deleted. }
   Require(EndsText(
-    'Localization\Development\SampleVCLApp.de-DE.translation-project.json',
+    'Workspaces\SampleVCLApp\Development\SampleVCLApp.de-DE.translation-project.json',
     CatalogFileName), 'The development catalog path is incorrect.');
-  Require(EndsText('Localization\Languages\de-DE.json', RuntimeFileName),
-    'The runtime pack path is incorrect.');
+  Require(EndsText('Workspaces\SampleVCLApp\Languages\de-DE.json',
+    RuntimeFileName), 'The runtime pack path is incorrect.');
 end;
 
 procedure TestCatalogValidation;
@@ -1187,219 +1214,6 @@ end;
 
 function CountTextOccurrences(const AText, ASearchText: string): Integer;
   forward;
-
-procedure TestIntegrationPlanningAndPackage;
-var
-  ComponentOutputDirectory: string;
-  ConfiguredProjectText: string;
-  FormHashBefore: string;
-  OutputDirectory: string;
-  Plan: TIntegrationPlan;
-  Profile: TProjectProfile;
-  ProjectRoot: string;
-  ProjectHashBefore: string;
-  ProjectText: string;
-  BaseGroupAt: Integer;
-  BaseGroupEndAt: Integer;
-  WizardBlockAt: Integer;
-begin
-  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
-  Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
-    'samples\VCLBasic\SampleVCLApp.dproj'));
-  ProjectHashBefore := THashSHA2.GetHashStringFromFile(
-    Profile.ProjectFileName);
-  FormHashBefore := THashSHA2.GetHashStringFromFile(TPath.Combine(
-    ProjectRoot, 'samples\VCLBasic\SampleVCL.MainForm.dfm'));
-  Plan := TIntegrationPlanner.Build(Profile, 'mnuLanguage');
-  try
-    Require(Plan.MenuFound,
-      'The VCL sample language menu was not found.');
-    Require(Plan.Lines.Count >= 6,
-      'The integration plan is incomplete.');
-  finally
-    Plan.Free;
-  end;
-
-  OutputDirectory := TIntegrationPackageGenerator.Generate(
-    Profile, TPath.Combine(ProjectRoot, 'export\IntegrationSmoke'),
-    TPath.Combine(ProjectRoot, 'source\runtime'));
-  Require(TFile.Exists(TPath.Combine(OutputDirectory,
-    'SampleVCLApp.Translation.pas')),
-    'The generated VCL integration unit is missing.');
-  Require(TFile.Exists(TPath.Combine(OutputDirectory,
-    'Runtime\DAT.Runtime.VCL.pas')),
-    'The VCL runtime adapter was not packaged.');
-  Require(TFile.Exists(TPath.Combine(OutputDirectory,
-    'language-menu.json')),
-    'The language menu manifest was not packaged.');
-  Require(TFile.Exists(TPath.Combine(OutputDirectory,
-    'Deploy-LanguagePacks.ps1')),
-    'The language-pack deployment script was not packaged.');
-  Require(TFile.Exists(TPath.Combine(OutputDirectory,
-    'Localization\Languages\en-US.json')),
-    'The automatic English source-language pack was not packaged.');
-  Require(ContainsText(TFile.ReadAllText(TPath.Combine(OutputDirectory,
-    'SampleVCLApp.Translation.pas')), 'LOCALAPPDATA'),
-    'The generated runtime preference is not stored per user.');
-  Require(ContainsText(TFile.ReadAllText(TPath.Combine(OutputDirectory,
-    'SampleVCLApp.Translation.pas')), 'ApplyTranslationToOpenForms'),
-    'The generated unit does not refresh every open form after selection.');
-
-  ComponentOutputDirectory := TPath.Combine(TPath.Combine(ProjectRoot,
-    'export\ComponentIntegrationSmoke'), 'SampleVCLApp');
-  TDirectory.CreateDirectory(ComponentOutputDirectory);
-  TFile.WriteAllText(TPath.Combine(ComponentOutputDirectory,
-    'Install-Components.ps1'), 'obsolete automatic installer');
-  TFile.WriteAllText(TPath.Combine(ComponentOutputDirectory,
-    'Install-Components.cmd'), 'obsolete automatic launcher');
-  ComponentOutputDirectory :=
-    TComponentIntegrationPackageGenerator.Generate(Profile,
-      TPath.Combine(ProjectRoot, 'export\ComponentIntegrationSmoke'),
-      TPath.Combine(ProjectRoot, 'source\runtime'),
-      TPath.Combine(ProjectRoot, 'source\components'));
-  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'component-integration.json')),
-    'The VCL component manifest was not generated.');
-  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'README.txt')), 'The VCL component instructions were not generated.');
-  Require(not TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'Install-Components.ps1')),
-    'The automatic component installer was packaged.');
-  Require(not TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'Install-Components.cmd')),
-    'The automatic component launcher was packaged.');
-  Require(not TDirectory.Exists(TPath.Combine(ComponentOutputDirectory,
-    'DelphiPackages')),
-    'The generated kit contains a volatile Delphi package folder.');
-  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
-    ComponentOutputDirectory, 'README.txt')),
-    'Component > Install Packages'),
-    'The VCL instructions do not use Delphi''s Install Packages dialog.');
-  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
-    ComponentOutputDirectory, 'README.txt')),
-    'DATLanguageManagerVCLDesign.bpl'),
-    'The VCL instructions do not identify the compiled design BPL.');
-  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
-    ComponentOutputDirectory, 'component-integration.json')),
-    'Delphi Component > Install Packages > Add'),
-    'The VCL manifest does not record the approved installation method.');
-  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'ComponentSource\DAT.Components.VCL.pas')),
-    'The VCL manager source was not packaged.');
-  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'ComponentSource\DAT.Components.VCL.LanguageSelector.pas')),
-    'The VCL selector source was not packaged.');
-  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'Localization\Languages\en-US.json')),
-    'The VCL component kit is missing its English pack.');
-  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
-    ComponentOutputDirectory, 'README.txt')),
-    'A visible selector is required'),
-    'The VCL instructions incorrectly describe language selection as optional.');
-  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
-    ComponentOutputDirectory, 'Deploy-LanguagePacks.ps1')),
-    '$ProjectDirectory'),
-    'The deployment script cannot resolve relative Delphi output paths.');
-  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
-    ComponentOutputDirectory, 'Deploy-LanguagePacks.ps1')),
-    'deployment-destinations.json') and
-    ContainsText(TFile.ReadAllText(TPath.Combine(
-      ComponentOutputDirectory, 'Deploy-LanguagePacks.ps1')),
-      'SkipConfiguredDestinations'),
-    'The deployment script cannot deploy remembered application destinations.');
-  ProjectText := TFile.ReadAllText(Profile.ProjectFileName, TEncoding.UTF8);
-  ConfiguredProjectText :=
-    TComponentIntegrationPackageGenerator.BuildConfiguredProjectText(
-      ProjectText,
-      TPath.Combine(ComponentOutputDirectory, 'ComponentSource'),
-      TPath.Combine(ComponentOutputDirectory, 'Deploy-LanguagePacks.ps1'));
-  Require(ContainsText(ConfiguredProjectText,
-    '<DCC_UnitSearchPath>') and
-    ContainsText(ConfiguredProjectText, '$(DCC_UnitSearchPath)'),
-    'The Wizard project configuration does not inherit the Delphi Search Path.');
-  Require(ContainsText(ConfiguredProjectText,
-    '-ExecutionPolicy Bypass') and
-    ContainsText(ConfiguredProjectText, '$(DCC_ExeOutput)') and
-    ContainsText(ConfiguredProjectText, '$(MSBuildProjectDirectory)'),
-    'The Wizard project configuration does not deploy packs after every build.');
-  Require(Pos('Delphi App Translation Setup Wizard: begin',
-    ConfiguredProjectText) < Pos('<Import Project=', ConfiguredProjectText),
-    'The Wizard Search Path was placed after Delphi targets were imported.');
-  BaseGroupAt := Pos('<PropertyGroup Condition="''$(Base)''!=''''">',
-    ConfiguredProjectText);
-  BaseGroupEndAt := PosEx('</PropertyGroup>', ConfiguredProjectText,
-    BaseGroupAt);
-  WizardBlockAt := Pos('Delphi App Translation Setup Wizard: begin',
-    ConfiguredProjectText);
-  Require((BaseGroupAt > 0) and (WizardBlockAt > BaseGroupAt) and
-    (WizardBlockAt < BaseGroupEndAt),
-    'The Wizard settings were not inserted into Delphi''s native Base compiler property group.');
-  ConfiguredProjectText :=
-    TComponentIntegrationPackageGenerator.BuildConfiguredProjectText(
-      ConfiguredProjectText,
-      TPath.Combine(ComponentOutputDirectory, 'ComponentSource'),
-      TPath.Combine(ComponentOutputDirectory, 'Deploy-LanguagePacks.ps1'));
-  Require(CountTextOccurrences(ConfiguredProjectText,
-    'Delphi App Translation Setup Wizard: begin') = 1,
-    'Repeated Wizard configuration duplicated the DPROJ integration block.');
-  TFile.WriteAllText(TPath.Combine(ProjectRoot,
-    'export\ComponentIntegrationSmoke\ConfiguredProjectSmoke.dproj'),
-    ConfiguredProjectText, TEncoding.UTF8);
-  Require(SameText(ProjectHashBefore, THashSHA2.GetHashStringFromFile(
-    Profile.ProjectFileName)),
-    'Component integration changed the VCL project file.');
-  Require(SameText(FormHashBefore, THashSHA2.GetHashStringFromFile(
-    TPath.Combine(ProjectRoot,
-      'samples\VCLBasic\SampleVCL.MainForm.dfm'))),
-    'Component integration changed the VCL form resource.');
-
-  Profile := TProjectDetector.Detect(TPath.Combine(ProjectRoot,
-    'samples\FMXBasic\SampleFMXApp.dproj'));
-  OutputDirectory := TIntegrationPackageGenerator.Generate(
-    Profile, TPath.Combine(ProjectRoot, 'export\IntegrationSmoke'),
-    TPath.Combine(ProjectRoot, 'source\runtime'));
-  Require(TFile.Exists(TPath.Combine(OutputDirectory,
-    'SampleFMXApp.Translation.pas')),
-    'The generated FMX integration unit is missing.');
-  Require(TFile.Exists(TPath.Combine(OutputDirectory,
-    'Runtime\DAT.Runtime.FMX.pas')),
-    'The FMX runtime adapter was not packaged.');
-  Require(TFile.Exists(TPath.Combine(OutputDirectory,
-    'Localization\Languages\en-US.json')),
-    'The FMX package is missing its automatic English pack.');
-  ProjectHashBefore := THashSHA2.GetHashStringFromFile(
-    Profile.ProjectFileName);
-  FormHashBefore := THashSHA2.GetHashStringFromFile(TPath.Combine(
-    ProjectRoot, 'samples\FMXBasic\SampleFMX.MainForm.fmx'));
-  ComponentOutputDirectory :=
-    TComponentIntegrationPackageGenerator.Generate(Profile,
-      TPath.Combine(ProjectRoot, 'export\ComponentIntegrationSmoke'),
-      TPath.Combine(ProjectRoot, 'source\runtime'),
-      TPath.Combine(ProjectRoot, 'source\components'));
-  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'ComponentSource\DAT.Components.FMX.pas')),
-    'The FMX manager source was not packaged.');
-  Require(TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'ComponentSource\DAT.Components.FMX.LanguageSelector.pas')),
-    'The FMX selector source was not packaged.');
-  Require(not TDirectory.Exists(TPath.Combine(ComponentOutputDirectory,
-    'DelphiPackages')),
-    'The FMX kit contains a volatile Delphi package folder.');
-  Require(not TFile.Exists(TPath.Combine(ComponentOutputDirectory,
-    'Install-Components.ps1')),
-    'The FMX kit contains the automatic installer.');
-  Require(ContainsText(TFile.ReadAllText(TPath.Combine(
-    ComponentOutputDirectory, 'README.txt')),
-    'DATLanguageManagerFMXDesign.bpl'),
-    'The FMX instructions do not identify the compiled design BPL.');
-  Require(SameText(ProjectHashBefore, THashSHA2.GetHashStringFromFile(
-    Profile.ProjectFileName)),
-    'Component integration changed the FMX project file.');
-  Require(SameText(FormHashBefore, THashSHA2.GetHashStringFromFile(
-    TPath.Combine(ProjectRoot,
-      'samples\FMXBasic\SampleFMX.MainForm.fmx'))),
-    'Component integration changed the FMX form resource.');
-end;
 
 function CountTextOccurrences(const AText, ASearchText: string): Integer;
 var
@@ -1659,386 +1473,6 @@ begin
   SourceText := StringReplace(SourceText,
     '    mnuLanguage: TMenuItem;', '', []);
   TFile.WriteAllText(SourceFileName, SourceText);
-end;
-
-procedure TestTargetIntegration(const AProjectRoot, ASampleDirectory,
-  AProjectFileName, AFormResourceFileName: string;
-  const AFixtureDirectoryName: string = '';
-  const ARemoveDesignerMenu: Boolean = False);
-var
-  BackupDirectory: string;
-  BackupFileName: string;
-  BackupFileBytes: TBytes;
-  BackupHash: string;
-  Change: TIntegrationFileChange;
-  ChangeSet: TIntegrationChangeSet;
-  FixtureDirectory: string;
-  FixtureDirectoryName: string;
-  FormText: string;
-  IntegrationUnitName: string;
-  PackageDirectory: string;
-  Profile: TProjectProfile;
-  ProjectText: string;
-  ResultInfo: TIntegrationApplyResult;
-  RestoreRejected: Boolean;
-  SourceText: string;
-begin
-  FixtureDirectoryName := AFixtureDirectoryName;
-  if FixtureDirectoryName = '' then
-    FixtureDirectoryName := ASampleDirectory;
-  FixtureDirectory := TPath.Combine(AProjectRoot,
-    'export\TargetIntegrationSmoke\' + FixtureDirectoryName);
-  CopyFixtureDirectory(TPath.Combine(
-    AProjectRoot, 'samples\' + ASampleDirectory), FixtureDirectory);
-  if ARemoveDesignerMenu then
-    if SameText(TPath.GetExtension(AFormResourceFileName), '.fmx') then
-      RemoveFMXDesignerMenuFixture(FixtureDirectory,
-        AFormResourceFileName)
-    else
-      RemoveVCLDesignerMenuFixture(FixtureDirectory,
-        AFormResourceFileName);
-  Profile := TProjectDetector.Detect(TPath.Combine(
-    FixtureDirectory, AProjectFileName));
-  ExportItalianFixturePack(Profile);
-  PackageDirectory := TIntegrationPackageGenerator.Generate(
-    Profile, TPath.Combine(AProjectRoot,
-      'export\TargetIntegrationPackages'),
-    TPath.Combine(AProjectRoot, 'source\runtime'));
-  ChangeSet := TTargetIntegrationEngine.BuildChangeSet(
-    Profile, PackageDirectory, 'mnuLanguage');
-  try
-    Require(ChangeSet.Changes.Count >= 9,
-      'The target integration change set is incomplete.');
-    BackupDirectory := TPath.Combine(AProjectRoot,
-      'export\TargetIntegrationBackups\' + FixtureDirectoryName + '\First');
-    ResultInfo := TIntegrationTransaction.Apply(
-      ChangeSet, BackupDirectory);
-    try
-      Require(ResultInfo.FilesWritten = ChangeSet.Changes.Count,
-        'The transaction did not write every planned file.');
-    finally
-      ResultInfo.Free;
-    end;
-    SourceText := TFile.ReadAllText(TPath.Combine(
-      BackupDirectory, 'integration-backup.json'));
-    Require(ContainsText(SourceText, '"schemaVersion":2'),
-      'The integration backup does not use the SHA-256 manifest schema.');
-    Require(ContainsText(SourceText, '"sha256"'),
-      'The integration backup manifest contains no content hashes.');
-    BackupFileName := '';
-    for Change in ChangeSet.Changes do
-      if Change.OriginalExists then
-      begin
-        BackupFileName := TPath.Combine(
-          TPath.Combine(BackupDirectory, 'Files'),
-          Copy(Change.TargetFileName,
-            Length(IncludeTrailingPathDelimiter(FixtureDirectory)) + 1,
-            MaxInt));
-        Break;
-      end;
-    Require(BackupFileName <> '',
-      'The integration test found no original file to protect.');
-    BackupHash := THashSHA2.GetHashStringFromFile(BackupFileName);
-    BackupFileBytes := TFile.ReadAllBytes(BackupFileName);
-    TFile.AppendAllText(BackupFileName, 'tamper-test', TEncoding.UTF8);
-    RestoreRejected := False;
-    try
-      TIntegrationTransaction.Restore(
-        FixtureDirectory, BackupDirectory);
-    except
-      on E: EIntegrationTransactionError do
-        RestoreRejected := ContainsText(E.Message,
-          'SHA-256 verification failed');
-    end;
-    Require(RestoreRejected,
-      'Restore accepted a backup whose contents were changed.');
-    TFile.WriteAllBytes(BackupFileName, BackupFileBytes);
-    Require(SameText(BackupHash,
-      THashSHA2.GetHashStringFromFile(BackupFileName)),
-      'The integration test could not restore its backup fixture.');
-  finally
-    ChangeSet.Free;
-  end;
-
-  FormText := TFile.ReadAllText(TPath.Combine(
-    FixtureDirectory, AFormResourceFileName));
-  Require(CountTextOccurrences(FormText,
-    'object datLanguage_en_US: TMenuItem') = 1,
-    'The source-language menu item is missing or duplicated.');
-  Require(CountTextOccurrences(FormText,
-    'object datLanguage_it_IT: TMenuItem') = 1,
-    'The Italian menu item is missing or duplicated.');
-  Require(ContainsText(FormText, 'Italiano'),
-    'The native Italian language name was not persisted.');
-  if ARemoveDesignerMenu then
-  begin
-    if Profile.Framework = tfFireMonkey then
-      Require(ContainsText(FormText,
-        'object datTranslationMenuBar: TMenuBar'),
-        'The missing FMX designer menu bar was not created.')
-    else
-    begin
-      Require(ContainsText(FormText,
-        'object datTranslationMainMenu: TMainMenu'),
-        'The missing VCL designer main menu was not created.');
-    end;
-    Require(ContainsText(FormText,
-      'object mnuLanguage: TMenuItem'),
-      'The missing Language menu was not created.');
-    Require(ContainsText(FormText,
-      'object datTranslationFileMenu: TMenuItem'),
-      'The generated menu container lacks a File menu.');
-    Require(ContainsText(FormText,
-      'object datTranslationExitMenuItem: TMenuItem'),
-      'The generated File menu lacks an Exit item.');
-    Require(ContainsText(FormText,
-      'OnClick = datTranslationExitClick'),
-      'The generated Exit item is not designer-wired.');
-  end;
-
-  SourceText := TFile.ReadAllText(TPath.ChangeExtension(
-    TPath.Combine(FixtureDirectory, AFormResourceFileName), '.pas'));
-  Require(CountTextOccurrences(SourceText,
-    'procedure datLanguageMenuItemClick(Sender: TObject);') = 1,
-    'The form language handler declaration is missing or duplicated.');
-  if ARemoveDesignerMenu then
-  begin
-    Require(ContainsText(SourceText,
-      'mnuLanguage: TMenuItem;'),
-      'The generated Language menu lacks its form-class field.');
-    if Profile.Framework = tfFireMonkey then
-      Require(ContainsText(SourceText,
-        'datTranslationMenuBar: TMenuBar;'),
-        'The generated FMX menu bar lacks its form-class field.')
-    else
-      Require(ContainsText(SourceText,
-        'datTranslationMainMenu: TMainMenu;'),
-        'The generated VCL main menu lacks its form-class field.');
-    Require(ContainsText(SourceText,
-      'datTranslationFileMenu: TMenuItem;'),
-      'The generated File menu lacks its form-class field.');
-    Require(ContainsText(SourceText,
-      'datTranslationExitMenuItem: TMenuItem;'),
-      'The generated Exit item lacks its form-class field.');
-    Require(ContainsText(SourceText,
-      'procedure datTranslationExitClick(Sender: TObject);'),
-      'The generated Exit handler declaration is missing.');
-    Require(ContainsText(SourceText, '  Close;'),
-      'The generated Exit handler does not close its form.');
-  end;
-
-  ProjectText := TFile.ReadAllText(TPath.Combine(
-    FixtureDirectory, TPath.ChangeExtension(
-      AProjectFileName, '.dpr')));
-  Require(CountTextOccurrences(ProjectText,
-    'InitializeTranslation;') = 1,
-    'Translation initialization is missing or duplicated.');
-  if Profile.Framework = tfVCL then
-    Require(CountTextOccurrences(ProjectText,
-      'ApplyTranslation(') = 1,
-      'VCL startup form translation is missing or duplicated.')
-  else
-  begin
-    Require(CountTextOccurrences(ProjectText,
-      'ApplyTranslation(') = 0,
-      'Unsafe first-form FMX translation remained in the DPR.');
-    Require(ContainsText(FormText,
-      'OnCreate = datTranslationFormCreate'),
-      'The FMX form resource lacks its designer-persisted startup event.');
-    Require(ContainsText(SourceText, 'ApplyTranslation(Self);'),
-      'The FMX OnCreate handler does not apply startup translation.');
-  end;
-
-  IntegrationUnitName := Profile.ProjectName + '.Translation.pas';
-  Require(TFile.Exists(TPath.Combine(FixtureDirectory,
-    'Localization\Runtime\' + IntegrationUnitName)),
-    'The generated target integration unit is missing.');
-
-  ChangeSet := TTargetIntegrationEngine.BuildChangeSet(
-    Profile, PackageDirectory, 'mnuLanguage');
-  try
-    FormText := ChangeSet.FindChange(TPath.Combine(
-      FixtureDirectory, AFormResourceFileName)).NewText;
-    Require(CountTextOccurrences(FormText,
-      'object datLanguage_it_IT: TMenuItem') = 1,
-      'A repeated integration preview duplicated the Italian menu item.');
-    if ARemoveDesignerMenu then
-      Require(CountTextOccurrences(FormText,
-        'object datTranslationFileMenu: TMenuItem') = 1,
-        'A repeated integration preview duplicated the generated File menu.');
-  finally
-    ChangeSet.Free;
-  end;
-
-  TIntegrationTransaction.Restore(
-    FixtureDirectory, BackupDirectory);
-  FormText := TFile.ReadAllText(TPath.Combine(
-    FixtureDirectory, AFormResourceFileName));
-  Require(not ContainsText(FormText, 'datLanguage_it_IT'),
-    'Restore did not remove generated language items.');
-
-  ChangeSet := TTargetIntegrationEngine.BuildChangeSet(
-    Profile, PackageDirectory, 'mnuLanguage');
-  try
-    ResultInfo := TIntegrationTransaction.Apply(ChangeSet,
-      TPath.Combine(AProjectRoot,
-        'export\TargetIntegrationBackups\' + FixtureDirectoryName +
-        '\Final'));
-    ResultInfo.Free;
-  finally
-    ChangeSet.Free;
-  end;
-end;
-
-procedure TestTransactionalTargetIntegration;
-var
-  ProjectRoot: string;
-begin
-  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
-  TestTargetIntegration(ProjectRoot, 'VCLBasic',
-    'SampleVCLApp.dproj', 'SampleVCL.MainForm.dfm');
-  TestTargetIntegration(ProjectRoot, 'VCLBasic',
-    'SampleVCLApp.dproj', 'SampleVCL.MainForm.dfm',
-    'VCLWithoutMenu', True);
-  TestTargetIntegration(ProjectRoot, 'FMXBasic',
-    'SampleFMXApp.dproj', 'SampleFMX.MainForm.fmx');
-  TestTargetIntegration(ProjectRoot, 'FMXBasic',
-    'SampleFMXApp.dproj', 'SampleFMX.MainForm.fmx',
-    'FMXWithoutMenu', True);
-end;
-
-procedure TestCompleteResetWorkflow;
-var
-  BackupDirectory: string;
-  ChangeSet: TIntegrationChangeSet;
-  FixtureDirectory: string;
-  FormFileName: string;
-  FormText: string;
-  PackageDirectory: string;
-  Plan: TCompleteResetPlan;
-  Profile: TProjectProfile;
-  ProjectRoot: string;
-  ResultInfo: TIntegrationApplyResult;
-  SafetyBackupDirectory: string;
-begin
-  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
-  FixtureDirectory := TPath.Combine(ProjectRoot,
-    'export\CompleteResetSmoke\FMXBasic');
-  CopyFixtureDirectory(TPath.Combine(ProjectRoot,
-    'samples\FMXBasic'), FixtureDirectory);
-  TFile.WriteAllText(TPath.Combine(FixtureDirectory,
-    'developer-owned.txt'), 'preserve me', TEncoding.UTF8);
-  Profile := TProjectDetector.Detect(TPath.Combine(
-    FixtureDirectory, 'SampleFMXApp.dproj'));
-  ExportItalianFixturePack(Profile);
-  PackageDirectory := TIntegrationPackageGenerator.Generate(
-    Profile, TPath.Combine(ProjectRoot,
-      'export\CompleteResetSmoke\Packages'),
-    TPath.Combine(ProjectRoot, 'source\runtime'));
-  ChangeSet := TTargetIntegrationEngine.BuildChangeSet(
-    Profile, PackageDirectory, 'mnuLanguage');
-  try
-    BackupDirectory := TPath.Combine(FixtureDirectory,
-      'Localization\Integration Backups\Translation Integration Test');
-    ResultInfo := TIntegrationTransaction.Apply(
-      ChangeSet, BackupDirectory);
-    ResultInfo.Free;
-  finally
-    ChangeSet.Free;
-  end;
-
-  FormFileName := TPath.Combine(FixtureDirectory,
-    'SampleFMX.MainForm.fmx');
-  Require(ContainsText(TFile.ReadAllText(FormFileName),
-    'datLanguage_it_IT'),
-    'The complete-reset fixture was not integrated first.');
-  Plan := TCompleteResetEngine.BuildPlan(
-    Profile.ProjectName, FixtureDirectory);
-  try
-    Require(SameText(Plan.BaselineBackupDirectory,
-      BackupDirectory),
-      'Complete Reset did not select the original integration baseline.');
-    SafetyBackupDirectory := TPath.Combine(ProjectRoot,
-      'export\CompleteResetSmoke\SafetyBackup');
-    TCompleteResetEngine.Execute(Plan, SafetyBackupDirectory);
-    Require(TFile.Exists(TPath.Combine(
-      SafetyBackupDirectory, 'integration-backup.json')),
-      'Complete Reset did not retain its verified safety backup.');
-  finally
-    Plan.Free;
-  end;
-
-  FormText := TFile.ReadAllText(FormFileName);
-  Require(not ContainsText(FormText, 'datLanguage_it_IT'),
-    'Complete Reset did not restore the original form resource.');
-  Require(not TDirectory.Exists(TPath.Combine(
-    FixtureDirectory, 'Localization\Development')),
-    'Complete Reset retained the development catalogs.');
-  Require(not TDirectory.Exists(TPath.Combine(
-    FixtureDirectory, 'Localization\Languages')),
-    'Complete Reset retained the runtime language packs.');
-  Require(not TDirectory.Exists(TPath.Combine(
-    FixtureDirectory, 'Localization\Runtime')),
-    'Complete Reset retained the generated runtime units.');
-  Require(TFile.ReadAllText(TPath.Combine(FixtureDirectory,
-    'developer-owned.txt'), TEncoding.UTF8) = 'preserve me',
-    'Complete Reset changed an unrelated developer-owned file.');
-end;
-
-procedure TestStudioSelfIntegrationChangeSet;
-var
-  ChangeSet: TIntegrationChangeSet;
-  PackageDirectory: string;
-  Profile: TProjectProfile;
-  ProjectRoot: string;
-begin
-  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
-  Profile := TProjectDetector.Detect(TPath.Combine(
-    ProjectRoot, 'DelphiAppTranslationStudio.dproj'));
-  PackageDirectory := TIntegrationPackageGenerator.Generate(
-    Profile, TPath.Combine(ProjectRoot, 'export\IntegrationSmoke'),
-    TPath.Combine(ProjectRoot, 'source\runtime'));
-  ChangeSet := TTargetIntegrationEngine.BuildChangeSet(
-    Profile, PackageDirectory, 'mnuLanguage');
-  try
-    Require(ChangeSet.Changes.Count = 1,
-      'Studio self-integration should update only its persisted menu.');
-    Require(ChangeSet.Changes[0].Kind = ickFormResource,
-      'Studio self-integration planned an unexpected source change.');
-  finally
-    ChangeSet.Free;
-  end;
-end;
-
-procedure TestExactIntegrationReview;
-var
-  Change: TIntegrationFileChange;
-  ReviewText: string;
-begin
-  Change := TIntegrationFileChange.Create;
-  try
-    Change.TargetFileName := 'Example.pas';
-    Change.Description := 'Update startup';
-    Change.OriginalExists := True;
-    Change.OriginalText :=
-      'line one' + sLineBreak +
-      'old line' + sLineBreak +
-      'line three';
-    Change.NewText :=
-      'line one' + sLineBreak +
-      'new line' + sLineBreak +
-      'line three';
-    ReviewText := Change.ExactReviewText;
-    Require(ContainsText(ReviewText, '- O:0002'),
-      'Exact review did not identify the removed line.');
-    Require(ContainsText(ReviewText, 'N:0002 | new line'),
-      'Exact review did not identify the proposed line.');
-    Require(ContainsText(ReviewText, 'old line') and
-      ContainsText(ReviewText, 'new line'),
-      'Exact review omitted changed text.');
-  finally
-    Change.Free;
-  end;
 end;
 
 procedure TestProjectUnitInsertionBeforeResourceDirective;
@@ -2312,11 +1746,6 @@ begin
     TestCatalogValidation;
     TestRuntimePack;
     TestRuntimeLoadingAndPreference;
-    TestIntegrationPlanningAndPackage;
-    TestTransactionalTargetIntegration;
-    TestCompleteResetWorkflow;
-    TestStudioSelfIntegrationChangeSet;
-    TestExactIntegrationReview;
     TestProjectUnitInsertionBeforeResourceDirective;
     TestImplementationUsesAfterResourceDirective;
     TestFMXProjectStartupDefersTranslationToForms;

@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.123.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.124.
 
 ## How to read the status of an item
 
@@ -51,28 +51,6 @@ catalog, review, kit generation, build and deploy, then launched and looked at.
 `samples/VCLBasic` and the `WebsiteAnalytics` kit would serve.
 
 `TDBGrid` column titles (item 6b) would be exercised by this.
-
-### 10. FoundationSmokeTests still references deleted units
-**Status:** open, reduced. **Severity:** low.
-
-`tools/tests/RunRuntimeSmokeTests.ps1` compiles `FoundationSmokeTests.dpr`
-first, and that file still uses units removed in commit `9b0b9e2` ("Remove
-stale target-edit integration paths"): `DAT.Integration.Plan`, `.Engine`,
-`.Reset`, `.Transaction`, `.Types`. It fails there and never reaches the tests
-below it.
-
-What needs those units is two whole procedures,
-`TestIntegrationPlanningAndPackage` and `TestTargetIntegration`, exercising the
-target-editing feature that commit removed. Deleting them is probably right,
-but it drops coverage on the strength of a guess about whether that feature is
-gone for good, so it is left for the developer to decide.
-
-Nothing is blocked by it: both runtime suites and `StudioFormSmokeTests` build
-and pass when built directly, which is how they are run today.
-
-Stale `.dcu` files for the deleted units still sit in `source/integration`.
-They are untracked leftovers, and they are why a missing source file does not
-always announce itself.
 
 ### 11. The final build card duplicates work already done, and is misnamed
 **Status:** open. **Severity:** medium. Nothing is broken, but the step is
@@ -296,6 +274,41 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### The runtime suite runs again, and had three wrong answers waiting
+**Fixed:** 2026-08-18, build .124. Closes item 10.
+
+`FoundationSmokeTests` still used units removed in `9b0b9e2`, so the runner
+stopped there and never reached the runtime tests below it. Six routines
+depended on that removed target-editing feature and went with it, along with
+the runner phase that built four generated sample projects and read their
+window titles - all of it working on kits those same tests produced.
+
+The suite then ran for the first time in a long while, and three of its
+expectations were wrong. Two described decisions that had since been reversed
+deliberately: `Items.Add` and canvas drawing calls are no longer harvested,
+because in real applications they carry data rows, log lines and generated
+markup far more often than captions. Both now assert the opposite, so the
+decision is written down rather than merely implemented. The third still
+expected the workspace to live inside the project under a `Localization`
+folder; it moved beside the user's other application data, so that opening a
+project no longer writes into its tree.
+
+A negative assertion was added for the first two. A scanner that claims too
+much is the harder fault to see - the extra strings look like work rather than
+like a mistake, and they reach the translator and are paid for.
+
+**And one real regression of mine, which is the point of having the suite.**
+Tightening the literal joiner earlier today broke `ShowMessage` capture: the
+argument extractor never stopped at the call's closing bracket, so it returned
+`'text');` rather than `'text'`, and a careful reader refuses that. The loose
+joiner had been hiding it by ignoring trailing characters. The extractor stops
+where the argument stops now. The markup scanner keeps the loose reading, which
+is right for it alone: markup really is built in pieces, and taking only what
+sits between tags cannot mistake code for a caption, because code carries no
+tags.
+
+Both suites now pass on Win32 and Win64.
 
 ### An apostrophe in a comment silenced the rest of the file
 **Fixed:** 2026-08-18, build .123. Closes item 14, found the same day.
