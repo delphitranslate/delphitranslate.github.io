@@ -28,6 +28,12 @@ application; nothing below is being worked on.
 - **4. Space between a grid's bottom edge and the controls beneath it.**
   Genuinely fixed this time; the earlier claim was made on the strength of a
   different form.
+- **5. A caption above its field grows down into it.** Fixed as a consequence
+  of the rule that a caption drawn level with its field keeps that pairing.
+  `lblTestRecipient` takes the empty margin on its left instead of growing
+  down into the edit, so it needs no extra height at all and keeps both its
+  top and its text size. The three earlier attempts all tried to grow it
+  upwards, which was the wrong lever.
 
 ---
 
@@ -121,6 +127,7 @@ item 5 below: neither is about a control being too small, both are about the
 space between one control and the next.
 
 ### 5. A caption above its field grows down into it
+**Status:** resolved 2026-08-17, awaiting the developer's confirmation in the running application.
 **Reported:** 2026-08-17 (item 5 of that day's list, and item 4 of the later list)
 **Severity:** medium.
 
