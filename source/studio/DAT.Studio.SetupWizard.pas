@@ -261,7 +261,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.17.114';
+  StudioBuildLabel = 'Build 2026.08.18.115';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
@@ -382,13 +382,38 @@ begin
       One combination is deployed, and the log names it. Where more than one
       was built, the log also says plainly that the others were built but not
       deployed, because a folder cannot hold them both. }
-    DeployPlatform := Platforms[0];
+    { Release, wherever it was built, in preference to Debug.
+
+      What goes on the destination drive is what the user of the application
+      runs, so it should be the build the user would be given. A debug build is
+      around two and a half times the size, carries a symbol table naming every
+      routine and variable in the program, links the unoptimised runtime, and
+      turns on range and overflow checking, so it can raise where a release
+      build carries on. Deploying it because it happened to be first in the
+      list is not a decision anybody made. }
     DeployConfiguration := Configurations[0];
+    for Configuration in Configurations do
+      if SameText(Configuration, 'Release') then
+      begin
+        DeployConfiguration := Configuration;
+        Break;
+      end;
+
+    { The platform is left as the first selected, but it is stated plainly,
+      because changing the architecture of an existing deployment is not a
+      neutral act: a folder set up for a thirty-two bit application carries
+      thirty-two bit libraries beside it, and a sixty-four bit executable
+      dropped in cannot load them. }
+    DeployPlatform := Platforms[0];
+
     if (Length(Platforms) > 1) or (Length(Configurations) > 1) then
       AddProgress(Format(
         'More than one target was built. A destination folder holds one ' +
         'executable, so %s %s is the one deployed; the rest remain in their ' +
-        'build-output folders.', [DeployPlatform, DeployConfiguration]));
+        'build-output folders.', [DeployPlatform, DeployConfiguration]))
+    else
+      AddProgress(Format('Deploying the %s %s build.',
+        [DeployPlatform, DeployConfiguration]));
 
     for ApplicationDirectory in lstDeploymentDestinations.Items do
     begin
@@ -1997,7 +2022,11 @@ begin
       begin
         if DeployedExecutable then
           Break;
-        for Configuration in ['Debug', 'Release'] do
+        { Release before Debug, for the same reason the build page prefers it:
+          a folder chosen by hand receives whatever a user of the application
+          would be given, not a build carrying a symbol table and arithmetic
+          checks because it happened to be looked for first. }
+        for Configuration in ['Release', 'Debug'] do
         begin
           if DeployedExecutable then
             Break;

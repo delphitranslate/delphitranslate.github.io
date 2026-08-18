@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-17, build 2026.08.17.114.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.115.
 
 ## How to read the status of an item
 
@@ -313,6 +313,42 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### Deployment sent the debug build to the drive
+**Fixed:** 2026-08-18, build .115.
+**Raised:** 2026-08-17 by the developer, from executable sizes on the drive
+varying between roughly 28 and 55 million bytes between runs.
+
+The varying size was never corruption. It was different build configurations
+reaching the same folder:
+
+```
+Win32 Debug     58,224,025
+Win32 Release   21,430,272
+Win64 Debug     67,637,817
+Win64 Release   29,532,672
+```
+
+The executable on the drive matched Win32 Debug to the byte, and the remembered
+28 million is Win64 Release. Before the deploy-once fix the copy sat inside the
+platform and configuration loop, so the last combination built won, which is
+Win64 Release. After it, the first won, which is Win32 Debug. Neither was a
+choice anybody made, and the size moved because the rule moved.
+
+Release is now preferred wherever it was built, on the build page and on the
+hand-picked folder button alike. What reaches the drive should be what a user
+of the application would be given: a debug build is about two and a half times
+the size, carries a symbol table naming every routine and variable, links the
+unoptimised runtime, and turns range and overflow checking on, so it can raise
+where a release build carries on.
+
+The platform is still the first selected rather than chosen, and the log now
+states it. That matters more than it looks: the developer's drive carries
+`libeay32.dll` and `ssleay32.dll`, which are thirty-two bit, so a sixty-four
+bit executable deployed there could not load them and anything using TLS would
+fail. Any run that ended on Win64 Release put exactly that on the drive.
+Choosing the platform deliberately, or refusing to change the architecture of
+an existing deployment without saying so, is left as part of item 11.
 
 ### Labels never received their text size at run time
 **Fixed:** 2026-08-17, build .113.
