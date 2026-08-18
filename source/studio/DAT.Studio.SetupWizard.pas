@@ -260,7 +260,7 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.18.125';
+  StudioBuildLabel = 'Build 2026.08.18.126';
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
@@ -284,8 +284,12 @@ begin
   FBuildCompleted := False;
   FBuildInProgress := False;
   chkReplaceDeployedExecutable.IsChecked := False;
-  cboBuildPlatform.ItemIndex := 2;
-  cboBuildConfiguration.ItemIndex := 2;
+  { The lists offer one platform and one configuration, because one executable
+    is what a destination folder holds. Win32 and Release are the defaults: the
+    build a user of the application would be given, on the architecture whose
+    supporting libraries sit beside it in most deployments. }
+  cboBuildPlatform.ItemIndex := 0;
+  cboBuildConfiguration.ItemIndex := 0;
   UpdateBuildChoice;
   UpdateDeploymentSummary;
   SetStep(1);
@@ -325,12 +329,8 @@ end;
 
 procedure TfrmSetupWizard.btnBuildNowClick(Sender: TObject);
 var
-  Configurations: TArray<string>;
-  Platforms: TArray<string>;
   DeployPlatform: string;
   DeployConfiguration: string;
-  Configuration: string;
-  Platform: string;
   ApplicationDirectory: string;
   DestinationAttempt: Integer;
   DestinationReady: Boolean;
@@ -343,76 +343,47 @@ begin
   btnCancel.Enabled := False;
   FBuildCompleted := False;
   FBuildInProgress := True;
-  lblBuildStatus.Text := 'Building selected targets. Please wait...';
+  lblBuildStatus.Text := 'Deploying the application. Please wait...';
   Application.ProcessMessages;
   try
-    if cboBuildPlatform.ItemIndex = 0 then
-      Platforms := ['Win32']
-    else if cboBuildPlatform.ItemIndex = 1 then
-      Platforms := ['Win64']
-    else
-      Platforms := ['Win32', 'Win64'];
-    if cboBuildConfiguration.ItemIndex = 0 then
-      Configurations := ['Debug']
-    else if cboBuildConfiguration.ItemIndex = 1 then
-      Configurations := ['Release']
-    else
-      Configurations := ['Debug', 'Release'];
-    { Build every selected combination first. Each build writes its own
-      output folder and its own language packs, and nothing leaves the project
-      tree while this runs. }
-    for Platform in Platforms do
-      for Configuration in Configurations do
-      begin
-        AddProgress(Format('Building %s %s...', [Platform, Configuration]));
-        AddProgress(TTargetBuildDeployer.BuildAndDeploy(
-          FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
-          Platform, Configuration, FKitDirectory));
-      end;
+    { One build, chosen rather than inferred.
 
-    { Then deploy once. A destination folder holds one executable, so copying
-      inside the loop above wrote it as many times as there were combinations
-      selected - twice for both platforms, four times for both platforms and
-      both configurations - and each copy silently overwrote the last. The
-      developer saw the file written repeatedly, and what finally sat on the
-      drive was whichever combination happened to finish last, which is not a
-      choice anyone made.
+      A destination folder holds one executable, so offering four combinations
+      only ever raised the question of which of them arrived, and the answer
+      used to depend on loop order. The lists offer one platform and one
+      configuration now, and this is what was picked.
 
-      One combination is deployed, and the log names it. Where more than one
-      was built, the log also says plainly that the others were built but not
-      deployed, because a folder cannot hold them both. }
-    { Release, wherever it was built, in preference to Debug.
-
-      What goes on the destination drive is what the user of the application
-      runs, so it should be the build the user would be given. A debug build is
-      around two and a half times the size, carries a symbol table naming every
-      routine and variable in the program, links the unoptimised runtime, and
-      turns on range and overflow checking, so it can raise where a release
-      build carries on. Deploying it because it happened to be first in the
-      list is not a decision anybody made. }
-    DeployConfiguration := Configurations[0];
-    for Configuration in Configurations do
-      if SameText(Configuration, 'Release') then
-      begin
-        DeployConfiguration := Configuration;
-        Break;
-      end;
-
-    { The platform is left as the first selected, but it is stated plainly,
-      because changing the architecture of an existing deployment is not a
-      neutral act: a folder set up for a thirty-two bit application carries
+      The platform matters as much as the configuration and is easier to get
+      wrong quietly: a folder set up for a thirty-two bit application carries
       thirty-two bit libraries beside it, and a sixty-four bit executable
-      dropped in cannot load them. }
-    DeployPlatform := Platforms[0];
-
-    if (Length(Platforms) > 1) or (Length(Configurations) > 1) then
-      AddProgress(Format(
-        'More than one target was built. A destination folder holds one ' +
-        'executable, so %s %s is the one deployed; the rest remain in their ' +
-        'build-output folders.', [DeployPlatform, DeployConfiguration]))
+      dropped in cannot load them. The log names both. }
+    if cboBuildPlatform.ItemIndex = 1 then
+      DeployPlatform := 'Win64'
     else
-      AddProgress(Format('Deploying the %s %s build.',
+      DeployPlatform := 'Win32';
+    if cboBuildConfiguration.ItemIndex = 1 then
+      DeployConfiguration := 'Debug'
+    else
+      DeployConfiguration := 'Release';
+
+    { Building is now the exception rather than the rule. Final processing has
+      already compiled every target that has a build folder, so repeating it
+      here wastes a minute and produces exactly what is already on disk. The
+      box is for the case final processing cannot cover: a configuration that
+      has never been built, and so has no folder for final processing to find. }
+    if chkBuildNow.IsChecked then
+    begin
+      AddProgress(Format('Rebuilding %s %s before deploying...',
         [DeployPlatform, DeployConfiguration]));
+      Application.ProcessMessages;
+      AddProgress(TTargetBuildDeployer.BuildAndDeploy(
+        FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+        DeployPlatform, DeployConfiguration, FKitDirectory));
+    end;
+
+    AddProgress(Format('Deploying the %s %s build.',
+      [DeployPlatform, DeployConfiguration]));
+
 
     for ApplicationDirectory in lstDeploymentDestinations.Items do
     begin
@@ -448,7 +419,7 @@ begin
           [ApplicationDirectory]));
     end;
     FBuildCompleted := True;
-    lblBuildStatus.Text := 'Build and deployment completed for every selected target.';
+    lblBuildStatus.Text := 'The application was deployed to every configured folder.';
   except
     on E: Exception do
     begin

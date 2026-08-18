@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.125.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.126.
 
 ## How to read the status of an item
 
@@ -51,59 +51,6 @@ catalog, review, kit generation, build and deploy, then launched and looked at.
 `samples/VCLBasic` and the `WebsiteAnalytics` kit would serve.
 
 `TDBGrid` column titles (item 6b) would be exercised by this.
-
-### 11. The final build card duplicates work already done, and is misnamed
-**Status:** open. **Severity:** medium. Nothing is broken, but the step is
-confusing at exactly the point the developer is deciding what reaches the drive.
-**Raised:** 2026-08-17 by the developer, from a Wizard log.
-
-Final processing already compiles everything. `RebuildAllTargetConfigurations`
-walks all four platform and configuration pairs that have an output folder and
-calls the same `BuildAndDeploy` the card would:
-
-```
-22:04:27  Rebuilding Win32 Debug before deployment...
-22:04:30  Win32 Debug built. Language packs deployed to ...\Win32\Debug\...
-          (and the same for Win32 Release, Win64 Debug, Win64 Release)
-22:04:36  4 target configuration(s) rebuilt with the current runtime.
-```
-
-The completion page then presents "Build the application now?" with platform
-and configuration selectors and a Build and Deploy Selected Targets button.
-Ticking it recompiles those same four configurations a second time.
-
-The card does have one job nothing else does. After final processing the
-position is: four configurations compiled, language packs in all four build
-outputs, language packs in the configured destinations, and the new executable
-**nowhere but its build folder**. Copying the executable to the folders on the
-Deployment page happens only here, behind the authorisation control. That is
-what the card is for, and its title says nothing about it.
-
-Three separate faults, in order of how much they mislead:
-
-1. **It is named for the half that is redundant.** Its unique function is
-   deploying the executable. The build step repeats work finished seconds
-   earlier.
-2. **It offers four builds where one executable can land.** A destination
-   folder holds one `Carillon.exe`. Copying all four over each other was fixed
-   on 2026-08-17 - one is deployed and the log names it - but offering the
-   choice at all still suggests four outcomes that cannot exist.
-3. **Its selectors are the only way to build a configuration that has never
-   been built.** `RebuildAllTargetConfigurations` skips any pair without an
-   existing output folder, so a genuinely new configuration can only be
-   produced here. That is a second, unrelated job sharing one control, and it
-   is why the card cannot simply be deleted.
-
-Suggested shape, for the developer to accept or change:
-
-- Rename it for what it does: deploying the built application to the folders
-  entered in Step 3.
-- Replace the build step with a "rebuild first" tick, off by default, since
-  final processing has already built everything in the ordinary case.
-- Reduce the two selectors to one choice of which build to deploy, because one
-  is all that can land.
-- Give the "build a configuration I have never built" case its own control, or
-  move it to the Build page where it belongs.
 
 ### 13. Controls the application builds in code get no layout attention
 **Status:** open. **Severity:** low, but it is visible to the developer today.
@@ -239,6 +186,30 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### The last step says what it does now
+**Fixed:** 2026-08-18, build .126. Closes item 11.
+
+The completion page asked "Build the application now?" and offered four
+combinations behind a button reading "Build and Deploy Selected Targets". Its
+one job that nothing else does is copying the built application to the folders
+entered in Step 3; the building half repeated what final processing had done
+seconds earlier, and a destination folder can hold one executable however many
+were offered.
+
+It reads as the deployment step it is. The title asks whether to deploy, the
+text says plainly that compiling has already happened and that this is the only
+thing that reaches the folders, and the button says where the application is
+going. Building became a tick, off by default, for the one case final
+processing cannot cover: a configuration that has never been built and so has
+no folder for it to find.
+
+The two lists offer one platform and one configuration rather than four
+combinations, defaulting to Win32 and Release - the build a user of the
+application would be given. The log names both. The platform matters as much as
+the configuration and is the easier of the two to get wrong in silence: a
+folder set up for a thirty-two bit application carries thirty-two bit libraries
+beside it, and a sixty-four bit executable dropped in cannot load them.
 
 ### Tier 2 coverage, the unfinished button, and the VCL round trip
 **Fixed:** 2026-08-18, build .125. Closes items 6b and 9, and the VCL half of

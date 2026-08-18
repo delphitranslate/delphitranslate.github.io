@@ -1087,7 +1087,7 @@ object frmSetupWizard: TfrmSetupWizard
                 TextSettings.Font.Size = 18.000000000000000000
                 TextSettings.Font.StyleExt = {00070000000000000004000000}
                 TextSettings.FontColor = xFF163A63
-                Text = 'Build the application now?'
+                Text = 'Deploy the application?'
               end
               object lblBuildChoiceText: TLabel
                 StyledSettings = []
@@ -1099,7 +1099,7 @@ object frmSetupWizard: TfrmSetupWizard
                 Size.PlatformDefault = False
                 TextSettings.Font.Size = 13.000000000000000000
                 TextSettings.FontColor = xFF365674
-                Text = 'The Wizard is complete. Select targets below to compile and deploy the JSON language packs automatically.'
+                Text = 'Final processing has already compiled every target that has a build folder. This step copies the built application to the folders you entered in Step 3, which nothing else does.'
               end
               object chkBuildNow: TCheckBox
                 Position.X = 18.000000000000000000
@@ -1107,7 +1107,7 @@ object frmSetupWizard: TfrmSetupWizard
                 Size.Width = 244.000000000000000000
                 Size.Height = 28.000000000000000000
                 Size.PlatformDefault = False
-                Text = 'Build and deploy now'
+                Text = 'Rebuild before deploying'
                 OnChange = chkBuildNowChange
               end
               object cboBuildPlatform: TComboBox
@@ -1116,7 +1116,9 @@ object frmSetupWizard: TfrmSetupWizard
                 Size.Width = 244.000000000000000000
                 Size.Height = 36.000000000000000000
                 Size.PlatformDefault = False
-                Items.Strings = ('Win32 only' 'Win64 only' 'Win32 and Win64')
+                Items.Strings = (
+                  'Win32'
+                  'Win64')
                 OnChange = BuildSelectionChange
               end
               object cboBuildConfiguration: TComboBox
@@ -1125,7 +1127,9 @@ object frmSetupWizard: TfrmSetupWizard
                 Size.Width = 244.000000000000000000
                 Size.Height = 36.000000000000000000
                 Size.PlatformDefault = False
-                Items.Strings = ('Debug only' 'Release only' 'Debug and Release')
+                Items.Strings = (
+                  'Release'
+                  'Debug')
                 OnChange = BuildSelectionChange
               end
               object btnBuildNow: TButton
@@ -1134,7 +1138,7 @@ object frmSetupWizard: TfrmSetupWizard
                 Size.Width = 244.000000000000000000
                 Size.Height = 46.000000000000000000
                 Size.PlatformDefault = False
-                Text = 'Build and Deploy Selected Targets'
+                Text = 'Deploy to Application Folders'
                 OnClick = btnBuildNowClick
               end
               object lblBuildStatus: TLabel
@@ -1147,7 +1151,7 @@ object frmSetupWizard: TfrmSetupWizard
                 Size.PlatformDefault = False
                 TextSettings.Font.Size = 12.000000000000000000
                 TextSettings.FontColor = xFF365674
-                Text = 'Build is optional. Leave the box clear to finish without compiling.'
+                Text = 'Deployment is optional. Leave the box clear and press the button to deploy what was just built; tick it only to compile again first.'
               end
             end
           end
