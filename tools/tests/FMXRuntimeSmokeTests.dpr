@@ -50,7 +50,14 @@ const
     '"frmFMXSample.memInstructions.Lines.Strings.1":"Zweite Zeile"},' +
     '"sourceStrings":{"Close":"Schlie' + #$00DF + 'en","Event":"Evento"},' +
     '"sourceTemplates":{"Uptime: %d years":"Laufzeit: %d Jahre"},' +
-    '"sources":{},"layout":[{"formName":"frmFMXSample",' +
+    { The source text for each key, which is what returning to the original
+      language reads. Left empty, the words stay translated however well the
+      geometry is put back. }
+    '"sources":{"frmFMXSample.Caption":"FMX Sample",' +
+    '"frmFMXSample.lblHeading.Text":"Customer details",' +
+    '"frmFMXSample.lblCustomerName.Text":"Customer name",' +
+    '"frmFMXSample.btnSave.Text":"&Save Customer"},' +
+    '"layout":[{"formName":"frmFMXSample",' +
     '"componentName":"lblHeading","propertyName":"Width",' +
     '"originalValue":"360","translatedValue":"480",' +
     '"sourceChecksum":"layout-test"},' +
@@ -201,6 +208,38 @@ begin
         'Repeated FMX dynamic refresh mutated an already-translated value.');
       Require(Round(frmFMXSample.lblHeading.Width) = 360,
         'A dynamic-only refresh reapplied language layout rules.');
+
+      { Going back to the language the application was written in must give the
+        form back, not only its words.
+
+        The second control here is the point. Nothing in the pack mentions the
+        customer-name edit, so a restore built out of rule original values has
+        nothing to say about it; the run-time fitting resizes such controls all
+        the same, and before the snapshot there was no record of what they had
+        been. Standing in for the fitting, it is knocked out of shape by hand
+        before the restore, and must come back. }
+      frmFMXSample.edtCustomerName.Width := 123;
+      frmFMXSample.edtCustomerName.Height := 61;
+      frmFMXSample.lblCustomerName.Position.X := 37;
+      TFMXTranslationApplicator.RestoreSourceLanguage(frmFMXSample, Pack,
+        frmFMXSample.Name);
+      Require(frmFMXSample.lblCustomerName.Text = 'Customer name',
+        'Returning to the source language did not restore the text.');
+      Require(Round(frmFMXSample.lblCustomerName.Width) = 180,
+        'Returning to the source language did not restore a width.');
+      Require(Round(frmFMXSample.lblCustomerName.Height) = 26,
+        'Returning to the source language did not restore a height.');
+      Require(Round(frmFMXSample.lblCustomerName.Position.X) = 0,
+        'Returning to the source language did not restore a position.');
+      Require(Round(frmFMXSample.lblCustomerName.Position.Y) = 66,
+        'Returning to the source language did not restore a position.');
+      Require(SameValue(frmFMXSample.lblCustomerName.TextSettings.Font.Size,
+        14, 0.01),
+        'Returning to the source language did not restore the text size.');
+      Require(Round(frmFMXSample.edtCustomerName.Width) = 390,
+        'A control with no layout rule was not restored from the snapshot.');
+      Require(Round(frmFMXSample.edtCustomerName.Height) = 36,
+        'A control with no layout rule was not restored from the snapshot.');
     finally
       Pack.Free;
       frmFMXSample.Free;

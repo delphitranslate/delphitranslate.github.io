@@ -4,7 +4,7 @@ The running record of what has been fixed, what has not, and how well each
 claim is actually supported. Nothing here is being worked on unless the
 developer says so.
 
-Last reconciled against the source: 2026-08-18, build 2026.08.18.120.
+Last reconciled against the source: 2026-08-18, build 2026.08.18.121.
 
 ## How to read the status of an item
 
@@ -313,6 +313,44 @@ is in the repository where it belongs.
 The term also named a semantic concept. A term that names one only matches an
 entry carrying the same concept, and this entry carries none, so it would never
 have matched even had it survived. Left blank now.
+
+### Returning to the original language gave back the words but not the form
+**Fixed:** 2026-08-18, build .121. **FireMonkey only.**
+**Raised:** 2026-08-18 by the developer: "the original settings before another
+language is engaged are not saved, and if you go to a language and come back,
+things are out of whack".
+
+One property was remembered - the position - and only for controls the parent
+did not place. Everything else a translation writes was written and never
+recorded: size, text size, colour, wrapping, automatic sizing.
+
+Restoring worked by re-applying each pack rule's original value, which reaches
+only the controls the analyser wrote a rule for, and only the properties named
+in those rules. That would nearly serve if nothing else moved anything, but the
+run-time fitting resizes controls the analyser never mentioned. Those changes
+had no rule to undo them and no record to restore from. They were unreachable:
+the words came back and the geometry stayed wherever the last language left it.
+
+A control now has its whole state taken before the first language is applied -
+position, size, text size and colour, wrapping, trimming, styled settings and
+automatic sizing - and that snapshot is what a return to the source language
+restores from. It covers every control rather than the ruled ones, it holds the
+form as it actually was rather than as the scan recorded it, and it is applied
+after the text, because a control that sizes itself resizes when its text
+changes. The order within it mirrors the applying order for the same reason:
+automatic sizing off first, put back last, or a width will not stick.
+
+The snapshot is taken once and guarded, so a second language cannot overwrite
+it and quietly make a translation the original.
+
+Proved by the round trip in `FMXRuntimeSmokeTests`, which deliberately knocks a
+control the pack says nothing about out of shape before restoring, standing in
+for the fitting. Without the snapshot restore the test fails on the first
+width.
+
+**VCL is not affected**: that runtime carries no fitting heuristics, but it also
+has no snapshot, so its restore is still limited to what the rules cover. Worth
+doing there too when a VCL application is put through the pipeline (item 8).
 
 ### A frame was enlarged to hold its contents, then its contents were pulled back
 **Fixed:** 2026-08-18, build .120.

@@ -9,13 +9,41 @@ uses
   DAT.Runtime.LanguagePack;
 
 type
+  { What a control looked like before any translation touched it.
+
+    Only the position used to be remembered, and only that could be given back.
+    Everything else a translation changes - the size, the text size and colour,
+    whether the control wraps or sizes itself - was changed and then had no
+    record anywhere, so returning to the original language restored the words
+    and left the geometry wherever the last language had put it. The run-time
+    fitting makes that worse, because it resizes controls the analyser never
+    wrote a rule for, and a rule is the only other thing a restore could work
+    from.
+
+    So the whole of what can be changed is kept, and it is kept as plain types
+    rather than FireMonkey ones: the sets and colours are stored as ordinals so
+    that this declaration costs the unit's interface nothing. }
+  TDATControlSnapshot = record
+    Position: TPointF;
+    Size: TPointF;
+    HasPosition: Boolean;
+    HasTextSettings: Boolean;
+    FontSize: Single;
+    FontColor: Cardinal;
+    WordWrap: Boolean;
+    Trimming: Byte;
+    StyledSettings: Byte;
+    HasAutoSize: Boolean;
+    AutoSize: Boolean;
+  end;
+
   TFMXTranslationApplicator = class
   private
-    class var FOriginalPositions: TDictionary<string, TPointF>;
-    class procedure SnapshotOriginalPositions(const AForm: TCommonCustomForm;
+    class var FOriginalGeometry: TDictionary<string, TDATControlSnapshot>;
+    class procedure SnapshotOriginalGeometry(const AForm: TCommonCustomForm;
       const AFormIdentity: string); static;
-    class procedure RestoreOriginalPositions(const AForm: TCommonCustomForm;
-      const AFormIdentity: string); static;
+    class function RestoreOriginalGeometry(const AForm: TCommonCustomForm;
+      const AFormIdentity: string): Integer; static;
   public
     class function ApplyToForm(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack): Integer; overload; static;
@@ -1321,78 +1349,160 @@ begin
   Result := ApplyToForm(AForm, APack, AForm.Name, True);
 end;
 
-class procedure TFMXTranslationApplicator.SnapshotOriginalPositions(
+{ True when this component publishes AutoSize, with its current value. It is
+  reached through run-time type information because the property belongs to
+  several unrelated classes rather than to a common ancestor. }
+function TryReadAutoSize(const AComponent: TComponent;
+  out AValue: Boolean): Boolean;
+var
+  PropertyInfo: PPropInfo;
+begin
+  Result := False;
+  if AComponent = nil then
+    Exit;
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'AutoSize');
+  if (PropertyInfo = nil) or
+    (PropertyInfo.PropType^.Kind <> tkEnumeration) then
+    Exit;
+  AValue := GetOrdProp(AComponent, PropertyInfo) <> 0;
+  Result := True;
+end;
+
+procedure WriteAutoSize(const AComponent: TComponent; const AValue: Boolean);
+var
+  PropertyInfo: PPropInfo;
+begin
+  if AComponent = nil then
+    Exit;
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'AutoSize');
+  if (PropertyInfo = nil) or
+    (PropertyInfo.PropType^.Kind <> tkEnumeration) then
+    Exit;
+  SetOrdProp(AComponent, PropertyInfo, Ord(AValue));
+end;
+
+class procedure TFMXTranslationApplicator.SnapshotOriginalGeometry(
   const AForm: TCommonCustomForm; const AFormIdentity: string);
 var
   ComponentIndex: Integer;
-  Component: TComponent;
-  Key: string;
 
   procedure SnapshotTree(const AComponent: TComponent);
   var
     ChildIndex: Integer;
-    Child: TComponent;
+    Control: TControl;
+    Key: string;
+    Settings: ITextSettings;
+    Snapshot: TDATControlSnapshot;
+    StyledSettings: TStyledSettings;
   begin
     if AComponent = nil then
       Exit;
     Key := PositionKey(AFormIdentity, AComponent);
+    { Taken once, before the first language is applied. A second language must
+      not overwrite it, or the original would quietly become whichever
+      translation happened to run first. }
     if (Key <> '') and (AComponent is TControl) and
-      (TControl(AComponent).Align = TAlignLayout.None) and
-      not FOriginalPositions.ContainsKey(Key) then
-      FOriginalPositions.Add(Key, TPointF.Create(
-        TControl(AComponent).Position.X, TControl(AComponent).Position.Y));
-    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      not FOriginalGeometry.ContainsKey(Key) then
     begin
-      Child := AComponent.Components[ChildIndex];
-      SnapshotTree(Child);
+      Control := TControl(AComponent);
+      Snapshot := Default(TDATControlSnapshot);
+      { An aligned control is placed by its parent, so its position is not ours
+        to remember or to give back. Its size still is. }
+      Snapshot.HasPosition := Control.Align = TAlignLayout.None;
+      Snapshot.Position := TPointF.Create(Control.Position.X,
+        Control.Position.Y);
+      Snapshot.Size := TPointF.Create(Control.Width, Control.Height);
+      Snapshot.HasTextSettings := AsTextSettings(AComponent, Settings);
+      if Snapshot.HasTextSettings then
+      begin
+        Snapshot.FontSize := Settings.TextSettings.Font.Size;
+        Snapshot.FontColor := Cardinal(Settings.TextSettings.FontColor);
+        Snapshot.WordWrap := Settings.TextSettings.WordWrap;
+        Snapshot.Trimming := Byte(Settings.TextSettings.Trimming);
+        StyledSettings := Settings.StyledSettings;
+        Snapshot.StyledSettings := Byte(StyledSettings);
+      end;
+      Snapshot.HasAutoSize := TryReadAutoSize(AComponent, Snapshot.AutoSize);
+      FOriginalGeometry.Add(Key, Snapshot);
     end;
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      SnapshotTree(AComponent.Components[ChildIndex]);
   end;
 begin
-  if (AForm = nil) or (FOriginalPositions = nil) then
+  if (AForm = nil) or (FOriginalGeometry = nil) then
     Exit;
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
-  begin
-    Component := AForm.Components[ComponentIndex];
-    SnapshotTree(Component);
-  end;
+    SnapshotTree(AForm.Components[ComponentIndex]);
 end;
 
-class procedure TFMXTranslationApplicator.RestoreOriginalPositions(
-  const AForm: TCommonCustomForm; const AFormIdentity: string);
+class function TFMXTranslationApplicator.RestoreOriginalGeometry(
+  const AForm: TCommonCustomForm; const AFormIdentity: string): Integer;
 var
   ComponentIndex: Integer;
-  Component: TComponent;
-  Key: string;
-  OriginalPosition: TPointF;
+  Restored: Integer;
 
   procedure RestoreTree(const AComponent: TComponent);
   var
     ChildIndex: Integer;
-    Child: TComponent;
+    Control: TControl;
+    Key: string;
+    Settings: ITextSettings;
+    Snapshot: TDATControlSnapshot;
+    StyledSettings: TStyledSettings;
   begin
     if AComponent = nil then
       Exit;
     Key := PositionKey(AFormIdentity, AComponent);
     if (Key <> '') and (AComponent is TControl) and
-      FOriginalPositions.TryGetValue(Key, OriginalPosition) then
+      FOriginalGeometry.TryGetValue(Key, Snapshot) then
     begin
-      TControl(AComponent).Position.X := OriginalPosition.X;
-      TControl(AComponent).Position.Y := OriginalPosition.Y;
+      Control := TControl(AComponent);
+      { Order matters here for the same reason it matters when applying. A
+        control that sizes itself will not accept a width, so automatic sizing
+        is switched off first and put back at the end; and the text settings go
+        on before the size, because both the size and the wrapping are read
+        when the control lays its text out. }
+      if Snapshot.HasAutoSize then
+        WriteAutoSize(AComponent, False);
+      if Snapshot.HasTextSettings and AsTextSettings(AComponent, Settings) then
+      begin
+        StyledSettings := TStyledSettings(Snapshot.StyledSettings);
+        Settings.StyledSettings := StyledSettings;
+        Settings.TextSettings.Font.Size := Snapshot.FontSize;
+        Settings.TextSettings.FontColor := TAlphaColor(Snapshot.FontColor);
+        Settings.TextSettings.WordWrap := Snapshot.WordWrap;
+        Settings.TextSettings.Trimming := TTextTrimming(Snapshot.Trimming);
+        Inc(Restored);
+      end;
+      if not SameValue(Control.Width, Snapshot.Size.X, 0.5) or
+        not SameValue(Control.Height, Snapshot.Size.Y, 0.5) then
+      begin
+        Control.SetBounds(Control.Position.X, Control.Position.Y,
+          Snapshot.Size.X, Snapshot.Size.Y);
+        Inc(Restored);
+      end;
+      if Snapshot.HasPosition and
+        (not SameValue(Control.Position.X, Snapshot.Position.X, 0.5) or
+         not SameValue(Control.Position.Y, Snapshot.Position.Y, 0.5)) then
+      begin
+        Control.Position.X := Snapshot.Position.X;
+        Control.Position.Y := Snapshot.Position.Y;
+        Inc(Restored);
+      end;
+      if Snapshot.HasAutoSize then
+        WriteAutoSize(AComponent, Snapshot.AutoSize);
     end;
     for ChildIndex := 0 to AComponent.ComponentCount - 1 do
-    begin
-      Child := AComponent.Components[ChildIndex];
-      RestoreTree(Child);
-    end;
+      RestoreTree(AComponent.Components[ChildIndex]);
   end;
 begin
-  if (AForm = nil) or (FOriginalPositions = nil) then
+  Result := 0;
+  if (AForm = nil) or (FOriginalGeometry = nil) then
     Exit;
+  Restored := 0;
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
-  begin
-    Component := AForm.Components[ComponentIndex];
-    RestoreTree(Component);
-  end;
+    RestoreTree(AForm.Components[ComponentIndex]);
+  Result := Restored;
 end;
 
 class function TFMXTranslationApplicator.RestoreSourceLanguage(
@@ -1457,7 +1567,6 @@ begin
   FormIdentity := Trim(AFormIdentity);
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
-  RestoreOriginalPositions(AForm, FormIdentity);
   for PropertyName in TextProperties do
     if RestoreSourceTextProperty(FormIdentity, AForm, AForm, PropertyName,
       APack) then
@@ -1465,6 +1574,14 @@ begin
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
     RestoreComponentTree(AForm.Components[ComponentIndex]);
   Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, False));
+  { Last, and after the text is back. The rules above can only speak for
+    controls the analyser wrote a rule for, and their idea of the original is
+    whatever the form file said when it was scanned. The snapshot is the form
+    as it actually was, covers every control, and therefore has the final word
+    - including over anything the run-time fitting changed on a control no rule
+    mentions, which nothing else can undo. It is applied after the text because
+    a control that sizes itself resizes when its text changes. }
+  Inc(Result, RestoreOriginalGeometry(AForm, FormIdentity));
 end;
 
 class function TFMXTranslationApplicator.ApplyToForm(
@@ -1542,7 +1659,7 @@ begin
   FormIdentity := Trim(AFormIdentity);
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
-  SnapshotOriginalPositions(AForm, FormIdentity);
+  SnapshotOriginalGeometry(AForm, FormIdentity);
   if APreserveControlState then
     SavedFocusedControl := AForm.Focused;
 
@@ -1655,12 +1772,12 @@ begin
 end;
 
 initialization
-  TFMXTranslationApplicator.FOriginalPositions :=
-    TDictionary<string, TPointF>.Create;
+  TFMXTranslationApplicator.FOriginalGeometry :=
+    TDictionary<string, TDATControlSnapshot>.Create;
 
 finalization
-  TFMXTranslationApplicator.FOriginalPositions.Free;
-  TFMXTranslationApplicator.FOriginalPositions := nil;
+  TFMXTranslationApplicator.FOriginalGeometry.Free;
+  TFMXTranslationApplicator.FOriginalGeometry := nil;
 
 end.
 
