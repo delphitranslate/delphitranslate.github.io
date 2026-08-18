@@ -128,8 +128,11 @@ Suggested shape, for the developer to accept or change:
   move it to the Build page where it belongs.
 
 ### 12. A filename is being translated
-**Status:** open. **Severity:** high if the application opens that file by name.
-**Found:** 2026-08-17, while tracing an unrelated label.
+**Status:** open. **Severity:** high, and no longer conditional.
+**Found:** 2026-08-17, while tracing an unrelated label. **Confirmed** by the
+developer on 2026-08-18: "carillon does read that file, that is the log file
+and should not be translated, since it is a true file name". The file exists
+and is written to - `F:\logs\CarillonPlayLog.txt`, updated the same day.
 
 The pack contains:
 
