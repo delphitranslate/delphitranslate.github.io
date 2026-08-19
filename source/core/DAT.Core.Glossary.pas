@@ -71,6 +71,11 @@ type
     destructor Destroy; override;
     function FindMatch(const AEntry: TTranslationEntry): TProjectGlossaryTerm;
     function ApplyToCatalog(const ACatalog: TTranslationCatalog): Integer;
+    { Approved terms that match no entry in this catalog. A term nobody can
+      reach is worth saying out loud rather than leaving to be discovered by
+      editing it repeatedly and watching nothing happen. }
+    function CountTermsMatchingNothing(
+      const ACatalog: TTranslationCatalog): Integer;
     procedure SaveToFile(const AFileName: string);
     class function LoadFromFile(const AFileName: string): TProjectGlossary; static;
     property ApplicationId: string read FApplicationId write FApplicationId;
@@ -209,8 +214,15 @@ begin
   else
     Result := SameText(Trim(ATerm.SourceText), Trim(AEntry.SourceText));
   Result := Result and ATerm.Approved and (Trim(ATerm.TargetText) <> '');
-  if Result and (Trim(ATerm.SemanticConcept) <> '') then
-    Result := SameText(ATerm.SemanticConcept, AEntry.SemanticConcept);
+  { Context still decides whether a term applies at all: "Close" on a button and
+    "Close" in a menu are allowed to differ, and entries do carry a context.
+
+    A semantic concept does not filter any more. Entries frequently have none,
+    so a term tagged with one could match nothing at all - and it failed
+    silently, which is the worst way to fail. Editing such a term's wording
+    appeared to do nothing however many times it was saved. The concept is now
+    a preference, resolved in FindMatch: it chooses between candidates rather
+    than deciding whether there are any. }
   if Result and (Trim(ATerm.ContextKind) <> '') then
     Result := SameText(ATerm.ContextKind, AEntry.ContextKind);
 end;
@@ -219,13 +231,59 @@ function TProjectGlossary.FindMatch(
   const AEntry: TTranslationEntry): TProjectGlossaryTerm;
 var
   Term: TProjectGlossaryTerm;
+  Score: Integer;
+  BestScore: Integer;
 begin
   Result := nil;
+  BestScore := -1;
   if AEntry = nil then
     Exit;
   for Term in FTerms do
-    if TermMatches(Term, AEntry) then
-      Exit(Term);
+  begin
+    if not TermMatches(Term, AEntry) then
+      Continue;
+    { The most specific candidate wins. A term naming the same concept as the
+      entry is the best answer available; one naming a concept the entry does
+      not share is still a legitimate answer for the same words, and is far
+      better than leaving the entry to a machine translator. }
+    Score := 0;
+    if (Trim(Term.SemanticConcept) <> '') and
+      SameText(Term.SemanticConcept, AEntry.SemanticConcept) then
+      Score := 2
+    else if Trim(Term.SemanticConcept) = '' then
+      Score := 1;
+    if Score > BestScore then
+    begin
+      BestScore := Score;
+      Result := Term;
+    end;
+  end;
+end;
+
+function TProjectGlossary.CountTermsMatchingNothing(
+  const ACatalog: TTranslationCatalog): Integer;
+var
+  Entry: TTranslationEntry;
+  Term: TProjectGlossaryTerm;
+  Used: Boolean;
+begin
+  Result := 0;
+  if ACatalog = nil then
+    Exit;
+  for Term in FTerms do
+  begin
+    if not Term.Approved then
+      Continue;
+    Used := False;
+    for Entry in ACatalog.Entries do
+      if TermMatches(Term, Entry) then
+      begin
+        Used := True;
+        Break;
+      end;
+    if not Used then
+      Inc(Result);
+  end;
 end;
 
 function TProjectGlossary.ApplyToCatalog(

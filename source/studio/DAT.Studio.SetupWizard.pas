@@ -263,11 +263,28 @@ const
   ProcessTerminationWait = 5000;
   StudioBuildLabel = 'Build 2026.08.18.128';
 
+
+{ When this executable was produced, read from the executable itself.
+
+  A fixed version string cannot tell a fresh build from a stale one, and an
+  evening was lost testing a binary three hours older than the fixes it was
+  supposed to contain. The file's own timestamp cannot drift out of step with
+  the file, which a hand-maintained constant always eventually does. }
+function StudioBuildStamp: string;
+var
+  BuiltAt: TDateTime;
+begin
+  if FileAge(ParamStr(0), BuiltAt) then
+    Result := ' (built ' + FormatDateTime('yyyy-mm-dd hh:nn', BuiltAt) + ')'
+  else
+    Result := '';
+end;
+
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
-  Caption := 'Translation Setup Wizard - ' + StudioBuildLabel;
+  Caption := 'Translation Setup Wizard - ' + StudioBuildLabel + StudioBuildStamp;
   lblSubtitle.Text := 'A safe, step-by-step path from Delphi project to offline language pack - ' +
-    StudioBuildLabel;
+    StudioBuildLabel + StudioBuildStamp;
   FCurrentStep := 1;
   FHighestStep := 1;
   cboSourceLanguage.ItemIndex := 0;
@@ -582,6 +599,34 @@ begin
       ' JSON packs only; the deployed executable will not be replaced.';
 end;
 
+{ Whether a deployment destination deserves to be written down.
+
+  A bare drive root is not an application folder. Remembering one means the
+  Wizard offers to deploy into the top of whatever disk happens to answer to
+  that letter today, and drive letters move: the drive that was F: for a music
+  library is a memory stick tomorrow. Once authorised to replace the executable
+  it would write one there too. }
+function DestinationWorthRemembering(const APath: string): Boolean;
+var
+  Trimmed: string;
+begin
+  Trimmed := Trim(APath);
+  Result := False;
+  if Trimmed = '' then
+    Exit;
+  if SameText(IncludeTrailingPathDelimiter(Trimmed),
+    IncludeTrailingPathDelimiter(TPath.GetPathRoot(Trimmed))) then
+    Exit;
+  Result := True;
+end;
+
+{ A remembered folder is only offered while it is actually there. A destination
+  on a drive that is not mounted is not a destination. }
+function DestinationAvailableNow(const APath: string): Boolean;
+begin
+  Result := TDirectory.Exists(APath);
+end;
+
 procedure TfrmSetupWizard.LoadDeploymentDestinations;
 var
   ArrayValue: TJSONValue;
@@ -612,7 +657,8 @@ begin
     Destinations := Root.GetValue('destinations') as TJSONArray;
     if Destinations <> nil then
       for ArrayValue in Destinations do
-        if (Trim(ArrayValue.Value) <> '') and
+        if DestinationWorthRemembering(ArrayValue.Value) and
+          DestinationAvailableNow(ArrayValue.Value) and
           (lstDeploymentDestinations.Items.IndexOf(ArrayValue.Value) < 0) then
           lstDeploymentDestinations.Items.Add(ArrayValue.Value);
   finally
@@ -637,7 +683,8 @@ begin
     Root.AddPair('applicationId', FProjectProfile.ProjectName);
     Destinations := TJSONArray.Create;
     for Destination in lstDeploymentDestinations.Items do
-      Destinations.Add(Destination);
+      if DestinationWorthRemembering(Destination) then
+        Destinations.Add(Destination);
     Root.AddPair('destinations', Destinations);
     TFile.WriteAllText(FileName, Root.Format(2), TEncoding.UTF8);
   finally
@@ -1572,6 +1619,7 @@ var
   AppliedGlossaryCount: Integer;
   SharedCount: Integer;
   ContributedCount: Integer;
+  UnmatchedTermCount: Integer;
   ProjectGlossaryFileName: string;
 begin
   FFinalProcessing := True;
@@ -1637,6 +1685,11 @@ begin
         Glossary.SaveToFile(ProjectGlossaryFileName);
         AddProgress(Format('%d translation(s) applied from the approved project glossary.',
           [AppliedGlossaryCount]));
+        UnmatchedTermCount := Glossary.CountTermsMatchingNothing(FCatalog);
+        if UnmatchedTermCount > 0 then
+          AddProgress(Format('%d approved glossary term(s) matched nothing in this ' +
+            'catalogue and had no effect. Check their context against the entries ' +
+            'they were meant to reach.', [UnmatchedTermCount]));
         { Approved wording earned here becomes available to every later
           application, which is the whole point of a shared dictionary. }
         ContributedCount := TSharedDictionary.Contribute(
