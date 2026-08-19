@@ -492,6 +492,68 @@ begin
   Inc(Result, RestoreOriginalGeometry(AForm, FormIdentity));
 end;
 
+{ Text that lives in a design-time collection rather than in a property of the
+  control itself.
+
+  A list view keeps its column headings this way, a status bar its panels, a
+  header control its sections. The scanner has always read them - the pack
+  carries "lvSchedule.Columns[0].Caption" - but nothing here could write one
+  back, so those headings stayed in the source language on an otherwise
+  translated form while the pack sat there holding the answer.
+
+  The collection is found by name and confirmed by type, so a property called
+  Items that holds a string list rather than a collection is left to the code
+  that already handles string lists. }
+function ApplyCollectionText(const AFormIdentity: string;
+  const AForm, AComponent: TComponent;
+  const APack: TRuntimeLanguagePack): Integer;
+const
+  CollectionProperties: array[0..3] of string =
+    ('Columns', 'Panels', 'Sections', 'Items');
+  ItemTextProperties: array[0..1] of string = ('Caption', 'Text');
+var
+  Collection: TCollection;
+  CollectionName: string;
+  CollectionObject: TObject;
+  Item: TCollectionItem;
+  ItemIndex: Integer;
+  ItemPropertyInfo: PPropInfo;
+  ItemTextName: string;
+  PropertyInfo: PPropInfo;
+  TranslatedText: string;
+begin
+  Result := 0;
+  if (AComponent = nil) or (AComponent.Name = '') then
+    Exit;
+  for CollectionName in CollectionProperties do
+  begin
+    PropertyInfo := GetPropInfo(AComponent.ClassInfo, CollectionName);
+    if (PropertyInfo = nil) or (PropertyInfo.PropType^.Kind <> tkClass) then
+      Continue;
+    CollectionObject := GetObjectProp(AComponent, PropertyInfo);
+    if not (CollectionObject is TCollection) then
+      Continue;
+    Collection := TCollection(CollectionObject);
+    for ItemIndex := 0 to Collection.Count - 1 do
+    begin
+      Item := Collection.Items[ItemIndex];
+      for ItemTextName in ItemTextProperties do
+      begin
+        ItemPropertyInfo := GetPropInfo(Item.ClassInfo, ItemTextName,
+          [tkString, tkLString, tkWString, tkUString]);
+        if ItemPropertyInfo = nil then
+          Continue;
+        if not APack.TryGetText(ComponentKey(AFormIdentity, AForm, AComponent,
+          Format('%s[%d].%s', [CollectionName, ItemIndex, ItemTextName])),
+          TranslatedText) then
+          Continue;
+        SetStrProp(Item, ItemPropertyInfo, TranslatedText);
+        Inc(Result);
+      end;
+    end;
+  end;
+end;
+
 class function TVCLTranslationApplicator.ApplyToForm(
   const AForm: TCustomForm; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string;
@@ -553,6 +615,8 @@ begin
           Inc(Result, ApplyStringCollection(
             FormIdentity, AForm, Component, PropertyName,
             PropertyName + '.Strings', APack, APreserveControlState));
+        Inc(Result, ApplyCollectionText(FormIdentity, AForm, Component,
+          APack));
       finally
         if SavedSelStart >= 0 then
         begin

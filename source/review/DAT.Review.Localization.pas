@@ -1121,6 +1121,25 @@ var
     Result := Length(Trim(AControl.TranslatedText)) >= ParagraphTextLength;
   end;
 
+  { A paragraph is not a field caption, whichever language it is read in.
+
+    Captions are short: a few words naming the control beside or below them.
+    A block of prose that happens to sit above a field is not naming it, and
+    treating it as that field's caption carries the whole paragraph into the
+    field's column. The introduction on the VCL test form was moved three
+    hundred and seventy pixels right and a hundred and thirty up, landing
+    across a panel, colliding with another caption and running off the edge of
+    the form, because a text box lower down happened to be the nearest thing
+    underneath it.
+
+    Judged on the source text as well as the translation, so a control does
+    not change character merely because one language renders it longer. }
+  function IsParagraphLike(const AControl: TLayoutControl): Boolean;
+  begin
+    Result := (Length(Trim(AControl.SourceText)) >= ParagraphTextLength) or
+      (Length(Trim(AControl.TranslatedText)) >= ParagraphTextLength);
+  end;
+
   { True when a control that is not a caption sits just under this one, close
     enough that the two read as a labelled field. }
   function HasFieldDirectlyBelow(const AControl: TLayoutControl): Boolean;
@@ -1588,7 +1607,8 @@ var
   begin
     Result := nil;
     Nearest := MaxDouble;
-    if IsInputControl(AControl) or IsButtonLike(AControl) then
+    if IsInputControl(AControl) or IsButtonLike(AControl) or
+      IsParagraphLike(AControl) then
       Exit;
     for Candidate in AReview.Controls do
     begin
@@ -1626,7 +1646,8 @@ var
     Candidate: TLayoutControl;
   begin
     Result := False;
-    if IsInputControl(AControl) or IsButtonLike(AControl) then
+    if IsInputControl(AControl) or IsButtonLike(AControl) or
+      IsParagraphLike(AControl) then
       Exit;
     for Candidate in AReview.Controls do
     begin

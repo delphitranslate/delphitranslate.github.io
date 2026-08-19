@@ -101,6 +101,10 @@ begin
             ['TLabel', 'TButton', 'TBitBtn', 'TSpeedButton', 'TMenuItem',
              'TCheckBox', 'TRadioButton', 'TGroupBox', 'TTabSheet', 'TAction',
              'TStaticText',
+             { A radio group's own caption. Its items were being read and its
+               caption was not, so the box came out with translated choices
+               under an English heading. }
+             'TRadioGroup',
              { Panels are routinely used as captioned headers, and this is the
                single most common VCL class we were not reading. }
              'TPanel', 'TCategoryPanel', 'TFlowPanel', 'TGridPanel', 'TPage',

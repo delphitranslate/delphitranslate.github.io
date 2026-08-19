@@ -15,10 +15,13 @@ type
   private
     FApplicationEvents: TApplicationEvents;
     FAutoDiscoverForms: Boolean;
+    FPreviousActiveFormChange: TNotifyEvent;
+    FTranslatingActiveForm: Boolean;
     FIdleScanInterval: Cardinal;
     FLastIdleScanTick: UInt64;
     procedure HandleIdle(Sender: TObject; var Done: Boolean);
     procedure HandleModalBegin(Sender: TObject);
+    procedure HandleActiveFormChange(Sender: TObject);
     procedure SetIdleScanInterval(const Value: Cardinal);
   protected
     function SupportsManagedObject(
@@ -65,11 +68,33 @@ begin
     FApplicationEvents := TApplicationEvents.Create(Self);
     FApplicationEvents.OnIdle := HandleIdle;
     FApplicationEvents.OnModalBegin := HandleModalBegin;
+    { A form becoming active is the moment a form built after the language was
+      chosen first appears, and it is the only moment VCL offers that is as
+      early as FireMonkey's before-shown message. Without it a form created on
+      demand - which is how most applications open a dialog - was left to an
+      idle scan, and came up in the source language.
+
+      Whatever was on the hook stays on it: this is a screen-wide event and
+      another component may be listening. }
+    if Screen <> nil then
+    begin
+      FPreviousActiveFormChange := Screen.OnActiveFormChange;
+      Screen.OnActiveFormChange := HandleActiveFormChange;
+    end;
   end;
 end;
 
 destructor TDATVCLLanguageManager.Destroy;
+var
+  OwnHandler: TNotifyEvent;
 begin
+  { Put back whatever was on the hook, but only if this manager is still the
+    one holding it: another component may have taken it since. }
+  OwnHandler := HandleActiveFormChange;
+  if (Screen <> nil) and
+    (TMethod(Screen.OnActiveFormChange).Code = TMethod(OwnHandler).Code) and
+    (TMethod(Screen.OnActiveFormChange).Data = Self) then
+    Screen.OnActiveFormChange := FPreviousActiveFormChange;
   FreeAndNil(FApplicationEvents);
   inherited Destroy;
 end;
@@ -135,6 +160,32 @@ begin
     Exit;
   FLastIdleScanTick := CurrentTick;
   InspectOpenForms(False);
+end;
+
+procedure TDATVCLLanguageManager.HandleActiveFormChange(Sender: TObject);
+var
+  ActiveForm: TCustomForm;
+begin
+  { Applying can move focus, which can raise this event again. One pass at a
+    time, and the form that is already done for this language is skipped by
+    the manager itself. }
+  if FTranslatingActiveForm then
+    Exit;
+  if FAutoDiscoverForms and AutoTranslateNewForms and (Screen <> nil) then
+  begin
+    ActiveForm := Screen.ActiveCustomForm;
+    if (ActiveForm <> nil) and not WasAppliedInCurrentGeneration(ActiveForm) then
+    begin
+      FTranslatingActiveForm := True;
+      try
+        ApplyToManagedObject(ActiveForm);
+      finally
+        FTranslatingActiveForm := False;
+      end;
+    end;
+  end;
+  if Assigned(FPreviousActiveFormChange) then
+    FPreviousActiveFormChange(Sender);
 end;
 
 procedure TDATVCLLanguageManager.HandleModalBegin(Sender: TObject);
