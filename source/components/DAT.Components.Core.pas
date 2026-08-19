@@ -593,6 +593,43 @@ begin
     FAppliedGenerations.Remove(AManagedObject);
 end;
 
+{ The name a second instance of a form is given, reduced to the name the form
+  was designed under.
+
+  A framework will not allow two components of the same owner to share a name,
+  so an application that auto-creates a form and then builds another one of the
+  same class ends up with an instance called Groups_1 beside the original
+  Groups. Every translation in the pack is filed under the designed name, so
+  the second instance matched nothing and appeared in the source language while
+  everything around it was translated. This is not a rare shape: creating a
+  dialog on demand is how most applications open one.
+
+  The suffix is only removed when the class agrees that this is what happened -
+  when the class name without its leading T is exactly the shortened name. A
+  form the developer really did call Report_1 keeps its name, because its class
+  would not be TReport. }
+function StripDuplicateInstanceSuffix(const AName, AClassName: string): string;
+var
+  BaseName: string;
+  ClassBaseName: string;
+  DigitIndex: Integer;
+  UnderscoreIndex: Integer;
+begin
+  Result := AName;
+  UnderscoreIndex := LastDelimiter('_', AName);
+  if (UnderscoreIndex <= 1) or (UnderscoreIndex = Length(AName)) then
+    Exit;
+  for DigitIndex := UnderscoreIndex + 1 to Length(AName) do
+    if not CharInSet(AName[DigitIndex], ['0'..'9']) then
+      Exit;
+  BaseName := Copy(AName, 1, UnderscoreIndex - 1);
+  ClassBaseName := AClassName;
+  if (ClassBaseName <> '') and CharInSet(ClassBaseName[1], ['T', 't']) then
+    ClassBaseName := Copy(ClassBaseName, 2, Length(ClassBaseName) - 1);
+  if SameText(BaseName, ClassBaseName) then
+    Result := BaseName;
+end;
+
 function TDATCustomLanguageManager.ResolveFormIdentity(
   const AManagedObject: TObject; const AInstanceName: string): string;
 begin
@@ -605,6 +642,8 @@ begin
     Result := Trim(AInstanceName);
     if Result = '' then
       Result := AManagedObject.ClassName;
+    Result := StripDuplicateInstanceSuffix(Result,
+      AManagedObject.ClassName);
   end;
 end;
 
