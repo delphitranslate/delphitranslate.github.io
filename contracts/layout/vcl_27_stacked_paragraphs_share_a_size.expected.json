@@ -1,0 +1,20 @@
+{
+  "description": "Two paragraphs stacked in the same column, drawn at the same size. Their translations differ in length, so one needs a smaller size to fit and the other does not - and left to decide separately they end up visibly different, which reads as a mistake rather than as a decision. Whatever size the pair settles at, they settle at it together.",
+  "catalog_file": "vcl_27_stacked_paragraphs_share_a_size.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblSelDir",
+      "text_fits": true,
+      "font_at_most": 10,
+      "font_at_least": 9
+    },
+    {
+      "form": "ContractForm",
+      "name": "lblDir2",
+      "text_fits": true,
+      "font_at_most": 10,
+      "font_at_least": 9
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "description": "A button whose caption grows by half again needs somewhere to put it. This one is 129 by 41 and the Spanish runs to fifty-six characters, which will not fit in that box at any size a person can read. There is empty form below it, so the button may have some: what it may not do is hold the text anyway, crammed to its edges at the smallest size allowed, which is what the settings page showed. Fifty is the line: the button is drawn 41 high and the defect was that it kept that height and crammed four lines of Spanish into it at the smallest readable size. It settles at 57 now, which holds the wrapped text with its padding. The number is a floor against going back to 41, not a target.",
+  "description": "A button whose caption grows by half again needs somewhere to put it. This one is 129 by 41 and the Spanish runs to fifty-six characters, which will not fit in that box at any size a person can read. There is empty form to its right, so the button takes some of it: a wider button holds the caption on fewer lines, which is what a person actually wants to look at. Widening is capped and rightward only - a button keeps the place it was drawn in, because it is positioned against the thing it acts on. Where there is no room to the right it falls back to growing taller and then to a smaller size, in that order.",
   "catalog_file": "vcl_26_a_button_gets_room_for_its_caption.catalog.json",
   "controls": [
     {
@@ -7,7 +7,7 @@
       "name": "btnRecalcEaster",
       "text_fits": true,
       "font_at_least": 8,
-      "planned_height_at_least": 50
+      "planned_width_at_least": 160
     }
   ]
 }

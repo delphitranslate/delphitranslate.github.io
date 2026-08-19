@@ -729,6 +729,8 @@ const
   { Text drawn at least this large is a title rather than a caption, and a
     title is the one thing worth widening across a form to keep on one line. }
   HeadingFontSize = 16;
+  { As wide as a button may be grown to hold a caption that will not fit. }
+  MinimumComfortableButtonWidth = 180;
   { More lines than this and a caption has become a paragraph. }
   MaximumWrappedLines = 4;
   { Text at least this long is a sentence rather than a label. }
@@ -761,6 +763,10 @@ var
   SettleRoom, SettleNeeded, SettleCentre: Double;
   RowMembers, RowSettled: TList<TLayoutControl>;
   RowWidth, RowGap, RowRoom: Double;
+  SettleRow: TList<TLayoutControl>;
+  SettleAlone: Boolean;
+  SettleWanted, SettleTakeLeft, SettleTakeRight: Double;
+  SettleFloor: Double;
   SettleFits: Boolean;
   LineCount: Integer;
   NewWidth: Integer;
@@ -3073,6 +3079,19 @@ begin
         so a centred heading stays centred. }
       SettleRoom := AvailableWidth(Control);
       SettleNeeded := TextWidthEstimate(Control);
+      { A button standing on its own may be given room; one belonging to a row
+        may not, because the row was levelled above and a single member
+        growing would break the pitch it is supposed to keep. }
+      SettleAlone := False;
+      if IsButtonLike(Control) then
+      begin
+        SettleRow := CollectButtonRow(Control);
+        try
+          SettleAlone := SettleRow.Count < 2;
+        finally
+          SettleRow.Free;
+        end;
+      end;
       { A heading, and nothing else. Widening here is a last resort applied
         after every other pass has had its say, so it is granted only to the
         one shape that clearly wants it: a centred title drawn large. A
@@ -3093,6 +3112,52 @@ begin
         if Control.PlannedLeft < 0 then
           Control.PlannedLeft := 0;
         Continue;
+      end;
+      { A button has one caption and no way to fold it away. Where the caption
+        will not fit, the button is what has to give, and room to its left
+        counts as much as room to its right: the settings page has two buttons
+        pressed against labels on the right with a wide empty margin on the
+        left, so growing only rightwards left them exactly as cramped as they
+        started. A button belonging to a row is left alone - the row was
+        levelled just above and one member growing would break it. }
+      if IsButtonLike(Control) and (not SettleFits) and
+        (SettleNeeded > Control.PlannedWidth + 1) then
+      begin
+        if SettleAlone then
+        begin
+          { Rightwards only. Taking the room on the left would mean moving the
+            button, and a button keeps the place it was drawn in - it is
+            positioned against the thing it acts on, and sliding it to make
+            its caption fit trades one fault for a worse one. Capped, too: a
+            button allowed to take every spare pixel of its row stops looking
+            like a button. }
+          SettleWanted := Min(SettleNeeded,
+            Max(Control.Width * 1.25, MinimumComfortableButtonWidth)) -
+            Control.PlannedWidth;
+          SettleTakeRight := Min(SettleWanted,
+            Max(SpaceToRight(Control) - ControlGap, 0));
+          if SettleTakeRight > 0 then
+          begin
+            Control.PlannedWidth := Control.PlannedWidth + SettleTakeRight;
+            Continue;
+          end;
+        end;
+      end;
+      { Then taller, before smaller. A button with two lines of caption in a
+        box drawn for one is fixed by giving it the second line's worth of
+        height, not by shrinking the words until they fit a height nobody
+        chose. Only into room that is actually there. }
+      if IsButtonLike(Control) and (not SettleFits) and (SettleLines > 1) and
+        SettleAlone then
+      begin
+        SettleFloor := ContentBottomBound(Control);
+        if SettleFloor <= 0 then
+          SettleFloor := Control.PlannedTop + Control.PlannedHeight;
+        if SettleHeight <= SettleFloor - Control.PlannedTop then
+        begin
+          Control.PlannedHeight := Ceil(SettleHeight);
+          Continue;
+        end;
       end;
       if SettleFits and not PlannedBoxIntrudes(Control) then
         Break;
@@ -3116,6 +3181,42 @@ begin
       2 * PaddingVertical(Control);
     Control.PlannedHeight := Max(Control.Height,
       Min(Control.PlannedHeight, Ceil(SettleHeight)));
+  end;
+
+  { Paragraphs standing together read as one block, so they take one size.
+
+    Two blocks of prose in the same column, drawn at the same size, are read as
+    a pair. Their translations rarely grow by the same amount, so deciding each
+    one alone leaves the longer visibly smaller than the shorter - which reads
+    as a mistake rather than as a decision, and it is what the random-directory
+    page showed. Whatever size the pair can settle at, they settle at it
+    together, and that is the smallest any of them needs: the others can always
+    carry it, while the one that needed it cannot go back up. }
+  for Control in AReview.Controls do
+  begin
+    if not IsParagraphLike(Control) or (Trim(Control.TranslatedText) = '') then
+      Continue;
+    SettleFont := Control.PlannedFontSize;
+    if SettleFont <= 0 then
+      SettleFont := Max(Control.FontSize, 9);
+    for Other in AReview.Controls do
+    begin
+      if (Other = Control) or not IsParagraphLike(Other) then
+        Continue;
+      if Trim(Other.TranslatedText) = '' then
+        Continue;
+      if not SameText(Other.FormName, Control.FormName) or
+        not SameText(Other.ParentName, Control.ParentName) then
+        Continue;
+      { Drawn at the same size to begin with, or they were never a pair. }
+      if Abs(Other.FontSize - Control.FontSize) > 0.01 then
+        Continue;
+      SettleHeight := Other.PlannedFontSize;
+      if SettleHeight <= 0 then
+        SettleHeight := Max(Other.FontSize, 9);
+      SettleFont := Min(SettleFont, SettleHeight);
+    end;
+    Control.PlannedFontSize := SettleFont;
   end;
 
   { Phase 4 - emit proposals from the settled geometry. Because every value
