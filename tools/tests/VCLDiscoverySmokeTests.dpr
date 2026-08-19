@@ -102,6 +102,9 @@ var
   RealTimer: TTimer;
   LocalPacks: string;
   PackFile: string;
+  OriginalWidth: Integer;
+  OriginalColor: Integer;
+  OriginalFont: Integer;
 begin
   try
     Folder := PackFolder;
@@ -218,6 +221,62 @@ begin
       Check(RealProbe.CaptionSeen = 'Detalles del horario',
         'The real details form is translated: saw "' + RealProbe.CaptionSeen + '".');
       RealDetails.Free;
+
+      { Going home again. A translation widens controls, shrinks fonts and
+        recolours text; choosing the source language has to put every one of
+        those back, or each switch leaves a little of the last language behind
+        and the form drifts. }
+      OriginalWidth := frmVCLTestMain.btnPlay.Width;
+      OriginalColor := frmVCLTestMain.lblIntro.Font.Color;
+      OriginalFont := frmVCLTestMain.lblIntro.Font.Size;
+      Check(frmVCLTestMain.DATManager.SelectLanguage('en-US'),
+        'English was selected again.');
+      Pump(5);
+      Check(frmVCLTestMain.Caption = 'VCL Translation Test Application',
+        'The caption came back: "' + frmVCLTestMain.Caption + '".');
+      Writeln(Format('        btnPlay width  : spanish %d -> english %d',
+        [OriginalWidth, frmVCLTestMain.btnPlay.Width]));
+      Writeln(Format('        lblIntro font  : spanish %d -> english %d',
+        [OriginalFont, frmVCLTestMain.lblIntro.Font.Size]));
+      Writeln(Format('        lblIntro colour: spanish %d -> english %d',
+        [OriginalColor, frmVCLTestMain.lblIntro.Font.Color]));
+      Check(frmVCLTestMain.btnPlay.Width = 80,
+        Format('btnPlay is back to its designed width of 80, not %d.',
+          [frmVCLTestMain.btnPlay.Width]));
+      Check(frmVCLTestMain.lblIntro.Font.Size = 9,
+        Format('lblIntro is back to its designed size of 9, not %d.',
+          [frmVCLTestMain.lblIntro.Font.Size]));
+      Check(frmVCLTestMain.lblIntro.Width = 560,
+        Format('lblIntro is back to its designed width of 560, not %d.',
+          [frmVCLTestMain.lblIntro.Width]));
+
+      { And the case an application actually presents: a form is translated
+        while it is open, the user closes it, the language is changed while it
+        is not on screen, and it is opened again. A form that is not visible is
+        not collected when the language changes, so nothing restores it; if
+        applying a language does not start from the original geometry, the new
+        language is laid on top of the old one and the widths of whichever
+        language it was last opened in are kept for ever. }
+      frmVCLTestMain.DATManager.SelectLanguage('es-ES');
+      Pump(5);
+      frmVCLTestMain.Hide;
+      Pump(2);
+      frmVCLTestMain.DATManager.SelectLanguage('en-US');
+      Pump(2);
+      frmVCLTestMain.Show;
+      Pump(2);
+      { What the idle scan does when the form comes back on screen. It is
+        called here rather than waited for because ProcessMessages does not
+        raise Application.OnIdle, so the scan never runs inside this harness. }
+      frmVCLTestMain.DATManager.ApplyToForm(frmVCLTestMain);
+      Pump(2);
+      Check(frmVCLTestMain.btnPlay.Width = 80,
+        Format('A form hidden across the change comes back at its designed ' +
+          'width of 80, not %d.', [frmVCLTestMain.btnPlay.Width]));
+      Check(frmVCLTestMain.lblIntro.Font.Size = 9,
+        Format('and at its designed font size of 9, not %d.',
+          [frmVCLTestMain.lblIntro.Font.Size]));
+
       frmVCLTestMain.Free;
     finally
       RealProbe.Free;

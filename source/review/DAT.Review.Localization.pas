@@ -485,6 +485,20 @@ begin
             bottom of both. }
           Frame.Control.WordWrap := SameText(TPath.GetExtension(FileName),
             '.fmx');
+          { And a VCL label sizes itself unless told not to.
+
+            TLabel.AutoSize is True by default, so a label that says nothing
+            about it will widen to fit whatever caption it is given, on one
+            line, however long. Reading the absence as False hid that: the
+            planner saw a fixed box, decided wrapping would solve the overflow,
+            and turned WordWrap on - but the caption is applied before the
+            layout, so by then the label had already stretched itself to the
+            full width of the Spanish sentence and ran off the side of the
+            form. Knowing the label sizes itself is what lets the planner pin
+            the width instead. }
+          Frame.Control.AutoSize :=
+            SameText(TPath.GetExtension(FileName), '.dfm') and
+            SameText(ClassName, 'TLabel');
           { The size this control's text is actually drawn at.
 
             A VCL control with no font of its own draws in its parent's font,

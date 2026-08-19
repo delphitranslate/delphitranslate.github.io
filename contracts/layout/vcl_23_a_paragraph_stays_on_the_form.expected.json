@@ -1,0 +1,13 @@
+{
+  "description": "A paragraph that grows in translation grows downwards. It may not grow sideways past the edge of the form it sits on: there is nothing out there, and the text is simply cut off mid-sentence. The form is 500 wide and the label starts 24 in, so 452 is all the width there is, and the translation is nearly three times the English.",
+  "catalog_file": "vcl_23_a_paragraph_stays_on_the_form.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblInstructions",
+      "text_fits": true,
+      "planned_width_at_most": 452,
+      "planned_left_equals": 24
+    }
+  ]
+}

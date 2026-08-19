@@ -579,6 +579,17 @@ begin
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
   SnapshotOriginalGeometry(AForm, FormIdentity);
+  { Every language is laid out from the form as it was designed, never on top
+    of the language before it.
+
+    A form is only restored when the language changes while it is on screen; a
+    form that is closed at that moment is not collected, and nothing puts it
+    back. Opening it again applied the new language over geometry left by the
+    old one, so a dialog kept the widths, the font sizes and the colours of
+    whichever language it happened to be open in last, and every switch left a
+    little more behind. Starting from the snapshot costs one pass over the
+    controls and makes applying a language mean the same thing every time. }
+  RestoreOriginalGeometry(AForm, FormIdentity);
   SavedFocusedControl := nil;
   SavedFocusedState := False;
   if APreserveControlState then
