@@ -29,7 +29,6 @@ type
     Height: Integer;
     HasFont: Boolean;
     FontSize: Integer;
-    FontColor: Cardinal;
     HasAutoSize: Boolean;
     AutoSize: Boolean;
     HasWordWrap: Boolean;
@@ -42,6 +41,7 @@ type
     class procedure SnapshotOriginalGeometry(const AForm: TCustomForm;
       const AFormIdentity: string); static;
     class function RestoreOriginalGeometry(const AForm: TCustomForm;
+      const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; static;
   public
     class function ApplyToForm(const AForm: TCustomForm;
@@ -365,10 +365,7 @@ var
       Snapshot.Height := Control.Height;
       Snapshot.HasFont := TryGetFont(AComponent, Font);
       if Snapshot.HasFont then
-      begin
         Snapshot.FontSize := Font.Size;
-        Snapshot.FontColor := Cardinal(Font.Color);
-      end;
       Snapshot.HasAutoSize := TryReadBoolean(AComponent, 'AutoSize',
         Snapshot.AutoSize);
       Snapshot.HasWordWrap := TryReadBoolean(AComponent, 'WordWrap',
@@ -386,7 +383,8 @@ begin
 end;
 
 class function TVCLTranslationApplicator.RestoreOriginalGeometry(
-  const AForm: TCustomForm; const AFormIdentity: string): Integer;
+  const AForm: TCustomForm; const APack: TRuntimeLanguagePack;
+  const AFormIdentity: string): Integer;
 var
   ComponentIndex: Integer;
   Restored: Integer;
@@ -402,6 +400,10 @@ var
     if AComponent = nil then
       Exit;
     Key := VCLSnapshotKey(AFormIdentity, AComponent);
+    { Every control, not only the ones the pack names. Setting a longer caption
+      on a label that sizes itself changes its width with no rule involved at
+      all, so restricting this to governed controls left exactly those
+      stretched - which the VCL runtime test says plainly, and it is right. }
     if (Key <> '') and (AComponent is TControl) and
       FOriginalGeometry.TryGetValue(Key, Snapshot) then
     begin
@@ -411,10 +413,14 @@ var
         control lays its text out. }
       if Snapshot.HasAutoSize then
         WriteBoolean(AComponent, 'AutoSize', False);
+      { Size only. Colour is never something this applicator sets, so putting
+        one back can only undo what the application itself did: Carillon paints
+        its own colours from a Colors menu after the form is up, and restoring
+        the design-time colour stamped a maroon heading over a white one and
+        turned captions black. What we never changed, we never restore. }
       if Snapshot.HasFont and TryGetFont(AComponent, Font) then
       begin
         Font.Size := Snapshot.FontSize;
-        Font.Color := TColor(Snapshot.FontColor);
         Inc(Restored);
       end;
       if Snapshot.HasWordWrap then
@@ -486,10 +492,11 @@ begin
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
     RestoreComponentTree(AForm.Components[ComponentIndex]);
   Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, False));
-  { Last, and after the text. The rules speak only for controls the analyser
-    wrote a rule for; the snapshot holds the form as it actually was and covers
-    every control, so it has the final word. }
-  Inc(Result, RestoreOriginalGeometry(AForm, FormIdentity));
+  { Last, and after the text. The snapshot holds the form as it was before any
+    translation touched it, so it settles anything the rules restored only
+    approximately - for the controls those rules govern, which are the only
+    ones this applicator ever moved. }
+  Inc(Result, RestoreOriginalGeometry(AForm, APack, FormIdentity));
 end;
 
 { Text that lives in a design-time collection rather than in a property of the
@@ -589,7 +596,7 @@ begin
     whichever language it happened to be open in last, and every switch left a
     little more behind. Starting from the snapshot costs one pass over the
     controls and makes applying a language mean the same thing every time. }
-  RestoreOriginalGeometry(AForm, FormIdentity);
+  RestoreOriginalGeometry(AForm, APack, FormIdentity);
   SavedFocusedControl := nil;
   SavedFocusedState := False;
   if APreserveControlState then

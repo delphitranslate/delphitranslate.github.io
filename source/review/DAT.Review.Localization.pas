@@ -726,6 +726,9 @@ const
   { A frame may grow this much to hold its own children, and no more. Beyond it
     the frame has stopped adjusting and started redesigning the form. }
   MaximumContainerGrowth = 2.0;
+  { Text drawn at least this large is a title rather than a caption, and a
+    title is the one thing worth widening across a form to keep on one line. }
+  HeadingFontSize = 16;
   { More lines than this and a caption has become a paragraph. }
   MaximumWrappedLines = 4;
   { Text at least this long is a sentence rather than a label. }
@@ -755,6 +758,9 @@ var
   RequiredWidth, RequiredHeight, FontSize: Double;
   SettleGuard, SettleLines: Integer;
   SettleFont, SettleHeight: Double;
+  SettleRoom, SettleNeeded, SettleCentre: Double;
+  RowMembers, RowSettled: TList<TLayoutControl>;
+  RowWidth, RowGap, RowRoom: Double;
   SettleFits: Boolean;
   LineCount: Integer;
   NewWidth: Integer;
@@ -1303,11 +1309,16 @@ var
         Continue;
       if IsVisualContainer(Candidate) then
         Continue;
-      { Only what stands below. A caption drawn beside its own check box shares
-        a row with it by design and often touches it; treating that as an
-        intrusion shrank captions that were perfectly placed. Growing downwards
-        onto something is the fault this looks for. }
-      if Candidate.Top < AControl.Top + AControl.Height - 1 then
+      { A caption drawn beside its own check box or edit shares a row with it
+        by design and often ends up touching it; that is the pairing working,
+        not an intrusion, and treating it as one shrank captions that were
+        placed perfectly. Anything else - a button, another caption - is
+        something this control has no business landing on, in any direction.
+        The settings page put a caption straight through the button to its
+        left, which a downward-only test could never have seen. }
+      if IsInputControl(Candidate) or
+        ContainsText(Candidate.ComponentClassName, 'CheckBox') or
+        ContainsText(Candidate.ComponentClassName, 'RadioButton') then
         Continue;
       if not Overlaps(AControl.PlannedLeft, AControl.PlannedTop,
         AControl.PlannedWidth, AControl.PlannedHeight, Candidate) then
@@ -2979,6 +2990,54 @@ begin
     text already fits where it has been put. A collision that the designer drew
     is left alone - controls are deliberately stacked often enough - and only
     one this planning would have introduced counts. }
+  { A row of buttons keeps one width, whatever the passes in between did.
+
+    The row is sized as a set early on, and everything after that treats each
+    button on its own: one whose translated caption still would not fit was
+    widened by three pixels and the row stopped being a row. The list that
+    marked those buttons as belonging to a set is long gone by then, so the
+    row is gathered again here and levelled. Where the row cannot have the
+    width its hungriest member wants, every button takes the smaller width and
+    the text inside them is what gives - which is the settling loop's job, and
+    it runs next. }
+  RowMembers := TList<TLayoutControl>.Create;
+  RowSettled := TList<TLayoutControl>.Create;
+  try
+    for Control in AReview.Controls do
+    begin
+      if not IsButtonLike(Control) or (RowSettled.IndexOf(Control) >= 0) then
+        Continue;
+      RowMembers.Clear;
+      Cluster := CollectButtonRow(Control);
+      try
+        if Cluster.Count < 2 then
+          Continue;
+        RowWidth := 0;
+        RowGap := ControlGap;
+        if Cluster.Count > 1 then
+          RowGap := Max(ControlGap,
+            Cluster[1].Left - (Cluster[0].Left + Cluster[0].Width));
+        for Other in Cluster do
+        begin
+          RowSettled.Add(Other);
+          RowWidth := Max(RowWidth, Other.PlannedWidth);
+        end;
+        RowRoom := ContentRightBound(Cluster[0]) - Cluster[0].PlannedLeft;
+        if Cluster.Count * RowWidth + (Cluster.Count - 1) * RowGap >
+          RowRoom then
+          RowWidth := Max(24,
+            Floor((RowRoom - (Cluster.Count - 1) * RowGap) / Cluster.Count));
+        for Other in Cluster do
+          Other.PlannedWidth := RowWidth;
+      finally
+        Cluster.Free;
+      end;
+    end;
+  finally
+    RowSettled.Free;
+    RowMembers.Free;
+  end;
+
   for Control in AReview.Controls do
   begin
     if Trim(Control.TranslatedText) = '' then
@@ -3004,6 +3063,37 @@ begin
         SettleFits := TextWidthEstimate(Control) <= Control.PlannedWidth + 1
       else
         SettleFits := SettleHeight <= Control.PlannedHeight + 1;
+      { Room on the row is spent before the text is wrapped or made smaller.
+        A heading centred on a form with hundreds of spare pixels either side
+        should take them and stay on one line; breaking it onto three and then
+        shrinking it to fit the result is the worst of both, and it was what
+        the email page did. Asked before the fit is judged, because a caption
+        already broken onto three lines inside a box grown to hold them looks
+        like it fits perfectly well. A control keeps its centre as it grows,
+        so a centred heading stays centred. }
+      SettleRoom := AvailableWidth(Control);
+      SettleNeeded := TextWidthEstimate(Control);
+      { A heading, and nothing else. Widening here is a last resort applied
+        after every other pass has had its say, so it is granted only to the
+        one shape that clearly wants it: a centred title drawn large. A
+        right-aligned caption keeps its right edge by contract, a button
+        belongs to a row that must keep its pitch, and a paragraph is meant to
+        wrap - all three were widened out of shape when this was let loose on
+        everything. }
+      if IsCentreAligned(Control) and not IsButtonLike(Control) and
+        not IsInputControl(Control) and
+        (Max(Control.PlannedFontSize, Control.FontSize) >= HeadingFontSize) and
+        (SettleNeeded > Control.PlannedWidth + 1) and
+        (SettleRoom > Control.PlannedWidth + 1) then
+      begin
+        SettleCentre := Control.PlannedLeft + Control.PlannedWidth / 2;
+        Control.PlannedWidth := Min(SettleNeeded, SettleRoom);
+        if IsCentreAligned(Control) then
+          Control.PlannedLeft := SettleCentre - Control.PlannedWidth / 2;
+        if Control.PlannedLeft < 0 then
+          Control.PlannedLeft := 0;
+        Continue;
+      end;
       if SettleFits and not PlannedBoxIntrudes(Control) then
         Break;
       if SettleFont <= SmallestFontFor(Control) + 0.01 then

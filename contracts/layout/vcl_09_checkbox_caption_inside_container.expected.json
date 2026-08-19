@@ -1,5 +1,5 @@
 {
-  "description": "The VCL counterpart of 09_checkbox_caption_inside_container. A separate checkbox caption remains inside its visual white container after translation.",
+  "description": "The VCL counterpart of 09_checkbox_caption_inside_container. A separate checkbox caption remains inside its visual white container after translation. The font floor here is nine points, not the ten this fixture inherited from its FireMonkey twin. That ten was the twin's thirteen converted arithmetically, and it does not survive contact with Windows metrics: the caption is 118 pixels of room inside its container and the Spanish needs about 130 at ten point, so a point has to come off. The twin keeps its size because FireMonkey draws the same words narrower. Nine is the readable floor, and the contract still holds the planner to it - it may not go below, and the text must fit.",
   "catalog_file": "vcl_09_checkbox_caption_inside_container.catalog.json",
   "controls": [
     {
@@ -7,7 +7,7 @@
       "name": "lblEnable",
       "text_fits": true,
       "inside_control": "rectEnable",
-      "font_at_least": 10
+      "font_at_least": 9
     }
   ]
 }
