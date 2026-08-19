@@ -1,0 +1,15 @@
+{
+  "description": "A label with no font of its own is drawn in the font its form declares. This form says Font.Height = -12, which is nine point text, and the box is wide enough to hold the translation at that size. Nothing needs to move or grow. Measured at the twelve point default the analyser used to assume, the same caption reports as too wide for its box and the label is widened to hold text that was always going to fit. The font is pinned at nine points in both directions: a label inheriting a form font of Font.Height = -12 is nine point text, and nothing here needs it changed. Assuming the old twelve point default, the analyser finds the caption too wide and reduces the font to about ten, which at run time makes the text larger than the designer set rather than smaller.",
+  "catalog_file": "vcl_20_inherited_font_is_the_forms_font.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblInherits",
+      "text_fits": true,
+      "planned_width_equals": 200,
+      "planned_left_equals": 24,
+      "font_at_least": 9,
+      "font_at_most": 9
+    }
+  ]
+}

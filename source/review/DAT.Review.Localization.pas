@@ -402,6 +402,14 @@ begin
      SuspiciousCount, ExcludedCount]);
 end;
 
+const
+  { What a control's text measures when nothing on the form says otherwise.
+    Nine points is the Windows interface font, which a .dfm records as a height
+    of twelve pixels; FireMonkey counts in its own units and starts at twelve.
+    Both the scan and the analysis read these, so they live out here. }
+  DefaultVCLFontSize = 9;
+  DefaultFireMonkeyFontSize = 12;
+
 class procedure TLocalizationReviewer.ScanLayout(
   const ACatalog: TTranslationCatalog; const AReview: TLocalizationReview);
 var
@@ -444,7 +452,7 @@ begin
           Frame.Control.ComponentName := Name;
           Frame.Control.ComponentClassName := ClassName;
           Frame.Control.SourceFileName := FileName;
-          Frame.Control.FontSize := 12;
+
           { A property absent from a form file is not a property set to False:
             it is the framework's default, and the two frameworks disagree. A
             FireMonkey label wraps unless told otherwise; a VCL one does not.
@@ -456,12 +464,39 @@ begin
             bottom of both. }
           Frame.Control.WordWrap := SameText(TPath.GetExtension(FileName),
             '.fmx');
+          { The size this control's text is actually drawn at.
+
+            A VCL control with no font of its own draws in its parent's font,
+            and almost none of them have one: a form says Font.Height = -12 and
+            every label, button and check box on it inherits nine point text.
+            Assuming twelve for all of them - which is what happened here until
+            now - overstated every caption by a third. The planner measured
+            text a third wider than it draws, and then "reduced" a font to
+            10.2 points, which at run time is an increase. That is why a button
+            filled up with its own caption, why a heading that had been
+            correct wrapped onto three lines, and why returning to English
+            looked smaller than the translation: English was the size the
+            designer chose and the translation was inflated.
+
+            FireMonkey is left exactly as it was. Its defaults differ and its
+            nineteen contracts encode the current behaviour; changing both
+            frameworks at once on the evidence of one would be a guess. }
           if Stack.Count = 0 then
-            FormName := Name
+          begin
+            FormName := Name;
+            if SameText(TPath.GetExtension(FileName), '.dfm') then
+              Frame.Control.FontSize := DefaultVCLFontSize
+            else
+              Frame.Control.FontSize := DefaultFireMonkeyFontSize;
+          end
           else
           begin
             ParentFrame := Stack[Stack.Count - 1];
             Frame.Control.ParentName := ParentFrame.Name;
+            if SameText(TPath.GetExtension(FileName), '.dfm') then
+              Frame.Control.FontSize := ParentFrame.Control.FontSize
+            else
+              Frame.Control.FontSize := DefaultFireMonkeyFontSize;
           end;
           Frame.Control.FormName := FormName;
           CatalogTextForControl(ACatalog, FormName, Name,
