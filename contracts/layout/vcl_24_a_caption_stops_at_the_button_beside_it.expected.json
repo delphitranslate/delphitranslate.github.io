@@ -1,5 +1,5 @@
 {
-  "description": "A caption whose translation needs more room grows towards the space beside it, and there is a button sitting in that space. The button occupies 182 to 263; the caption may take everything from 267 rightwards and no more. Growing past that point puts two controls on the same pixels, which is what the settings page showed: the caption reached back across the button and the button's own caption, already far too long for it, was cut off behind it.",
+  "description": "A caption whose translation needs more room grows towards the space beside it, and there is a button sitting in that space. The button occupies 182 to 263; the caption may take everything from 267 rightwards and no more. Growing past that point puts two controls on the same pixels, which is what the settings page showed: the caption reached back across the button and the button's own caption, already far too long for it, was cut off behind it. It runs both ways. The caption may not reach back across the button, and the button may not grow forward across the caption: given room to widen for its own long caption, it took the width measured from its left edge and added it to the width it already had, once for every turn of the settling loop, and was drawn straight through the words beside it. The caption may come no further left than 267, so the button may reach no further right than 267 either: between them those two numbers say the pair may not occupy the same pixels, whichever of them moved.",
   "catalog_file": "vcl_24_a_caption_stops_at_the_button_beside_it.catalog.json",
   "controls": [
     {
@@ -11,7 +11,8 @@
     {
       "form": "ContractForm",
       "name": "btnClearOtherDates",
-      "text_fits": true
+      "text_fits": true,
+      "planned_right_at_most": 267
     }
   ]
 }

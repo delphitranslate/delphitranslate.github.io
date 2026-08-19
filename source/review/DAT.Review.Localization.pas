@@ -767,6 +767,7 @@ var
   SettleAlone: Boolean;
   SettleWanted, SettleTakeLeft, SettleTakeRight: Double;
   SettleFloor: Double;
+  SettleSavedLeft, SettleSavedWidth: Double;
   SettleFits: Boolean;
   LineCount: Integer;
   NewWidth: Integer;
@@ -3069,6 +3070,15 @@ begin
         SettleFits := TextWidthEstimate(Control) <= Control.PlannedWidth + 1
       else
         SettleFits := SettleHeight <= Control.PlannedHeight + 1;
+      { Height the text no longer needs is given back here rather than at the
+        end, because everything below judges this control by the box it is
+        standing in. Held until afterwards, a heading that had just been
+        widened onto one line was still being measured as the three-line block
+        it used to be, was found to be standing on the labels beneath it, and
+        had its widening taken away again. Never below the height drawn. }
+      if SettleFits then
+        Control.PlannedHeight := Max(Control.Height,
+          Min(Control.PlannedHeight, Ceil(SettleHeight)));
       { Room on the row is spent before the text is wrapped or made smaller.
         A heading centred on a form with hundreds of spare pixels either side
         should take them and stay on one line; breaking it onto three and then
@@ -3130,15 +3140,21 @@ begin
             positioned against the thing it acts on, and sliding it to make
             its caption fit trades one fault for a worse one. Capped, too: a
             button allowed to take every spare pixel of its row stops looking
-            like a button. }
+            like a button.
+
+            SpaceToRight is the widest this control may be, measured from its
+            own left edge to whatever stands next to it - not the free space
+            beyond its right edge. Reading it as free space and adding it to
+            the width, once per turn round this loop, is how two buttons on
+            the settings page came to be drawn straight through the captions
+            beside them. The width is set outright here, and only ever to
+            something that fits. }
           SettleWanted := Min(SettleNeeded,
-            Max(Control.Width * 1.25, MinimumComfortableButtonWidth)) -
-            Control.PlannedWidth;
-          SettleTakeRight := Min(SettleWanted,
-            Max(SpaceToRight(Control) - ControlGap, 0));
-          if SettleTakeRight > 0 then
+            Min(Max(Control.Width * 1.25, MinimumComfortableButtonWidth),
+              SpaceToRight(Control)));
+          if SettleWanted > Control.PlannedWidth + 1 then
           begin
-            Control.PlannedWidth := Control.PlannedWidth + SettleTakeRight;
+            Control.PlannedWidth := SettleWanted;
             Continue;
           end;
         end;
@@ -3157,6 +3173,40 @@ begin
         begin
           Control.PlannedHeight := Ceil(SettleHeight);
           Continue;
+        end;
+      end;
+      { Standing on something is undone before the text is touched, and undone
+        in the order the damage was done: first give back any move sideways,
+        then any width this planning added. A caption slid left to find room
+        for itself, straight across the button beside it, is put back where it
+        was drawn - the collision is worse than the crowding it was solving,
+        and the passes that make the room cannot see each other. }
+      { A button belonging to a row is left out: the row was levelled as a set
+        above, and handing one member back its designed width while its
+        neighbours keep theirs is not a repair, it is the row broken. }
+      if PlannedBoxIntrudes(Control) and
+        not (IsButtonLike(Control) and not SettleAlone) then
+      begin
+        { Try giving back the move, then the width, and keep whichever
+          actually clears it. Undoing them regardless takes the widening off a
+          heading whose collision was vertical and nothing to do with its
+          width, and breaks a button row by returning one member to the size
+          it was drawn at while its neighbours keep theirs. }
+        SettleSavedLeft := Control.PlannedLeft;
+        SettleSavedWidth := Control.PlannedWidth;
+        if Abs(SettleSavedLeft - Control.Left) > 0.5 then
+        begin
+          Control.PlannedLeft := Control.Left;
+          if not PlannedBoxIntrudes(Control) then
+            Continue;
+          Control.PlannedLeft := SettleSavedLeft;
+        end;
+        if SettleSavedWidth > Control.Width + 0.5 then
+        begin
+          Control.PlannedWidth := Control.Width;
+          if not PlannedBoxIntrudes(Control) then
+            Continue;
+          Control.PlannedWidth := SettleSavedWidth;
         end;
       end;
       if SettleFits and not PlannedBoxIntrudes(Control) then
