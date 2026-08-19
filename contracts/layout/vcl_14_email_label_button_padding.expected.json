@@ -1,0 +1,23 @@
+{
+  "description": "The VCL counterpart of 14_email_label_button_padding. Email labels and their button keep the same left edge and enough padding to read cleanly.",
+  "catalog_file": "vcl_14_email_label_button_padding.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblAddress",
+      "text_fits": true,
+      "planned_left_equals": 420,
+      "planned_right_at_most": 705,
+      "font_at_least": 10
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnSend",
+      "text_fits": true,
+      "planned_left_equals": 420,
+      "planned_width_at_most": 230,
+      "planned_height_at_most": 52,
+      "font_at_least": 10
+    }
+  ]
+}

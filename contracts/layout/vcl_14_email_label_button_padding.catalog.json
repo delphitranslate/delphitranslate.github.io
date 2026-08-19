@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "es-ES",
+    "nativeLanguageName": "Espa\u00f1ol",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblAddress.Caption",
+      "sourceText": "Email address",
+      "translatedText": "Direcci\u00f3n de correo electr\u00f3nico",
+      "formName": "ContractForm",
+      "componentName": "lblAddress",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_14_email_label_button_padding.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.btnSend.Caption",
+      "sourceText": "Send test message",
+      "translatedText": "Enviar mensaje de prueba",
+      "formName": "ContractForm",
+      "componentName": "btnSend",
+      "componentClassName": "TButton",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_14_email_label_button_padding.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

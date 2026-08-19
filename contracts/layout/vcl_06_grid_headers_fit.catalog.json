@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "xx-XX",
+    "nativeLanguageName": "Contract",
+    "textDirection": "ltr",
+    "shortDateFormat": "dd/mm/yyyy",
+    "longDateFormat": "dddd, d mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "$"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.colTime.Header",
+      "sourceText": "Time",
+      "translatedText": "Geplante Uhrzeit",
+      "formName": "ContractForm",
+      "componentName": "colTime",
+      "componentClassName": "TStringColumn",
+      "propertyName": "Header",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_06_grid_headers_fit.dfm",
+      "sourceLine": 12,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.colType.Header",
+      "sourceText": "Type",
+      "translatedText": "Ereignisart",
+      "formName": "ContractForm",
+      "componentName": "colType",
+      "componentClassName": "TStringColumn",
+      "propertyName": "Header",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_06_grid_headers_fit.dfm",
+      "sourceLine": 20,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

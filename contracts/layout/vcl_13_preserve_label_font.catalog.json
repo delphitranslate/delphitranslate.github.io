@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "es-ES",
+    "nativeLanguageName": "Espa\u00f1ol",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblDateRange.Caption",
+      "sourceText": "Start and end time:",
+      "translatedText": "Horarios de inicio y finalizaci\u00f3n:",
+      "formName": "ContractForm",
+      "componentName": "lblDateRange",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_13_preserve_label_font.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

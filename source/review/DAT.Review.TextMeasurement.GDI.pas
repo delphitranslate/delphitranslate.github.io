@@ -28,6 +28,10 @@ uses
   DAT.Core.Types,
   DAT.Review.TextMeasurement;
 
+const
+  { The resolution a form file's coordinates are expressed in. }
+  DesignTimeDotsPerInch = 96;
+
 type
   TGDITextMeasurer = class(TInterfacedObject, ITextMeasurer)
   public
@@ -77,8 +81,13 @@ begin
     FillChar(Description, SizeOf(Description), 0);
     { Negative height asks for a font whose character height is this many
       pixels, which is how a point size is expressed to Windows. }
-    Description.lfHeight := -MulDiv(Round(PointSize),
-      GetDeviceCaps(DeviceContext, LOGPIXELSY), 72);
+    { Ninety-six, deliberately, rather than this screen's resolution. A form
+      file records its geometry in the pixels of the machine it was designed
+      on, and that is what the analyser is reasoning about; measuring against a
+      display scaled to a hundred and twenty-five percent would report every
+      caption a quarter wider than the box it was drawn to fit, and the plan
+      would grow controls to solve a problem that exists only on this monitor. }
+    Description.lfHeight := -MulDiv(Round(PointSize), DesignTimeDotsPerInch, 72);
     if ABold then
       Description.lfWeight := FW_BOLD
     else

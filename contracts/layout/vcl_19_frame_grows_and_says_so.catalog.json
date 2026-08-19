@@ -19,14 +19,14 @@
   "entries": [
     {
       "key": "ContractForm.chkEnable.Caption",
-      "sourceText": "Enable scheduling",
-      "translatedText": "Habilitar la programacion de campanadas",
+      "sourceText": "Enable schedule",
+      "translatedText": "Habilitar programacion de campanas",
       "formName": "ContractForm",
       "componentName": "chkEnable",
       "componentClassName": "TCheckBox",
       "propertyName": "Caption",
-      "sourceFileName": "{FIXTUREDIR}\\20_vcl_caption_fits_its_container.dfm",
-      "sourceLine": 14,
+      "sourceFileName": "{FIXTUREDIR}\\vcl_19_frame_grows_and_says_so.dfm",
+      "sourceLine": 13,
       "sourceKind": "Form property",
       "sourceChecksum": "",
       "contextKind": "interface text",

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "es-ES",
+    "nativeLanguageName": "Espa\u00f1ol",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.btnRecalc.Caption",
+      "sourceText": "Recalculate dates for next year.",
+      "translatedText": "Recalcular las fechas para el pr\u00f3ximo a\u00f1o.",
+      "formName": "ContractForm",
+      "componentName": "btnRecalc",
+      "componentClassName": "TButton",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_11_button_above_grid_padding.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "description": "The VCL counterpart of 11_button_above_grid_padding. A large translated action button above a grid keeps bottom padding before the grid.",
+  "catalog_file": "vcl_11_button_above_grid_padding.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "btnRecalc",
+      "text_fits": true,
+      "planned_bottom_at_most": 104,
+      "planned_height_at_most": 64,
+      "font_at_least": 10
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "es-ES",
+    "nativeLanguageName": "Espa\u00f1ol",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblEnable.Caption",
+      "sourceText": "Enable schedule",
+      "translatedText": "Habilitar programaci\u00f3n",
+      "formName": "ContractForm",
+      "componentName": "lblEnable",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_09_checkbox_caption_inside_container.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

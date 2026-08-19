@@ -508,10 +508,17 @@ begin
             pixel. }
           else if MatchText(Prop, ['Font.Height']) then
           begin
+            { Rounded, because VCL rounds. A thirteen point font is stored as
+              a height of seventeen pixels, and seventeen pixels is twelve and
+              three quarter points back again; TFont.Size reports thirteen
+              because it converts through MulDiv, which rounds to the nearest
+              whole point. Keeping the fraction would have every font read back
+              a quarter point smaller than the designer set, and every rule
+              that preserves a font size would then think it had been shrunk. }
             if Number < 0 then
-              Frame.Control.FontSize := -Number * 72 / 96
+              Frame.Control.FontSize := Round(-Number * 72 / 96)
             else if Number > 0 then
-              Frame.Control.FontSize := Number * 72 / 96;
+              Frame.Control.FontSize := Round(Number * 72 / 96);
           end;
         end
         else if SameText(Prop, 'Align') then

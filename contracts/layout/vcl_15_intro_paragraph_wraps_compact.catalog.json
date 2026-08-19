@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "es-ES",
+    "nativeLanguageName": "Espa\u00f1ol",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblIntro1.Caption",
+      "sourceText": "Select a folder for each slot. Dates use month/day format, for example 04/27.",
+      "translatedText": "Seleccione una carpeta para cada espacio. Las fechas deben tener el formato mes/d\u00eda, por ejemplo, 04/27.",
+      "formName": "ContractForm",
+      "componentName": "lblIntro1",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_15_intro_paragraph_wraps_compact.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.lblIntro2.Caption",
+      "sourceText": "Slot 1 is the default fallback folder. Slots 2-7 override it during their date windows.",
+      "translatedText": "La ranura 1 es la carpeta de reserva predeterminada. Las ranuras 2 a 7 la sobrescriben durante sus respectivos per\u00edodos de validez.",
+      "formName": "ContractForm",
+      "componentName": "lblIntro2",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_15_intro_paragraph_wraps_compact.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}
