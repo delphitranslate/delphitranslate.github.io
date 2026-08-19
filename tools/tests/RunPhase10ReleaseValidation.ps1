@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -6,6 +6,17 @@ $ErrorActionPreference = 'Stop'
 $ProjectRoot = [System.IO.Path]::GetFullPath(
     (Join-Path $PSScriptRoot '..\..'))
 $RsVars = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat'
+# Before anything is compiled. A source file holding non-ASCII text without a
+# byte order mark compiles to the wrong characters, silently, and the first
+# sign of it is a German customer reading SchlieAYen on a Close button.
+$EncodingCheck = Join-Path $ProjectRoot 'tools\check_source_encoding.ps1'
+if (Test-Path $EncodingCheck) {
+    & powershell -ExecutionPolicy Bypass -File $EncodingCheck
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Source encoding check failed; see the files listed above.'
+    }
+}
+
 $ProjectFile = Join-Path $ProjectRoot 'DelphiAppTranslationStudio.dproj'
 $SourceSearchPath = @(
     '..\..\source\studio'

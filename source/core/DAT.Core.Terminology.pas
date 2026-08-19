@@ -1,4 +1,4 @@
-unit DAT.Core.Terminology;
+﻿unit DAT.Core.Terminology;
 
 interface
 

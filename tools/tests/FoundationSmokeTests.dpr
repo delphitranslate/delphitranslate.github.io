@@ -1,4 +1,4 @@
-program FoundationSmokeTests;
+﻿program FoundationSmokeTests;
 
 {$APPTYPE CONSOLE}
 
