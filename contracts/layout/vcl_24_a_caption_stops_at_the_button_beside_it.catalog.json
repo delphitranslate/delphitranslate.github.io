@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "xx-XX",
+    "nativeLanguageName": "Contract",
+    "textDirection": "ltr",
+    "shortDateFormat": "dd/mm/yyyy",
+    "longDateFormat": "dddd, d mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "$"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.btnClearOtherDates.Caption",
+      "sourceText": "Reset Funeral Date Fields",
+      "translatedText": "Restablecer campos de fecha del funeral",
+      "formName": "ContractForm",
+      "componentName": "btnClearOtherDates",
+      "componentClassName": "TButton",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_24_a_caption_stops_at_the_button_beside_it.dfm",
+      "sourceLine": 12,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.lblTimes.Caption",
+      "sourceText": "Start/End Times:",
+      "translatedText": "Horarios de inicio y finalizacion:",
+      "formName": "ContractForm",
+      "componentName": "lblTimes",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_24_a_caption_stops_at_the_button_beside_it.dfm",
+      "sourceLine": 25,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

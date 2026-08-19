@@ -1,0 +1,17 @@
+{
+  "description": "A caption whose translation needs more room grows towards the space beside it, and there is a button sitting in that space. The button occupies 182 to 263; the caption may take everything from 267 rightwards and no more. Growing past that point puts two controls on the same pixels, which is what the settings page showed: the caption reached back across the button and the button's own caption, already far too long for it, was cut off behind it.",
+  "catalog_file": "vcl_24_a_caption_stops_at_the_button_beside_it.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblTimes",
+      "planned_left_at_least": 267,
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnClearOtherDates",
+      "text_fits": true
+    }
+  ]
+}

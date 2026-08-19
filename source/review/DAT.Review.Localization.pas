@@ -753,6 +753,9 @@ const
 var
   Control, Other: TLayoutControl;
   RequiredWidth, RequiredHeight, FontSize: Double;
+  SettleGuard, SettleLines: Integer;
+  SettleFont, SettleHeight: Double;
+  SettleFits: Boolean;
   LineCount: Integer;
   NewWidth: Integer;
   IsButton: Boolean;
@@ -1272,6 +1275,67 @@ var
     end;
   end;
 
+  { True when this control's planned box lands on a neighbour it was not drawn
+    on top of. Controls the designer deliberately overlapped stay overlapped;
+    only a collision this planning would have created is one to answer for. }
+  function PlannedBoxIntrudes(const AControl: TLayoutControl): Boolean;
+  var
+    Candidate: TLayoutControl;
+
+    function Overlaps(const ALeft, ATop, AWidth, AHeight: Double;
+      const AOther: TLayoutControl): Boolean;
+    begin
+      Result := (ALeft < AOther.Left + AOther.Width) and
+        (ALeft + AWidth > AOther.Left) and
+        (ATop < AOther.Top + AOther.Height) and
+        (ATop + AHeight > AOther.Top);
+    end;
+
+  begin
+    Result := False;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if IsVisualContainer(Candidate) then
+        Continue;
+      { Only what stands below. A caption drawn beside its own check box shares
+        a row with it by design and often touches it; treating that as an
+        intrusion shrank captions that were perfectly placed. Growing downwards
+        onto something is the fault this looks for. }
+      if Candidate.Top < AControl.Top + AControl.Height - 1 then
+        Continue;
+      if not Overlaps(AControl.PlannedLeft, AControl.PlannedTop,
+        AControl.PlannedWidth, AControl.PlannedHeight, Candidate) then
+        Continue;
+      { Drawn overlapping already, so not this planning's doing. }
+      if Overlaps(AControl.Left, AControl.Top, AControl.Width,
+        AControl.Height, Candidate) then
+        Continue;
+      Exit(True);
+    end;
+  end;
+
+  { Where a control's edges are once the plan is taken into account. Before
+    anything has been planned these are simply the designed edges. }
+  function PlannedLeftEdge(const AControl: TLayoutControl): Double;
+  begin
+    if AControl.PlannedWidth > AControl.Width then
+      Result := Min(AControl.PlannedLeft, AControl.Left)
+    else
+      Result := AControl.Left;
+  end;
+
+  function PlannedRightEdge(const AControl: TLayoutControl): Double;
+  begin
+    Result := Max(AControl.Left + AControl.Width,
+      PlannedLeftEdge(AControl) + AControl.PlannedWidth);
+  end;
+
   { How many lines this control can grow to before reaching whatever sits below
     it: the next control in its own column, the frame drawn around it, or the
     bottom of the form. This is what decides whether wrapping is affordable.
@@ -1296,9 +1360,14 @@ var
         Continue;
       if Candidate.Top < AControl.Top + AControl.Height - 1 then
         Continue;
-      { Only something standing in this control's own column blocks it. }
-      if (Candidate.Left >= AControl.Left + AControl.Width) or
-         (Candidate.Left + Candidate.Width <= AControl.Left) then
+      { Only something standing in this control's own column blocks it - and
+        the column is where the control is going to be, not where it was
+        drawn. A heading widened across half a form stands over things its
+        designed box never reached: the email heading was measured in its
+        original two hundred and thirty pixels, saw nothing beneath it,
+        wrapped onto three lines and came down through the labels below. }
+      if (Candidate.Left >= PlannedRightEdge(AControl)) or
+         (Candidate.Left + Candidate.Width <= PlannedLeftEdge(AControl)) then
         Continue;
       if (Ceiling <= 0) or (Candidate.Top - ControlGap < Ceiling) then
         Ceiling := Candidate.Top - ControlGap;
@@ -2894,6 +2963,69 @@ begin
       WrappedLines := WrappedLineCount(Control, Control.PlannedWidth);
     end;
     Control.PlannedWordWrap := Control.PlannedWordWrap or (WrappedLines > 1);
+  end;
+
+  { Phase 3d - nothing is left holding text it cannot hold, or standing on
+    something else.
+
+    The passes above each solve one thing well and hand on. What none of them
+    owns is the state of the form once they have all run: a caption whose
+    translation outgrew the room beside it can be left too narrow for its own
+    text, and a heading can be given so many lines that it comes down through
+    whatever is underneath. Both were on the settings and email pages.
+
+    This pass changes one thing only, and only downwards: the point size. It
+    never moves a control, never grows a box, and never touches a control whose
+    text already fits where it has been put. A collision that the designer drew
+    is left alone - controls are deliberately stacked often enough - and only
+    one this planning would have introduced counts. }
+  for Control in AReview.Controls do
+  begin
+    if Trim(Control.TranslatedText) = '' then
+      Continue;
+    if not (Control.HasPosition and Control.HasSize) then
+      Continue;
+    if (Control.PlannedWidth <= 0) or (Control.PlannedHeight <= 0) then
+      Continue;
+    if IsVisualContainer(Control) then
+      Continue;
+    SettleGuard := 0;
+    while SettleGuard < 60 do
+    begin
+      Inc(SettleGuard);
+      SettleFont := Control.PlannedFontSize;
+      if SettleFont <= 0 then
+        SettleFont := Max(Control.FontSize, 9);
+      SettleLines := WrappedLineCount(Control, Control.PlannedWidth);
+      SettleHeight := SettleLines * SettleFont * 1.65 +
+        2 * PaddingVertical(Control);
+      { One line has to fit across; several have to fit down. }
+      if SettleLines <= 1 then
+        SettleFits := TextWidthEstimate(Control) <= Control.PlannedWidth + 1
+      else
+        SettleFits := SettleHeight <= Control.PlannedHeight + 1;
+      if SettleFits and not PlannedBoxIntrudes(Control) then
+        Break;
+      if SettleFont <= SmallestFontFor(Control) + 0.01 then
+        Break;
+      Control.PlannedFontSize :=
+        Max(SettleFont - 0.5, SmallestFontFor(Control));
+    end;
+    { Whatever it settled at, say so if the text now takes more than one line. }
+    SettleLines := WrappedLineCount(Control, Control.PlannedWidth);
+    if SettleLines > 1 then
+      Control.PlannedWordWrap := True;
+    { And give back height the text no longer needs. An earlier pass grew this
+      control to hold the lines it thought it would take; if it now takes
+      fewer, holding on to that height is what came down over the labels
+      below. Never below the height the designer drew. }
+    SettleFont := Control.PlannedFontSize;
+    if SettleFont <= 0 then
+      SettleFont := Max(Control.FontSize, 9);
+    SettleHeight := SettleLines * SettleFont * 1.65 +
+      2 * PaddingVertical(Control);
+    Control.PlannedHeight := Max(Control.Height,
+      Min(Control.PlannedHeight, Ceil(SettleHeight)));
   end;
 
   { Phase 4 - emit proposals from the settled geometry. Because every value

@@ -1,0 +1,12 @@
+{
+  "description": "A heading has a whole form to widen into and should use it before it breaks onto another line. This one is centred on a form 989 wide and is drawn at twenty-eight point, so its translation needs about five hundred pixels on one line and there is room for that. Wrapping it instead took it to three lines and a hundred and two pixels of height, which reached down into the labels beneath it.",
+  "catalog_file": "vcl_25_a_heading_widens_before_it_wraps.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblHeader",
+      "text_fits": true,
+      "planned_height_at_most": 60
+    }
+  ]
+}
