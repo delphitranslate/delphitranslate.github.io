@@ -56,4 +56,15 @@ begin
   Result := 'Caption after an apostrophe in a comment';
 end;
 
+{ A heading an application writes into a list, ending with a line break.
+
+  The break is punctuation, not data: the heading is still text a person reads.
+  Requiring pure literals threw the whole phrase away because sLineBreak is an
+  identifier, which is how the schedule dialog's heading came to be missing
+  from the catalogue while every caption around it was claimed. }
+procedure AddScheduleHeading(const ALines: TStrings);
+begin
+  ALines.Add('Remaining events for Today:' + sLineBreak);
+end;
+
 end.

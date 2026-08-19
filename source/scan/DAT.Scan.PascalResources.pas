@@ -293,6 +293,54 @@ end;
   So: literals separated by the addition operator, and nothing else. Where any
   other term appears between them the pieces are not one string, and the answer
   is to claim none of it rather than to invent something. }
+{ A term that only puts a line break between two pieces of text.
+
+  A phrase written as 'Remaining events for Today:' + sLineBreak is still a
+  phrase; the line break is punctuation, not data. Requiring pure literals kept
+  variables out, which is what it was for, but it also threw away every heading
+  an application ends with a newline - and that is a common way to write one. }
+function IsLineBreakTerm(const AToken: string): Boolean;
+var
+  CharIndex: Integer;
+  Token: string;
+begin
+  Token := LowerCase(Trim(AToken));
+  Result := (Token = 'slinebreak') or (Token = 'slinefeed') or
+    (Token = 'sconstlinebreak');
+  if Result or (Token = '') then
+    Exit;
+  { Character literals: #13, #10, #13#10. }
+  if Token[1] <> '#' then
+    Exit(False);
+  for CharIndex := 1 to Length(Token) do
+    if not CharInSet(Token[CharIndex], ['#', '0'..'9']) then
+      Exit(False);
+  Result := True;
+end;
+
+{ True when everything separating two literals is addition and line breaks. }
+function IsJoinFragment(const AFragment: string;
+  out AHasLineBreak: Boolean): Boolean;
+var
+  Part: string;
+  Parts: TArray<string>;
+begin
+  AHasLineBreak := False;
+  Result := False;
+  if Pos('+', AFragment) = 0 then
+    Exit;
+  Parts := AFragment.Split(['+']);
+  for Part in Parts do
+  begin
+    if Trim(Part) = '' then
+      Continue;
+    if not IsLineBreakTerm(Part) then
+      Exit(False);
+    AHasLineBreak := True;
+  end;
+  Result := True;
+end;
+
 function ExtractLiteralPhrase(const AExpression: string;
   out APhrase: string): Boolean;
 var
@@ -303,9 +351,12 @@ var
   StartAt: Integer;
   Between: string;
   SeenLiteral: Boolean;
+  HasLineBreak: Boolean;
+  PendingLineBreak: Boolean;
 begin
   APhrase := '';
   SeenLiteral := False;
+  PendingLineBreak := False;
   EndAt := 0;
   Index := 1;
   while Index <= Length(AExpression) do
@@ -320,8 +371,12 @@ begin
     if SeenLiteral then
     begin
       Between := Trim(Copy(AExpression, EndAt + 1, Index - EndAt - 1));
-      if Between <> '+' then
+      if not IsJoinFragment(Between, HasLineBreak) then
         Exit(False);
+      { A break between two literals belongs in the phrase: it is where the
+        author put it, and it is what the application holds when it asks for
+        this text. }
+      PendingLineBreak := HasLineBreak;
     end
     else if Trim(Copy(AExpression, 1, Index - 1)) <> '' then
       { Something stands before the first literal, so the expression is not a
@@ -345,12 +400,22 @@ begin
     Segment := Copy(AExpression, StartAt, EndAt - StartAt + 1);
     if not TryDecodeDelphiStringExpression(Segment, Decoded) then
       Exit(False);
+    if PendingLineBreak then
+    begin
+      APhrase := APhrase + sLineBreak;
+      PendingLineBreak := False;
+    end;
     APhrase := APhrase + Decoded;
     SeenLiteral := True;
     Inc(Index);
   end;
   { And nothing may follow the last literal either. }
-  if not SeenLiteral or (Trim(Copy(AExpression, EndAt + 1, MaxInt)) <> '') then
+  { A trailing line break is punctuation too, so it may follow the last
+    literal; anything else may not. }
+  Between := Trim(Copy(AExpression, EndAt + 1, MaxInt));
+  if not SeenLiteral then
+    Exit(False);
+  if (Between <> '') and not IsJoinFragment(Between, HasLineBreak) then
     Exit(False);
   APhrase := Trim(APhrase);
   Result := APhrase <> '';
@@ -382,6 +447,47 @@ begin
     AddRuntimeItem(AResult, AFileName, AUnitName,
       ACallName, APropertyName, Phrase, AStatement.SourceLine,
       rtrRuntimeTemplate);
+end;
+
+{ The heading a list is given before its rows are added to it.
+
+  The blanket refusal to read Items.Add and Lines.Add is right about what it
+  refuses: rows, logs, file names and generated HTML. A heading is none of
+  those, and an application writes one exactly the same way - Carillon's
+  schedule dialog opens with
+
+    ScheduleStr.Add('Remaining events for Today:' + sLineBreak);
+
+  and then adds a line per event, each built from a time and a file path.
+
+  Two things separate the heading from the rows, and both are required here.
+  The phrase must be written entirely as literals, which every row fails
+  because each is assembled from variables. And it must end in a colon, which
+  is what makes it a heading rather than an item: "Close window" sitting in a
+  hint list is not a heading and is left alone, as it was before.
+
+  This is a convention rather than a rule of the language, so it is drawn
+  narrowly on purpose. A heading written without a colon is missed, which is a
+  better failure than a thousand data rows claimed as captions. }
+procedure ScanListHeading(const AStatement: TRuntimeStatement;
+  const AResult: TProjectScanResult; const AFileName, AUnitName: string);
+var
+  ArgumentText: string;
+  CallAt: Integer;
+  Phrase: string;
+  StartAt: Integer;
+begin
+  CallAt := Pos('.add(', LowerCase(AStatement.Text));
+  if CallAt = 0 then
+    Exit;
+  StartAt := CallAt + Length('.add(');
+  ArgumentText := FirstArgument(Copy(AStatement.Text, StartAt, MaxInt));
+  if not ExtractLiteralPhrase(ArgumentText, Phrase) then
+    Exit;
+  if not EndsText(':', TrimRight(Phrase)) then
+    Exit;
+  AddRuntimeItem(AResult, AFileName, AUnitName, 'Add', 'ListHeading',
+    Phrase, AStatement.SourceLine, rtrRuntimeTemplate);
 end;
 
 { A file name, as opposed to a sentence that happens to contain a dot. Both
@@ -984,6 +1090,7 @@ begin
         'InputQuery', 'DialogMessage');
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'ShowScheduleDialog', 'DialogTitle');
+      ScanListHeading(Statement, AResult, AFileName, AUnitName);
       { Do not harvest broad Items.Add/Lines.Add/Strings.Add or canvas
         drawing calls. In real applications these are commonly data rows,
         logs, filenames, generated HTML, or owner-drawn runtime values rather

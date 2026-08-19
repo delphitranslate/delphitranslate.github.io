@@ -420,6 +420,7 @@ var
   FileName, Line, Prop, Value, Name, ClassName, FormName: string;
   SourceText, TranslatedText: string;
   I, P: Integer;
+  CollectionDepth: Integer;
   Frame, ParentFrame: TObjectFrame;
   Number: Double;
   BoolValue: Boolean;
@@ -438,11 +439,31 @@ begin
     for FileName in Files do
     begin
       Stack.Clear;
+      CollectionDepth := 0;
       LoadDelphiTextFile(FileName, Lines);
       FormName := '';
       for I := 0 to Lines.Count - 1 do
       begin
         Line := Trim(Lines[I]);
+        { Inside a collection nothing is an object and nothing closes one.
+
+          A .dfm writes a collection as Columns = < item ... end item ... end >
+          and every one of those item blocks is closed by a line reading "end".
+          Those were being counted as objects closing, so a grid with three
+          columns popped three frames that had never been pushed. The stack
+          ran empty and every control after the grid looked like a top-level
+          object - which is to say, like a form. That is how a group box came
+          to be filed as a form of its own, and why the layout rules for the
+          controls inside it named a form that does not exist at run time and
+          were never applied to anything. The strings were unaffected, because
+          the text scanner walks collections properly; only the layout half
+          was reading the file this way. }
+        if CollectionDepth > 0 then
+        begin
+          if EndsText('>', Line) then
+            Dec(CollectionDepth);
+          Continue;
+        end;
         if ParseObject(Line, Name, ClassName) then
         begin
           Frame := Default(TObjectFrame);
@@ -518,6 +539,14 @@ begin
         P := Pos('=', Line);
         if P = 0 then
           Continue;
+        { A value that opens with '<' and does not close on the same line is a
+          collection; everything up to its closing '>' belongs to it. }
+        if StartsText('<', Trim(Copy(Line, P + 1, Length(Line)))) and
+          not EndsText('>', Line) then
+        begin
+          Inc(CollectionDepth);
+          Continue;
+        end;
         Prop := Trim(Copy(Line, 1, P - 1));
         Value := Trim(Copy(Line, P + 1, MaxInt));
         Frame := Stack[Stack.Count - 1];

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "xx-XX",
+    "nativeLanguageName": "Contract",
+    "textDirection": "ltr",
+    "shortDateFormat": "dd/mm/yyyy",
+    "longDateFormat": "dddd, d mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "$"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblMedia.Caption",
+      "sourceText": "Media Player",
+      "translatedText": "Reproductor multimedia",
+      "formName": "ContractForm",
+      "componentName": "lblMedia",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_22_a_grid_does_not_end_the_form.dfm",
+      "sourceLine": 44,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

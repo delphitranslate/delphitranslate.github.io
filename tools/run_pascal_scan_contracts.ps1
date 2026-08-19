@@ -1,4 +1,4 @@
-<#
+﻿<#
 Runs the Pascal scan contracts.
 
 The fixture in contracts\pascalscan holds the shapes that have produced a wrong
@@ -59,7 +59,8 @@ $mustClaim = @(
   'Enter information in these fields to silence the bell system on selected dates.',
   'Caption after an apostrophe in a comment',
   'Time',
-  'Song'
+  'Song',
+  'Remaining events for Today:'
 )
 
 # Plumbing, which must not be.

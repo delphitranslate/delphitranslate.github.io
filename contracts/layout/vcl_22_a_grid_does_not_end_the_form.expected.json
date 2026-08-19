@@ -1,0 +1,11 @@
+{
+  "description": "A grid's Columns collection is written as item blocks, each closed by a line reading end. Counting those as objects closing empties the object stack, and every control after the grid is read as a top-level object - as a form. The group box below this grid became a form of its own, and the layout rules for the label inside it were filed under a form name that does not exist at run time, so nothing was ever applied to it. The label must be found on ContractForm, and it must be given room for a caption nearly twice the width of its box.",
+  "catalog_file": "vcl_22_a_grid_does_not_end_the_form.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblMedia",
+      "text_fits": true
+    }
+  ]
+}

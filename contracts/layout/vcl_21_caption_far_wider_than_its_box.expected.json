@@ -1,0 +1,16 @@
+{
+  "description": "A caption that outgrows its control by a wide margin has to be given room. Both of these are taken from a real application: a button whose Spanish caption needs roughly twice its width, and a small label used as a heading whose caption needs nearly twice its own. Neither is a borderline case that a point of font reduction would settle. The planner produced no proposal at all for either of them - not a width, not a height, not a font - so both drew over their neighbours in the running application while the analysis reported nothing to fix.",
+  "catalog_file": "vcl_21_caption_far_wider_than_its_box.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "btnRecalc",
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "lblMedia",
+      "text_fits": true
+    }
+  ]
+}
