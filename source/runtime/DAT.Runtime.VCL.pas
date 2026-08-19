@@ -518,6 +518,8 @@ const
   CollectionProperties: array[0..3] of string =
     ('Columns', 'Panels', 'Sections', 'Items');
   ItemTextProperties: array[0..1] of string = ('Caption', 'Text');
+  { Sub-objects of a collection item that carry text of their own. }
+  ItemHolderProperties: array[0..1] of string = ('Title', 'Header');
 var
   Collection: TCollection;
   CollectionName: string;
@@ -526,6 +528,9 @@ var
   ItemIndex: Integer;
   ItemPropertyInfo: PPropInfo;
   ItemTextName: string;
+  ItemHolderName: string;
+  HolderObject: TObject;
+  HolderPropertyInfo: PPropInfo;
   PropertyInfo: PPropInfo;
   TranslatedText: string;
 begin
@@ -557,7 +562,76 @@ begin
         SetStrProp(Item, ItemPropertyInfo, TranslatedText);
         Inc(Result);
       end;
+      { And one level further in. A grid does not keep its heading on the
+        column: it keeps it on the column's Title, so the pack carries
+        "Columns[0].Title.Caption" and nothing here reached it. Those headings
+        stayed in the source language on a grid whose every row was translated
+        around them. }
+      for ItemHolderName in ItemHolderProperties do
+      begin
+        HolderPropertyInfo := GetPropInfo(Item.ClassInfo, ItemHolderName);
+        if (HolderPropertyInfo = nil) or
+          (HolderPropertyInfo.PropType^.Kind <> tkClass) then
+          Continue;
+        HolderObject := GetObjectProp(Item, HolderPropertyInfo);
+        if not (HolderObject is TPersistent) then
+          Continue;
+        for ItemTextName in ItemTextProperties do
+        begin
+          ItemPropertyInfo := GetPropInfo(HolderObject.ClassInfo, ItemTextName,
+            [tkString, tkLString, tkWString, tkUString]);
+          if ItemPropertyInfo = nil then
+            Continue;
+          if not APack.TryGetText(ComponentKey(AFormIdentity, AForm,
+            AComponent, Format('%s[%d].%s.%s',
+              [CollectionName, ItemIndex, ItemHolderName, ItemTextName])),
+            TranslatedText) then
+            Continue;
+          SetStrProp(HolderObject, ItemPropertyInfo, TranslatedText);
+          Inc(Result);
+        end;
+      end;
     end;
+  end;
+end;
+
+{ Stop a control sizing itself before its text changes, not after.
+
+  A label that sizes itself is measured by the caption it is holding. Give it a
+  translation with no line breaks in it and it collapses to a single line -
+  wide and one line tall - the instant the caption is assigned. Switching
+  AutoSize off afterwards, which is what the ordered layout pass does, only
+  freezes it in that shape: the width is put right by the Width rule, the text
+  wraps inside it, and two of its three lines are drawn outside a box twenty
+  pixels high. The instruction paragraph on the random-directory page was one
+  line of three for exactly this reason.
+
+  So the AutoSize rules are applied first, on their own, before a single
+  caption is written. The ordered pass applies them again afterwards, which
+  costs nothing and keeps that pass complete in itself. }
+procedure ApplyAutoSizeRulesFirst(const AForm: TCustomForm;
+  const APack: TRuntimeLanguagePack; const AFormIdentity: string);
+var
+  Component: TComponent;
+  Rule: TRuntimeLayoutRule;
+begin
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  for Rule in APack.LayoutRules do
+  begin
+    if not SameText(Rule.FormName, AFormIdentity) then
+      Continue;
+    if not SameText(Rule.PropertyName, 'AutoSize') then
+      Continue;
+    if SameText(Rule.ComponentName, AFormIdentity) or
+      SameText(Rule.ComponentName, AForm.Name) or
+      (Trim(Rule.ComponentName) = '') then
+      Component := AForm
+    else
+      Component := AForm.FindComponent(Rule.ComponentName);
+    if Component = nil then
+      Continue;
+    TrySetLayoutProperty(Component, Rule.PropertyName, Rule.TranslatedValue);
   end;
 end;
 
@@ -605,6 +679,10 @@ begin
     SavedFocusedState := (SavedFocusedControl <> nil) and
       SavedFocusedControl.Focused;
   end;
+
+  { Before any caption is written, so nothing has a chance to resize itself
+    around its new text. }
+  ApplyAutoSizeRulesFirst(AForm, APack, FormIdentity);
 
   Result := 0;
   try
