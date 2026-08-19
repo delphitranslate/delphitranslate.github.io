@@ -65,7 +65,12 @@ const
     '"translatedValue":"True","sourceChecksum":"t"},' +
     '{"formName":"frmWrap","componentName":"lblPara",' +
     '"propertyName":"Width","originalValue":"577",' +
-    '"translatedValue":"577","sourceChecksum":"t"}]}';
+    '"translatedValue":"577","sourceChecksum":"t"},' +
+    { A column heading that will not fit needs its column widened, and the
+      rule names the grid with a path into it. }
+    '{"formName":"frmWrap","componentName":"grdGroups",' +
+    '"propertyName":"Columns[1].Width","originalValue":"72",' +
+    '"translatedValue":"150","sourceChecksum":"t"}]}';
 begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
@@ -163,6 +168,11 @@ begin
         'The first column heading is translated.');
       Check(Grid.Columns[1].Title.Caption = 'Fecha inicial',
         'And the second.');
+      Writeln(Format('        column widths: %d, %d',
+        [Grid.Columns[0].Width, Grid.Columns[1].Width]));
+      Check(Grid.Columns[1].Width = 150,
+        Format('The column was widened to hold its heading, not left at %d.',
+          [Grid.Columns[1].Width]));
     finally
       Form.Free;
     end;

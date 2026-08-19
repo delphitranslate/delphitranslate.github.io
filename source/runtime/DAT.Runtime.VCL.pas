@@ -60,6 +60,7 @@ implementation
 
 uses
   System.SysUtils,
+  System.StrUtils,
   System.TypInfo,
   Vcl.Controls,
   Vcl.Graphics,
@@ -499,6 +500,92 @@ begin
   Inc(Result, RestoreOriginalGeometry(AForm, APack, FormIdentity));
 end;
 
+{ A property reached through a collection: "Columns[1].Width".
+
+  A grid's columns are not components, so nothing can be found by name and the
+  ordinary property path does not reach them. The analyser plans a column's
+  width the way it plans anything else - a German heading is one unbreakable
+  word, so widening the column is the only thing that will hold it - and the
+  rule names the grid with the path into it. This walks that path.
+
+  Returns False for anything that is not of that shape, so the ordinary
+  handling below is left to deal with it. }
+function TrySetCollectionProperty(const AComponent: TComponent;
+  const APropertyName, AValue: string): Boolean;
+var
+  Collection: TCollection;
+  CollectionName: string;
+  CollectionObject: TObject;
+  IndexText: string;
+  ItemIndex: Integer;
+  ItemProperty: string;
+  ItemPropertyInfo: PPropInfo;
+  OpenAt, CloseAt, DotAt: Integer;
+  PropertyInfo: PPropInfo;
+  Target: TObject;
+  NumberValue: Extended;
+begin
+  Result := False;
+  OpenAt := Pos('[', APropertyName);
+  CloseAt := Pos(']', APropertyName);
+  if (OpenAt < 2) or (CloseAt < OpenAt + 2) then
+    Exit;
+  DotAt := CloseAt + 1;
+  if (DotAt > Length(APropertyName)) or (APropertyName[DotAt] <> '.') then
+    Exit;
+  CollectionName := Copy(APropertyName, 1, OpenAt - 1);
+  IndexText := Copy(APropertyName, OpenAt + 1, CloseAt - OpenAt - 1);
+  ItemProperty := Copy(APropertyName, DotAt + 1, Length(APropertyName));
+  if not TryStrToInt(IndexText, ItemIndex) then
+    Exit;
+
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, CollectionName);
+  if (PropertyInfo = nil) or (PropertyInfo.PropType^.Kind <> tkClass) then
+    Exit;
+  CollectionObject := GetObjectProp(AComponent, PropertyInfo);
+  if not (CollectionObject is TCollection) then
+    Exit;
+  Collection := TCollection(CollectionObject);
+  if (ItemIndex < 0) or (ItemIndex >= Collection.Count) then
+    Exit;
+  Target := Collection.Items[ItemIndex];
+
+  { One level further in again, for a heading held on the column's Title. }
+  DotAt := Pos('.', ItemProperty);
+  if DotAt > 0 then
+  begin
+    PropertyInfo := GetPropInfo(Target.ClassInfo,
+      Copy(ItemProperty, 1, DotAt - 1));
+    if (PropertyInfo = nil) or (PropertyInfo.PropType^.Kind <> tkClass) then
+      Exit;
+    Target := GetObjectProp(Target, PropertyInfo);
+    if Target = nil then
+      Exit;
+    ItemProperty := Copy(ItemProperty, DotAt + 1, Length(ItemProperty));
+  end;
+
+  ItemPropertyInfo := GetPropInfo(Target.ClassInfo, ItemProperty);
+  if ItemPropertyInfo = nil then
+    Exit;
+  case ItemPropertyInfo.PropType^.Kind of
+    tkInteger, tkInt64:
+      begin
+        if not TryStrToFloat(AValue, NumberValue,
+          TFormatSettings.Invariant) then
+          Exit;
+        if (NumberValue < 0) or (NumberValue > 100000) then
+          Exit;
+        SetOrdProp(Target, ItemPropertyInfo, Round(NumberValue));
+        Result := True;
+      end;
+    tkString, tkLString, tkWString, tkUString:
+      begin
+        SetStrProp(Target, ItemPropertyInfo, AValue);
+        Result := True;
+      end;
+  end;
+end;
+
 { Text that lives in a design-time collection rather than in a property of the
   control itself.
 
@@ -740,8 +827,11 @@ const
     size follows, so the width and height that come after are measured against
     the size the text will really be, and positions are applied last, once
     every control has its final size. }
-  OrderedLayoutProperties: array[0..6] of string = (
-    'AutoSize', 'FontSize', 'WordWrap', 'Width', 'Height', 'Left', 'Top');
+  OrderedLayoutProperties: array[0..7] of string = (
+    'AutoSize', 'FontSize', 'WordWrap', 'Width', 'Height', 'Left', 'Top',
+    { Column widths, which name a path rather than a property. Last, because a
+      column is inside a control that has already been given its own size. }
+    'Columns');
 var
   CandidateRule: TRuntimeLayoutRule;
   Component: TComponent;
@@ -760,7 +850,12 @@ begin
   begin
     if not SameText(Rule.FormName, AFormIdentity) then
       Continue;
-    if not SameText(Rule.PropertyName, OrderedProperty) then
+    if SameText(OrderedProperty, 'Columns') then
+    begin
+      if not StartsText('Columns[', Rule.PropertyName) then
+        Continue;
+    end
+    else if not SameText(Rule.PropertyName, OrderedProperty) then
       Continue;
     Superseded := False;
     if (SameText(Rule.PropertyName, 'Width') or
@@ -792,7 +887,9 @@ begin
       Value := Rule.TranslatedValue
     else
       Value := Rule.OriginalValue;
-    if TrySetLayoutProperty(Component, Rule.PropertyName, Value) then
+    if TrySetCollectionProperty(Component, Rule.PropertyName, Value) then
+      Inc(Result)
+    else if TrySetLayoutProperty(Component, Rule.PropertyName, Value) then
       Inc(Result);
   end;
 end;

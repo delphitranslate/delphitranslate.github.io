@@ -4,18 +4,30 @@ object ContractForm: TContractForm
   Caption = 'Contract Form'
   ClientHeight = 260
   ClientWidth = 760
-  object grdSchedule: TStringGrid
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -12
+  Font.Name = 'Segoe UI'
+  Font.Style = []
+  object grdSchedule: TDBGrid
     Left = 40
     Top = 50
     Width = 680
     Height = 150
-    object colTime: TStringColumn
-      Title.Caption = 'Time'
-      Width = 72
-    end
-    object colType: TStringColumn
-      Title.Caption = 'Type'
-      Width = 72
-    end
+    Columns = <
+      item
+        Expanded = False
+        FieldName = 'PLAYDATEFROM'
+        Title.Caption = 'Play Date From'
+        Width = 72
+        Visible = True
+      end
+      item
+        Expanded = False
+        FieldName = 'PLAYTIME'
+        Title.Caption = 'Play Time'
+        Width = 72
+        Visible = True
+      end>
   end
 end

@@ -1,16 +1,16 @@
 {
-  "description": "The VCL counterpart of 06_grid_headers_fit. Grid column headers are treated as visible text-bearing controls and must receive enough measured width to fit their translated captions.",
+  "description": "A grid keeps its columns in a collection, written as Columns = <item ... end>, and each item carries both the heading and the width that has to hold it. The heading is translated already; the width was never planned, because a collection item is not a control and the layout scan has never seen one. A German heading is a single unbreakable word - there is no space to wrap at and a grid heading does not wrap in any case - so width is the only thing that can give. Seventy-two pixels will not hold Spielverabredungen at any readable size. Seventy-two is the width it is drawn at, so a hundred is proof it was actually given room rather than merely found.",
   "catalog_file": "vcl_06_grid_headers_fit.catalog.json",
-  "expect_clean": true,
   "controls": [
     {
       "form": "ContractForm",
-      "name": "colTime",
-      "text_fits": true
+      "name": "grdSchedule.Columns[0]",
+      "text_fits": true,
+      "planned_width_at_least": 100
     },
     {
       "form": "ContractForm",
-      "name": "colType",
+      "name": "grdSchedule.Columns[1]",
       "text_fits": true
     }
   ]

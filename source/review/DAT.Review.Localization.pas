@@ -273,6 +273,31 @@ begin
   end;
 end;
 
+{ The heading a grid column carries, which the catalogue files under the grid
+  rather than under the column: "grdSchedule.Columns[0].Title.Caption". }
+procedure CatalogTextForColumn(const ACatalog: TTranslationCatalog;
+  const AFormName, AGridName: string; const AColumnIndex: Integer;
+  out ASourceText, ATranslatedText: string);
+var
+  Entry: TTranslationEntry;
+  Wanted: string;
+begin
+  ASourceText := '';
+  ATranslatedText := '';
+  if ACatalog = nil then
+    Exit;
+  Wanted := Format('Columns[%d].Title.Caption', [AColumnIndex]);
+  for Entry in ACatalog.Entries do
+    if SameText(Entry.FormName, AFormName) and
+      SameText(Entry.ComponentName, AGridName) and
+      SameText(Entry.PropertyName, Wanted) then
+    begin
+      ASourceText := Entry.SourceText;
+      ATranslatedText := Entry.TranslatedText;
+      Exit;
+    end;
+end;
+
 function CatalogTextForControl(const ACatalog: TTranslationCatalog;
   const AFormName, AComponentName: string; out ASource,
   ATranslation: string): Boolean;
@@ -331,6 +356,7 @@ procedure AddProposal(const AReview: TLocalizationReview;
 var
   ExistingNumber: Double;
   NewNumber: Double;
+  DotAt: Integer;
   Proposal: TLayoutProposal;
 begin
   for Proposal in AReview.Proposals do
@@ -352,8 +378,19 @@ begin
     end;
   Proposal := TLayoutProposal.Create;
   Proposal.FormName := AControl.FormName;
+  { A column is modelled under a name of its own - grdSchedule.Columns[0] -
+    because everything that sizes a control looks controls up by name. The
+    runtime has no such component to find, though: it has the grid, and a
+    property path into it. The name is split back apart on the way out. }
   Proposal.ComponentName := AControl.ComponentName;
   Proposal.PropertyName := APropertyName;
+  DotAt := Pos('.', AControl.ComponentName);
+  if DotAt > 0 then
+  begin
+    Proposal.ComponentName := Copy(AControl.ComponentName, 1, DotAt - 1);
+    Proposal.PropertyName := Copy(AControl.ComponentName, DotAt + 1,
+      Length(AControl.ComponentName)) + '.' + APropertyName;
+  end;
   Proposal.CurrentValue := ACurrent;
   Proposal.ProposedValue := AProposed;
   Proposal.Rationale := ARationale;
@@ -421,6 +458,10 @@ var
   SourceText, TranslatedText: string;
   I, P: Integer;
   CollectionDepth: Integer;
+  CollectionProperty, CollectionOwner: string;
+  CollectionItemIndex: Integer;
+  CollectionFontSize: Double;
+  ColumnControl: TLayoutControl;
   Frame, ParentFrame: TObjectFrame;
   Number: Double;
   BoolValue: Boolean;
@@ -440,6 +481,11 @@ begin
     begin
       Stack.Clear;
       CollectionDepth := 0;
+      CollectionProperty := '';
+      CollectionOwner := '';
+      CollectionItemIndex := -1;
+      CollectionFontSize := DefaultVCLFontSize;
+      ColumnControl := nil;
       LoadDelphiTextFile(FileName, Lines);
       FormName := '';
       for I := 0 to Lines.Count - 1 do
@@ -460,8 +506,56 @@ begin
           was reading the file this way. }
         if CollectionDepth > 0 then
         begin
+          { A grid's columns are the one collection worth reading. Each item
+            carries the heading and the width that has to hold it, and until
+            now neither was measurable: a collection item is not an object, so
+            the scan skipped straight over it and the planner never saw a
+            column in its life. German is where that stops being survivable -
+            a heading like Spielverabredungen is one unbreakable word, a grid
+            heading does not wrap, and width is the only thing left to give.
+
+            Each column is modelled as a control of its own, named for the
+            grid and its position, so everything that already knows how to
+            size a control can size a column too. It has a width but no
+            position: where a column sits is the grid's business, and the
+            passes that move things must leave it alone. }
+          if SameText(CollectionProperty, 'Columns') then
+          begin
+            if SameText(Line, 'item') then
+            begin
+              Inc(CollectionItemIndex);
+              ColumnControl := TLayoutControl.Create;
+              ColumnControl.FormName := FormName;
+              ColumnControl.ParentName := CollectionOwner;
+              ColumnControl.ComponentName := Format('%s.Columns[%d]',
+                [CollectionOwner, CollectionItemIndex]);
+              ColumnControl.ComponentClassName := 'TColumn';
+              ColumnControl.SourceFileName := FileName;
+              ColumnControl.FontSize := CollectionFontSize;
+              ColumnControl.HasSize := True;
+              ColumnControl.HasPosition := False;
+              CatalogTextForColumn(ACatalog, FormName, CollectionOwner,
+                CollectionItemIndex, SourceText, TranslatedText);
+              ColumnControl.SourceText := SourceText;
+              ColumnControl.TranslatedText := TranslatedText;
+              AReview.Controls.Add(ColumnControl);
+            end
+            else if (ColumnControl <> nil) and StartsText('Width', Line) then
+            begin
+              P := Pos('=', Line);
+              if (P > 0) and TryStrToFloat(Trim(Copy(Line, P + 1, Length(Line))),
+                Number, TFormatSettings.Invariant) then
+                ColumnControl.Width := Number;
+            end
+            else if SameText(Line, 'end') then
+              ColumnControl := nil;
+          end;
           if EndsText('>', Line) then
+          begin
             Dec(CollectionDepth);
+            CollectionProperty := '';
+            ColumnControl := nil;
+          end;
           Continue;
         end;
         if ParseObject(Line, Name, ClassName) then
@@ -559,6 +653,21 @@ begin
           not EndsText('>', Line) then
         begin
           Inc(CollectionDepth);
+          { Read from this line, not from Prop: that is assigned further down
+            and still holds whatever the line before this one was called. }
+          CollectionProperty := Trim(Copy(Line, 1, P - 1));
+          CollectionItemIndex := -1;
+          ColumnControl := nil;
+          if Stack.Count > 0 then
+          begin
+            CollectionOwner := Stack[Stack.Count - 1].Name;
+            CollectionFontSize := Stack[Stack.Count - 1].Control.FontSize;
+          end
+          else
+          begin
+            CollectionOwner := '';
+            CollectionFontSize := DefaultVCLFontSize;
+          end;
           Continue;
         end;
         Prop := Trim(Copy(Line, 1, P - 1));
@@ -768,6 +877,8 @@ var
   SettleWanted, SettleTakeLeft, SettleTakeRight: Double;
   SettleFloor: Double;
   SettleSavedLeft, SettleSavedWidth: Double;
+  BalanceLines: Integer;
+  BalanceWidth, BalanceStep: Double;
   SettleFits: Boolean;
   LineCount: Integer;
   NewWidth: Integer;
@@ -3231,6 +3342,58 @@ begin
       2 * PaddingVertical(Control);
     Control.PlannedHeight := Max(Control.Height,
       Min(Control.PlannedHeight, Ceil(SettleHeight)));
+  end;
+
+  { Text that wraps is given the width the wrap uses, and no more.
+
+    A box wider than the text needs does not look generous, it looks ragged:
+    the words fill the first line, one or two fall onto the second, and the
+    eye reads the gap rather than the sentence. That is the raggedness a
+    typesetter spends a career removing, and the lever for it here is the same
+    one used for everything else - the width of the box - because the wrapping
+    itself is done by the framework at the moment of drawing.
+
+    So the box is narrowed to the least width that still breaks the text into
+    the same number of lines. Nothing about the layout changes: the same words
+    on the same number of lines, sharing the room evenly instead of leaving it
+    all at the end. It never grows a box and never moves one, and a control
+    whose text fits on one line is left entirely alone. }
+  for Control in AReview.Controls do
+  begin
+    if Trim(Control.TranslatedText) = '' then
+      Continue;
+    if not (Control.HasSize and Control.PlannedWordWrap) then
+      Continue;
+    if IsVisualContainer(Control) or IsButtonLike(Control) then
+      Continue;
+    { A right-aligned caption is anchored by its right edge and was widened
+      leftwards on purpose; narrowing it would walk it straight back again. }
+    if IsRightAligned(Control) then
+      Continue;
+    if Control.PlannedWidth <= MinimumWrapWidth then
+      Continue;
+    BalanceLines := WrappedLineCount(Control, Control.PlannedWidth);
+    if BalanceLines <= 1 then
+      Continue;
+    { Walk in from the right until one more step would cost another line. }
+    BalanceWidth := Control.PlannedWidth;
+    BalanceStep := Max(8, Control.PlannedWidth / 40);
+    while (BalanceWidth - BalanceStep > MinimumWrapWidth) and
+      (WrappedLineCount(Control, BalanceWidth - BalanceStep) <=
+        BalanceLines) do
+      BalanceWidth := BalanceWidth - BalanceStep;
+    if BalanceWidth < Control.PlannedWidth then
+    begin
+      { A centred caption keeps its centre while it narrows, or balancing the
+        lines would slide the block off to one side. }
+      if IsCentreAligned(Control) then
+        Control.PlannedLeft := Control.PlannedLeft +
+          (Control.PlannedWidth - BalanceWidth) / 2
+      else if IsRightAligned(Control) then
+        Control.PlannedLeft := Control.PlannedLeft +
+          (Control.PlannedWidth - BalanceWidth);
+      Control.PlannedWidth := BalanceWidth;
+    end;
   end;
 
   { Paragraphs standing together read as one block, so they take one size.

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "xx-XX",
+    "nativeLanguageName": "Contract",
+    "textDirection": "ltr",
+    "shortDateFormat": "dd/mm/yyyy",
+    "longDateFormat": "dddd, d mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "$"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblSetting.Caption",
+      "sourceText": "Notifications",
+      "translatedText": "Benachrichtigungseinstellungen",
+      "formName": "ContractForm",
+      "componentName": "lblSetting",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_29_a_long_word_gets_room.dfm",
+      "sourceLine": 12,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "description": "Text that wraps should not be given more width than the wrap actually uses. This label is drawn 820 wide and its German needs two lines however it is broken; leaving it at 820 puts almost all of the words on the first line and one or two on the second, which is the ragged look a typesetter spends their life avoiding. Narrowing the box to the least width that still gives two lines shares the words between them. The box may not grow, and the text must still fit.",
+  "catalog_file": "vcl_28_wrapped_text_is_balanced.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblNote",
+      "text_fits": true,
+      "planned_width_at_most": 620,
+      "planned_left_equals": 24
+    }
+  ]
+}
