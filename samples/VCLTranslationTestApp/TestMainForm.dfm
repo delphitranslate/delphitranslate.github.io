@@ -31,21 +31,21 @@ object frmVCLTestMain: TfrmVCLTestMain
   object lblLanguage: TLabel
     Left = 640
     Top = 62
-    Width = 56
+    Width = 55
     Height = 15
     Caption = 'Language:'
   end
   object lblCustomerName: TLabel
     Left = 24
     Top = 250
-    Width = 90
+    Width = 88
     Height = 15
     Caption = 'Customer name:'
   end
   object lblEmail: TLabel
     Left = 24
     Top = 300
-    Width = 80
+    Width = 75
     Height = 15
     Caption = 'Email address:'
   end
@@ -64,7 +64,7 @@ object frmVCLTestMain: TfrmVCLTestMain
     Width = 560
     Height = 34
     AutoSize = False
-    Caption =
+    Caption = 
       'Choose a language below. Every caption on this form is translate' +
       'd from the offline language pack.'
     WordWrap = True
@@ -92,14 +92,6 @@ object frmVCLTestMain: TfrmVCLTestMain
     Height = 120
     Caption = 'Schedule options'
     TabOrder = 1
-    object chkEnableSchedule: TCheckBox
-      Left = 16
-      Top = 28
-      Width = 130
-      Height = 17
-      Caption = 'Enable scheduling'
-      TabOrder = 0
-    end
     object lblScheduleNote: TLabel
       Left = 16
       Top = 54
@@ -109,6 +101,14 @@ object frmVCLTestMain: TfrmVCLTestMain
       Caption = 'Bells ring on the hour while scheduling is enabled.'
       WordWrap = True
     end
+    object chkEnableSchedule: TCheckBox
+      Left = 16
+      Top = 28
+      Width = 130
+      Height = 17
+      Caption = 'Enable scheduling'
+      TabOrder = 0
+    end
   end
   object pnlMedia: TPanel
     Left = 336
@@ -116,7 +116,6 @@ object frmVCLTestMain: TfrmVCLTestMain
     Width = 280
     Height = 120
     BevelOuter = bvLowered
-    Caption = ''
     TabOrder = 2
     object btnPlay: TButton
       Left = 14
@@ -149,7 +148,6 @@ object frmVCLTestMain: TfrmVCLTestMain
     Width = 240
     Height = 23
     TabOrder = 3
-    Text = ''
   end
   object edtEmail: TEdit
     Left = 24
@@ -157,7 +155,6 @@ object frmVCLTestMain: TfrmVCLTestMain
     Width = 240
     Height = 23
     TabOrder = 4
-    Text = ''
   end
   object edtDuration: TEdit
     Left = 396
@@ -165,7 +162,6 @@ object frmVCLTestMain: TfrmVCLTestMain
     Width = 90
     Height = 23
     TabOrder = 5
-    Text = ''
   end
   object memNotes: TMemo
     Left = 24
@@ -255,11 +251,12 @@ object frmVCLTestMain: TfrmVCLTestMain
     ApplicationId = 'VCLTranslationTestApp'
     LanguagesFolder = 'Localization\Languages'
     SourceLanguage = 'en-US'
+    PreferenceFileName = 'language.ini'
     Left = 812
     Top = 108
   end
   object mnuMain: TMainMenu
-    Left = 748
+    Left = 668
     Top = 108
     object mnuFile: TMenuItem
       Caption = 'File'

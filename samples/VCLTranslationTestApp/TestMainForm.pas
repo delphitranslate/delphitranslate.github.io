@@ -36,7 +36,7 @@ uses
   Vcl.Menus,
   Vcl.Grids,
   DAT.Components.VCL,
-  DAT.Components.VCL.LanguageSelector;
+  DAT.Components.VCL.LanguageSelector, DAT.Components.Core;
 
 type
   TfrmVCLTestMain = class(TForm)
