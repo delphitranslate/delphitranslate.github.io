@@ -2049,3 +2049,145 @@ domain sentence is present, that an ambiguous word carries an explicit sense -
 because the wording is now read from each application rather than written in the
 source. It covers Carillon, a file-renaming utility that no domain list would
 have held, and an application that settles nothing.
+
+# Right-to-Left Mirroring (2026-08-20)
+
+Arabic, Hebrew, Farsi and Urdu were offered by the wizard and marked `rtl` in
+the catalog, and the value travelled all the way into the runtime pack as
+`direction` - where nothing read it. `BiDiMode` appeared nowhere in the source.
+A user could pick Arabic, get a clean run, and receive an application with
+Arabic text laid out left to right: labels on the wrong side, controls in Latin
+order, alignment reversed. That is worse than refusing, because it looks like
+it worked.
+
+A right-to-left interface is a reflected interface, not merely reversed text.
+
+## Measured before it was designed
+
+Two experiments settled the shape of the work. Both are worth repeating if this
+is ever revisited.
+
+**BiDiMode.** The obvious choice is the wrong one.
+
+| Mode | Flips alignment | RTL reading | Left scroll bar |
+|---|---|---|---|
+| `bdRightToLeft` | yes | yes | yes |
+| `bdRightToLeftNoAlign` | no | yes | yes |
+| `bdRightToLeftReadingOnly` | no | yes | no |
+
+A label set `taLeftJustify` draws as `DT_RIGHT` under `bdRightToLeft`. Since
+the planner already decides alignment for every control and states it in the
+pack, that flip would land on top of ours and undo it - `taRightJustify` drawn
+as `DT_LEFT`, silently. `bdRightToLeftNoAlign` gives the same reading order and
+the same scroll bar and leaves alignment alone, so one side owns the decision.
+
+`BiDiMode` does not move child controls in any mode, so it neither duplicates
+nor fights the mirrored coordinates.
+
+**Numerals.** Nothing needed doing, and this was checked rather than assumed.
+Given a Hebrew word followed by `2026`, GDI reorders the letters and leaves the
+digits: logical `[05E9][05DC][05D5][05DD]_2026` becomes visual
+`2026_[05DD][05D5][05DC][05E9]`. FireMonkey agrees - the digits occupy one
+unbroken run. Both renderers implement the Unicode bidirectional algorithm, so
+version strings, times and quantities look after themselves.
+
+**FlipChildren**, measured for completeness, computes exactly
+`Parent.ClientWidth - Left - Width`, mirrors within each parent, and swaps
+`Align` - but not `Anchors`.
+
+## Mirrored by the planner, not by either framework
+
+The VCL has `BiDiMode` and `FlipChildren`. FireMonkey has neither. Leaning on
+the VCL's mechanism would mean writing the FireMonkey half separately and
+getting different behaviour on each; mirroring in the planner is one
+implementation, emits the `Left`/`Position.X` rules the runtime already
+applies, and goes through the same contract harness as everything else. The
+FireMonkey and VCL mirroring contracts assert identical numbers because they
+come from the same pass.
+
+`TLocalizationReview.TextDirection` carries the fact from the catalog, the way
+`Framework` already did. Phase 3e runs last, after the settling pass, so it
+reflects final geometry and no earlier pass has to know it exists. The
+transform is parent-relative, which handles nesting without recursion:
+
+    MirroredLeft := ParentInnerWidth - (PlannedLeft + PlannedWidth)
+
+## What mirrors
+
+- **Coordinates**, each control within its own parent.
+- **`Align`**, for controls the framework places. Reflecting the coordinate of
+  an `alLeft` control does nothing at all - the framework re-places it - so the
+  constant changes instead, and the coordinate is deliberately left alone so
+  the two instructions cannot contradict.
+- **`Anchors`**, where exactly one horizontal edge is anchored. Anchored to
+  both the control stretches, which is symmetrical already.
+- **Text alignment**, `taLeftJustify`/`taRightJustify` and
+  `Leading`/`Trailing`. Centre is centre in every language.
+- **Grid column order**, stated once for the grid rather than once per column,
+  because reversing a collection one index at a time depends on the order the
+  moves are made in.
+- **Tab order**, which is reading order by another name.
+- **Reading order and scroll bar side** on the VCL.
+
+## What does not
+
+- **Transport controls.** Rewind, play and stop refer to the direction a tape
+  moves, not the direction a language is read. The group moves to the mirrored
+  side as a block and keeps its internal order. Microsoft's and Apple's
+  guidance agree.
+- **Numbers, times, versions and paths**, handled by the renderers.
+- **Images.** The transform only moves controls, never flips their content, so
+  logos and photographs are safe by construction.
+
+Everything the mirror decides is an ordinary layout proposal and can be
+rejected in review, which is the opt-out.
+
+## Ordering, which is most of the difficulty
+
+Column widths are applied before the column order, because a width names a
+column by the index it was designed at and reversing first would put every
+width on the wrong column. Alignment and `Align` are applied before width and
+height, so measurement reflects reality. `Anchors` is applied after position,
+so the distances it captures are the final ones. Reading order is applied
+before the layout rules, so the alignment rules have the last word.
+
+## Three defects the tests caught
+
+Each was found by a test rather than by reading, and each would have shipped.
+
+1. **The mirror was not restored.** Geometry came back when returning to
+   English but `Align`, `Alignment`, `Anchors` and the column order did not -
+   they were not in the snapshot. A user who tried Hebrew once would have been
+   left with an English program laid out backwards. Reversal is its own
+   opposite, so a grid is put back by reversing it again, which needs the
+   applicator to remember that it reversed one.
+
+2. **FireMonkey never restored at all.** `RestoreOriginalGeometry` existed but
+   was only called from `RestoreSourceLanguage`, not from `ApplyToForm` as it
+   is on the VCL side. Hebrew to Spanish would have left the Spanish form
+   mirrored, because the Spanish pack says nothing about `Align` - it needs
+   nothing said - and silence cannot put an edge back. FireMonkey now restores
+   first, exactly as the VCL does.
+
+3. **The FireMonkey property whitelist silently dropped the new rules.**
+   `IsRuntimeLayoutProperty` listed nine properties; the mirror adds three.
+   The rules were carried in the pack, matched by the ordered pass, and
+   discarded without a word - the precise drift that list was written to
+   prevent. The VCL applicator has no such gate, which is why it worked first
+   time and FireMonkey did not.
+
+A fourth was caught while writing the transport grouping: the block bounds were
+being measured while its members were already being moved, so the second and
+third buttons reflected against a shape that was half in its old place. The
+group is gathered before any of it moves.
+
+## Not done
+
+Phase 9 of the plan - a real Hebrew or Arabic pack against Carillon, with
+screenshots. Everything above is proved by contract and by applicator test on
+purpose-built forms. It has not been seen on a real application in a real
+language, and every significant defect this project has found came from exactly
+that step.
+
+`TAlignLayout.Left` is 5 and `Right` is 9 in this version, not 2 and 3. Read
+them rather than assuming.

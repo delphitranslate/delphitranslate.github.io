@@ -5,6 +5,9 @@ interface
 uses
   System.Generics.Collections,
   System.Types,
+  { TAlignLayout is named in the snapshot below, so it belongs in the
+    interface rather than only in the implementation. }
+  FMX.Types,
   FMX.Forms,
   DAT.Runtime.LanguagePack;
 
@@ -35,6 +38,13 @@ type
     StyledSettings: Byte;
     HasAutoSize: Boolean;
     AutoSize: Boolean;
+    { A mirrored layout changes more than coordinates, and everything it
+      changes has to be restorable. }
+    Align: TAlignLayout;
+    { As text, read and written through RTTI, so the snapshot does not have to
+      name a set type that lives in another unit. }
+    Anchors: string;
+    HorzAlign: Byte;
   end;
 
   TFMXTranslationApplicator = class
@@ -69,14 +79,13 @@ uses
   System.SysUtils,
   System.StrUtils,
   System.TypInfo,
-  FMX.Controls,
   System.UITypes,
+  FMX.Controls,
   FMX.Edit,
   FMX.Grid,
   FMX.Memo,
   FMX.Graphics,
   FMX.StdCtrls,
-  FMX.Types,
   FMX.TextLayout,
   FMX.WebBrowser;
 
@@ -132,7 +141,14 @@ begin
     SameText(APropertyName, 'Top') or
     SameText(APropertyName, 'Position.X') or
     SameText(APropertyName, 'Position.Y') or
-    SameText(APropertyName, 'FontSize');
+    SameText(APropertyName, 'FontSize') or
+    { The parts of a right-to-left mirror that are constants rather than
+      coordinates. Without these the rules are carried in the pack, matched
+      by the ordered pass, and then dropped here in silence - which is what
+      happened, and is exactly the drift this list was written to prevent. }
+    SameText(APropertyName, 'Align') or
+    SameText(APropertyName, 'Anchors') or
+    SameText(APropertyName, 'TextSettings.HorzAlign');
 end;
 
 function PositionKey(const AFormIdentity: string;
@@ -310,6 +326,66 @@ end;
   Take the setting out of style control, then assign it, and stop trimming so
   a control that has been given a fixed width shows its text on several lines
   rather than clipping it. }
+{ Which edge the text sits against.
+
+  FireMonkey has no BiDiMode and no FlipChildren, so under a right-to-left
+  language this is the whole of what the framework contributes and the planner
+  does everything else. StyledSettings has to give up HorzAlign first or the
+  style puts it straight back. }
+{ Anchors as the designer would write them, through RTTI. }
+function ReadAnchorsText(const AComponent: TComponent): string;
+var
+  PropertyInfo: PPropInfo;
+begin
+  Result := '';
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'Anchors');
+  if PropertyInfo <> nil then
+    Result := GetSetProp(AComponent, PropertyInfo, True);
+end;
+
+procedure WriteAnchorsText(const AComponent: TComponent;
+  const AValue: string);
+var
+  PropertyInfo: PPropInfo;
+begin
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'Anchors');
+  if PropertyInfo <> nil then
+    try
+      SetSetProp(AComponent, PropertyInfo, AValue);
+    except
+      { A control with no anchors of that shape is left as it is. }
+    end;
+end;
+
+function ApplyHorzAlignSetting(const AComponent: TComponent;
+  const AValue: string): Boolean;
+var
+  Settings: ITextSettings;
+  Alignment: TTextAlign;
+begin
+  Result := False;
+  if not AsTextSettings(AComponent, Settings) then
+    Exit;
+  if MatchText(Trim(AValue), ['Leading', 'TTextAlign.Leading',
+    'taLeftJustify']) then
+    Alignment := TTextAlign.Leading
+  else if MatchText(Trim(AValue), ['Trailing', 'TTextAlign.Trailing',
+    'taRightJustify']) then
+    Alignment := TTextAlign.Trailing
+  else if MatchText(Trim(AValue), ['Center', 'Centre', 'TTextAlign.Center',
+    'taCenter']) then
+    Alignment := TTextAlign.Center
+  else
+    Exit;
+  Settings.StyledSettings := Settings.StyledSettings -
+    [TStyledSetting.Other];
+  if Settings.TextSettings.HorzAlign <> Alignment then
+  begin
+    Settings.TextSettings.HorzAlign := Alignment;
+    Result := True;
+  end;
+end;
+
 function ApplyWordWrapSetting(const AComponent: TComponent;
   const AValue: Boolean): Boolean;
 var
@@ -389,6 +465,16 @@ begin
     ApplyWordWrapSetting(AComponent, SameText(AValue, 'True'));
     Exit(True);
   end;
+  { Which edge the text sits against. FireMonkey keeps it on TextSettings and
+    guards it with StyledSettings in exactly the way wrapping and font size
+    are guarded, so it is routed the same way: assigned directly it is
+    accepted and then overwritten from the style at paint time. }
+  if MatchText(APropertyName, ['TextSettings.HorzAlign', 'HorzAlign']) and
+    Supports(AComponent, ITextSettings) then
+  begin
+    Result := ApplyHorzAlignSetting(AComponent, AValue);
+    Exit;
+  end;
   if SameText(APropertyName, 'FontSize') and
     Supports(AComponent, ITextSettings) then
   begin
@@ -425,8 +511,23 @@ begin
     else if SameText(AValue, 'False') then
       OrdinalValue := 0
     else
-      Exit;
+    begin
+      { A named value: Align becomes Right for a mirrored layout. }
+      OrdinalValue := GetEnumValue(PropertyInfo.PropType^, AValue);
+      if OrdinalValue < 0 then
+        Exit;
+    end;
     SetOrdProp(AComponent, PropertyInfo, OrdinalValue);
+    Exit(True);
+  end;
+  { Anchors is a set rather than a single value. }
+  if PropertyInfo.PropType^.Kind = tkSet then
+  begin
+    try
+      SetSetProp(AComponent, PropertyInfo, AValue);
+    except
+      Exit(False);
+    end;
     Exit(True);
   end;
 end;
@@ -1426,6 +1527,10 @@ var
         Snapshot.StyledSettings := Byte(StyledSettings);
       end;
       Snapshot.HasAutoSize := TryReadAutoSize(AComponent, Snapshot.AutoSize);
+      Snapshot.Align := Control.Align;
+      Snapshot.Anchors := ReadAnchorsText(AComponent);
+      if Snapshot.HasTextSettings then
+        Snapshot.HorzAlign := Byte(Settings.TextSettings.HorzAlign);
       FOriginalGeometry.Add(Key, Snapshot);
     end;
     for ChildIndex := 0 to AComponent.ComponentCount - 1 do
@@ -1475,6 +1580,7 @@ var
         Settings.TextSettings.FontColor := TAlphaColor(Snapshot.FontColor);
         Settings.TextSettings.WordWrap := Snapshot.WordWrap;
         Settings.TextSettings.Trimming := TTextTrimming(Snapshot.Trimming);
+        Settings.TextSettings.HorzAlign := TTextAlign(Snapshot.HorzAlign);
         Inc(Restored);
       end;
       if not SameValue(Control.Width, Snapshot.Size.X, 0.5) or
@@ -1490,6 +1596,18 @@ var
       begin
         Control.Position.X := Snapshot.Position.X;
         Control.Position.Y := Snapshot.Position.Y;
+        Inc(Restored);
+      end;
+      { The mirror, undone. }
+      if Control.Align <> Snapshot.Align then
+      begin
+        Control.Align := Snapshot.Align;
+        Inc(Restored);
+      end;
+      if (Snapshot.Anchors <> '') and
+        (ReadAnchorsText(AComponent) <> Snapshot.Anchors) then
+      begin
+        WriteAnchorsText(AComponent, Snapshot.Anchors);
         Inc(Restored);
       end;
       if Snapshot.HasAutoSize then
@@ -1655,6 +1773,15 @@ begin
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
   SnapshotOriginalGeometry(AForm, FormIdentity);
+  { Back to the form as it was drawn before anything is applied, exactly as
+    the VCL applicator does.
+
+    Without this each language inherits whatever the last one changed, and a
+    rule that simply is not present in the new pack has nothing to undo it.
+    Going from Hebrew to Spanish left the Spanish form still mirrored: the
+    Spanish pack says nothing about Align because Spanish needs nothing said,
+    and silence cannot put an edge back. }
+  RestoreOriginalGeometry(AForm, FormIdentity);
   if APreserveControlState then
     SavedFocusedControl := AForm.Focused;
 
@@ -1692,9 +1819,12 @@ const
     WordWrap follows, so the height that is applied afterwards describes
     wrapped text. Positions are applied last, once every control has its
     final size. }
-  OrderedLayoutProperties: array[0..6] of string = (
-    'AutoSize', 'FontSize', 'WordWrap', 'Width', 'Height', 'Position.X',
-    'Position.Y');
+  OrderedLayoutProperties: array[0..9] of string = (
+    'AutoSize', 'FontSize', 'WordWrap',
+    { Mirroring, before the geometry, for the same reason as under the VCL. }
+    'TextSettings.HorzAlign', 'Align',
+    'Width', 'Height', 'Position.X', 'Position.Y',
+    'Anchors');
 var
   CandidateRule: TRuntimeLayoutRule;
   Component: TComponent;

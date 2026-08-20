@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "he-IL",
+    "nativeLanguageName": "Contract",
+    "textDirection": "rtl",
+    "shortDateFormat": "dd/mm/yyyy",
+    "longDateFormat": "dddd, d mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "$"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblName.Caption",
+      "sourceText": "Name",
+      "translatedText": "\u05e9\u05dd",
+      "formName": "ContractForm",
+      "componentName": "lblName",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\\\vcl_30_right_to_left_mirrors_the_form.dfm",
+      "sourceLine": 12,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.btnOk.Caption",
+      "sourceText": "OK",
+      "translatedText": "\u05d0\u05d9\u05e9\u05d5\u05e8",
+      "formName": "ContractForm",
+      "componentName": "btnOk",
+      "componentClassName": "TButton",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\\\vcl_30_right_to_left_mirrors_the_form.dfm",
+      "sourceLine": 27,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.btnInner.Caption",
+      "sourceText": "Inner",
+      "translatedText": "\u05e4\u05e0\u05d9\u05de\u05d9",
+      "formName": "ContractForm",
+      "componentName": "btnInner",
+      "componentClassName": "TButton",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\\\vcl_30_right_to_left_mirrors_the_form.dfm",
+      "sourceLine": 39,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

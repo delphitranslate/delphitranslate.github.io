@@ -48,6 +48,10 @@ type
     FHeight: Double;
     FFontSize: Double;
     FAlign: string;
+    FAnchors: string;
+    FTabOrder: Integer;
+    FHasTabOrder: Boolean;
+    FMirrorHandled: Boolean;
     FHorzAlign: string;
     FWordWrap: Boolean;
     FAutoSize: Boolean;
@@ -75,6 +79,18 @@ type
     property FontSize: Double read FFontSize write FFontSize;
     property FontBold: Boolean read FFontBold write FFontBold;
     property Align: string read FAlign write FAlign;
+    { As the designer wrote it, for example [akLeft,akTop]. Only read for a
+      right-to-left layout, where an edge anchor has to change edges. }
+    property Anchors: string read FAnchors write FAnchors;
+    { Keyboard order, which is reading order by another name. In a mirrored
+      layout the first control is the rightmost, so this reverses with
+      everything else - otherwise the eye starts at the right and the Tab key
+      starts at the left. }
+    property TabOrder: Integer read FTabOrder write FTabOrder;
+    property HasTabOrder: Boolean read FHasTabOrder write FHasTabOrder;
+    { Set when the right-to-left pass has already placed this control, so the
+      general reflection leaves it alone. }
+    property MirrorHandled: Boolean read FMirrorHandled write FMirrorHandled;
     { How the text sits inside the control. This decides which way the control
       has to grow: a right-aligned caption must keep its right edge and extend
       leftwards, or its text walks into whatever sits beside it. }
@@ -120,6 +136,7 @@ type
     FApplicationId: string;
     FLanguageCode: string;
     FFramework: TTargetFramework;
+    FTextDirection: string;
     FControls: TObjectList<TLayoutControl>;
     FFindings: TObjectList<TLocalizationFinding>;
     FProposals: TObjectList<TLayoutProposal>;
@@ -143,6 +160,10 @@ type
       which is what happened before this was carried through - sizes every
       caption from the wrong ruler. }
     property Framework: TTargetFramework read FFramework write FFramework;
+    { 'rtl' for Arabic, Hebrew, Farsi and Urdu; 'ltr' for everything else. A
+      right-to-left interface is not a right-to-left string: the whole layout
+      is reflected, so this has to reach the planner and not merely the pack. }
+    property TextDirection: string read FTextDirection write FTextDirection;
     property Controls: TObjectList<TLayoutControl> read FControls;
     property Findings: TObjectList<TLocalizationFinding> read FFindings;
     property Proposals: TObjectList<TLayoutProposal> read FProposals;
@@ -350,6 +371,179 @@ begin
   AFinding.Provenance := TranslationOriginDisplayName(AEntry.TranslationOrigin);
 end;
 
+{ The opposite edge, for the handful of properties that name one.
+
+  Reflecting coordinates is only half a mirror. A control with Align = alLeft
+  is placed by the framework, not by its Left, so moving its coordinate
+  achieves nothing at all and the navigation strip stays stubbornly on the
+  left of a right-to-left form. The constant is the thing that has to change.
+
+  Anchors are the same story one step later. A control anchored to the left
+  edge alone keeps its distance from that edge when the window is resized, so
+  in a mirrored layout it drifts away from the edge the reader is working
+  from. Anchored to both edges it stretches, which is already symmetrical and
+  is left alone.
+
+  Everything here answers with an empty string when there is nothing to
+  change, so a caller can tell "flipped" from "no opinion". }
+
+function MirroredAlign(const AValue: string): string;
+var
+  Trimmed: string;
+begin
+  Result := '';
+  Trimmed := Trim(AValue);
+  { The VCL writes alLeft; FireMonkey has written both alLeft and Left across
+    versions, and MostLeft for the outermost band. }
+  if MatchText(Trimmed, ['alLeft', 'Left']) then
+    Result := Copy(Trimmed, 1, Length(Trimmed) - 4) + 'Right'
+  else if MatchText(Trimmed, ['alRight', 'Right']) then
+    Result := Copy(Trimmed, 1, Length(Trimmed) - 5) + 'Left'
+  else if MatchText(Trimmed, ['alMostLeft', 'MostLeft']) then
+    Result := Copy(Trimmed, 1, Length(Trimmed) - 8) + 'MostRight'
+  else if MatchText(Trimmed, ['alMostRight', 'MostRight']) then
+    Result := Copy(Trimmed, 1, Length(Trimmed) - 9) + 'MostLeft';
+end;
+
+function MirroredTextAlign(const AValue: string): string;
+var
+  Trimmed: string;
+begin
+  Result := '';
+  Trimmed := Trim(AValue);
+  { Centre is centre in every language and is deliberately absent here. }
+  if MatchText(Trimmed, ['taLeftJustify']) then
+    Result := 'taRightJustify'
+  else if MatchText(Trimmed, ['taRightJustify']) then
+    Result := 'taLeftJustify'
+  else if MatchText(Trimmed, ['Leading', 'TTextAlign.Leading']) then
+    Result := 'Trailing'
+  else if MatchText(Trimmed, ['Trailing', 'TTextAlign.Trailing']) then
+    Result := 'Leading';
+end;
+
+function MirroredAnchors(const AValue: string): string;
+var
+  Body: string;
+  HasLeft, HasRight: Boolean;
+begin
+  Result := '';
+  Body := Trim(AValue);
+  if Body = '' then
+    Exit;
+  Body := StringReplace(Body, '[', '', [rfReplaceAll]);
+  Body := StringReplace(Body, ']', '', [rfReplaceAll]);
+  HasLeft := ContainsText(Body, 'akLeft');
+  HasRight := ContainsText(Body, 'akRight');
+  { Anchored to both edges the control stretches, which is symmetrical
+    already. Anchored to neither there is nothing horizontal to change. }
+  if HasLeft = HasRight then
+    Exit;
+  if HasLeft then
+    Body := StringReplace(Body, 'akLeft', 'akRight', [rfReplaceAll,
+      rfIgnoreCase])
+  else
+    Body := StringReplace(Body, 'akRight', 'akLeft', [rfReplaceAll,
+      rfIgnoreCase]);
+  Result := StringReplace(Trim(Body), ' ', '', [rfReplaceAll]);
+end;
+
+{ The largest tab order among the controls sharing this one's parent. }
+function HighestTabOrderAmongSiblings(const AReview: TLocalizationReview;
+  const AControl: TLayoutControl): Integer;
+var
+  Candidate: TLayoutControl;
+begin
+  Result := 0;
+  for Candidate in AReview.Controls do
+    if Candidate.HasTabOrder and
+      SameText(Candidate.FormName, AControl.FormName) and
+      SameText(Candidate.ParentName, AControl.ParentName) and
+      (Candidate.TabOrder > Result) then
+      Result := Candidate.TabOrder;
+end;
+
+{ How many columns were modelled under this control. A column is carried as a
+  pseudo-control named grid.Columns[n], so counting them is counting those. }
+function ColumnCountOf(const AReview: TLocalizationReview;
+  const AControl: TLayoutControl): Integer;
+var
+  Candidate: TLayoutControl;
+  Prefix: string;
+begin
+  Result := 0;
+  Prefix := AControl.ComponentName + '.Columns[';
+  for Candidate in AReview.Controls do
+    if SameText(Candidate.FormName, AControl.FormName) and
+      StartsText(Prefix, Candidate.ComponentName) then
+      Inc(Result);
+end;
+
+{ A control that works a recording rather than a sentence.
+
+  Rewind, play and stop refer to the direction a tape moves. That direction is
+  a fact about the machine, not about the language, so reversing a transport
+  group puts rewind to the right of play in a language where the group now
+  reads the other way - which says the opposite of what it means. Microsoft's
+  and Apple's guidance agree: leave them.
+
+  So the group is moved to the mirrored side of its parent as a block, keeping
+  its internal order, rather than being reflected control by control. }
+function IsTransportControl(const AControl: TLayoutControl): Boolean;
+const
+  Transport: array[0..12] of string = (
+    'play', 'pause', 'stop', 'rewind', 'forward', 'record', 'eject',
+    'skip', 'previous', 'next', 'seek', 'replay', 'shuffle');
+var
+  Word: string;
+begin
+  Result := False;
+  if not ContainsText(AControl.ComponentClassName, 'Button') and
+    not ContainsText(AControl.ComponentClassName, 'SpeedButton') then
+    Exit;
+  for Word in Transport do
+    if ContainsText(AControl.ComponentName, Word) or
+      ContainsText(AControl.SourceText, Word) then
+      Exit(True);
+end;
+
+{ Whether this language is written right to left.
+
+  The wizard settles this when the language is chosen - Arabic, Farsi, Hebrew
+  and Urdu - and it travels with the catalog, so the planner asks rather than
+  guesses. }
+function IsRightToLeft(const AReview: TLocalizationReview): Boolean;
+begin
+  Result := (AReview <> nil) and SameText(Trim(AReview.TextDirection), 'rtl');
+end;
+
+{ The width a control is mirrored within: its parent's, or the form's where the
+  parent is the form itself.
+
+  The form is in the control list like everything else - it is the record whose
+  component name is its own form name - so both cases are the same lookup. A
+  control whose parent cannot be found is left alone rather than reflected
+  against a guess, because mirroring against the wrong width is worse than not
+  mirroring at all. }
+function MirrorContainerWidth(const AReview: TLocalizationReview;
+  const AControl: TLayoutControl): Double;
+var
+  Candidate: TLayoutControl;
+  ParentName: string;
+begin
+  Result := 0;
+  if (AReview = nil) or (AControl = nil) then
+    Exit;
+  ParentName := Trim(AControl.ParentName);
+  if ParentName = '' then
+    ParentName := AControl.FormName;
+  for Candidate in AReview.Controls do
+    if SameText(Candidate.FormName, AControl.FormName) and
+      SameText(Candidate.ComponentName, ParentName) and
+      Candidate.HasSize then
+      Exit(Candidate.PlannedWidth);
+end;
+
 procedure AddProposal(const AReview: TLocalizationReview;
   const AControl: TLayoutControl; const APropertyName, ACurrent,
   AProposed, ARationale: string);
@@ -414,6 +608,7 @@ constructor TLocalizationReview.Create;
 begin
   inherited Create;
   FFramework := tfUnknown;
+  FTextDirection := 'ltr';
   FControls := TObjectList<TLayoutControl>.Create(True);
   FFindings := TObjectList<TLocalizationFinding>.Create(True);
   FProposals := TObjectList<TLayoutProposal>.Create(True);
@@ -710,6 +905,16 @@ begin
         end
         else if SameText(Prop, 'Align') then
           Frame.Control.Align := Value
+        else if SameText(Prop, 'Anchors') then
+          Frame.Control.Anchors := Value
+        else if SameText(Prop, 'TabOrder') then
+        begin
+          if InvariantFloat(Value, Number) then
+          begin
+            Frame.Control.TabOrder := Round(Number);
+            Frame.Control.HasTabOrder := True;
+          end;
+        end
         else if MatchText(Prop, ['TextSettings.HorzAlign', 'HorzAlign',
           'Alignment']) then
           Frame.Control.HorzAlign := Value
@@ -879,6 +1084,11 @@ var
   SettleSavedLeft, SettleSavedWidth: Double;
   BalanceLines: Integer;
   BalanceWidth, BalanceStep: Double;
+  MirrorWidth: Double;
+  MirrorValue: string;
+  MirrorHighest: Integer;
+  MirrorBlockLeft, MirrorBlockRight: Double;
+  MirrorGroup: TList<TLayoutControl>;
   SettleFits: Boolean;
   LineCount: Integer;
   NewWidth: Integer;
@@ -1989,6 +2199,16 @@ var
         Exit;
       end;
     end;
+  end;
+
+  { What each framework calls the property that says which edge text sits
+    against. Same decision, two spellings. }
+  function TextAlignPropertyName(const AControl: TLayoutControl): string;
+  begin
+    if SameText(TPath.GetExtension(AControl.SourceFileName), '.dfm') then
+      Result := 'Alignment'
+    else
+      Result := 'TextSettings.HorzAlign';
   end;
 
   function PositionPropertyName(const AControl: TLayoutControl;
@@ -3432,6 +3652,96 @@ begin
     Control.PlannedFontSize := SettleFont;
   end;
 
+  { Phase 3e - reflect the whole form for a right-to-left language.
+
+    An Arabic or Hebrew interface is not a left-to-right interface with
+    right-to-left words in it. The layout itself is reflected: a caption drawn
+    to the left of its edit box belongs to the right of it, a row of buttons
+    reverses, and the eye starts at the right-hand edge. Anything less reads
+    as a translated foreign program rather than as a program in the reader's
+    own language.
+
+    This runs last, after every other decision, for two reasons. The geometry
+    it reflects is then final - a caption that was widened for a longer
+    translation is mirrored at the width it ended up with, not the width it
+    started with. And every earlier pass can go on thinking in the left-to-
+    right terms it was written and contracted in; none of them needs to know
+    about this at all.
+
+    The arithmetic is one line, and it is the same line the VCL's own
+    FlipChildren uses: the new left edge is the space that used to lie to the
+    right of the control. Coordinates are relative to the parent in both
+    frameworks, so reflecting each control within its own parent handles
+    nesting on its own - a button inside a panel mirrors against the panel,
+    and the panel mirrors against the form, with no recursion needed. }
+  if IsRightToLeft(AReview) then
+  begin
+    { The transport controls of each parent, taken as one shape. Their block
+      moves to the mirrored side; their order inside it does not change. }
+    MirrorGroup := TList<TLayoutControl>.Create;
+    try
+      for Control in AReview.Controls do
+      begin
+        if Control.MirrorHandled or not IsTransportControl(Control) then
+          Continue;
+        if not (Control.HasPosition and Control.HasSize) then
+          Continue;
+        if Trim(Control.Align) <> '' then
+          Continue;
+        MirrorWidth := MirrorContainerWidth(AReview, Control);
+        if MirrorWidth <= 0 then
+          Continue;
+
+        { The whole group is gathered before any of it moves. Measuring the
+          block while its members are already being shifted measures a shape
+          that is half in its old place and half in its new one. }
+        MirrorGroup.Clear;
+        MirrorBlockLeft := Control.PlannedLeft;
+        MirrorBlockRight := Control.PlannedLeft + Control.PlannedWidth;
+        for Other in AReview.Controls do
+          if IsTransportControl(Other) and not Other.MirrorHandled and
+            Other.HasPosition and Other.HasSize and
+            (Trim(Other.Align) = '') and
+            SameText(Other.FormName, Control.FormName) and
+            SameText(Other.ParentName, Control.ParentName) then
+          begin
+            MirrorGroup.Add(Other);
+            MirrorBlockLeft := Min(MirrorBlockLeft, Other.PlannedLeft);
+            MirrorBlockRight := Max(MirrorBlockRight,
+              Other.PlannedLeft + Other.PlannedWidth);
+          end;
+
+        for Other in MirrorGroup do
+        begin
+          Other.PlannedLeft := (MirrorWidth - MirrorBlockRight) +
+            (Other.PlannedLeft - MirrorBlockLeft);
+          Other.MirrorHandled := True;
+        end;
+      end;
+    finally
+      MirrorGroup.Free;
+    end;
+
+    for Control in AReview.Controls do
+    begin
+      if Control.MirrorHandled then
+        Continue;
+      { A control the framework positions is mirrored by changing which edge
+        it is told to sit against, not by moving it. Moving it would be
+        ignored, and the two instructions together would contradict each
+        other. }
+      if Trim(Control.Align) <> '' then
+        Continue;
+      if not (Control.HasPosition and Control.HasSize) then
+        Continue;
+      MirrorWidth := MirrorContainerWidth(AReview, Control);
+      if MirrorWidth <= 0 then
+        Continue;
+      Control.PlannedLeft := MirrorWidth -
+        (Control.PlannedLeft + Control.PlannedWidth);
+    end;
+  end;
+
   { Phase 4 - emit proposals from the settled geometry. Because every value
     comes from the same resolved model, the exported rules agree with one
     another instead of describing conflicting placements. }
@@ -3501,6 +3811,52 @@ begin
           'Heightened to hold the controls inside it.');
     end;
 
+    { The parts of a mirror that are constants rather than coordinates. Each
+      is stated only when it actually changes, so a centred caption and a
+      control anchored to both edges produce nothing. }
+    if IsRightToLeft(AReview) then
+    begin
+      MirrorValue := MirroredAlign(Control.Align);
+      if MirrorValue <> '' then
+        AddProposal(AReview, Control, 'Align', Trim(Control.Align),
+          MirrorValue,
+          'Right-to-left layout: the control is placed by the framework, so ' +
+          'it is mirrored by naming the opposite edge.');
+      MirrorValue := MirroredTextAlign(Control.HorzAlign);
+      if MirrorValue <> '' then
+        AddProposal(AReview, Control, TextAlignPropertyName(Control),
+          Trim(Control.HorzAlign), MirrorValue,
+          'Right-to-left layout: the text sits against the opposite edge.');
+      MirrorValue := MirroredAnchors(Control.Anchors);
+      if MirrorValue <> '' then
+        AddProposal(AReview, Control, 'Anchors', Trim(Control.Anchors),
+          MirrorValue,
+          'Right-to-left layout: an edge anchor has to follow the edge the ' +
+          'reader works from, or the control drifts when the window is ' +
+          'resized.');
+      { Keyboard order follows the eye. The highest tab order among the
+        control's siblings less its own gives the reverse, and a control
+        alone in its parent is left as it is. }
+      if Control.HasTabOrder then
+      begin
+        MirrorHighest := HighestTabOrderAmongSiblings(AReview, Control);
+        if MirrorHighest > 0 then
+          AddProposal(AReview, Control, 'TabOrder',
+            IntToStr(Control.TabOrder),
+            IntToStr(MirrorHighest - Control.TabOrder),
+            'Right-to-left layout: the Tab key follows the reader, so the ' +
+            'first control is the rightmost.');
+      end;
+      { A grid reads right to left as well: its first column belongs at the
+        right-hand edge. Stated once for the grid rather than once per
+        column, because reversing a collection one index at a time depends on
+        the order the moves happen in. }
+      if ColumnCountOf(AReview, Control) > 1 then
+        AddProposal(AReview, Control, 'ColumnOrder', 'designed', 'reversed',
+          'Right-to-left layout: the first column belongs at the edge the ' +
+          'reader starts from.');
+    end;
+
     { Movement is different. The separation pass steps a control aside to make
       room for a caption that grew, and that control is very often an edit box
       or a check box carrying no text of its own. Exporting only the growth and
@@ -3533,6 +3889,7 @@ begin
     Result.ApplicationId := ACatalog.ApplicationId;
     Result.LanguageCode := ACatalog.Locale.LanguageCode;
     Result.Framework := ACatalog.Framework;
+    Result.TextDirection := ACatalog.Locale.TextDirection;
     for Entry in ACatalog.Entries do
       case Entry.TextOwnership of
         tokRuntimeWired: Inc(Result.FRuntimeWiredCount);

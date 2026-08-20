@@ -1694,6 +1694,23 @@ begin
         AddProgress(Format('Ambiguous-term list is installed at %s.',
           [TDomainProfiler.FileName]));
 
+      { A right-to-left language changes the shape of the interface and not
+        only its words, so say so plainly rather than letting the developer
+        discover it in a screenshot. Everything named here is a layout
+        proposal like any other and can be rejected in review. }
+      if SameText(Trim(FCatalog.Locale.TextDirection), 'rtl') then
+      begin
+        AddProgress(Format('%s is written right to left, so the layout is ' +
+          'mirrored as well as translated.', [FCatalog.Locale.LanguageCode]));
+        AddProgress('  Controls are reflected within their parent, edge ' +
+          'alignment and anchors change sides, grid columns and tab order ' +
+          'reverse, and reading order is set right to left.');
+        AddProgress('  Numbers, times and version strings keep their own ' +
+          'direction, and media transport buttons keep their order.');
+        AddProgress('  Text baked into images is not translated or ' +
+          'mirrored, and neither are drawings.');
+      end;
+
       SharedCount := TSharedDictionary.ApplyToCatalog(
         FCatalog.Locale.LanguageCode, FCatalog);
       if SharedCount > 0 then

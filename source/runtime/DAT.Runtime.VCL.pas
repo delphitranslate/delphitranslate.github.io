@@ -5,6 +5,9 @@ interface
 uses
   System.Classes,
   System.Generics.Collections,
+  { TAlign and TAnchors are named in the snapshot below, so they belong in the
+    interface rather than only in the implementation. }
+  Vcl.Controls,
   Vcl.Forms,
   DAT.Runtime.LanguagePack;
 
@@ -33,11 +36,31 @@ type
     AutoSize: Boolean;
     HasWordWrap: Boolean;
     WordWrap: Boolean;
+    { A mirrored layout changes more than coordinates, and everything it
+      changes has to be restorable. Returning to the source language must put
+      a form back as it was drawn; a user who tries Hebrew once and goes back
+      to English should not be left with an English program laid out
+      backwards. }
+    HasAlign: Boolean;
+    Align: TAlign;
+    HasAlignment: Boolean;
+    Alignment: NativeInt;
+    HasAnchors: Boolean;
+    Anchors: TAnchors;
   end;
 
   TVCLTranslationApplicator = class
   private
     class var FOriginalGeometry: TDictionary<string, TDATVCLControlSnapshot>;
+    { Which grids are currently showing their columns in reverse.
+
+      The geometry snapshot cannot carry this: it is taken once, before any
+      language is applied, and records how the form was drawn. Whether the
+      columns are reversed right now is not a fact about the design, it is a
+      fact about the language in force, and it has to be remembered so that
+      returning to the source language can undo it. Reversing is its own
+      opposite, so undoing it is doing it again. }
+    class var FReversedColumns: TDictionary<string, Boolean>;
     class procedure SnapshotOriginalGeometry(const AForm: TCustomForm;
       const AFormIdentity: string); static;
     class function RestoreOriginalGeometry(const AForm: TCustomForm;
@@ -62,9 +85,13 @@ uses
   System.SysUtils,
   System.StrUtils,
   System.TypInfo,
-  Vcl.Controls,
   Vcl.Graphics,
   Vcl.StdCtrls;
+
+{ Declared here because restoring a form needs it before it is defined: a grid
+  reversed for a right-to-left language is put back by reversing it again. }
+function ReverseColumnCollection(const AComponent: TComponent): Boolean;
+  forward;
 
 function TrySetLayoutProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
@@ -124,8 +151,26 @@ begin
     else if SameText(AValue, 'False') then
       OrdinalValue := 0
     else
-      Exit;
+    begin
+      { A named value, for the properties a mirror changes: Align becomes
+        alRight, Alignment becomes taRightJustify. GetEnumValue answers -1
+        for a name the property does not have, which is the guard against a
+        rule written for a different control. }
+      OrdinalValue := GetEnumValue(PropertyInfo.PropType^, AValue);
+      if OrdinalValue < 0 then
+        Exit;
+    end;
     SetOrdProp(AComponent, PropertyInfo, OrdinalValue);
+    Exit(True);
+  end;
+  { Anchors is a set rather than a single value. }
+  if PropertyInfo.PropType^.Kind = tkSet then
+  begin
+    try
+      SetSetProp(AComponent, PropertyInfo, AValue);
+    except
+      Exit(False);
+    end;
     Exit(True);
   end;
 end;
@@ -304,6 +349,37 @@ begin
   Result := True;
 end;
 
+{ An ordinal property by name, for the enumerated ones a mirror changes. }
+function TryReadOrdinal(const AComponent: TComponent;
+  const APropertyName: string; out AValue: NativeInt): Boolean;
+var
+  PropertyInfo: PPropInfo;
+begin
+  Result := False;
+  AValue := 0;
+  if AComponent = nil then
+    Exit;
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName,
+    [tkEnumeration]);
+  if PropertyInfo = nil then
+    Exit;
+  AValue := GetOrdProp(AComponent, PropertyInfo);
+  Result := True;
+end;
+
+procedure WriteOrdinal(const AComponent: TComponent;
+  const APropertyName: string; const AValue: NativeInt);
+var
+  PropertyInfo: PPropInfo;
+begin
+  if AComponent = nil then
+    Exit;
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName,
+    [tkEnumeration]);
+  if PropertyInfo <> nil then
+    SetOrdProp(AComponent, PropertyInfo, AValue);
+end;
+
 procedure WriteBoolean(const AComponent: TComponent;
   const APropertyName: string; const AValue: Boolean);
 var
@@ -371,6 +447,12 @@ var
         Snapshot.AutoSize);
       Snapshot.HasWordWrap := TryReadBoolean(AComponent, 'WordWrap',
         Snapshot.WordWrap);
+      Snapshot.HasAlign := True;
+      Snapshot.Align := Control.Align;
+      Snapshot.HasAnchors := True;
+      Snapshot.Anchors := Control.Anchors;
+      Snapshot.HasAlignment := TryReadOrdinal(AComponent, 'Alignment',
+        Snapshot.Alignment);
       FOriginalGeometry.Add(Key, Snapshot);
     end;
     for ChildIndex := 0 to AComponent.ComponentCount - 1 do
@@ -433,6 +515,29 @@ var
         Control.SetBounds(Snapshot.Left, Snapshot.Top, Snapshot.Width,
           Snapshot.Height);
         Inc(Restored);
+      end;
+      { The mirror, undone. Align before the bounds would fight them, so it
+        goes here, after: a control the framework places ignores the bounds
+        anyway, and one it does not is unaffected by the constant. }
+      if Snapshot.HasAlign and (Control.Align <> Snapshot.Align) then
+      begin
+        Control.Align := Snapshot.Align;
+        Inc(Restored);
+      end;
+      if Snapshot.HasAnchors and (Control.Anchors <> Snapshot.Anchors) then
+      begin
+        Control.Anchors := Snapshot.Anchors;
+        Inc(Restored);
+      end;
+      if Snapshot.HasAlignment then
+        WriteOrdinal(AComponent, 'Alignment', Snapshot.Alignment);
+      { A grid whose columns were reversed for a right-to-left language is
+        reversed once more, which is what puts them back. }
+      if FReversedColumns.ContainsKey(Key) then
+      begin
+        if ReverseColumnCollection(AComponent) then
+          Inc(Restored);
+        FReversedColumns.Remove(Key);
       end;
       if Snapshot.HasAutoSize then
         WriteBoolean(AComponent, 'AutoSize', Snapshot.AutoSize);
@@ -510,6 +615,47 @@ end;
 
   Returns False for anything that is not of that shape, so the ordinary
   handling below is left to deal with it. }
+{ Put a grid's columns in the opposite order.
+
+  A grid reads the way its language reads, so under Hebrew or Arabic the first
+  column belongs against the right-hand edge. This is stated once for the grid
+  rather than once per column because reversing a collection one index at a
+  time depends on the order the moves are made in - the rule for column 1 is
+  written against the designed order, and by the time it is applied the item
+  at index 1 is no longer the one the rule meant.
+
+  It runs after the column widths for the same reason: a width names a column
+  by its designed index, and reversing first would put every width on the
+  wrong column. }
+function ReverseColumnCollection(const AComponent: TComponent): Boolean;
+var
+  Collection: TCollection;
+  CollectionObject: TObject;
+  PropertyInfo: PPropInfo;
+  Index: Integer;
+begin
+  Result := False;
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'Columns');
+  if PropertyInfo = nil then
+    Exit;
+  CollectionObject := GetObjectProp(AComponent, PropertyInfo);
+  if not (CollectionObject is TCollection) then
+    Exit;
+  Collection := TCollection(CollectionObject);
+  if Collection.Count < 2 then
+    Exit;
+  Collection.BeginUpdate;
+  try
+    { Walk the designed order and send each item to the end in turn. After
+      one pass the collection is reversed, whatever it started as. }
+    for Index := Collection.Count - 1 downto 0 do
+      Collection.Items[0].Index := Index;
+  finally
+    Collection.EndUpdate;
+  end;
+  Result := True;
+end;
+
 function TrySetCollectionProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
 var
@@ -861,6 +1007,51 @@ begin
   end;
 end;
 
+{ Reading order for a right-to-left language.
+
+  Measured rather than assumed, because the obvious choice is the wrong one.
+  bdRightToLeft gives right-to-left reading order and the left-hand scroll bar,
+  but it also flips text alignment on its own: a label set taLeftJustify is
+  drawn DT_RIGHT. The planner has already decided alignment for every control
+  and states it in the pack, so that flip would apply on top of ours and land
+  each caption back where it started - taRightJustify drawn as DT_LEFT.
+
+  bdRightToLeftNoAlign gives the same reading order and the same scroll bar
+  and leaves alignment alone, which is what lets one side own the decision.
+
+  BiDiMode does not move child controls in any mode - also measured - so this
+  neither duplicates nor fights the mirrored coordinates in the pack. }
+
+procedure ApplyReadingOrder(const AForm: TCustomForm;
+  const APack: TRuntimeLanguagePack);
+var
+  Component: TComponent;
+  Mode: TBiDiMode;
+
+  procedure SetTree(const AComponent: TComponent);
+  var
+    Child: TComponent;
+  begin
+    { Assigning BiDiMode clears ParentBiDiMode by itself, so the control
+      keeps what it is given rather than inheriting it back. }
+    if AComponent is TControl then
+      TControl(AComponent).BiDiMode := Mode;
+    for Child in AComponent do
+      SetTree(Child);
+  end;
+
+begin
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  if SameText(Trim(APack.TextDirection), 'rtl') then
+    Mode := bdRightToLeftNoAlign
+  else
+    Mode := bdLeftToRight;
+  AForm.BiDiMode := Mode;
+  for Component in AForm do
+    SetTree(Component);
+end;
+
 procedure ApplyAutoSizeRulesFirst(const AForm: TCustomForm;
   const APack: TRuntimeLanguagePack; const AFormIdentity: string);
 var
@@ -973,6 +1164,10 @@ begin
         end;
       end;
     end;
+    { Reading order first, because it is a property of the language rather
+      than of any one control, and because the alignment rules that follow
+      must be the last word on alignment. }
+    ApplyReadingOrder(AForm, APack);
     Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
     { Last of all, now that every control is the size it will really be. }
     ResolveSoftHyphensOnForm(AForm);
@@ -994,11 +1189,25 @@ const
     size follows, so the width and height that come after are measured against
     the size the text will really be, and positions are applied last, once
     every control has its final size. }
-  OrderedLayoutProperties: array[0..7] of string = (
-    'AutoSize', 'FontSize', 'WordWrap', 'Width', 'Height', 'Left', 'Top',
-    { Column widths, which name a path rather than a property. Last, because a
+  OrderedLayoutProperties: array[0..12] of string = (
+    'AutoSize', 'FontSize', 'WordWrap',
+    { Mirroring, before the geometry. Alignment and Align change where a
+      control sits and how its text is measured, so they belong with the
+      decisions that come before width and height rather than after them. }
+    'Alignment', 'Align',
+    'Width', 'Height', 'Left', 'Top',
+    { Anchors last of the geometry: it governs what happens on the next
+      resize, and setting it after a control is in its final place is what
+      makes those distances the right ones. }
+    'Anchors',
+    { Keyboard order, which is reading order by another name. }
+    'TabOrder',
+    { Column widths, which name a path rather than a property. Late, because a
       column is inside a control that has already been given its own size. }
-    'Columns');
+    'Columns',
+    { And the column order last of all, because every width above names a
+      column by the index it was designed at. }
+    'ColumnOrder');
 var
   CandidateRule: TRuntimeLayoutRule;
   Component: TComponent;
@@ -1020,6 +1229,11 @@ begin
     if SameText(OrderedProperty, 'Columns') then
     begin
       if not StartsText('Columns[', Rule.PropertyName) then
+        Continue;
+    end
+    else if SameText(OrderedProperty, 'ColumnOrder') then
+    begin
+      if not SameText(Rule.PropertyName, 'ColumnOrder') then
         Continue;
     end
     else if not SameText(Rule.PropertyName, OrderedProperty) then
@@ -1054,7 +1268,17 @@ begin
       Value := Rule.TranslatedValue
     else
       Value := Rule.OriginalValue;
-    if TrySetCollectionProperty(Component, Rule.PropertyName, Value) then
+    if SameText(Rule.PropertyName, 'ColumnOrder') then
+    begin
+      if SameText(Trim(Value), 'reversed') and
+        ReverseColumnCollection(Component) then
+      begin
+        TVCLTranslationApplicator.FReversedColumns.AddOrSetValue(
+          VCLSnapshotKey(AFormIdentity, Component), True);
+        Inc(Result);
+      end;
+    end
+    else if TrySetCollectionProperty(Component, Rule.PropertyName, Value) then
       Inc(Result)
     else if TrySetLayoutProperty(Component, Rule.PropertyName, Value) then
       Inc(Result);
@@ -1062,11 +1286,15 @@ begin
 end;
 
 initialization
+  TVCLTranslationApplicator.FReversedColumns :=
+    TDictionary<string, Boolean>.Create;
   TVCLTranslationApplicator.FOriginalGeometry :=
     TDictionary<string, TDATVCLControlSnapshot>.Create;
 
 finalization
   TVCLTranslationApplicator.FOriginalGeometry.Free;
   TVCLTranslationApplicator.FOriginalGeometry := nil;
+  TVCLTranslationApplicator.FReversedColumns.Free;
+  TVCLTranslationApplicator.FReversedColumns := nil;
 
 end.

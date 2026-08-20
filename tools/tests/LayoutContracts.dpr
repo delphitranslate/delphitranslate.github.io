@@ -337,6 +337,8 @@ var
   PropertyName: string;
   Proposal: TLayoutProposal;
   Found: Boolean;
+  ExpectedValue: string;
+  ActualValue: string;
 begin
   Expectations := ARoot.GetValue('proposals') as TJSONArray;
   if Expectations = nil then
@@ -348,17 +350,31 @@ begin
     Expectation := TJSONObject(Item);
     ComponentName := Expectation.GetValue<string>('name', '');
     PropertyName := Expectation.GetValue<string>('property', '');
+    { A value may be named as well as a property. Some decisions are not
+      numbers - which way a control is anchored, which edge its text sits
+      against - and for those the property existing says nothing useful. }
+    ExpectedValue := Expectation.GetValue<string>('value', '');
     Found := False;
+    ActualValue := '';
     for Proposal in AReview.Proposals do
       if SameText(Proposal.ComponentName, ComponentName) and
         SameText(Proposal.PropertyName, PropertyName) then
       begin
-        Found := True;
-        Break;
+        ActualValue := Proposal.ProposedValue;
+        Found := (ExpectedValue = '') or
+          SameText(Proposal.ProposedValue, ExpectedValue);
+        if Found then
+          Break;
       end;
     if not Found then
-      Failures.Add(Format('%s.%s has no %s proposal; the plan may be right and the ' +
-        'pack still silent.', [AFormName, ComponentName, PropertyName]));
+      if ActualValue <> '' then
+        Failures.Add(Format('%s.%s proposes %s = %s, expected %s',
+          [AFormName, ComponentName, PropertyName, ActualValue,
+           ExpectedValue]))
+      else
+        Failures.Add(Format('%s.%s has no %s proposal; the plan may be right ' +
+          'and the pack still silent.',
+          [AFormName, ComponentName, PropertyName]));
   end;
 end;
 

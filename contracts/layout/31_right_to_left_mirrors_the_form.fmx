@@ -1,0 +1,48 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 300
+  ClientWidth = 400
+  object lblName: TLabel
+    AutoSize = False
+    StyledSettings = []
+    Position.X = 16.000000000000000000
+    Position.Y = 20.000000000000000000
+    Size.Width = 80.000000000000000000
+    Size.Height = 20.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.HorzAlign = Leading
+    Text = 'Name'
+  end
+  object edtName: TEdit
+    Position.X = 104.000000000000000000
+    Position.Y = 16.000000000000000000
+    Size.Width = 200.000000000000000000
+    Size.Height = 28.000000000000000000
+    Size.PlatformDefault = False
+  end
+  object btnOk: TButton
+    Position.X = 230.000000000000000000
+    Position.Y = 120.000000000000000000
+    Size.Width = 75.000000000000000000
+    Size.Height = 28.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'OK'
+  end
+  object pnlSide: TPanel
+    Position.X = 20.000000000000000000
+    Position.Y = 160.000000000000000000
+    Size.Width = 200.000000000000000000
+    Size.Height = 60.000000000000000000
+    Size.PlatformDefault = False
+    object btnInner: TButton
+      Position.X = 10.000000000000000000
+      Position.Y = 15.000000000000000000
+      Size.Width = 75.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'Inner'
+    end
+  end
+end

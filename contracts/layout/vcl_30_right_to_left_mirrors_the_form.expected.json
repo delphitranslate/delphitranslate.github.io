@@ -1,0 +1,31 @@
+{
+  "description": "A right-to-left interface is a reflected interface, not merely reversed text. The whole form is mirrored: a caption drawn to the left of its edit box belongs to the right of it, and a button at the right of the form belongs at the left. Each control is reflected within its own parent, so the button inside the panel mirrors against the panel's 200 pixels and not against the form's 400. The arithmetic is the same in every case - the new left edge is the space that used to lie to the right of the control.",
+  "catalog_file": "vcl_30_right_to_left_mirrors_the_form.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblName",
+      "planned_left_equals": 304
+    },
+    {
+      "form": "ContractForm",
+      "name": "edtName",
+      "planned_left_equals": 96
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnOk",
+      "planned_left_equals": 95
+    },
+    {
+      "form": "ContractForm",
+      "name": "pnlSide",
+      "planned_left_equals": 180
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnInner",
+      "planned_left_equals": 115
+    }
+  ]
+}

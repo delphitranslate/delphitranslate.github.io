@@ -1,0 +1,28 @@
+{
+  "description": "Coordinates are not the whole of a mirror. A control with Align = alLeft is placed by the framework and not by its Left, so reflecting the coordinate does nothing at all - the constant itself has to change, or the navigation panel stays on the left of a right-to-left form and the mirror is visibly half done. Anchors are the same story one step later: a control anchored only to the left edge drifts the wrong way the first time the user resizes the window. Text alignment flips with them, except where it is centred, which is centred in every language.",
+  "catalog_file": "vcl_32_right_to_left_flips_alignment_and_anchors.catalog.json",
+  "proposals": [
+    {
+      "name": "pnlNav",
+      "property": "Align",
+      "value": "alRight"
+    },
+    {
+      "name": "lblLeft",
+      "property": "Alignment",
+      "value": "taRightJustify"
+    },
+    {
+      "name": "edtStretch",
+      "property": "Anchors",
+      "value": "akRight,akTop"
+    }
+  ],
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblCentre",
+      "planned_left_equals": 160
+    }
+  ]
+}
