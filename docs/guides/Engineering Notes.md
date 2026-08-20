@@ -2191,3 +2191,53 @@ that step.
 
 `TAlignLayout.Left` is 5 and `Right` is 9 in this version, not 2 and 3. Read
 them rather than assuming.
+
+# Protecting Format Specifiers from the Translator (2026-08-20)
+
+The first Arabic run of Carillon stopped with two blocking validation errors.
+Both were the same thing: the provider had destroyed the printf specifiers.
+
+    source:      %.2f GB used / %.2f GB free of %.2f GB (%.1f%%)
+    came back:   ... 0.2f ... 0.2f ... 0.2f ... (0.1f%)
+
+Every % became a 0, and %% collapsed to %. The Arabic itself was good - it
+reads "used N gigabytes / N gigabytes available of N gigabytes" - and only the
+specifiers were hurt.
+
+The cause was proved rather than guessed, by comparing the same strings in the
+catalogs already on disk:
+
+| language | entries with % in source | specifier mismatches |
+|---|---|---|
+| de-DE | 6 | 0 |
+| es-ES | 6 | 0 |
+| ar-SA | 6 | 2 |
+
+Same code, same day, same settings; only the target language differs. So the
+engine mangles specifiers on Arabic output. The validator caught both, and
+nothing slipped past it - which is the guard working exactly as intended, and
+the only reason this was ever noticed. It had worked twice and then quietly
+stopped working.
+
+`DAT.Provider.Placeholders` now stands between every caller and the service.
+Specifiers are lifted out before a request is built and replaced by a token -
+`ZQPH0ZQPH` - which carries its own index, so a token the engine moves still
+comes back as the specifier it stood for. Right-to-left languages move things.
+Identical specifiers get separate tokens, because "%.2f GB used / %.2f GB free"
+has three of them and a search-and-replace cannot tell them apart.
+
+Afterwards the specifiers are put back and the result is checked against the
+source. Where they still do not match, the source text is returned instead of
+the translation: an English string among Arabic ones is visible in review,
+whereas a broken format string is invisible until a customer sees it.
+
+A string that is nothing but specifiers is never sent at all. `%.2d/%.2d` is a
+date, not a sentence - there is nothing in it to translate, the engine can only
+damage it, and asking costs money.
+
+`TranslateBatch` does the protecting and `PostBatch` does the HTTP, so no
+caller can reach the service unprotected by accident.
+
+The two damaged Carillon entries were repaired by hand and marked reviewed, so
+a re-run leaves them alone. Their Arabic wording is the provider's own; only
+the % signs were restored.

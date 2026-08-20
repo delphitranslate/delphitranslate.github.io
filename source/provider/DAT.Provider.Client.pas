@@ -26,6 +26,11 @@ type
       const ASourceLanguage, ATargetLanguage: string;
       const AContext: string = ''): string;
     function ParseResponse(const AResponseText: string): TArray<string>;
+    { The HTTP call itself. TranslateBatch wraps it so that no caller can
+      reach the service without the format specifiers being protected. }
+    function PostBatch(const ATexts: TArray<string>;
+      const ASourceLanguage, ATargetLanguage: string;
+      const AContext: string): TArray<string>;
     function TranslateBatch(const ATexts: TArray<string>;
       const ASourceLanguage, ATargetLanguage: string;
       const AContext: string = ''): TArray<string>;
@@ -51,7 +56,8 @@ uses
   System.JSON,
   System.Math,
   System.Net.HttpClient,
-  System.Net.URLClient;
+  System.Net.URLClient,
+  DAT.Provider.Placeholders;
 
 function NormalizeGoogleLanguageCode(const ACode: string): string;
 var
@@ -180,7 +186,74 @@ begin
   end;
 end;
 
+{ Every text that reaches a translation service passes through here.
+
+  Two things happen before the request is built. A string that is nothing but
+  format specifiers - "%.2d/%.2d" is a date, not a sentence - is never sent at
+  all: there is nothing in it to translate, the engine can only damage it, and
+  asking costs money. Everything else has its specifiers lifted out and
+  replaced by tokens, so that what the engine sees contains nothing it can
+  mistake for a percentage.
+
+  And one thing happens after. The specifiers are put back, and the result is
+  checked against the source. If they still do not match - the engine mangled
+  the tokens themselves, or dropped them - the source text is returned instead
+  of a translation that would make the application print "0.2f gigabytes" at
+  its user. An English string among Arabic ones is visible in review; a broken
+  format string is not visible until a customer sees it. }
 function TTranslationProviderClient.TranslateBatch(
+  const ATexts: TArray<string>; const ASourceLanguage,
+  ATargetLanguage, AContext: string): TArray<string>;
+var
+  Sendable: TArray<string>;
+  SourceIndex: TArray<Integer>;
+  Specifiers: TArray<TArray<string>>;
+  Answers: TArray<string>;
+  Restored: string;
+  Index: Integer;
+  Sent: Integer;
+begin
+  SetLength(Result, Length(ATexts));
+  SetLength(Specifiers, Length(ATexts));
+  SetLength(Sendable, 0);
+  SetLength(SourceIndex, 0);
+
+  for Index := 0 to High(ATexts) do
+  begin
+    if TPlaceholderProtection.IsOnlyPlaceholders(ATexts[Index]) then
+    begin
+      Result[Index] := ATexts[Index];
+      Continue;
+    end;
+    Sent := Length(Sendable);
+    SetLength(Sendable, Sent + 1);
+    SetLength(SourceIndex, Sent + 1);
+    Sendable[Sent] := TPlaceholderProtection.Protect(ATexts[Index],
+      Specifiers[Index]);
+    SourceIndex[Sent] := Index;
+  end;
+
+  if Length(Sendable) = 0 then
+    Exit;
+
+  Answers := PostBatch(Sendable, ASourceLanguage, ATargetLanguage, AContext);
+  if Length(Answers) <> Length(Sendable) then
+    raise ETranslationProviderError.Create(
+      'The provider returned an unexpected number of translations.');
+
+  for Sent := 0 to High(Answers) do
+  begin
+    Index := SourceIndex[Sent];
+    Restored := TPlaceholderProtection.Restore(Answers[Sent],
+      Specifiers[Index]);
+    if TPlaceholderProtection.Matches(ATexts[Index], Restored) then
+      Result[Index] := Restored
+    else
+      Result[Index] := ATexts[Index];
+  end;
+end;
+
+function TTranslationProviderClient.PostBatch(
   const ATexts: TArray<string>; const ASourceLanguage,
   ATargetLanguage, AContext: string): TArray<string>;
 var

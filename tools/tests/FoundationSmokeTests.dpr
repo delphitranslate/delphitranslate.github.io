@@ -41,6 +41,7 @@ uses
   DAT.Scan.Project in '..\..\source\scan\DAT.Scan.Project.pas',
   DAT.Scan.CatalogMerge in '..\..\source\scan\DAT.Scan.CatalogMerge.pas',
   DAT.Provider.Types in '..\..\source\provider\DAT.Provider.Types.pas',
+  DAT.Provider.Placeholders in '..\..\source\provider\DAT.Provider.Placeholders.pas',
   DAT.Provider.Client in '..\..\source\provider\DAT.Provider.Client.pas',
   DAT.Validation.Catalog in '..\..\source\validation\DAT.Validation.Catalog.pas';
 
