@@ -143,11 +143,28 @@ it - most plausibly the timing of the notification, since the form's window is
 recreated when its `BiDiMode` changes and `DoBiDiModeChanged` returns early
 when the menu's `WindowHandle` is zero.
 
-The available lever, if the cause stays hidden: have `ApplyReadingOrder`
-re-assert each menu's `BiDiMode` explicitly after the form has settled, forcing
-a real value change so `DoBiDiModeChanged` is guaranteed to run against a valid
-window handle. That is defensive rather than a fix for a known cause, so it has
-not been written.
+Further narrowed, 20 August: starting in English and switching straight to
+Italian is **fine**. The residue only appears after leaving a right-to-left
+language, and then survives every later change.
+
+A field diagnostic is now in `ApplyReadingOrder`, off unless the environment
+variable `DAT_RTL_LOG` names a file. It records, before and after each apply:
+the form, the pack's direction, the form's `BiDiMode`, whether
+`WS_EX_RTLREADING` is on the window, `SysLocale.MiddleEast`, and for every menu
+its `BiDiMode`, `ParentBiDiMode`, `WindowHandle`, menu handle and the native
+right-to-left flag on item zero.
+
+The hypothesis it is meant to confirm or kill is that the form's window is
+recreated when `BiDiMode` changes, and `TMenu.DoBiDiModeChanged` returns early
+because the menu's `WindowHandle` is momentarily zero. If the log shows
+`windowHandle=0` on the way back to a left-to-right language, that is the
+cause; if it shows a valid handle and `rtlFlag=1` afterwards, the fault is
+elsewhere and the guess was wrong.
+
+The available lever either way: have `ApplyReadingOrder` re-assert each menu's
+`BiDiMode` explicitly after the form has settled, forcing a real value change
+so `DoBiDiModeChanged` runs against a valid window handle. Defensive rather
+than aimed, so it waits on the log.
 
 ### Label layout on the random-directory screen
 

@@ -85,7 +85,9 @@ uses
   System.SysUtils,
   System.StrUtils,
   System.TypInfo,
+  Winapi.Windows,
   Vcl.Graphics,
+  Vcl.Menus,
   Vcl.StdCtrls;
 
 { Declared here because restoring a form needs it before it is defined: a grid
@@ -1022,6 +1024,81 @@ end;
   BiDiMode does not move child controls in any mode - also measured - so this
   neither duplicates nor fights the mirrored coordinates in the pack. }
 
+{ A field diagnostic for the one thing that cannot be reproduced here.
+
+  Leaving Arabic for any left-to-right language leaves the menus still opening
+  right to left, and only restarting the application clears it. In isolation
+  the flag Windows draws menus from - MFT_RIGHTORDER or MFT_RIGHTJUSTIFY on
+  menu item zero - is set correctly and cleared correctly, so whatever defeats
+  it is something about the real application that no test here has reproduced.
+
+  This writes down what was actually true at each apply. It costs nothing
+  unless the environment variable DAT_RTL_LOG names a file, so it can sit in a
+  shipped build without doing anything at all. }
+
+procedure LogReadingOrder(const AForm: TCustomForm; const AWhen: string;
+  const ADirection: string);
+const
+  RightToLeftMenuFlag = MFT_RIGHTORDER or MFT_RIGHTJUSTIFY;
+var
+  FileName: string;
+  Line: string;
+  Component: TComponent;
+  Menu: TMenu;
+  Info: TMenuItemInfo;
+  Buffer: array[0..79] of Char;
+  MenuHandle: HMENU;
+  Flagged: string;
+  Log: TStreamWriter;
+begin
+  FileName := GetEnvironmentVariable('DAT_RTL_LOG');
+  if Trim(FileName) = '' then
+    Exit;
+  try
+    Line := Format('%s  %-14s form=%-18s direction=%-3s formBiDi=%d ' +
+      'exStyleRTLREADING=%d middleEast=%d',
+      [FormatDateTime('hh:nn:ss.zzz', Now), AWhen, AForm.Name, ADirection,
+       Ord(AForm.BiDiMode),
+       Ord((GetWindowLong(AForm.Handle, GWL_EXSTYLE) and
+         WS_EX_RTLREADING) <> 0),
+       Ord(SysLocale.MiddleEast)]);
+
+    for Component in AForm do
+      if Component is TMenu then
+      begin
+        Menu := TMenu(Component);
+        Flagged := '?';
+        MenuHandle := 0;
+        try
+          MenuHandle := Menu.Handle;
+          FillChar(Info, SizeOf(Info), 0);
+          Info.cbSize := SizeOf(Info);
+          Info.fMask := MIIM_TYPE;
+          Info.cch := Length(Buffer);
+          Info.dwTypeData := Buffer;
+          if GetMenuItemInfo(MenuHandle, 0, True, Info) then
+            Flagged := IntToStr(
+              Ord((Info.fType and RightToLeftMenuFlag) <> 0));
+        except
+          Flagged := 'err';
+        end;
+        Line := Line + Format('  [menu %s biDi=%d parentBiDi=%d ' +
+          'windowHandle=%d handle=%d rtlFlag=%s]',
+          [Menu.Name, Ord(Menu.BiDiMode), Ord(Menu.ParentBiDiMode),
+           Menu.WindowHandle, MenuHandle, Flagged]);
+      end;
+
+    Log := TStreamWriter.Create(FileName, True, TEncoding.UTF8);
+    try
+      Log.WriteLine(Line);
+    finally
+      Log.Free;
+    end;
+  except
+    { A diagnostic must never break the thing it is watching. }
+  end;
+end;
+
 procedure ApplyReadingOrder(const AForm: TCustomForm;
   const APack: TRuntimeLanguagePack);
 var
@@ -1047,9 +1124,11 @@ begin
     Mode := bdRightToLeftNoAlign
   else
     Mode := bdLeftToRight;
+  LogReadingOrder(AForm, 'before', APack.TextDirection);
   AForm.BiDiMode := Mode;
   for Component in AForm do
     SetTree(Component);
+  LogReadingOrder(AForm, 'after', APack.TextDirection);
 end;
 
 procedure ApplyAutoSizeRulesFirst(const AForm: TCustomForm;
