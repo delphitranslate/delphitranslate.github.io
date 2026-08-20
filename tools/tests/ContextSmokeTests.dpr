@@ -121,6 +121,17 @@ begin
     Check(ContainsText(Column.ContextDescription, 'fit a column heading'),
       'It asks for something short enough to fit.');
 
+    { A button caption is an instruction, and a menu item is a name. Told
+      neither, Arabic returned Help as "he helps", Close as "he closes" and
+      Play as "he plays" - grammatically fine and useless on a button. The
+      control class is known for every string, so this costs nothing to say. }
+    Check(ContainsText(CloseButton.ContextDescription, 'imperative'),
+      'A button caption asks for an imperative, not a statement.');
+    Check(not ContainsText(Column.ContextDescription, 'imperative'),
+      'A column heading does not - it is a name, not an instruction.');
+    Check(ContainsText(Column.ContextDescription, 'noun'),
+      'and says so.');
+
     Writeln('  Carillon, the Close button:');
     Writeln('    ', CloseButton.ContextDescription);
     Writeln;

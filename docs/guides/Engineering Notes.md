@@ -2374,3 +2374,50 @@ written by hand - and nothing crossed the joins. Three tests now cross them:
 `PackLayoutSmokeTests` (proposal to pack), the contract harness's decision
 assertion (analysis to proposal), and `ProposalDecisionSmokeTests` (run to
 run).
+
+# Context That Reaches the String It Describes (2026-08-20)
+
+The context work was correct and was being wasted.
+
+A service takes one `context` per request. `TranslateWithContexts` batched
+fifty strings and concatenated all fifty of their contexts into that one
+field, so "Help" arrived wearing forty-nine descriptions of other controls.
+The context was generated, sent, and diluted into uselessness - the likeliest
+reason the Arabic run still returned Help, Close and Play as third-person
+statements.
+
+The economics make the fix free. **Billing is per translated character, not
+per request.** Measured on Carillon:
+
+| | characters |
+|---|---|
+| source text, billed | 6,471 |
+| context, not billed by DeepL | 65,466 |
+
+So the whole application costs 6,471 characters whether it is sent as six
+requests or as 297. Grouping by shared context therefore costs nothing but
+round trips - about a minute, once per language, for a result that is stored.
+DeepL's free tier of 500,000 characters a month is roughly seventy-seven
+runs of Carillon's size.
+
+`DAT.Provider.Batching` groups strings by identical context. Where a context
+is unique the group holds one string; where many share a context, or have
+none, they travel together as before, and the batch ceiling still holds.
+
+## Part of speech
+
+A button says what pressing it will do, so its caption is an instruction. A
+menu item names a thing. English hides the difference - its imperative and its
+dictionary form are the same word - so a service given "Help" alone may
+reasonably return a statement, and Arabic did: the third person singular, for
+Help, Close and Play alike. Grammatical, and useless on a button.
+
+The context now says which is wanted, chosen from the control class, which
+every string already carries. A button asks for an imperative "in the form
+that language uses on buttons"; a menu item for the form that language uses
+on menus; a column heading for a noun phrase; a check box for the name of an
+option.
+
+Neither change has been tested against a real service yet. Both are aimed at
+a defect seen once, in one language, and the fix list keeps the entry open
+until an Arabic run shows the result.

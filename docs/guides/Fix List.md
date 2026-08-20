@@ -32,10 +32,16 @@ File: `source/studio/DAT.Studio.SetupWizard.fmx`, around line 537.
 
 ## Translation quality
 
-### A noun read as a verb
+### A noun read as a verb — *partly addressed 20 August*
 
-Arabic came back with button captions and menu items in the third person
-singular rather than as imperatives or nouns:
+The context now states the part of speech each control needs: a button asks
+for an imperative, a menu item for the form that language uses on menus, a
+column heading for a noun phrase. Strings are also grouped by shared context
+now, so a string's own description reaches the service instead of being
+concatenated with forty-nine others. Both changes are untested against a real
+service; the entry stays until an Arabic run shows the result.
+
+The original finding:
 
 | shown | Arabic | means |
 |---|---|---|
@@ -85,6 +91,59 @@ it likes; stamping a translation once would be overwritten immediately. The
 translations are in the pack and ready. This is correct behaviour but it is not
 documented anywhere a developer would find it, and in Carillon it looks like a
 missing translation.
+
+---
+
+## Wanted
+
+### Translation memory
+
+Nothing remembers a translation across applications. The shared per-language
+dictionaries carry approved *terms*, which is not the same thing: a term is a
+word, and a memory is a sentence with the wording that was settled for it.
+
+Every application translated adds to what the product knows, and at present
+almost all of it is thrown away. A memory would mean the second application in
+a language costs less than the first, the tenth costs very little, and the
+wording a developer approved once never has to be approved again. It also
+makes the product better the longer it is used, which no amount of engineering
+does on its own.
+
+Worth deciding early: whether a memory is per developer, per language, or
+shareable between installations, and whether an exact match is applied
+silently or offered for review.
+
+### Repositioning at run time, and remembering it
+
+A developer should be able to move and resize the controls on a translated
+form while the application is running, see the result immediately, and have
+those adjustments remembered - **without the original project's source, forms
+or resources being touched**, which is the standing rule the whole product is
+built on.
+
+The pieces already exist. The runtime applies `Left`, `Top`, `Width`,
+`Height`, alignment and the rest from a pack it reads at startup; the
+applicator can already put a form back exactly as it was drawn. What is
+missing is a way to capture a change made by hand and write it back into the
+pack as an accepted layout decision, so it survives the next run and the next
+scan.
+
+This is the natural answer to the cases the planner cannot judge: a splash
+screen, a form where text sits over artwork, a layout somebody simply prefers
+differently. The planner proposes; a person adjusts; the adjustment is kept.
+
+Design questions worth settling before any code: how the mode is entered and
+left, whether it is available in a shipped application or only in a build the
+developer runs, how an adjustment is attributed to a language, and what
+happens to it when the text later changes.
+
+### DeepL server-side glossaries
+
+DeepL can hold a glossary on its side and enforce it during translation, which
+is stronger than sending terminology as context and hoping. The shared
+per-language dictionaries this product already keeps are the obvious source
+for one. Worth doing after the per-string context work has been measured, so
+the two are not confused with one another.
 
 ---
 

@@ -57,6 +57,7 @@ uses
   System.Math,
   System.Net.HttpClient,
   System.Net.URLClient,
+  DAT.Provider.Batching,
   DAT.Provider.Placeholders;
 
 function NormalizeGoogleLanguageCode(const ACode: string): string;
@@ -307,14 +308,25 @@ begin
   end;
 end;
 
+{ Each string sent with the context that belongs to it.
+
+  A service takes one context per request, and this used to batch fifty
+  strings and concatenate all fifty contexts into that one field - so every
+  string arrived wearing forty-nine descriptions of other controls. The
+  context was generated, paid for in nothing, and diluted into uselessness.
+
+  Billing is per translated character rather than per request, so grouping by
+  shared context costs exactly what batching cost. Strings that share a
+  context still travel together; a string with a context of its own goes on
+  its own. }
 function TTranslationProviderClient.TranslateWithContexts(
   const ATexts, AContexts: TArray<string>; const ASourceLanguage,
   ATargetLanguage: string; const ACancelCheck: TTranslationCancelCheck;
   const AProgress: TTranslationProgressEvent): TArray<string>;
 var
+  Groups: TArray<TContextGroup>;
+  Group: TContextGroup;
   Batch: TArray<string>;
-  BatchContext: string;
-  BatchCount: Integer;
   BatchResults: TArray<string>;
   Completed: Integer;
   Index: Integer;
@@ -323,29 +335,23 @@ begin
     raise EArgumentException.Create(
       'Each source string must have one contextual description.');
   SetLength(Result, Length(ATexts));
+  Groups := TContextBatching.Group(ATexts, AContexts, FBatchSize);
   Completed := 0;
-  while Completed < Length(ATexts) do
+  for Group in Groups do
   begin
     if Assigned(ACancelCheck) and ACancelCheck() then
       raise TTranslationCancelled.Create('Translation was cancelled.');
-    BatchCount := Min(FBatchSize, Length(ATexts) - Completed);
-    SetLength(Batch, BatchCount);
-    BatchContext := '';
-    for Index := 0 to BatchCount - 1 do
-    begin
-      Batch[Index] := ATexts[Completed + Index];
-      if Trim(AContexts[Completed + Index]) <> '' then
-        BatchContext := BatchContext + ATexts[Completed + Index] + ': ' +
-          AContexts[Completed + Index] + sLineBreak;
-    end;
-    BatchResults := TranslateBatch(Batch, ASourceLanguage,
-      ATargetLanguage, Trim(BatchContext));
-    if Length(BatchResults) <> BatchCount then
+    SetLength(Batch, Length(Group.Indexes));
+    for Index := 0 to High(Group.Indexes) do
+      Batch[Index] := ATexts[Group.Indexes[Index]];
+    BatchResults := TranslateBatch(Batch, ASourceLanguage, ATargetLanguage,
+      Trim(Group.Context));
+    if Length(BatchResults) <> Length(Batch) then
       raise ETranslationProviderError.Create(
         'The provider returned an unexpected number of translations.');
-    for Index := 0 to BatchCount - 1 do
-      Result[Completed + Index] := BatchResults[Index];
-    Inc(Completed, BatchCount);
+    for Index := 0 to High(Group.Indexes) do
+      Result[Group.Indexes[Index]] := BatchResults[Index];
+    Inc(Completed, Length(Group.Indexes));
     if Assigned(AProgress) then
       AProgress(Completed, Length(ATexts));
   end;

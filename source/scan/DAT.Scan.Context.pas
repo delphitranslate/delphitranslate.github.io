@@ -245,6 +245,49 @@ end;
   a database column in a scheduler or a note about children visiting. All the
   other words on all the other forms settle it, and they cost nothing to
   gather because the scan has already read them. }
+{ What part of speech the string has to be.
+
+  A button says what pressing it will do, so its caption is an instruction:
+  Save, Close, Play. A menu item names a thing. A column heading names what is
+  under it. English hides the difference because its imperative and its
+  dictionary form are the same word, and a service asked to translate "Help"
+  with nothing else to go on will happily return a statement - Arabic gave
+  back the third person singular, "he helps", for Help, Close and Play alike.
+  Grammatical, and useless on a button.
+
+  Every string already knows its control class, so this costs nothing to say
+  and is exactly the kind of thing a context field is for. }
+function GrammarNote(const AItem: TScanItem): string;
+var
+  ClassText: string;
+  PropertyText: string;
+begin
+  ClassText := LowerCase(AItem.ComponentClassName);
+  PropertyText := LowerCase(AItem.PropertyName);
+
+  if ContainsText(PropertyText, 'title.caption') or
+    ContainsText(ClassText, 'column') then
+    Exit('Translate it as a noun or a short noun phrase naming what the ' +
+      'column contains, not as a sentence.');
+  if ContainsText(ClassText, 'menuitem') then
+    Exit('Translate it the way a menu item is written in the target ' +
+      'language - usually a noun, and in the form that language uses for ' +
+      'menus rather than a statement about someone acting.');
+  if ContainsText(ClassText, 'button') or ContainsText(ClassText, 'action') then
+    Exit('It is a command the user gives, so translate it as an imperative ' +
+      'in the form that language uses on buttons - never as a statement ' +
+      'such as "he closes" or "it plays".');
+  if ContainsText(ClassText, 'checkbox') or
+    ContainsText(ClassText, 'radiobutton') then
+    Exit('Translate it as the name of an option that can be turned on or ' +
+      'off, not as a sentence.');
+  if ContainsText(ClassText, 'groupbox') or ContainsText(ClassText, 'panel') then
+    Exit('Translate it as a heading naming the group, not as a sentence.');
+  if ContainsText(PropertyText, 'hint') then
+    Exit('It is a tooltip, so a short phrase or sentence is right.');
+  Result := '';
+end;
+
 { ---------------------------------------------------------------------------
   What the whole application knows, said for one string.
 
@@ -321,6 +364,11 @@ begin
         has more than one. This is the part that stops "Play Date From"
         becoming an afternoon arranged between children. }
       Note := Profile.SensesWithin(Item.SourceText);
+      if Note <> '' then
+        Sentence := Sentence + ' ' + Note;
+
+      { What kind of word it has to come back as. }
+      Note := GrammarNote(Item);
       if Note <> '' then
         Sentence := Sentence + ' ' + Note;
 
