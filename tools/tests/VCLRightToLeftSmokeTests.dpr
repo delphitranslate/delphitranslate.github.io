@@ -29,6 +29,7 @@ uses
   Vcl.ExtCtrls,
   Vcl.StdCtrls,
   Vcl.DBGrids,
+  Vcl.Menus,
   DAT.Runtime.VCL in '..\..\source\runtime\DAT.Runtime.VCL.pas',
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas';
 
@@ -128,6 +129,9 @@ var
   Nav: TPanel;
   Inner: TButton;
   Grid: TDBGrid;
+  Menu: TMainMenu;
+  FileItem: TMenuItem;
+  ExStyleUnderArabic: NativeInt;
   Pack: TRuntimeLanguagePack;
 begin
   try
@@ -169,10 +173,27 @@ begin
       Grid.Parent := Form;
       Grid.Name := 'grdData';
       Grid.SetBounds(20, 180, 360, 90);
+      { Field names matter as much as headings, and their absence is why this
+        test passed while a real grid reversed its headings and left its data
+        exactly where it was. A heading that moves without its column is worse
+        than one that does not move: every value on screen is then under the
+        wrong name. }
       Grid.Columns.Add.Title.Caption := 'First';
+      Grid.Columns[0].FieldName := 'FIRSTFIELD';
       Grid.Columns[0].Width := 60;
       Grid.Columns.Add.Title.Caption := 'Second';
+      Grid.Columns[1].FieldName := 'SECONDFIELD';
       Grid.Columns.Add.Title.Caption := 'Third';
+      Grid.Columns[2].FieldName := 'THIRDFIELD';
+
+      { A menu is not a TControl, which is exactly why it was missed. Its
+        reading order has to be set on the menu itself. }
+      Menu := TMainMenu.Create(Form);
+      Menu.Name := 'MainMenu1';
+      FileItem := TMenuItem.Create(Form);
+      FileItem.Caption := 'File';
+      Menu.Items.Add(FileItem);
+      Form.Menu := Menu;
 
       Inner := TButton.Create(Form);
       Inner.Parent := Nav;
@@ -222,6 +243,22 @@ begin
         'while still reading right to left.');
       Check(Form.UseRightToLeftScrollBar,
         'The scroll bar moves to the side the reader starts from.');
+      Writeln(Format('        menu   BiDiMode=%d (form=%d)',
+        [Ord(Menu.BiDiMode), Ord(Form.BiDiMode)]));
+      Check(Menu.BiDiMode = bdRightToLeftNoAlign,
+        'The menu reads right to left as well as the form.');
+      { The property follows the form on its own, which is why this looked
+        correct while the screen did not. What Windows actually draws from is
+        the window's extended style, and WS_EX_RTLREADING and
+        WS_EX_LEFTSCROLLBAR are put there when the handle is created. If the
+        window is not recreated when the language changes, they stay - and
+        every menu keeps opening the way Arabic left it until the application
+        is restarted, which is exactly what was reported. }
+      ExStyleUnderArabic := GetWindowLong(Form.Handle, GWL_EXSTYLE);
+      Writeln(Format('        window ExStyle RTLREADING=%s LEFTSCROLLBAR=%s LAYOUTRTL=%s',
+        [BoolToStr((ExStyleUnderArabic and WS_EX_RTLREADING) <> 0, True),
+         BoolToStr((ExStyleUnderArabic and WS_EX_LEFTSCROLLBAR) <> 0, True),
+         BoolToStr((ExStyleUnderArabic and WS_EX_LAYOUTRTL) <> 0, True)]));
 
       Writeln(Format('        grid   headings: %s, %s, %s   first width %d',
         [Grid.Columns[0].Title.Caption, Grid.Columns[1].Title.Caption,
@@ -230,6 +267,37 @@ begin
         'The grid reads right to left: the first column is now last.');
       Check(Grid.Columns[2].Title.Caption = 'First',
         'and the last is first.');
+      Writeln(Format('        grid   fields:   %s, %s, %s',
+        [Grid.Columns[0].FieldName, Grid.Columns[1].FieldName,
+         Grid.Columns[2].FieldName]));
+      Check(Grid.Columns[0].FieldName = 'THIRDFIELD',
+        'The data comes with the heading: the first column is now the third field.');
+      Check(Grid.Columns[2].FieldName = 'FIRSTFIELD',
+        'and the last column is the first field.');
+
+      { The same pack applied a second time, which is what an application does
+        every time the form is shown again or the language is re-selected.
+        Reversing is its own opposite, so an apply that does not first undo the
+        previous one reverses twice: the fields come back to their designed
+        order while the headings, written by index in between, do not. The grid
+        then shows every value under the wrong name, which is worse than not
+        mirroring at all. }
+      Pack := HebrewPack;
+      try
+        TVCLTranslationApplicator.ApplyToForm(Form, Pack, 'frmRtl', True);
+      finally
+        Pack.Free;
+      end;
+      Writeln(Format('        after a second apply: %s/%s, %s/%s, %s/%s',
+        [Grid.Columns[0].Title.Caption, Grid.Columns[0].FieldName,
+         Grid.Columns[1].Title.Caption, Grid.Columns[1].FieldName,
+         Grid.Columns[2].Title.Caption, Grid.Columns[2].FieldName]));
+      Check((Grid.Columns[0].Title.Caption = 'Third') and
+        (Grid.Columns[0].FieldName = 'THIRDFIELD'),
+        'A second apply leaves the heading with its own column, not another.');
+      Check((Grid.Columns[2].Title.Caption = 'First') and
+        (Grid.Columns[2].FieldName = 'FIRSTFIELD'),
+        'and the same at the other end.');
       { The width rule names column 0 as it was designed, and that column is
         now at the other end. Applying the widths before the reversal is what
         keeps the width with its own column instead of with its position. }
@@ -268,6 +336,23 @@ begin
       Check(Box.Anchors = [akLeft, akTop], 'And the anchors.');
       Check(Form.BiDiMode = bdLeftToRight,
         'Reading order returns to left-to-right.');
+      { The one the screenshots caught: switching from Arabic to Italian left
+        the menus still opening right to left, and only a restart cleared it. }
+      Check(Menu.BiDiMode = bdLeftToRight,
+        'and so does the menu, without needing the application restarted.');
+      Writeln(Format('        window ExStyle now RTLREADING=%s LEFTSCROLLBAR=%s LAYOUTRTL=%s',
+        [BoolToStr((GetWindowLong(Form.Handle, GWL_EXSTYLE) and
+           WS_EX_RTLREADING) <> 0, True),
+         BoolToStr((GetWindowLong(Form.Handle, GWL_EXSTYLE) and
+           WS_EX_LEFTSCROLLBAR) <> 0, True),
+         BoolToStr((GetWindowLong(Form.Handle, GWL_EXSTYLE) and
+           WS_EX_LAYOUTRTL) <> 0, True)]));
+      Check((GetWindowLong(Form.Handle, GWL_EXSTYLE) and
+        WS_EX_RTLREADING) = 0,
+        'The window stops reading right to left, without a restart.');
+      Check((GetWindowLong(Form.Handle, GWL_EXSTYLE) and
+        WS_EX_LEFTSCROLLBAR) = 0,
+        'and its scroll bar returns to the right-hand side.');
       Writeln(Format('        grid   headings: %s, %s, %s',
         [Grid.Columns[0].Title.Caption, Grid.Columns[1].Title.Caption,
          Grid.Columns[2].Title.Caption]));

@@ -94,6 +94,51 @@ missing translation.
 
 ---
 
+## Open and not yet explained
+
+### Right-to-left appears to persist after switching away from Arabic
+
+Reported 20 August. After translating to Arabic and then switching to Italian,
+menus appeared still to open right to left, and a restart cleared it.
+
+Not reproduced. Everything checked resets correctly when an Arabic pack is
+followed by a left-to-right one, and each of these is now a standing test:
+
+- the form's `BiDiMode` returns to `bdLeftToRight`
+- the window's extended style loses `WS_EX_RTLREADING` and
+  `WS_EX_LEFTSCROLLBAR`; `WS_EX_LAYOUTRTL` is never set at all
+- a menu's `BiDiMode` follows the form through `ParentBiDiMode`
+- positions, `Align`, `Anchors`, `Alignment` and grid column order all restore
+  from the snapshot
+
+Two things learned while looking, both worth keeping in mind:
+
+- `TMenu.DoBiDiModeChanged` in `Vcl.Menus` begins `if (not SysLocale.MiddleEast)
+  or (WindowHandle = 0) then Exit`. On a machine whose Windows locale is not
+  Middle-Eastern the VCL does not apply right-to-left layout to menus at all,
+  whatever `BiDiMode` says. Menu direction may therefore behave differently on
+  an Arabic-locale machine than on this one.
+- The `multilingual-layout-envelope.json` is written but never read, and is
+  marked `advisoryOnly`, so it cannot be carrying decisions between languages.
+
+A speculative fix that forced the menu to rebuild was written and then removed
+again, because it could not be shown to change anything and would have masked
+the real cause.
+
+To narrow it: start the application fresh in English, switch **straight** to
+Italian without ever selecting Arabic, and see whether the menus are correct.
+That separates "Arabic leaves something behind in the running process" from
+"the Italian pack itself is wrong".
+
+### Label layout on the random-directory screen
+
+Reported 20 August against the Italian run. The instruction paragraphs and the
+numbered directory rows read as loose and unevenly spaced; the layout can be
+better than the planner currently makes it. No specific defect identified yet -
+this is a quality judgement rather than a rule that was broken.
+
+---
+
 ## Wanted
 
 ### Translation memory
