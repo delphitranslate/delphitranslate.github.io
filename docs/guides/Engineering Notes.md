@@ -2300,3 +2300,34 @@ noun, nor that a three-letter day abbreviation is a day rather than a verb.
 
 Both are worth fixing and neither is a defect in what exists: the context is
 about meaning, and this is about part of speech and about abbreviation.
+
+## The fourth copy (2026-08-20, later)
+
+Fixing the exporter was not enough, and the reason is worth recording because
+it was invisible from every angle that had been checked.
+
+The Arabic pack was rebuilt with the exporter fix in place and still carried no
+`Alignment` and no `ColumnOrder`. The proposal file explained it: 400 decisions
+accepted, 10 pending, and the ten pending were exactly the mirror decisions.
+The exporter only exports what is accepted.
+
+`AddProposal` held a fourth copy of the nine-property list, deciding which
+proposals start accepted. A proposal left pending is dropped later without a
+word, so that list quietly governs whether anything ships at all. Every
+right-to-left decision the planner made was created pending and thrown away -
+the plan was right, the pack was empty, and nothing anywhere said so.
+
+Four copies of one list, in four units, each one silently able to delete a
+feature. All four are gone; `IsRuntimeLayoutProperty` in
+`DAT.Runtime.LanguagePack` is the only one left.
+
+The layout contract harness can now assert a proposal's decision as well as its
+value, and `vcl_32` requires the mirror decisions to start accepted. That
+assertion was checked by disabling the auto-accept and confirming the contract
+fails.
+
+The lesson is not about lists. It is that a value can be correct at both ends
+of a pipeline and absent in the middle, and no test that looks at either end
+will ever see it. Two tests now cross seams rather than sit at ends:
+`PackLayoutSmokeTests` goes proposal-to-pack, and the contract decision
+assertion goes analysis-to-proposal.

@@ -5,17 +5,20 @@
     {
       "name": "pnlNav",
       "property": "Align",
-      "value": "alRight"
+      "value": "alRight",
+      "decision": "accepted"
     },
     {
       "name": "lblLeft",
       "property": "Alignment",
-      "value": "taRightJustify"
+      "value": "taRightJustify",
+      "decision": "accepted"
     },
     {
       "name": "edtStretch",
       "property": "Anchors",
-      "value": "akRight,akTop"
+      "value": "akRight,akTop",
+      "decision": "accepted"
     }
   ],
   "controls": [

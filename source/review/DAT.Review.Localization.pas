@@ -213,6 +213,7 @@ uses
   System.UITypes,
   DAT.Core.CatalogJson,
   DAT.Review.TextMeasurement,
+  DAT.Runtime.LanguagePack,
   DAT.Scan.TextCodec;
 
 type
@@ -594,8 +595,14 @@ begin
     of that plan, which is worse than shipping none of it: a caption is
     widened while the control it displaced stays put. Start them accepted;
     RestoreDecisions still lets an explicit rejection from the review win. }
-  if MatchText(APropertyName, ['Width', 'Height', 'WordWrap', 'AutoSize',
-    'Left', 'Top', 'Position.X', 'Position.Y', 'FontSize']) then
+  { The same one list the exporter and both applicators use. A fourth copy of
+    it lived here and decided which proposals start accepted, which is the
+    decision that actually governs whether anything ships: a proposal left
+    pending is dropped by the exporter without a word. Every right-to-left
+    decision the planner made was created pending and thrown away for that
+    reason - the plan was right, the pack was empty, and nothing anywhere
+    said so. }
+  if IsRuntimeLayoutProperty(Proposal.PropertyName) then
     Proposal.Decision := 'accepted'
   else
     Proposal.Decision := 'pending';

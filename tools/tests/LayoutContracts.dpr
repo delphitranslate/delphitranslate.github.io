@@ -339,6 +339,8 @@ var
   Found: Boolean;
   ExpectedValue: string;
   ActualValue: string;
+  ExpectedDecision: string;
+  ActualDecision: string;
 begin
   Expectations := ARoot.GetValue('proposals') as TJSONArray;
   if Expectations = nil then
@@ -354,23 +356,32 @@ begin
       numbers - which way a control is anchored, which edge its text sits
       against - and for those the property existing says nothing useful. }
     ExpectedValue := Expectation.GetValue<string>('value', '');
+    { And whether it starts accepted. A proposal left pending is dropped by
+      the exporter in silence, so a plan can be perfectly right and still
+      never reach the application - which is exactly what happened to every
+      right-to-left decision. }
+    ExpectedDecision := Expectation.GetValue<string>('decision', '');
     Found := False;
     ActualValue := '';
+    ActualDecision := '';
     for Proposal in AReview.Proposals do
       if SameText(Proposal.ComponentName, ComponentName) and
         SameText(Proposal.PropertyName, PropertyName) then
       begin
         ActualValue := Proposal.ProposedValue;
-        Found := (ExpectedValue = '') or
-          SameText(Proposal.ProposedValue, ExpectedValue);
+        ActualDecision := Proposal.Decision;
+        Found := ((ExpectedValue = '') or
+          SameText(Proposal.ProposedValue, ExpectedValue)) and
+          ((ExpectedDecision = '') or
+           SameText(Proposal.Decision, ExpectedDecision));
         if Found then
           Break;
       end;
     if not Found then
       if ActualValue <> '' then
-        Failures.Add(Format('%s.%s proposes %s = %s, expected %s',
+        Failures.Add(Format('%s.%s proposes %s = %s (%s), expected %s (%s)',
           [AFormName, ComponentName, PropertyName, ActualValue,
-           ExpectedValue]))
+           ActualDecision, ExpectedValue, ExpectedDecision]))
       else
         Failures.Add(Format('%s.%s has no %s proposal; the plan may be right ' +
           'and the pack still silent.',
