@@ -30,6 +30,7 @@ uses
   System.Hash,
   System.IOUtils,
   System.JSON,
+  DAT.Core.Hyphenation,
   DAT.Runtime.LanguagePack,
   DAT.Validation.Catalog;
 
@@ -84,6 +85,29 @@ var
   PropertyName: string;
   FontColorsObject: TJSONObject;
   FontColorKey: string;
+  Hyphenation: TDATHyphenationDictionary;
+
+  { A caption goes into the pack with a soft hyphen at every point its
+    language allows a break.
+
+    German builds one word where English uses three, and a single word cannot
+    wrap: there is no space in Benachrichtigungseinstellungen for a label or a
+    column heading to break at, so it is simply cut off. A soft hyphen is
+    invisible unless the line actually breaks there, so marking the breaks
+    costs nothing where the text already fits and rescues it where it does
+    not.
+
+    Only captions are marked. A format string is left exactly as it was
+    written: its text goes on to be filled with data, may be compared or
+    parsed, and a stray character inside it is a defect rather than a
+    kindness. }
+  function ForDisplay(const AText: string): string;
+  begin
+    if Hyphenation = nil then
+      Exit(AText);
+    Result := Hyphenation.HyphenateText(AText);
+  end;
+
 begin
   ValidationResult := TCatalogValidator.Validate(ACatalog);
   try
@@ -94,6 +118,8 @@ begin
   finally
     ValidationResult.Free;
   end;
+
+  Hyphenation := TDATHyphenation.Load(ACatalog.Locale.LanguageCode);
 
   Root := TJSONObject.Create;
   try
@@ -147,7 +173,8 @@ begin
           case Entry.RuntimeTextRole of
             rtrStaticText:
               begin
-                StringsObject.AddPair(Entry.Key, Entry.TranslatedText);
+                StringsObject.AddPair(Entry.Key,
+                  ForDisplay(Entry.TranslatedText));
                 if (Trim(SourceText) <> '') and
                   (Trim(Entry.TranslatedText) <> '') then
                 begin
@@ -155,7 +182,8 @@ begin
                     not SameText(ExistingText, Entry.TranslatedText) then
                     SourceStrings[SourceText] := ''
                   else if not SourceStrings.ContainsKey(SourceText) then
-                    SourceStrings.Add(SourceText, Entry.TranslatedText);
+                    SourceStrings.Add(SourceText,
+                      ForDisplay(Entry.TranslatedText));
                 end;
               end;
             rtrDynamicValue, rtrRuntimeTemplate:
@@ -267,6 +295,7 @@ begin
     Result := Root.ToJSON;
   finally
     Root.Free;
+    Hyphenation.Free;
   end;
 end;
 

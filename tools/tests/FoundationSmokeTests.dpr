@@ -15,6 +15,7 @@ uses
   DAT.Core.CatalogJson in '..\..\source\core\DAT.Core.CatalogJson.pas',
   DAT.Core.AITranslation in '..\..\source\core\DAT.Core.AITranslation.pas',
   DAT.Core.TranslationWorkspace in '..\..\source\core\DAT.Core.TranslationWorkspace.pas',
+  DAT.Core.Hyphenation in '..\..\source\core\DAT.Core.Hyphenation.pas',
   DAT.Core.RuntimePack in '..\..\source\core\DAT.Core.RuntimePack.pas',
   DAT.Core.Terminology in '..\..\source\core\DAT.Core.Terminology.pas',
   DAT.Core.Glossary in '..\..\source\core\DAT.Core.Glossary.pas',

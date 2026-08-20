@@ -9,11 +9,17 @@ type
   TScanContextAnalyzer = class
   public
     class procedure Analyze(const AItem: TScanItem); static;
+    { Everything the scan knows that one item cannot know on its own: what the
+      application is about, and what stands beside this control. Run once the
+      scan is complete. }
+    class procedure Enrich(const AResult: TProjectScanResult;
+      const AApplicationName: string); static;
   end;
 
 implementation
 
 uses
+  System.Classes,
   System.StrUtils,
   System.SysUtils;
 
@@ -197,6 +203,183 @@ begin
   else
     AItem.ContextDescription := Format(
       'Text used as %s in a desktop application.', [AItem.ContextKind]);
+end;
+
+{ What kind of thing this control is, said plainly enough to be useful to a
+  translator who cannot see the screen. }
+function ControlDescription(const AItem: TScanItem): string;
+var
+  ClassText: string;
+  PropertyText: string;
+begin
+  ClassText := LowerCase(AItem.ComponentClassName);
+  PropertyText := LowerCase(AItem.PropertyName);
+
+  if ContainsText(PropertyText, 'title.caption') or
+    ContainsText(ClassText, 'column') then
+    Exit('the heading of a column in a data grid');
+  if ContainsText(PropertyText, 'hint') then
+    Exit('the tooltip of a control');
+  if ContainsText(ClassText, 'menuitem') then
+    Exit('an item on a menu');
+  if ContainsText(ClassText, 'button') then
+    Exit('the caption of a button the user presses');
+  if ContainsText(ClassText, 'checkbox') or
+    ContainsText(ClassText, 'radiobutton') then
+    Exit('the caption beside a tick box');
+  if ContainsText(ClassText, 'groupbox') or ContainsText(ClassText, 'panel') then
+    Exit('the heading of a group of controls');
+  if ContainsText(PropertyText, 'items') or ContainsText(PropertyText, 'lines') then
+    Exit('one entry in a list the user chooses from');
+  if ContainsText(ClassText, 'label') or ContainsText(ClassText, 'text') then
+    Exit('a caption on a form, usually naming the field beside or below it');
+  if ContainsText(ClassText, 'form') then
+    Exit('the title of a window');
+  Result := 'text shown on a form';
+end;
+
+{ The subject the application is about, read from everything it says.
+
+  One string on its own tells a translator nothing: "Play Date From" could be
+  a database column in a scheduler or a note about children visiting. All the
+  other words on all the other forms settle it, and they cost nothing to
+  gather because the scan has already read them. }
+function DomainSummary(const AResult: TProjectScanResult): string;
+var
+  Item: TScanItem;
+  Corpus: string;
+  Subjects: TStringList;
+
+  procedure Note(const AWords, ASubject: array of string);
+  var
+    Word: string;
+  begin
+    for Word in AWords do
+      if ContainsText(Corpus, Word) then
+      begin
+        if Subjects.IndexOf(ASubject[0]) < 0 then
+          Subjects.Add(ASubject[0]);
+        Exit;
+      end;
+  end;
+
+begin
+  Result := '';
+  if AResult = nil then
+    Exit;
+  Corpus := '';
+  for Item in AResult.Items do
+    Corpus := Corpus + ' ' + LowerCase(Item.SourceText);
+
+  Subjects := TStringList.Create;
+  try
+    Note(['song', 'music', 'audio', 'volume', 'chime', 'bell', 'carillon',
+      'playlist', 'mp3'], ['playing recorded music']);
+    Note(['schedule', 'scheduling', 'calendar', 'weekday', 'monday',
+      'recurring'], ['scheduling events by date and time']);
+    Note(['invoice', 'customer', 'order', 'payment', 'account'],
+      ['business records']);
+    Note(['patient', 'clinic', 'diagnosis'], ['clinical records']);
+    Note(['email', 'smtp', 'recipient'], ['sending email']);
+    Note(['backup', 'restore', 'archive'], ['backing up data']);
+    if Subjects.Count = 0 then
+      Exit('');
+    Subjects.Delimiter := ';';
+    Result := StringReplace(Subjects.DelimitedText, ';', ' and ',
+      [rfReplaceAll]);
+    Result := StringReplace(Result, '"', '', [rfReplaceAll]);
+  finally
+    Subjects.Free;
+  end;
+end;
+
+{ A word that means different things in different applications, with the sense
+  this one uses. The provider is told outright rather than left to guess: told
+  nothing, it read "Play Date From" as an afternoon arranged between children
+  and produced Spielverabredungen for a column of broadcast times. }
+function AmbiguityNote(const AText, ADomain: string): string;
+begin
+  Result := '';
+  if ContainsText(ADomain, 'recorded music') then
+  begin
+    if ContainsText(AText, 'play') then
+      Result := Result + ' Here "play" means to play a sound recording, ' +
+        'never a game and never a theatre play.';
+  end;
+  if ContainsText(AText, 'close') then
+    Result := Result + ' Here "close" is the action of shutting a window, ' +
+      'not the adjective meaning nearby.';
+  if ContainsText(AText, 'record') then
+    Result := Result + ' Here "record" is a stored row of data unless the ' +
+      'surrounding words say otherwise.';
+  Result := Trim(Result);
+end;
+
+class procedure TScanContextAnalyzer.Enrich(const AResult: TProjectScanResult;
+  const AApplicationName: string);
+var
+  Domain: string;
+  Item: TScanItem;
+  Neighbour: TScanItem;
+  Neighbours: string;
+  Note: string;
+  Sentence: string;
+  Count: Integer;
+begin
+  if AResult = nil then
+    Exit;
+  Domain := DomainSummary(AResult);
+
+  for Item in AResult.Items do
+  begin
+    if Trim(Item.SourceText) = '' then
+      Continue;
+
+    Sentence := Format('This is %s', [ControlDescription(Item)]);
+    if Trim(AApplicationName) <> '' then
+      Sentence := Sentence + Format(' in %s', [Trim(AApplicationName)]);
+    if Domain <> '' then
+      Sentence := Sentence + Format(', an application for %s', [Domain]);
+    Sentence := Sentence + '.';
+
+    if Trim(Item.FormName) <> '' then
+      Sentence := Sentence + Format(' It appears on the %s screen.',
+        [Item.FormName]);
+
+    { The other headings of the same grid say more about a column than any
+      description could. }
+    if ContainsText(LowerCase(Item.PropertyName), 'title.caption') then
+    begin
+      Neighbours := '';
+      Count := 0;
+      for Neighbour in AResult.Items do
+        if (Neighbour <> Item) and
+          SameText(Neighbour.FormName, Item.FormName) and
+          SameText(Neighbour.ComponentName, Item.ComponentName) and
+          ContainsText(LowerCase(Neighbour.PropertyName), 'title.caption') and
+          (Trim(Neighbour.SourceText) <> '') and (Count < 6) then
+        begin
+          if Neighbours <> '' then
+            Neighbours := Neighbours + ', ';
+          Neighbours := Neighbours + Neighbour.SourceText;
+          Inc(Count);
+        end;
+      if Neighbours <> '' then
+        Sentence := Sentence + Format(
+          ' The other columns of the same grid are: %s.', [Neighbours]);
+      Sentence := Sentence + ' Keep it short: it has to fit a column heading.';
+    end;
+
+    if Item.SemanticConcept <> '' then
+      Sentence := Sentence + Format(' Meaning: %s.',
+        [StringReplace(Item.SemanticConcept, '.', ' ', [rfReplaceAll])]);
+
+    Note := AmbiguityNote(LowerCase(Item.SourceText), Domain);
+    if Note <> '' then
+      Sentence := Sentence + ' ' + Note;
+
+    Item.ContextDescription := Sentence;
+  end;
 end;
 
 end.

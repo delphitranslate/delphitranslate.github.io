@@ -238,6 +238,7 @@ uses
   FMX.Platform,
   DAT.Core.CatalogJson,
   DAT.Core.Glossary,
+  DAT.Core.Hyphenation,
   DAT.Core.SharedDictionary,
   DAT.Core.ProjectDetection,
   DAT.Core.RuntimePack,
@@ -1674,6 +1675,16 @@ begin
         anything this project has settled for itself overrides what the shared
         one believes. Everything already reviewed or approved is left alone by
         both. }
+      { A language brings its hyphenation with it. German builds one word
+        where English uses three and a single word cannot wrap, so a companion
+        dictionary saying where that language allows a break is installed
+        beside the shared terminology the first time the language is used. It
+        is a plain file and can be corrected by hand. }
+      if TDATHyphenation.EnsureInstalled(FCatalog.Locale.LanguageCode) then
+        AddProgress(Format('Hyphenation dictionary for %s is installed at %s.',
+          [FCatalog.Locale.LanguageCode,
+           TDATHyphenation.FileName(FCatalog.Locale.LanguageCode)]));
+
       SharedCount := TSharedDictionary.ApplyToCatalog(
         FCatalog.Locale.LanguageCode, FCatalog);
       if SharedCount > 0 then

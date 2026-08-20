@@ -696,6 +696,171 @@ end;
   So the AutoSize rules are applied first, on their own, before a single
   caption is written. The ordered pass applies them again afterwards, which
   costs nothing and keeps that pass complete in itself. }
+{ ---------------------------------------------------------------------------
+  Deciding where a long word breaks, once the control is its final size.
+
+  The pack carries a soft hyphen at every point the language allows a break,
+  because the pack is written long before anything knows how wide a label will
+  end up. On a renderer that understands soft hyphens that would be the end of
+  it. GDI does not: it draws U+00AD as an ordinary hyphen, and DrawText will
+  not break a line at one. Measured here, a thirty-letter German compound with
+  seven marks in it comes out 35 pixels WIDER than the same word unmarked, and
+  still one unbroken line.
+
+  So the marks are opportunities, and the decision is made at the last possible
+  moment - here, after every layout rule has been applied and each control is
+  the size it will really be. A control that wraps is given a real hyphen and a
+  real line break at the last mark that fits its width; one that cannot wrap is
+  given the plain word with the marks taken out. Either way no soft hyphen ever
+  reaches a caption.
+  --------------------------------------------------------------------------- }
+
+const
+  SoftHyphen = #$00AD;
+
+function StripSoftHyphens(const AText: string): string;
+begin
+  Result := StringReplace(AText, SoftHyphen, '', [rfReplaceAll]);
+end;
+
+{ One word, broken to fit. Each line ends at the last offered break that still
+  fits, with a hyphen of its own; a piece that fits nowhere is left whole
+  rather than cut mid-syllable, because a wrong break is worse than an
+  overflow. }
+function BreakWordToWidth(const AWord: string; const ACanvas: TCanvas;
+  const AWidth: Integer): string;
+var
+  Pieces: TArray<string>;
+  Line: string;
+  Candidate: string;
+  Index: Integer;
+begin
+  Result := '';
+  Pieces := AWord.Split([SoftHyphen]);
+  Line := '';
+  for Index := 0 to High(Pieces) do
+  begin
+    if Line = '' then
+      Candidate := Pieces[Index]
+    else
+      Candidate := Line + Pieces[Index];
+    { A hyphen has to fit on the line as well as the letters before it. }
+    if (Line <> '') and (Index < High(Pieces)) and
+      (ACanvas.TextWidth(Candidate + '-') > AWidth) then
+    begin
+      Result := Result + Line + '-' + #13#10;
+      Line := Pieces[Index];
+    end
+    else if (Line <> '') and (Index = High(Pieces)) and
+      (ACanvas.TextWidth(Candidate) > AWidth) then
+    begin
+      Result := Result + Line + '-' + #13#10;
+      Line := Pieces[Index];
+    end
+    else
+      Line := Candidate;
+  end;
+  Result := Result + Line;
+end;
+
+function ResolveSoftHyphens(const AText: string; const ACanvas: TCanvas;
+  const AWidth: Integer; const AWraps: Boolean): string;
+var
+  Words: TArray<string>;
+  Index: Integer;
+  Plain: string;
+begin
+  if Pos(SoftHyphen, AText) = 0 then
+    Exit(AText);
+  if (not AWraps) or (ACanvas = nil) or (AWidth <= 0) then
+    Exit(StripSoftHyphens(AText));
+
+  { Only a word that will not fit needs breaking. The framework wraps at
+    spaces perfectly well on its own, and a break offered inside a word that
+    fits is simply not needed. }
+  Words := AText.Split([' ']);
+  for Index := 0 to High(Words) do
+  begin
+    if Pos(SoftHyphen, Words[Index]) = 0 then
+      Continue;
+    Plain := StripSoftHyphens(Words[Index]);
+    if ACanvas.TextWidth(Plain) <= AWidth then
+      Words[Index] := Plain
+    else
+      Words[Index] := BreakWordToWidth(Words[Index], ACanvas, AWidth);
+  end;
+  Result := string.Join(' ', Words);
+end;
+
+{ The width a caption really has to live in. A label is all text; a check box
+  or a radio button spends part of its width on the box itself and on the gap
+  after it. }
+function CaptionWidth(const AControl: TControl): Integer;
+begin
+  Result := AControl.Width;
+  if (AControl is TCustomCheckBox) or (AControl is TRadioButton) then
+    Result := Result - 20;
+end;
+
+{ Every caption on the form, once the layout is settled. }
+function ResolveSoftHyphensOnForm(const AForm: TCustomForm): Integer;
+var
+  Measure: TBitmap;
+
+  procedure Walk(const AComponent: TComponent);
+  var
+    Child: TComponent;
+    Control: TControl;
+    Font: TFont;
+    PropertyInfo: PPropInfo;
+    Resolved: string;
+    Text: string;
+    Wraps: Boolean;
+  begin
+    PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'Caption',
+      [tkString, tkLString, tkWString, tkUString]);
+    if PropertyInfo <> nil then
+    begin
+      Text := GetStrProp(AComponent, PropertyInfo);
+      if Pos(SoftHyphen, Text) > 0 then
+      begin
+        if AComponent is TControl then
+        begin
+          Control := TControl(AComponent);
+          if TryGetFont(Control, Font) then
+            Measure.Canvas.Font.Assign(Font);
+          Wraps := False;
+          TryReadBoolean(Control, 'WordWrap', Wraps);
+          Resolved := ResolveSoftHyphens(Text, Measure.Canvas,
+            CaptionWidth(Control), Wraps);
+        end
+        else
+          Resolved := StripSoftHyphens(Text);
+        if Resolved <> Text then
+        begin
+          SetStrProp(AComponent, PropertyInfo, Resolved);
+          Inc(Result);
+        end;
+      end;
+    end;
+
+    for Child in AComponent do
+      Walk(Child);
+  end;
+
+begin
+  Result := 0;
+  if AForm = nil then
+    Exit;
+  Measure := TBitmap.Create;
+  try
+    Measure.SetSize(1, 1);
+    Walk(AForm);
+  finally
+    Measure.Free;
+  end;
+end;
+
 procedure ApplyAutoSizeRulesFirst(const AForm: TCustomForm;
   const APack: TRuntimeLanguagePack; const AFormIdentity: string);
 var
@@ -809,6 +974,8 @@ begin
       end;
     end;
     Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
+    { Last of all, now that every control is the size it will really be. }
+    ResolveSoftHyphensOnForm(AForm);
   finally
     if APreserveControlState and SavedFocusedState and
       (SavedFocusedControl <> nil) and SavedFocusedControl.CanFocus then

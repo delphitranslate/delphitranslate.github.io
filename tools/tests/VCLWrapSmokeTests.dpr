@@ -17,6 +17,7 @@ program VCLWrapSmokeTests;
 
 uses
   System.SysUtils,
+  System.StrUtils,
   Vcl.Forms,
   Vcl.Controls,
   Vcl.StdCtrls,
@@ -54,7 +55,17 @@ const
     'cuadro de directorio, selecciona un directorio y anade las fechas para ' +
     'incluirlo en la rotacion.",' +
     '"frmWrap.grdGroups.Columns[0].Title.Caption":"Grupo",' +
-    '"frmWrap.grdGroups.Columns[1].Title.Caption":"Fecha inicial"},' +
+    '"frmWrap.grdGroups.Columns[1].Title.Caption":"Fecha inicial",' +
+    { A German compound as the pack carries it: a break offered at every
+      point the language allows one, written as the JSON escape for a soft
+      hyphen. Nothing in the pack knows how wide the label is, so nothing in
+      the pack can decide which of these breaks is the one that gets used. }
+    '"frmWrap.lblLong.Caption":' +
+    '"Be\u00ADnach\u00ADrich\u00ADti\u00ADgung\u00ADsein\u00ADstel' +
+    '\u00ADlun\u00ADgen",' +
+    '"frmWrap.btnLong.Caption":' +
+    '"Be\u00ADnach\u00ADrich\u00ADti\u00ADgung\u00ADsein\u00ADstel' +
+    '\u00ADlun\u00ADgen"},' +
     '"sources":{},' +
     '"layout":[' +
     '{"formName":"frmWrap","componentName":"lblPara",' +
@@ -70,14 +81,34 @@ const
       rule names the grid with a path into it. }
     '{"formName":"frmWrap","componentName":"grdGroups",' +
     '"propertyName":"Columns[1].Width","originalValue":"72",' +
-    '"translatedValue":"150","sourceChecksum":"t"}]}';
+    '"translatedValue":"150","sourceChecksum":"t"},' +
+    '{"formName":"frmWrap","componentName":"lblLong",' +
+    '"propertyName":"AutoSize","originalValue":"True",' +
+    '"translatedValue":"False","sourceChecksum":"t"},' +
+    '{"formName":"frmWrap","componentName":"lblLong",' +
+    '"propertyName":"WordWrap","originalValue":"False",' +
+    '"translatedValue":"True","sourceChecksum":"t"},' +
+    '{"formName":"frmWrap","componentName":"lblLong",' +
+    '"propertyName":"Width","originalValue":"120",' +
+    '"translatedValue":"120","sourceChecksum":"t"}]}';
 begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
+end;
+
+const
+  SoftHyphen = #$00AD;
+
+function Shown(const AText: string): string;
+begin
+  Result := StringReplace(AText, SoftHyphen, '|', [rfReplaceAll]);
+  Result := StringReplace(Result, #13#10, ' / ', [rfReplaceAll]);
 end;
 
 var
   Form: TForm;
   Para: TLabel;
+  Long: TLabel;
+  Button: TButton;
   Grid: TDBGrid;
   Pack: TRuntimeLanguagePack;
 begin
@@ -118,6 +149,26 @@ begin
       Grid.Height := 120;
       Grid.Columns.Add.Title.Caption := 'Group';
       Grid.Columns.Add.Title.Caption := 'Play Date From';
+
+      { A word too long to wrap, in a label too narrow to hold it. GDI draws a
+        soft hyphen as an ordinary hyphen and never breaks a line at one, so
+        whatever reaches the caption has to be already decided. }
+      Long := TLabel.Create(Form);
+      Long.Parent := Form;
+      Long.Name := 'lblLong';
+      Long.Left := 24;
+      Long.Top := 340;
+      Long.Width := 120;
+      Long.Caption := 'Notification Settings';
+
+      { The same word on a button, which cannot wrap at all. }
+      Button := TButton.Create(Form);
+      Button.Parent := Form;
+      Button.Name := 'btnLong';
+      Button.Left := 600;
+      Button.Top := 340;
+      Button.Width := 300;
+      Button.Caption := 'Notification Settings';
 
       Check(Para.AutoSize, 'The label sizes itself, as a VCL label does.');
 
@@ -173,6 +224,19 @@ begin
       Check(Grid.Columns[1].Width = 150,
         Format('The column was widened to hold its heading, not left at %d.',
           [Grid.Columns[1].Width]));
+
+      Writeln(Format('        long label : "%s"', [Shown(Long.Caption)]));
+      Writeln(Format('        long button: "%s"', [Shown(Button.Caption)]));
+      Check(Pos(SoftHyphen, Long.Caption) = 0,
+        'No soft hyphen ever reaches a VCL caption: GDI would draw it.');
+      Check(ContainsText(Long.Caption, '-' + #13#10),
+        'The wrapping label is broken at a real hyphen and a real line break.');
+      Check((Pos(#13#10, Long.Caption) > 1) and
+        (Form.Canvas.TextWidth(Copy(Long.Caption, 1,
+          Pos(#13#10, Long.Caption) - 1)) <= Long.Width),
+        'And broken at a point that actually fits the label.');
+      Check(Button.Caption = 'Benachrichtigungseinstellungen',
+        'A control that cannot wrap gets the plain word, marks removed.');
     finally
       Form.Free;
     end;

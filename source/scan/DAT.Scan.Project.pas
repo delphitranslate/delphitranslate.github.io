@@ -341,6 +341,11 @@ begin
       FormFiles.Free;
     end;
 
+    { Now that every string has been read, each one can be told what the
+      application is about and what stands beside it. Nothing here needs a
+      person: it is all in what was just scanned. }
+    TScanContextAnalyzer.Enrich(Result, AProfile.ProjectName);
+
     Stopwatch.Stop;
     Result.ElapsedMilliseconds := Stopwatch.ElapsedMilliseconds;
   except
