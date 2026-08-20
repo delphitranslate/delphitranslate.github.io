@@ -20,6 +20,7 @@ uses
   DAT.Core.Types in '..\..\source\core\DAT.Core.Types.pas',
   DAT.Scan.Types in '..\..\source\scan\DAT.Scan.Types.pas',
   DAT.Scan.Rules in '..\..\source\scan\DAT.Scan.Rules.pas',
+  DAT.Scan.DomainProfile in '..\..\source\scan\DAT.Scan.DomainProfile.pas',
   DAT.Scan.Context in '..\..\source\scan\DAT.Scan.Context.pas',
   DAT.Scan.Quality in '..\..\source\scan\DAT.Scan.Quality.pas',
   DAT.Scan.TextCodec in '..\..\source\scan\DAT.Scan.TextCodec.pas',

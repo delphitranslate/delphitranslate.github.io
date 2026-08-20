@@ -21,7 +21,8 @@ implementation
 uses
   System.Classes,
   System.StrUtils,
-  System.SysUtils;
+  System.SysUtils,
+  DAT.Scan.DomainProfile;
 
 function ContainsAny(const AValue: string;
   const AParts: array of string): Boolean;
@@ -244,81 +245,19 @@ end;
   a database column in a scheduler or a note about children visiting. All the
   other words on all the other forms settle it, and they cost nothing to
   gather because the scan has already read them. }
-function DomainSummary(const AResult: TProjectScanResult): string;
-var
-  Item: TScanItem;
-  Corpus: string;
-  Subjects: TStringList;
+{ ---------------------------------------------------------------------------
+  What the whole application knows, said for one string.
 
-  procedure Note(const AWords, ASubject: array of string);
-  var
-    Word: string;
-  begin
-    for Word in AWords do
-      if ContainsText(Corpus, Word) then
-      begin
-        if Subjects.IndexOf(ASubject[0]) < 0 then
-          Subjects.Add(ASubject[0]);
-        Exit;
-      end;
-  end;
-
-begin
-  Result := '';
-  if AResult = nil then
-    Exit;
-  Corpus := '';
-  for Item in AResult.Items do
-    Corpus := Corpus + ' ' + LowerCase(Item.SourceText);
-
-  Subjects := TStringList.Create;
-  try
-    Note(['song', 'music', 'audio', 'volume', 'chime', 'bell', 'carillon',
-      'playlist', 'mp3'], ['playing recorded music']);
-    Note(['schedule', 'scheduling', 'calendar', 'weekday', 'monday',
-      'recurring'], ['scheduling events by date and time']);
-    Note(['invoice', 'customer', 'order', 'payment', 'account'],
-      ['business records']);
-    Note(['patient', 'clinic', 'diagnosis'], ['clinical records']);
-    Note(['email', 'smtp', 'recipient'], ['sending email']);
-    Note(['backup', 'restore', 'archive'], ['backing up data']);
-    if Subjects.Count = 0 then
-      Exit('');
-    Subjects.Delimiter := ';';
-    Result := StringReplace(Subjects.DelimitedText, ';', ' and ',
-      [rfReplaceAll]);
-    Result := StringReplace(Result, '"', '', [rfReplaceAll]);
-  finally
-    Subjects.Free;
-  end;
-end;
-
-{ A word that means different things in different applications, with the sense
-  this one uses. The provider is told outright rather than left to guess: told
-  nothing, it read "Play Date From" as an afternoon arranged between children
-  and produced Spielverabredungen for a column of broadcast times. }
-function AmbiguityNote(const AText, ADomain: string): string;
-begin
-  Result := '';
-  if ContainsText(ADomain, 'recorded music') then
-  begin
-    if ContainsText(AText, 'play') then
-      Result := Result + ' Here "play" means to play a sound recording, ' +
-        'never a game and never a theatre play.';
-  end;
-  if ContainsText(AText, 'close') then
-    Result := Result + ' Here "close" is the action of shutting a window, ' +
-      'not the adjective meaning nearby.';
-  if ContainsText(AText, 'record') then
-    Result := Result + ' Here "record" is a stored row of data unless the ' +
-      'surrounding words say otherwise.';
-  Result := Trim(Result);
-end;
+  The domain used to be recognised from a list of six subjects. It is now read
+  from the application itself - see DAT.Scan.DomainProfile - because no list
+  covers a file utility, a laboratory system, a point of sale and a CAD
+  package, and the ones it misses are the majority.
+  --------------------------------------------------------------------------- }
 
 class procedure TScanContextAnalyzer.Enrich(const AResult: TProjectScanResult;
   const AApplicationName: string);
 var
-  Domain: string;
+  Profile: TApplicationDomainProfile;
   Item: TScanItem;
   Neighbour: TScanItem;
   Neighbours: string;
@@ -328,57 +267,67 @@ var
 begin
   if AResult = nil then
     Exit;
-  Domain := DomainSummary(AResult);
 
-  for Item in AResult.Items do
-  begin
-    if Trim(Item.SourceText) = '' then
-      Continue;
-
-    Sentence := Format('This is %s', [ControlDescription(Item)]);
-    if Trim(AApplicationName) <> '' then
-      Sentence := Sentence + Format(' in %s', [Trim(AApplicationName)]);
-    if Domain <> '' then
-      Sentence := Sentence + Format(', an application for %s', [Domain]);
-    Sentence := Sentence + '.';
-
-    if Trim(Item.FormName) <> '' then
-      Sentence := Sentence + Format(' It appears on the %s screen.',
-        [Item.FormName]);
-
-    { The other headings of the same grid say more about a column than any
-      description could. }
-    if ContainsText(LowerCase(Item.PropertyName), 'title.caption') then
+  Profile := TDomainProfiler.Profile(AResult, AApplicationName);
+  try
+    for Item in AResult.Items do
     begin
-      Neighbours := '';
-      Count := 0;
-      for Neighbour in AResult.Items do
-        if (Neighbour <> Item) and
-          SameText(Neighbour.FormName, Item.FormName) and
-          SameText(Neighbour.ComponentName, Item.ComponentName) and
-          ContainsText(LowerCase(Neighbour.PropertyName), 'title.caption') and
-          (Trim(Neighbour.SourceText) <> '') and (Count < 6) then
-        begin
-          if Neighbours <> '' then
-            Neighbours := Neighbours + ', ';
-          Neighbours := Neighbours + Neighbour.SourceText;
-          Inc(Count);
-        end;
-      if Neighbours <> '' then
-        Sentence := Sentence + Format(
-          ' The other columns of the same grid are: %s.', [Neighbours]);
-      Sentence := Sentence + ' Keep it short: it has to fit a column heading.';
+      if Trim(Item.SourceText) = '' then
+        Continue;
+
+      Sentence := Format('This is %s', [ControlDescription(Item)]);
+      if Profile.ApplicationName <> '' then
+        Sentence := Sentence + Format(' in %s', [Profile.ApplicationName]);
+      Sentence := Sentence + '.';
+
+      if Trim(Item.FormName) <> '' then
+        Sentence := Sentence + Format(' It appears on the %s screen.',
+          [Item.FormName]);
+
+      { What the application is about, in its own words rather than in a
+        category somebody chose in advance. }
+      if Profile.VocabularySentence <> '' then
+        Sentence := Sentence + ' ' + Profile.VocabularySentence;
+
+      { The other headings of the same grid say more about a column than any
+        description could. }
+      if ContainsText(LowerCase(Item.PropertyName), 'title.caption') then
+      begin
+        Neighbours := '';
+        Count := 0;
+        for Neighbour in AResult.Items do
+          if (Neighbour <> Item) and
+            SameText(Neighbour.FormName, Item.FormName) and
+            SameText(Neighbour.ComponentName, Item.ComponentName) and
+            ContainsText(LowerCase(Neighbour.PropertyName), 'title.caption') and
+            (Trim(Neighbour.SourceText) <> '') and (Count < 6) then
+          begin
+            if Neighbours <> '' then
+              Neighbours := Neighbours + ', ';
+            Neighbours := Neighbours + Neighbour.SourceText;
+            Inc(Count);
+          end;
+        if Neighbours <> '' then
+          Sentence := Sentence + Format(
+            ' The other columns of the same grid are: %s.', [Neighbours]);
+        Sentence := Sentence + ' Keep it short: it has to fit a column heading.';
+      end;
+
+      if Item.SemanticConcept <> '' then
+        Sentence := Sentence + Format(' Meaning: %s.',
+          [StringReplace(Item.SemanticConcept, '.', ' ', [rfReplaceAll])]);
+
+      { And which sense this application means by any word in the string that
+        has more than one. This is the part that stops "Play Date From"
+        becoming an afternoon arranged between children. }
+      Note := Profile.SensesWithin(Item.SourceText);
+      if Note <> '' then
+        Sentence := Sentence + ' ' + Note;
+
+      Item.ContextDescription := Sentence;
     end;
-
-    if Item.SemanticConcept <> '' then
-      Sentence := Sentence + Format(' Meaning: %s.',
-        [StringReplace(Item.SemanticConcept, '.', ' ', [rfReplaceAll])]);
-
-    Note := AmbiguityNote(LowerCase(Item.SourceText), Domain);
-    if Note <> '' then
-      Sentence := Sentence + ' ' + Note;
-
-    Item.ContextDescription := Sentence;
+  finally
+    Profile.Free;
   end;
 end;
 

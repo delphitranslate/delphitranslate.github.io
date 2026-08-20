@@ -1880,3 +1880,172 @@ applied at runtime along with width, height, word-wrap, and autosize decisions.
 The Setup Wizard geometry was also constrained to its visible content card so
 project, deployment, scan, and finish pages do not clip controls on normal
 desktop screens.
+
+# Framework Parity, Layout Settling, and Grid Columns (2026-08-15 to 2026-08-18)
+
+The VCL side reached parity with FireMonkey. Measurement moved behind a seam so
+the analyser measures with the framework the application actually uses: GDI
+(`GetTextExtentPoint32`) for VCL, `TTextLayout` for FMX, with DPI pinned to 96
+because that is the basis a form was designed at.
+
+Several VCL-specific facts had to be taught to the analyser, each of which had
+produced wrong layouts:
+
+1. `TLabel.AutoSize` defaults to True and `WordWrap` to False, the opposite of
+   an FMX label. A translated caption therefore stretches a VCL label before any
+   rule is applied, and AutoSize has to be cleared before the text is assigned
+   rather than after.
+2. A `.dfm` records fonts as `Font.Height` in negative pixels, not `Font.Size`
+   in points. The conversion is `Round(-Height * 72 / 96)`, matching what
+   `TFont` itself does, and fonts inherit down the object tree.
+3. A second instance of a form is named `Name_1` by the VCL. Carillon dialogs
+   were left untranslated because the runtime looked up the instance name rather
+   than the form identity.
+4. Collections (`Columns = <item ... end>`) nest, so a collection `end` must not
+   pop the object stack. A `TDBGrid` keeps its headings at
+   `Columns[i].Title.Caption`, one level further in than the column itself.
+
+Grid columns are now planned end to end. The analyser measures a heading against
+its column and proposes `Columns[i].Width`; the pack carries the rule as a path
+rather than a property name; and the VCL applicator resolves the path. Column
+widths are applied last, after the grid has its own size.
+
+A settling pass was added after the per-control decisions: rows are levelled,
+headings widened and re-centred, lone buttons widened to a comfortable width
+(rightward only - a button keeps its place), paragraphs standing together are
+given one font size, and wrapped text is narrowed to the width its wrap actually
+uses so a block does not read as ragged. Every step is trial-and-revert: a
+change that breaks a contract is undone rather than kept.
+
+Two contracts were found to be vacuous and were rebuilt to fail first. Contract
+count is now 48 (19 FMX, 29 VCL) plus 3 form-scan and 9 pascal-scan fixtures.
+
+Shared per-language dictionaries were added at
+`C:\Users\Public\Documents\Delphi App Translation\Dictionaries`, so approved
+wording earned on one application is available to every later one. The shared
+dictionary speaks first and the project glossary overrides it.
+
+## Colour is never restored
+
+Restoring a form to its design-time state used to stamp design-time colours back
+over an application's own theming, which broke the Carillon `ApplyTheme` method.
+Colour was removed from the snapshot: the translator restores words and
+geometry, never appearance.
+
+# Source Encoding Guard (2026-08-19)
+
+Delphi reads a `.pas` without a byte order mark in the ANSI codepage, so a UTF-8
+literal saved without a BOM arrives corrupted. This had already produced wrong
+text once. `tools/check_source_encoding.ps1` now fails the build if any
+`.pas`, `.dpr` or `.dpk` holds a character outside ASCII without a BOM, and it
+runs as part of Phase 10 validation.
+
+It has since caught two real defects that would otherwise have shipped: the
+German and Spanish vowel sets in the hyphenation dictionaries, and a test
+fixture's soft hyphens. Both are written as escapes now.
+
+# Translation Context (2026-08-19)
+
+A provider sees one string at a time. Told only "text used in a desktop
+application", it read "Play Date From" as an afternoon arranged between children
+and produced Spielverabredungen for a column of bell timings; in Spanish it read
+"Close" as the adjective and produced cerca, meaning nearby.
+
+`TScanContextAnalyzer.Enrich` now runs once the scan is complete and writes a
+context sentence for every string from what the scan already knows: what kind of
+control it is, which screen it is on, the neighbouring column headings of the
+same grid, and the semantic concept. No person types anything.
+
+# Hyphenation (2026-08-19)
+
+German builds one word where English uses three, and a single word cannot wrap:
+there is no space in Benachrichtigungseinstellungen for a label or a column
+heading to break at, so it is simply cut off.
+
+Adding a language now installs a companion hyphenation dictionary beside the
+shared terminology, at `...\Delphi App Translation\Hyphenation\<code>.json`. A
+dictionary states which letters are vowels in that language, which consonant
+groups are one sound and must never be split, how much of a word must be left
+whole at each end, and any words whose breaks are known outright. German,
+Spanish and French have real rules; any other language gets a conservative
+starting file. The files are plain JSON and are meant to be corrected by hand.
+
+The runtime pack carries a soft hyphen (U+00AD) at every allowed break, because
+nothing at build time knows how wide a control will end up. Captions only:
+format strings are left exactly as written, since their text goes on to be
+filled with data and may be compared or parsed.
+
+**The two frameworks differ, and this was measured rather than assumed.**
+
+- FireMonkey honours soft hyphens. A marked word measures exactly as wide as an
+  unmarked one (168.5 either way), and breaks at a mark when it has to. Nothing
+  needed doing.
+- GDI does not. It draws U+00AD as an ordinary hyphen and `DrawText` will not
+  break a line at one. The same word measured 205px marked against 170px plain,
+  and stayed on one line.
+
+`DAT.Runtime.VCL` therefore resolves the marks itself, in a final pass after
+every layout rule has been applied and each control is the size it will really
+be. A control that wraps is given a real hyphen and a real line break at the
+last mark that fits its width; one that cannot wrap is given the plain word with
+the marks removed. No soft hyphen ever reaches a VCL caption.
+
+A `TDBGrid` heading cannot wrap at all, so hyphenation cannot help there - only
+the column width can, which the `Columns[i].Width` planning already does.
+
+# Application Domain Profile (2026-08-19)
+
+The first version of the context work recognised six subjects - music,
+scheduling, business records, clinical records, email, backups - from keyword
+lists. It read Carillon correctly and would have failed almost everything else:
+file and disk utilities, database administration tools, point of sale,
+inventory, engineering and instrumentation, laboratory systems, reporting tools,
+and the rest of the long tail that Delphi is mostly used for. A recogniser can
+only recognise what somebody already thought of, which is the opposite of what
+the feature was for.
+
+`DAT.Scan.DomainProfile` replaces it. Nothing is recognised; the application is
+read.
+
+**Note on providers.** The original plan was to ask the translation provider to
+characterise the application. That is not possible here: the only live providers
+are DeepL and Google Translate, which are translation APIs and cannot answer a
+question about an application. There is no LLM client in the product - the AI
+path in `DAT.Core.AITranslation` is the copy-and-paste workflow, which is human
+intervention by definition. The profile is therefore derived offline, which also
+means it is deterministic and can be used inside a contract.
+
+Two things come out of reading an application:
+
+1. **Its own vocabulary.** Word frequencies across every scanned string, with
+   the furniture of every user interface (File, Edit, Cancel, Save, OK, Close)
+   set aside. What remains is characteristic: song, playlist, chime, bell for
+   Carillon; rename, mask, extension, folder for a file renamer. The context
+   sentence quotes it directly rather than naming a category.
+
+2. **Which sense of an ambiguous word this application means.** This is the part
+   that matters, because most mistranslations are word-sense mistakes rather
+   than domain mistakes. A shared list at
+   `...\Delphi App Translation\Terms\ambiguous-terms.json` names the English
+   words that are ambiguous in a user interface and gives each sense the
+   evidence words that would be present if it were the one meant. The
+   application's own vocabulary casts the vote.
+
+   Volume is loudness in Carillon (which says mute, speaker, audio) and a disk
+   in a file utility (which says partition, format, drive). Mask is a filename
+   pattern where the application talks about filenames. Date is a calendar date.
+   Nothing has to know what kind of application it is looking at.
+
+   Where the application settles nothing, nothing is said. A guess between two
+   senses is worse than silence: it is a confident instruction to be wrong. A
+   word with a single listed sense (close) is always stated, because it is on
+   the list for being got wrong rather than for being ambiguous.
+
+The list is about English, the source language, so there is one of it rather
+than one per target language.
+
+`ContextSmokeTests` was rewritten to test shape rather than wording - that a
+domain sentence is present, that an ambiguous word carries an explicit sense -
+because the wording is now read from each application rather than written in the
+source. It covers Carillon, a file-renaming utility that no domain list would
+have held, and an application that settles nothing.

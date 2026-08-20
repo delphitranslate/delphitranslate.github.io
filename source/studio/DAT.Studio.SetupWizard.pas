@@ -239,6 +239,7 @@ uses
   DAT.Core.CatalogJson,
   DAT.Core.Glossary,
   DAT.Core.Hyphenation,
+  DAT.Scan.DomainProfile,
   DAT.Core.SharedDictionary,
   DAT.Core.ProjectDetection,
   DAT.Core.RuntimePack,
@@ -1684,6 +1685,14 @@ begin
         AddProgress(Format('Hyphenation dictionary for %s is installed at %s.',
           [FCatalog.Locale.LanguageCode,
            TDATHyphenation.FileName(FCatalog.Locale.LanguageCode)]));
+
+      { The list of words that are ambiguous in a user interface is about
+        English, the source language, so there is one of it rather than one
+        per target. Which sense each one means is decided per application
+        from the application's own vocabulary. }
+      if TDomainProfiler.EnsureInstalled then
+        AddProgress(Format('Ambiguous-term list is installed at %s.',
+          [TDomainProfiler.FileName]));
 
       SharedCount := TSharedDictionary.ApplyToCatalog(
         FCatalog.Locale.LanguageCode, FCatalog);
