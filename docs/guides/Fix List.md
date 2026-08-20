@@ -137,6 +137,24 @@ left, whether it is available in a shipped application or only in a build the
 developer runs, how an adjustment is attributed to a language, and what
 happens to it when the text later changes.
 
+### Buying back the speed lost to per-string context
+
+Giving each string its own context turned about six requests per run into
+about 297. It is correct, it is paid once per language, and since the retry
+work it is slow rather than fatal - but a DeepL run of a Carillon-sized
+application now takes minutes where it took seconds.
+
+Two ways out, either of which would recover most of it:
+
+- **Send several requests at once.** DeepL permits concurrency; a handful in
+  flight cuts wall-clock time roughly in proportion, with no change in cost or
+  in what is sent.
+- **Give individual context only to short strings.** Precision matters for
+  Help, Close, Play, Wed - a forty-word sentence is its own context and gains
+  nothing from being isolated. Long strings could batch as they used to.
+
+Neither is built. Both are cheap.
+
 ### DeepL server-side glossaries
 
 DeepL can hold a glossary on its side and enforce it during translation, which

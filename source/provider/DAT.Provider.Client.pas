@@ -20,6 +20,10 @@ type
     FApiKey: string;
     FTimeoutSeconds: Integer;
     FBatchSize: Integer;
+    { Zero until the service first says "slower", then a short wait kept
+      between requests for the rest of the run. Recovering from a rate limit
+      costs seconds each time; not provoking one costs milliseconds. }
+    FPacingMilliseconds: Integer;
   protected
     function Endpoint: string;
     function BuildRequestBody(const ATexts: TArray<string>;
@@ -59,7 +63,8 @@ uses
   System.Net.URLClient,
   DAT.Provider.Batching,
   DAT.Provider.LanguageCodes,
-  DAT.Provider.Placeholders;
+  DAT.Provider.Placeholders,
+  DAT.Provider.Retry;
 
 { Both live in DAT.Provider.LanguageCodes now, where they can be tested
   without a service. The DeepL one used to keep whatever region the catalog
@@ -334,8 +339,12 @@ begin
       Headers[1].Name := 'Authorization';
       Headers[1].Value := 'DeepL-Auth-Key ' + FApiKey;
     end;
-    for Attempt := 1 to 3 do
+    for Attempt := 1 to TProviderRetry.MaximumAttempts do
     begin
+      { Whatever pace the run has settled into. }
+      if FPacingMilliseconds > 0 then
+        TThread.Sleep(FPacingMilliseconds);
+
       Content := TStringStream.Create(
         BuildRequestBody(ATexts, ASourceLanguage, ATargetLanguage, AContext),
         TEncoding.UTF8);
@@ -347,11 +356,20 @@ begin
       if (Response.StatusCode >= 200) and
          (Response.StatusCode < 300) then
         Exit(ParseResponse(Response.ContentAsString(TEncoding.UTF8)));
-      if not ((Response.StatusCode = 429) or
-        (Response.StatusCode >= 500)) or (Attempt = 3) then
+
+      if not TProviderRetry.IsWorthRetrying(Response.StatusCode) or
+        (Attempt = TProviderRetry.MaximumAttempts) then
         raise ETranslationProviderError.Create(
           DescribeRejection(FProvider, Response), Response.StatusCode);
-      TThread.Sleep(Attempt * 300);
+
+      { Having been told once that the pace is too fast, slow down for the
+        rest of the run rather than waiting out the same refusal again and
+        again. }
+      if (Response.StatusCode = 429) and (FPacingMilliseconds < 1000) then
+        FPacingMilliseconds := FPacingMilliseconds + 250;
+
+      TThread.Sleep(TProviderRetry.DelayMilliseconds(Attempt,
+        Response.HeaderValue['Retry-After']));
     end;
   finally
     Client.Free;

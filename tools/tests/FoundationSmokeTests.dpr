@@ -44,6 +44,7 @@ uses
   DAT.Provider.Placeholders in '..\..\source\provider\DAT.Provider.Placeholders.pas',
   DAT.Provider.Batching in '..\..\source\provider\DAT.Provider.Batching.pas',
   DAT.Provider.LanguageCodes in '..\..\source\provider\DAT.Provider.LanguageCodes.pas',
+  DAT.Provider.Retry in '..\..\source\provider\DAT.Provider.Retry.pas',
   DAT.Provider.Client in '..\..\source\provider\DAT.Provider.Client.pas',
   DAT.Validation.Catalog in '..\..\source\validation\DAT.Validation.Catalog.pas';
 

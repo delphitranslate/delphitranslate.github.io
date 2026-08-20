@@ -2466,3 +2466,46 @@ the wizard never re-translating a string that already has a translation, that
 credit is roughly 150 new application-languages with re-runs costing nothing.
 The single glossary is enough to build and test DeepL server-side glossary
 support without paying for it.
+
+# A Rate Limit Is an Instruction (2026-08-20)
+
+The DeepL run stopped again, twenty-nine seconds in:
+
+    STOPPED: DeepL rejected the request (HTTP 429 Too Many Requests).
+
+Nothing was wrong. This was self-inflicted, and by a change made the same
+afternoon: giving each string its own context turned roughly six requests into
+roughly 297, and the client then gave up after three attempts and waits of 300
+and 600 milliseconds. Against a rate limit that is not waiting at all.
+
+A 429 is not a failure, it is the service asking for a slower pace, and the
+only wrong answer is to stop. `DAT.Provider.Retry` now decides the waits:
+
+- six attempts rather than three
+- one second, then two, four, eight, sixteen - thirty-one seconds of patience
+  in total, against the old nine hundred milliseconds
+- `Retry-After` obeyed exactly when the service sends it, capped at thirty
+  seconds, and treated as absent when it is a date form or a zero rather than
+  guessed at
+- 429 and 5xx retried; 400, 403 and 456 not, because a malformed request, a
+  refused key and an exhausted quota will all come back just as fast
+
+The waits are computed in a unit of their own so they can be checked without a
+network or a clock.
+
+## Not provoking it in the first place
+
+Recovering from a rate limit costs seconds each time. Not tripping it costs
+milliseconds. The client now keeps a pacing delay that starts at zero and
+grows by 250 milliseconds each time a 429 is met, to a ceiling of one second,
+and holds it for the rest of the run. A run that is never refused pays
+nothing; a run that is refused once slows down instead of arguing.
+
+## The standing cost
+
+Grouping by context is still roughly fifty times the round trips of the old
+batching. That is the price of a context that reaches the string it describes,
+it is paid once per language because re-runs never resend a translated string,
+and it is now slow rather than fatal. Two ways to buy the speed back are on
+the fix list rather than built: sending several requests concurrently, and
+giving individual context only to short strings, which are the ambiguous ones.
