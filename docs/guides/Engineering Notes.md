@@ -2331,3 +2331,46 @@ of a pipeline and absent in the middle, and no test that looks at either end
 will ever see it. Two tests now cross seams rather than sit at ends:
 `PackLayoutSmokeTests` goes proposal-to-pack, and the contract decision
 assertion goes analysis-to-proposal.
+
+## Pending is not a decision (2026-08-20, later still)
+
+Two fixes in, the Arabic pack still shipped without its mirror rules. The
+exporter carried them; the analyser accepted them; the pack was still empty.
+
+`RestoreDecisions` reads the proposal file from the previous run and copies
+each saved decision over the analyser's. That exists so a rejection made in
+review is not undone by the next scan, and that part is right. But the file
+also records every proposal that was merely *pending* - and pending is not a
+decision, it is the absence of one.
+
+The proposal file on disk had been written by a build that did not know
+`Alignment` or `ColumnOrder` existed, so it recorded them as pending. Every
+run since restored that pending over a freshly accepted decision. The feature
+was vetoed in perpetuity by a stale file, and no rebuild of the analyser could
+ever have fixed it.
+
+A saved decision now overrides the analyser only when it is an actual decision.
+An empty or pending entry leaves the analyser's judgement standing; a rejection
+is obeyed exactly as before.
+
+`ProposalDecisionSmokeTests` analyses a fixture, writes a proposal file with
+the mirror decision pending and one real rejection, re-analyses, restores, and
+checks that the pending one survived as accepted while the rejection held. It
+reproduced the defect before the fix.
+
+### Three bugs, one shape
+
+Every one of the three failures on this feature had the same shape: a value
+correct at both ends of a pipeline and absent in the middle.
+
+1. The FireMonkey applicator's copy of the property list dropped the rules.
+2. The exporter's copy dropped them.
+3. The auto-accept copy created them pending, and the restore made that
+   permanent.
+
+Each was invisible to every test that existed, because the tests sat at the
+ends - the contracts prove the plan, the applicator tests are handed a pack
+written by hand - and nothing crossed the joins. Three tests now cross them:
+`PackLayoutSmokeTests` (proposal to pack), the contract harness's decision
+assertion (analysis to proposal), and `ProposalDecisionSmokeTests` (run to
+run).

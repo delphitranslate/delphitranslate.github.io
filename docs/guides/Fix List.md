@@ -103,9 +103,43 @@ missing translation.
 
 ## Deferred by decision
 
-- **Splash screens.** A form-based splash can be translated by dropping the
-  language manager on it; text baked into a bitmap cannot be. Left alone on
-  purpose.
 - **The formal DOCX and PDF guides** are not to be regenerated until the
   localization-intelligence and iterative-update workflows finish acceptance
   testing.
+
+---
+
+## Splash screens
+
+Splash text and labels are not translated. Requested 20 August 2026.
+
+Three separate cases, and only the first is straightforward:
+
+1. **A form-based splash with real labels.** Dropping the language manager on
+   the splash form should be enough - `Loaded` fires when the form is
+   constructed, and `Initialize` reads the language preference from disk with
+   no dependence on the main form or on `Application.Run`. What is not yet
+   proved is whether the applicator ever *fires* for such a form: a splash is
+   usually shown and then blocked on, so `OnIdle` may never run and a
+   borderless window may never raise an active-form change. If it does not,
+   applying to the owner form at the end of `Initialize` is the fix, and it
+   belongs in the shared core rather than in either adapter. FireMonkey
+   already has the right hook in `TFormBeforeShownMessage`; the VCL has
+   nothing equivalent.
+
+2. **Text drawn onto the splash at run time** with `Canvas.TextOut`. Not
+   harvested by the scanner since 14 August, deliberately, because such calls
+   are usually data.
+
+3. **Text baked into the splash bitmap.** Cannot be translated at all - there
+   is nothing to scan, and the target application's resources are read-only by
+   standing rule. The honest handling is to detect it and say so: a form with
+   a full-size image and no translatable captions probably has its words in
+   the picture.
+
+Carillon's own splash is `CarillonSplash.dfm`, root object `Form1`, and the
+catalog holds four entries for it.
+
+A related risk is listed above under *Behaviour*: the settling pass can widen
+and re-level controls on a form where text sits over artwork, which is exactly
+what a splash is.

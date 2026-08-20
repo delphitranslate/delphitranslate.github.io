@@ -3925,6 +3925,7 @@ var
   Item: TJSONObject;
   Proposal: TLayoutProposal;
   FormName, ComponentName, PropertyName, Checksum: string;
+  SavedDecision: string;
 begin
   if (AReview = nil) or not TFile.Exists(AFileName) then
     Exit;
@@ -3948,7 +3949,23 @@ begin
              SameText(Proposal.ComponentName, ComponentName) and
              SameText(Proposal.PropertyName, PropertyName) and
              SameText(Proposal.SourceChecksum, Checksum) then
-            Proposal.Decision := Item.GetValue<string>('decision', 'pending');
+          begin
+            { A saved decision overrides the analyser's, which is the whole
+              point: a rejection made in review must not be undone by the next
+              scan.
+
+              But "pending" is not a decision. It is the absence of one, and
+              treating it as a veto means a proposal that was pending once is
+              pending for ever - including every proposal written by a build
+              that did not yet know the property existed. That is exactly what
+              happened to the right-to-left decisions: the analyser was taught
+              to accept them, and the previous build's file put them straight
+              back, twice, with nothing anywhere saying so. }
+            SavedDecision := Trim(Item.GetValue<string>('decision', ''));
+            if (SavedDecision <> '') and
+              not SameText(SavedDecision, 'pending') then
+              Proposal.Decision := SavedDecision;
+          end;
       end;
   finally
     Root.Free;
