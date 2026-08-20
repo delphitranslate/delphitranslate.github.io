@@ -30,6 +30,7 @@ uses
   Vcl.StdCtrls,
   Vcl.DBGrids,
   Vcl.Menus,
+  Winapi.Messages,
   DAT.Runtime.VCL in '..\..\source\runtime\DAT.Runtime.VCL.pas',
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas';
 
@@ -121,6 +122,22 @@ begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
 
+function MenuIsRightToLeft(const AMenu: TMainMenu): Boolean;
+const
+  RightToLeftMenuFlag = MFT_RIGHTORDER or MFT_RIGHTJUSTIFY;
+var
+  Info: TMenuItemInfo;
+  Buffer: array[0..79] of Char;
+begin
+  FillChar(Info, SizeOf(Info), 0);
+  Info.cbSize := SizeOf(Info);
+  Info.fMask := MIIM_TYPE;
+  Info.cch := Length(Buffer);
+  Info.dwTypeData := Buffer;
+  Result := GetMenuItemInfo(AMenu.Handle, 0, True, Info) and
+    ((Info.fType and RightToLeftMenuFlag) <> 0);
+end;
+
 var
   Form: TForm;
   Name_: TLabel;
@@ -132,6 +149,7 @@ var
   Menu: TMainMenu;
   FileItem: TMenuItem;
   ExStyleUnderArabic: NativeInt;
+
   Pack: TRuntimeLanguagePack;
 begin
   try
@@ -255,6 +273,9 @@ begin
         every menu keeps opening the way Arabic left it until the application
         is restarted, which is exactly what was reported. }
       ExStyleUnderArabic := GetWindowLong(Form.Handle, GWL_EXSTYLE);
+      Writeln(Format('        SysLocale.MiddleEast = %s   menu RTL flag = %s',
+        [BoolToStr(SysLocale.MiddleEast, True),
+         BoolToStr(MenuIsRightToLeft(Menu), True)]));
       Writeln(Format('        window ExStyle RTLREADING=%s LEFTSCROLLBAR=%s LAYOUTRTL=%s',
         [BoolToStr((ExStyleUnderArabic and WS_EX_RTLREADING) <> 0, True),
          BoolToStr((ExStyleUnderArabic and WS_EX_LEFTSCROLLBAR) <> 0, True),
@@ -353,6 +374,13 @@ begin
       Check((GetWindowLong(Form.Handle, GWL_EXSTYLE) and
         WS_EX_LEFTSCROLLBAR) = 0,
         'and its scroll bar returns to the right-hand side.');
+      Writeln(Format('        menu RTL flag now = %s',
+        [BoolToStr(MenuIsRightToLeft(Menu), True)]));
+      { The flag Windows actually draws menus from. The property was already
+        correct here while the screen was not, which is why every earlier
+        check passed and the menus stayed reversed until a restart. }
+      Check(not MenuIsRightToLeft(Menu),
+        'The menu itself stops opening right to left.');
       Writeln(Format('        grid   headings: %s, %s, %s',
         [Grid.Columns[0].Title.Caption, Grid.Columns[1].Title.Caption,
          Grid.Columns[2].Title.Caption]));

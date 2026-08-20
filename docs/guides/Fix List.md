@@ -125,10 +125,29 @@ A speculative fix that forced the menu to rebuild was written and then removed
 again, because it could not be shown to change anything and would have masked
 the real cause.
 
-To narrow it: start the application fresh in English, switch **straight** to
-Italian without ever selecting Arabic, and see whether the menus are correct.
-That separates "Arabic leaves something behind in the running process" from
-"the Italian pack itself is wrong".
+**Narrowed, 20 August.** Changing the language to English does *not* clear it;
+only closing and reopening the application does. So the residue survives every
+subsequent language change within the process.
+
+`SysLocale.MiddleEast` is **True** on the machine where this was seen, which is
+why menus mirror at all - the VCL's menu bidi path is gated on it, and on a
+machine without Middle-Eastern language support installed none of this would
+happen. Worth remembering when reproducing.
+
+The flag Windows actually draws menus from is `MFT_RIGHTORDER or
+MFT_RIGHTJUSTIFY` on menu item zero, set by `TMenu.DoBiDiModeChanged`. In an
+isolated test that flag is set correctly under Arabic and **cleared correctly**
+on returning to a left-to-right pack; that is now a standing assertion. So the
+mechanism works in isolation and something about the real application defeats
+it - most plausibly the timing of the notification, since the form's window is
+recreated when its `BiDiMode` changes and `DoBiDiModeChanged` returns early
+when the menu's `WindowHandle` is zero.
+
+The available lever, if the cause stays hidden: have `ApplyReadingOrder`
+re-assert each menu's `BiDiMode` explicitly after the form has settled, forcing
+a real value change so `DoBiDiModeChanged` is guaranteed to run against a valid
+window handle. That is defensive rather than a fix for a known cause, so it has
+not been written.
 
 ### Label layout on the random-directory screen
 
