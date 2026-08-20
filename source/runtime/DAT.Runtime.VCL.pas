@@ -84,6 +84,7 @@ implementation
 uses
   System.SysUtils,
   System.StrUtils,
+  System.IOUtils,
   System.TypInfo,
   Winapi.Windows,
   Vcl.Graphics,
@@ -1051,10 +1052,17 @@ var
   Flagged: string;
   Log: TStreamWriter;
 begin
+  { A fixed, findable path rather than an environment variable. The first
+    attempt used DAT_RTL_LOG and produced nothing at all, which told us only
+    that either the variable had not reached the process or the routine had
+    not run - and those are the two things the log exists to tell apart. }
   FileName := GetEnvironmentVariable('DAT_RTL_LOG');
   if Trim(FileName) = '' then
-    Exit;
+    FileName := TPath.Combine(TPath.Combine(
+      GetEnvironmentVariable('LOCALAPPDATA'), 'DelphiAppTranslationStudio'),
+      'rtl-diagnostic.log');
   try
+    ForceDirectories(TPath.GetDirectoryName(FileName));
     Line := Format('%s  %-14s form=%-18s direction=%-3s formBiDi=%d ' +
       'exStyleRTLREADING=%d middleEast=%d',
       [FormatDateTime('hh:nn:ss.zzz', Now), AWhen, AForm.Name, ADirection,
@@ -1067,10 +1075,18 @@ begin
       if Component is TMenu then
       begin
         Menu := TMenu(Component);
+        { Asking Windows for the menu already on the window, rather than
+          reading TMenu.Handle.
+
+          TMenu.Handle creates and populates the menu if it does not exist,
+          and doing that from here loses the translated captions outright -
+          the VCL runtime test says so plainly, which is the only reason it
+          was noticed. GetMenu creates nothing and answers zero when there is
+          no menu, so it cannot change what it is measuring. }
         Flagged := '?';
-        MenuHandle := 0;
-        try
-          MenuHandle := Menu.Handle;
+        MenuHandle := GetMenu(AForm.Handle);
+        if MenuHandle <> 0 then
+        begin
           FillChar(Info, SizeOf(Info), 0);
           Info.cbSize := SizeOf(Info);
           Info.fMask := MIIM_TYPE;
@@ -1079,9 +1095,9 @@ begin
           if GetMenuItemInfo(MenuHandle, 0, True, Info) then
             Flagged := IntToStr(
               Ord((Info.fType and RightToLeftMenuFlag) <> 0));
-        except
-          Flagged := 'err';
-        end;
+        end
+        else
+          Flagged := 'none';
         Line := Line + Format('  [menu %s biDi=%d parentBiDi=%d ' +
           'windowHandle=%d handle=%d rtlFlag=%s]',
           [Menu.Name, Ord(Menu.BiDiMode), Ord(Menu.ParentBiDiMode),
@@ -1246,6 +1262,7 @@ begin
     { Reading order first, because it is a property of the language rather
       than of any one control, and because the alignment rules that follow
       must be the last word on alignment. }
+    LogReadingOrder(AForm, 'applyToForm', APack.LanguageCode);
     ApplyReadingOrder(AForm, APack);
     Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
     { Last of all, now that every control is the size it will really be. }

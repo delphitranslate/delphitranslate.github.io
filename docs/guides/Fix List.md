@@ -147,12 +147,25 @@ Further narrowed, 20 August: starting in English and switching straight to
 Italian is **fine**. The residue only appears after leaving a right-to-left
 language, and then survives every later change.
 
-A field diagnostic is now in `ApplyReadingOrder`, off unless the environment
-variable `DAT_RTL_LOG` names a file. It records, before and after each apply:
+A field diagnostic is now in `ApplyReadingOrder`, writing to
+`%LOCALAPPDATA%\DelphiAppTranslationStudiotl-diagnostic.log` with no setup
+at all. It began as an environment-variable switch and produced nothing, which
+told us only that either the variable had not reached the process or the
+routine had not run - the two things the log exists to tell apart. It records, before and after each apply:
 the form, the pack's direction, the form's `BiDiMode`, whether
 `WS_EX_RTLREADING` is on the window, `SysLocale.MiddleEast`, and for every menu
 its `BiDiMode`, `ParentBiDiMode`, `WindowHandle`, menu handle and the native
 right-to-left flag on item zero.
+
+**Reading `TMenu.Handle` mid-apply destroys the translated menu captions.**
+The first unconditional version of the diagnostic did exactly that and the VCL
+runtime smoke test caught it immediately - a diagnostic that changes what it
+measures is worse than none. It now asks Windows for the menu already on the
+window with `GetMenu`, which creates nothing.
+
+That is worth remembering for its own sake, because `TMenu.DoBiDiModeChanged`
+also calls `GetHandle`. Whatever makes menu state fragile at that moment is in
+the same neighbourhood as this defect.
 
 The hypothesis it is meant to confirm or kill is that the form's window is
 recreated when `BiDiMode` changes, and `TMenu.DoBiDiModeChanged` returns early
