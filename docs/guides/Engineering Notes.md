@@ -2241,3 +2241,62 @@ caller can reach the service unprotected by accident.
 The two damaged Carillon entries were repaired by hand and marked reviewed, so
 a re-run leaves them alone. Their Arabic wording is the provider's own; only
 the % signs were restored.
+
+# One List, Not Three (2026-08-20)
+
+The first Arabic run of Carillon worked: the forms mirrored, the transport
+buttons kept their order, checkbox captions moved to the left of their boxes.
+Two things did not. The grids kept their designed column order, and label
+alignment never flipped.
+
+The planner had decided both correctly - the layout proposal held eight
+`Alignment` decisions and two `ColumnOrder` ones. The deployed pack held none
+of either. They were dropped by a property whitelist in the pack exporter, in
+silence, with no error anywhere.
+
+That is the second time in one day. The FireMonkey applicator had its own copy
+of the same list and dropped every right-to-left rule the same way. The
+comment above the FireMonkey copy said, in as many words, that two lists had
+drifted apart once already.
+
+There were three copies. There is now one, in `DAT.Runtime.LanguagePack`,
+which the exporter and both applicators already share. The FireMonkey copy and
+the exporter's inline list are gone.
+
+The list also now admits `Columns[...]`, which it never did. Grid column widths
+have therefore never reached a pack through the normal pipeline - the feature
+was proved by contract and by an applicator test fed a hand-written pack, and
+the seam between them was never crossed. Carillon has not needed one yet, so
+nothing was visibly wrong.
+
+`PackLayoutSmokeTests` guards that seam now. It writes a layout proposal
+containing one accepted decision of every kind, serializes a pack, and checks
+each one arrives. It is the only test that goes proposal-to-pack: the planner's
+contracts pass because the plan is right, and the applicator tests pass because
+they are handed a pack written by hand. Neither can see a hole in between.
+
+## What the Arabic run showed about translation quality
+
+Rendering, shaping and mirroring were all correct. The words were the problem,
+and in one specific way: **English words that are both noun and verb came back
+as verbs.**
+
+| shown | Arabic | means |
+|---|---|---|
+| Help | يساعد | "he helps" |
+| Close | يغلق | "he closes" |
+| Play | يلعب | "he plays" (a game) |
+| Stop | قف | "stand!" |
+| Wed | تزوج | "he married" |
+| Sat | قعد | "he sat" |
+| Sun | شمس | the star |
+| Play Schedule | جدول المباريات | "fixture list" (sport) |
+
+The domain profile settles which *sense* a word carries and did so correctly
+elsewhere in the same run - the email and liturgical screens are good, and
+"Ash Wednesday", "Maundy Thursday" and "All Souls Day" are all right. What it
+does not carry is that a button caption is an imperative and a menu item is a
+noun, nor that a three-letter day abbreviation is a day rather than a verb.
+
+Both are worth fixing and neither is a defect in what exists: the context is
+about meaning, and this is about part of speech and about abbreviation.

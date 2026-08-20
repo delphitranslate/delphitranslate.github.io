@@ -124,33 +124,6 @@ begin
   end;
 end;
 
-{ The layout properties the runtime is willing to apply. One list, consulted
-  both by the pass that applies them and by the guard that decides whether the
-  fitting heuristics should keep their hands off a control. Two lists drifted
-  apart once already, with the guard counting four of the nine, so a control
-  the analyser had spoken about still fell to the heuristics and was quietly
-  resized against the plan. }
-function IsRuntimeLayoutProperty(const APropertyName: string): Boolean;
-begin
-  Result :=
-    SameText(APropertyName, 'Width') or
-    SameText(APropertyName, 'Height') or
-    SameText(APropertyName, 'WordWrap') or
-    SameText(APropertyName, 'AutoSize') or
-    SameText(APropertyName, 'Left') or
-    SameText(APropertyName, 'Top') or
-    SameText(APropertyName, 'Position.X') or
-    SameText(APropertyName, 'Position.Y') or
-    SameText(APropertyName, 'FontSize') or
-    { The parts of a right-to-left mirror that are constants rather than
-      coordinates. Without these the rules are carried in the pack, matched
-      by the ordered pass, and then dropped here in silence - which is what
-      happened, and is exactly the drift this list was written to prevent. }
-    SameText(APropertyName, 'Align') or
-    SameText(APropertyName, 'Anchors') or
-    SameText(APropertyName, 'TextSettings.HorzAlign');
-end;
-
 function PositionKey(const AFormIdentity: string;
   const AComponent: TComponent): string;
 begin

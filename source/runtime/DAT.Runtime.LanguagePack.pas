@@ -131,6 +131,19 @@ type
 function CanonicalNativeLanguageName(const ALanguageCode,
   AFallbackName: string): string;
 
+{ The layout properties a pack may carry.
+
+  One list, and only one. There were three: this decision was written out in
+  the FireMonkey applicator, in the pack exporter, and in the ordered pass that
+  applies rules. They drifted, twice, and both times a whole feature was lost
+  in silence - the planner decided correctly, the runtime would have applied it
+  correctly, and the pack in between simply did not carry it. A property absent
+  from this list is not an error anywhere; it is just gone.
+
+  So it lives here, in the unit the exporter and both applicators already
+  share, and nothing else keeps a copy. }
+function IsRuntimeLayoutProperty(const APropertyName: string): Boolean;
+
 implementation
 
 uses
@@ -138,6 +151,34 @@ uses
   System.IOUtils,
   System.JSON,
   System.StrUtils;
+
+function IsRuntimeLayoutProperty(const APropertyName: string): Boolean;
+begin
+  Result :=
+    { geometry }
+    SameText(APropertyName, 'Width') or
+    SameText(APropertyName, 'Height') or
+    SameText(APropertyName, 'Left') or
+    SameText(APropertyName, 'Top') or
+    SameText(APropertyName, 'Position.X') or
+    SameText(APropertyName, 'Position.Y') or
+    { text fitting }
+    SameText(APropertyName, 'WordWrap') or
+    SameText(APropertyName, 'AutoSize') or
+    SameText(APropertyName, 'FontSize') or
+    { the parts of a right-to-left mirror that are constants rather than
+      coordinates }
+    SameText(APropertyName, 'Alignment') or
+    SameText(APropertyName, 'TextSettings.HorzAlign') or
+    SameText(APropertyName, 'Align') or
+    SameText(APropertyName, 'Anchors') or
+    SameText(APropertyName, 'TabOrder') or
+    SameText(APropertyName, 'ColumnOrder') or
+    { a column names a path into a control rather than a property of it }
+    StartsText('Columns[', APropertyName);
+end;
+
+
 
 function CanonicalNativeLanguageName(const ALanguageCode,
   AFallbackName: string): string;

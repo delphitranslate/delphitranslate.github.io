@@ -249,15 +249,10 @@ begin
                 'decision', 'pending'), 'accepted') then
                 Continue;
               PropertyName := LayoutItem.GetValue<string>('propertyName', '');
-              if not (SameText(PropertyName, 'Width') or
-                SameText(PropertyName, 'Height') or
-                SameText(PropertyName, 'WordWrap') or
-                SameText(PropertyName, 'AutoSize') or
-                SameText(PropertyName, 'Left') or
-                SameText(PropertyName, 'Top') or
-                SameText(PropertyName, 'Position.X') or
-                SameText(PropertyName, 'Position.Y') or
-                SameText(PropertyName, 'FontSize')) then
+              { The one list, in DAT.Runtime.LanguagePack. A copy of it lived
+                here and quietly dropped every alignment and column-order
+                decision the planner had made. }
+              if not IsRuntimeLayoutProperty(PropertyName) then
                 Continue;
               if Trim(LayoutItem.GetValue<string>('sourceChecksum', '')) = '' then
                 Continue;
