@@ -58,25 +58,22 @@ uses
   System.Net.HttpClient,
   System.Net.URLClient,
   DAT.Provider.Batching,
+  DAT.Provider.LanguageCodes,
   DAT.Provider.Placeholders;
 
+{ Both live in DAT.Provider.LanguageCodes now, where they can be tested
+  without a service. The DeepL one used to keep whatever region the catalog
+  named - ar-SA, es-ES - which DeepL rejects with a 400 that reads like a bad
+  key. }
 function NormalizeGoogleLanguageCode(const ACode: string): string;
-var
-  SeparatorPosition: Integer;
 begin
-  Result := Trim(ACode);
-  SeparatorPosition := Pos('-', Result);
-  if SeparatorPosition > 0 then
-    Result := Copy(Result, 1, SeparatorPosition - 1);
+  Result := TProviderLanguageCodes.Google(ACode);
 end;
 
 function NormalizeDeepLLanguageCode(const ACode: string;
   const AIsTarget: Boolean): string;
 begin
-  Result := UpperCase(StringReplace(Trim(ACode), '_', '-',
-    [rfReplaceAll]));
-  if not AIsTarget then
-    Result := Copy(Result, 1, 2);
+  Result := TProviderLanguageCodes.DeepL(ACode, AIsTarget);
 end;
 
 constructor TTranslationProviderClient.Create(
@@ -254,6 +251,62 @@ begin
   end;
 end;
 
+{ What the service said, rather than a list of things it might have been.
+
+  This used to read "Check the key, plan, billing, quota, language codes, and
+  network connection" - six possibilities, one of them right, and no way to
+  tell which. A DeepL 400 caused by sending ar-SA instead of AR looks exactly
+  like a bad key from the outside.
+
+  Both services return a message explaining the refusal. It was being thrown
+  away. }
+function DescribeRejection(const AProvider: TTranslationProvider;
+  const AResponse: IHTTPResponse): string;
+var
+  Body: string;
+  Root: TJSONValue;
+  Detail: string;
+begin
+  Detail := '';
+  try
+    Body := AResponse.ContentAsString(TEncoding.UTF8);
+    Root := TJSONObject.ParseJSONValue(Body);
+    try
+      if Root is TJSONObject then
+      begin
+        { DeepL answers with a message member at the top level; Google nests
+          the same thing one level down under error. }
+        Detail := TJSONObject(Root).GetValue<string>('message', '');
+        if Detail = '' then
+          Detail := TJSONObject(Root).GetValue<string>('error.message', '');
+      end;
+    finally
+      Root.Free;
+    end;
+    if (Detail = '') and (Trim(Body) <> '') then
+      Detail := Copy(Trim(Body), 1, 300);
+  except
+    { A refusal that is not JSON is still a refusal; say what is known. }
+    Detail := '';
+  end;
+
+  Result := Format('%s rejected the request (HTTP %d %s).',
+    [TranslationProviderDisplayName(AProvider), AResponse.StatusCode,
+     AResponse.StatusText]);
+  if Detail <> '' then
+    Result := Result + ' It said: ' + Detail;
+
+  case AResponse.StatusCode of
+    400: Result := Result + ' A 400 is a malformed request rather than a ' +
+           'refused key - most often a language code the service does not ' +
+           'accept.';
+    401, 403: Result := Result + ' Check the key, and that the plan selected ' +
+           'here matches the key: a free key sent to the paid endpoint is ' +
+           'refused exactly like a wrong one.';
+    456: Result := Result + ' The character quota for this key is used up.';
+  end;
+end;
+
 function TTranslationProviderClient.PostBatch(
   const ATexts: TArray<string>; const ASourceLanguage,
   ATargetLanguage, AContext: string): TArray<string>;
@@ -296,11 +349,8 @@ begin
         Exit(ParseResponse(Response.ContentAsString(TEncoding.UTF8)));
       if not ((Response.StatusCode = 429) or
         (Response.StatusCode >= 500)) or (Attempt = 3) then
-        raise ETranslationProviderError.Create(Format(
-          '%s rejected the request (HTTP %d %s). Check the key, plan, billing, quota, language codes, and network connection.',
-          [TranslationProviderDisplayName(FProvider),
-           Response.StatusCode, Response.StatusText]),
-          Response.StatusCode);
+        raise ETranslationProviderError.Create(
+          DescribeRejection(FProvider, Response), Response.StatusCode);
       TThread.Sleep(Attempt * 300);
     end;
   finally

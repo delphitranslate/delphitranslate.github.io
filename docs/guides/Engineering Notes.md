@@ -2421,3 +2421,48 @@ option.
 Neither change has been tested against a real service yet. Both are aimed at
 a defect seen once, in one language, and the fix list keeps the entry open
 until an Arabic run shows the result.
+
+# The Language Code DeepL Would Not Take (2026-08-20)
+
+The first DeepL run stopped on the 280th unresolved entry with
+
+    STOPPED: DeepL rejected the request (HTTP 400 Bad Request). Check the key,
+    plan, billing, quota, language codes, and network connection.
+
+Six possibilities, one of them right, and nothing to say which. The key was
+good and the request was well formed. The target language was `ar-SA`, and
+DeepL's target list has `AR`.
+
+A catalog names languages the way Windows does - ar-SA, es-ES, he-IL. DeepL
+accepts two-letter codes plus a short published list of regional variants:
+EN-GB, EN-US, PT-BR, PT-PT, ZH-HANS, ZH-HANT, ES-419, DE-DE, DE-CH, FR-CA,
+FR-FR. Anything else is a 400. The old normaliser uppercased the catalog code
+and passed the region straight through, so German worked - DE-DE happens to be
+on the list - and Arabic, Spanish, Hebrew and most others could not have.
+
+`DAT.Provider.LanguageCodes` keeps a region only where the service is known to
+accept it and drops it everywhere else. Dropping is the safe direction: the
+general code is accepted for every language DeepL supports, so a language added
+after this was written still works, just without its variant.
+
+## Saying what the service said
+
+The message above named six causes because the code that raised it knew
+nothing. Both services return an explanation in the response body and it was
+being discarded. Rejections now quote it, and add one line of interpretation
+where the status code carries meaning of its own - that a 400 is a malformed
+request rather than a refused key, that a 401 or 403 is as likely to be a free
+key sent to the paid endpoint as a wrong one, that 456 is the quota.
+
+## Plans
+
+DeepL restructured its API plans in July 2026. API Free and API Pro can no
+longer be bought; new customers get Developer, Growth or Enterprise. Developer
+is free and carries a **one-time** credit of one million characters, one API
+key and one glossary.
+
+At 6,471 characters for a Carillon-sized application in one language, and with
+the wizard never re-translating a string that already has a translation, that
+credit is roughly 150 new application-languages with re-runs costing nothing.
+The single glossary is enough to build and test DeepL server-side glossary
+support without paying for it.

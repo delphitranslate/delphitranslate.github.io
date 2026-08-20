@@ -43,6 +43,7 @@ uses
   DAT.Provider.Types in '..\..\source\provider\DAT.Provider.Types.pas',
   DAT.Provider.Placeholders in '..\..\source\provider\DAT.Provider.Placeholders.pas',
   DAT.Provider.Batching in '..\..\source\provider\DAT.Provider.Batching.pas',
+  DAT.Provider.LanguageCodes in '..\..\source\provider\DAT.Provider.LanguageCodes.pas',
   DAT.Provider.Client in '..\..\source\provider\DAT.Provider.Client.pas',
   DAT.Validation.Catalog in '..\..\source\validation\DAT.Validation.Catalog.pas';
 
