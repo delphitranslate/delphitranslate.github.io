@@ -19,6 +19,7 @@ uses
   DAT.Core.RuntimePack in '..\..\source\core\DAT.Core.RuntimePack.pas',
   DAT.Core.Terminology in '..\..\source\core\DAT.Core.Terminology.pas',
   DAT.Core.Glossary in '..\..\source\core\DAT.Core.Glossary.pas',
+  DAT.Review.CodeGeometry in '..\..\source\review\DAT.Review.CodeGeometry.pas',
   DAT.Review.Localization in '..\..\source\review\DAT.Review.Localization.pas',
   DAT.Review.TextMeasurement in '..\..\source\review\DAT.Review.TextMeasurement.pas',
   DAT.Review.TextMeasurement.GDI in '..\..\source\review\DAT.Review.TextMeasurement.GDI.pas',

@@ -1,0 +1,25 @@
+{
+  "description": "The same rule under FireMonkey, where the property is spelled Position.X rather than Left. The unit being read is Pascal either way, so one reading serves both frameworks - which is the point of putting the detection in the planner rather than in a runtime.",
+  "catalog_file": "35_code_positioned_control_is_left_alone.catalog.json",
+  "proposals": [
+    {
+      "name": "lblHeading",
+      "property": "Width",
+      "absent": true
+    },
+    {
+      "name": "lblHeading",
+      "property": "Position.X",
+      "absent": true
+    },
+    {
+      "name": "lblHeading",
+      "property": "FontSize",
+      "absent": true
+    },
+    {
+      "name": "lblOrdinary",
+      "property": "Width"
+    }
+  ]
+}

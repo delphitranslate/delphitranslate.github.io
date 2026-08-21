@@ -52,6 +52,7 @@ type
     FTabOrder: Integer;
     FHasTabOrder: Boolean;
     FMirrorHandled: Boolean;
+    FGeometryOwnedByCode: Boolean;
     FHorzAlign: string;
     FWordWrap: Boolean;
     FAutoSize: Boolean;
@@ -91,6 +92,12 @@ type
     { Set when the right-to-left pass has already placed this control, so the
       general reflection leaves it alone. }
     property MirrorHandled: Boolean read FMirrorHandled write FMirrorHandled;
+    { The application assigns this control's position or size in its own
+      source. Its text is translated; its geometry is not touched, because a
+      rule computed from the designer values would overwrite a decision the
+      application has already made and will not make again. }
+    property GeometryOwnedByCode: Boolean read FGeometryOwnedByCode
+      write FGeometryOwnedByCode;
     { How the text sits inside the control. This decides which way the control
       has to grow: a right-aligned caption must keep its right edge and extend
       leftwards, or its text walks into whatever sits beside it. }
@@ -212,6 +219,7 @@ uses
   System.SysUtils,
   System.UITypes,
   DAT.Core.CatalogJson,
+  DAT.Review.CodeGeometry,
   DAT.Review.TextMeasurement,
   DAT.Runtime.LanguagePack,
   DAT.Scan.TextCodec;
@@ -652,6 +660,7 @@ const
 class procedure TLocalizationReviewer.ScanLayout(
   const ACatalog: TTranslationCatalog; const AReview: TLocalizationReview);
 var
+  CodePositioned: TStringList;
   Entry: TTranslationEntry;
   Files: TStringList;
   Lines: TStringList;
@@ -679,6 +688,7 @@ begin
          MatchText(LowerCase(TPath.GetExtension(Entry.SourceFileName)),
            ['.fmx', '.dfm']) then
         Files.Add(Entry.SourceFileName);
+    CodePositioned := nil;
     for FileName in Files do
     begin
       Stack.Clear;
@@ -688,6 +698,11 @@ begin
       CollectionItemIndex := -1;
       CollectionFontSize := DefaultVCLFontSize;
       ColumnControl := nil;
+      { Which controls this form's own unit positions or sizes for itself.
+        Read once per form; empty for the ordinary form nobody lays out by
+        hand. }
+      FreeAndNil(CodePositioned);
+      CodePositioned := TCodeGeometry.ControlsPositionedInCode(FileName);
       LoadDelphiTextFile(FileName, Lines);
       FormName := '';
       for I := 0 to Lines.Count - 1 do
@@ -769,6 +784,8 @@ begin
           Frame.Control.ComponentName := Name;
           Frame.Control.ComponentClassName := ClassName;
           Frame.Control.SourceFileName := FileName;
+          Frame.Control.GeometryOwnedByCode :=
+            CodePositioned.IndexOf(Name) >= 0;
 
           { A property absent from a form file is not a property set to False:
             it is the framework's default, and the two frameworks disagree. A
@@ -941,6 +958,7 @@ begin
       end;
     end;
   finally
+    CodePositioned.Free;
     Stack.Free;
     Lines.Free;
     Files.Free;
@@ -3762,6 +3780,15 @@ begin
   for Control in AReview.Controls do
   begin
     if not Control.HasSize then
+      Continue;
+    { A control the application positions or sizes for itself is translated
+      and otherwise left alone. Every number here is computed from the
+      designer geometry, and the application has already decided differently
+      at run time - Carillon centres its main heading against the screen in
+      FormShow, which no reading of the form file can know. Proposing anything
+      would overwrite that decision, and restoring the designed value later
+      would not put it back, because the line that made it never runs again. }
+    if Control.GeometryOwnedByCode then
       Continue;
     { Sizing and wrapping only mean something for a control whose text was
       translated. }

@@ -1,0 +1,28 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 300
+  ClientWidth = 700
+  object lblHeading: TLabel
+    AutoSize = False
+    StyledSettings = []
+    Position.X = 260.000000000000000000
+    Position.Y = 20.000000000000000000
+    Size.Width = 180.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.HorzAlign = Center
+    Text = 'System Settings'
+  end
+  object lblOrdinary: TLabel
+    AutoSize = False
+    StyledSettings = []
+    Position.X = 40.000000000000000000
+    Position.Y = 120.000000000000000000
+    Size.Width = 180.000000000000000000
+    Size.Height = 20.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Notifications'
+  end
+end

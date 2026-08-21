@@ -209,6 +209,27 @@ recreated when its `BiDiMode` changes, and the maximised state is a property of
 the window rather than of anything the applicator restores. Worth re-testing
 once the reading order is applied before the text rather than after.
 
+### Geometry the application sets in code — *fixed 20 August*
+
+`DAT.Review.CodeGeometry` reads the Pascal unit beside each form and notes any
+control whose `Left`, `Top`, `Width`, `Height`, `Position.X`, `Position.Y`,
+`Align` or `SetBounds` is assigned there. Those controls have their text
+translated and their geometry left entirely alone.
+
+One reading serves both frameworks, because what is being read is Pascal
+rather than VCL or FireMonkey; contracts 34 and 35 are the same fixture in
+each. Both include a second control the unit does not mention, which must
+still be laid out normally - otherwise a contract passing because the planner
+had been switched off altogether would look identical to one passing for the
+right reason.
+
+The detection is deliberately literal: an assignment to a named identifier's
+geometry property, and nothing cleverer. A control it misses behaves as before;
+a control it claims wrongly loses only its layout adjustments and is still
+translated. Both directions fail softly.
+
+The original finding follows.
+
 ### Geometry the application sets in code is overwritten, and never given back
 
 The heading on Carillon's main form goes off centre on any language change and

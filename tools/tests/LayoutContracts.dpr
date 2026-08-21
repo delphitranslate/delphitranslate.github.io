@@ -26,6 +26,7 @@ uses
   DAT.Core.Types in '..\..\source\core\DAT.Core.Types.pas',
   DAT.Core.CatalogJson in '..\..\source\core\DAT.Core.CatalogJson.pas',
   DAT.Scan.TextCodec in '..\..\source\scan\DAT.Scan.TextCodec.pas',
+  DAT.Review.CodeGeometry in '..\..\source\review\DAT.Review.CodeGeometry.pas',
   DAT.Review.Localization in '..\..\source\review\DAT.Review.Localization.pas',
   DAT.Review.TextMeasurement in '..\..\source\review\DAT.Review.TextMeasurement.pas',
   DAT.Review.TextMeasurement.GDI in '..\..\source\review\DAT.Review.TextMeasurement.GDI.pas',
@@ -341,6 +342,7 @@ var
   ActualValue: string;
   ExpectedDecision: string;
   ActualDecision: string;
+  MustBeAbsent: Boolean;
 begin
   Expectations := ARoot.GetValue('proposals') as TJSONArray;
   if Expectations = nil then
@@ -361,6 +363,10 @@ begin
       never reach the application - which is exactly what happened to every
       right-to-left decision. }
     ExpectedDecision := Expectation.GetValue<string>('decision', '');
+    { A contract may also require that nothing was proposed at all. Some of
+      the most important decisions the planner makes are decisions not to
+      act - on a control the application positions itself, for instance. }
+    MustBeAbsent := Expectation.GetValue<Boolean>('absent', False);
     Found := False;
     ActualValue := '';
     ActualDecision := '';
@@ -377,6 +383,14 @@ begin
         if Found then
           Break;
       end;
+    if MustBeAbsent then
+    begin
+      if ActualValue <> '' then
+        Failures.Add(Format('%s.%s proposes %s = %s, and should propose ' +
+          'nothing at all.',
+          [AFormName, ComponentName, PropertyName, ActualValue]));
+      Continue;
+    end;
     if not Found then
       if ActualValue <> '' then
         Failures.Add(Format('%s.%s proposes %s = %s (%s), expected %s (%s)',

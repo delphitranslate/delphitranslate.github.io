@@ -97,7 +97,7 @@
         <DCC_DcuOutput>.\dcu\$(Platform)\$(Config)</DCC_DcuOutput>
         <DCC_ExeOutput>.\bin\$(Platform)\$(Config)</DCC_ExeOutput>
         <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;$(DCC_Namespace)</DCC_Namespace>
-        <DCC_UnitSearchPath>.\source\studio;.\source\core;.\source\scan;.\source\runtime;.\source\integration;.\source\provider;.\source\validation;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>.\source\studio;.\source\review;.\source\core;.\source\scan;.\source\runtime;.\source\integration;.\source\provider;.\source\validation;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <SanitizedProjectName>DelphiAppTranslationStudio</SanitizedProjectName>
         <Icon_MainIcon>$(BDS)\bin\delphi_PROJECTICON.ico</Icon_MainIcon>
         <Icns_MainIcns>$(BDS)\bin\delphi_PROJECTICNS.icns</Icns_MainIcns>
@@ -281,6 +281,7 @@
         <DCCReference Include="source\core\DAT.Core.RuntimePack.pas"/>
         <DCCReference Include="source\core\DAT.Core.Terminology.pas"/>
         <DCCReference Include="source\core\DAT.Core.Glossary.pas"/>
+        <DCCReference Include="source\review\DAT.Review.CodeGeometry.pas"/>
         <DCCReference Include="source\review\DAT.Review.Localization.pas"/>
         <DCCReference Include="source\scan\DAT.Scan.Types.pas"/>
         <DCCReference Include="source\scan\DAT.Scan.Rules.pas"/>
