@@ -180,6 +180,27 @@ The available lever either way: have `ApplyReadingOrder` re-assert each menu's
 so `DoBiDiModeChanged` runs against a valid window handle. Defensive rather
 than aimed, so it waits on the log.
 
+### The window is not restored properly after a right-to-left round trip
+
+Reported 20 August. Going to Arabic and back leaves the main form no longer
+filling the screen correctly - a strip of the desktop shows down the left-hand
+side where the window should be maximised.
+
+Almost certainly the same root as the menu residue: a form's window is
+recreated when its `BiDiMode` changes, and the maximised state is a property of
+the window rather than of anything the applicator restores. Worth re-testing
+once the reading order is applied before the text rather than after.
+
+### The heading is not centred after a right-to-left round trip
+
+Reported 20 August, on the same run. The main form's heading sits too far left
+on return from Arabic, and is not properly centred under Arabic either, which
+suggests the second is the cause of the first rather than two faults.
+
+A centred caption is centred by the planner using the container's width. If the
+window is the wrong width at the moment the rule is applied - see above - the
+centre is computed against the wrong number.
+
 ### Label layout on the random-directory screen
 
 Reported 20 August against the Italian run. The instruction paragraphs and the
@@ -189,7 +210,42 @@ this is a quality judgement rather than a rule that was broken.
 
 ---
 
+### The system-volume label is cramped
+
+Reported 20 August against the Spanish run: "Volumen del sistema:" crowds the
+slider beside it. A caption that grew has taken room the control next to it
+needed, or the pair were never treated as a row.
+
+---
+
 ## Wanted
+
+### Work the competitive analysis into the development plan
+
+`C:\Downloads\Delphi Localization Tools Competitive Analysis.docx`, 20 August
+2026. A read-only survey of the thirteen live products in this market, their
+prices, and where this one stands against them.
+
+It should be read properly and turned into an ordered plan rather than left as
+a document. Its own conclusions, and the ones worth arguing with:
+
+- **Translation memory is the largest gap.** Every commercial rival has it and
+  the strongest free one has it too. It is listed separately below and should
+  be first.
+- Price band for what exists today is $189-$499; the layout work is the
+  argument for the upper end.
+- Two former market leaders, Sisulizer and Multilizer, have closed. A
+  documented import path for their project files is a direct acquisition
+  channel that one competitor already exploits.
+- The report was written from the README and therefore misses three things
+  this product now does that nothing else in the field does: automatic
+  per-string translation context, automatic right-to-left mirroring on both
+  frameworks, and format-specifier protection. The README should say so.
+- Two of its concessions deserve testing before they are accepted. "No
+  C++Builder" - the scanner reads the same `.dfm` and `.fmx` files, so the
+  reach may be much closer than assumed. "Windows only" - the Studio is, but
+  the FireMonkey runtime may not be, and that is a materially stronger claim
+  if it holds.
 
 ### Translation memory
 
@@ -278,7 +334,8 @@ the two are not confused with one another.
 ### The right-to-left field diagnostic
 
 `LogReadingOrder` in `DAT.Runtime.VCL` writes a line to
-`%LOCALAPPDATA%\DelphiAppTranslationStudiotl-diagnostic.log` on every
+`%LOCALAPPDATA%\DelphiAppTranslationStudio
+tl-diagnostic.log` on every
 apply. It exists to catch the menu residue above and has no business in a
 shipped runtime, because it writes to a user's disk unasked from inside their
 application.

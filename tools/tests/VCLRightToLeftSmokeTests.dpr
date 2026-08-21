@@ -116,6 +116,7 @@ const
     '"shortTimeFormat":"HH:mm","longTimeFormat":"HH:mm:ss",' +
     '"decimalSeparator":".","thousandSeparator":",","currencySymbol":"$"},' +
     '"strings":{"frmRtl.lblName.Caption":"Name",' +
+    '"frmRtl.mnuFile.Caption":"File",' +
     '"frmRtl.btnOk.Caption":"OK"},' +
     '"sources":{},"layout":[]}';
 begin
@@ -204,11 +205,15 @@ begin
       Grid.Columns.Add.Title.Caption := 'Third';
       Grid.Columns[2].FieldName := 'THIRDFIELD';
 
-      { A menu is not a TControl, which is exactly why it was missed. Its
-        reading order has to be set on the menu itself. }
+      { A menu is not a TControl, which is why it was missed at first. The
+        caption matters as much as the menu: translating a menu item rebuilds
+        the menu, and Delphi stamps each item with the reading order in force
+        at that moment. A menu whose caption never changes is never rebuilt,
+        and a test using one cannot see the defect this is here to catch. }
       Menu := TMainMenu.Create(Form);
       Menu.Name := 'MainMenu1';
       FileItem := TMenuItem.Create(Form);
+      FileItem.Name := 'mnuFile';
       FileItem.Caption := 'File';
       Menu.Items.Add(FileItem);
       Form.Menu := Menu;

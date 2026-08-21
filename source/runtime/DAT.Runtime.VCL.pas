@@ -1209,6 +1209,25 @@ begin
     little more behind. Starting from the snapshot costs one pass over the
     controls and makes applying a language mean the same thing every time. }
   RestoreOriginalGeometry(AForm, APack, FormIdentity);
+
+  { Reading order before anything else that touches a control.
+
+    It used to run after the text, and that is the wrong way round. Setting a
+    menu item's caption rebuilds the menu, and Delphi stamps each item with
+    the reading order in force at the moment of the rebuild - so translating
+    the menu first meant rebuilding it in the language being left, and the
+    later change of direction then had to correct it through
+    TMenu.DoBiDiModeChanged, which returns early on several conditions
+    including a window handle that is momentarily zero.
+
+    Setting it first removes that dependency entirely: whatever is rebuilt
+    afterwards is rebuilt the right way round to begin with. Direction is a
+    property of the language rather than of any one control, so first is also
+    where it belongs. The alignment rules still come later, in
+    ApplyLayoutToForm, and still have the last word on alignment. }
+  LogReadingOrder(AForm, 'applyToForm', APack.LanguageCode);
+  ApplyReadingOrder(AForm, APack);
+
   SavedFocusedControl := nil;
   SavedFocusedState := False;
   if APreserveControlState then
@@ -1259,11 +1278,6 @@ begin
         end;
       end;
     end;
-    { Reading order first, because it is a property of the language rather
-      than of any one control, and because the alignment rules that follow
-      must be the last word on alignment. }
-    LogReadingOrder(AForm, 'applyToForm', APack.LanguageCode);
-    ApplyReadingOrder(AForm, APack);
     Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
     { Last of all, now that every control is the size it will really be. }
     ResolveSoftHyphensOnForm(AForm);
