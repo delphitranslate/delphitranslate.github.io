@@ -472,8 +472,37 @@ The twelve without a FireMonkey twin:
 | inherited_font_is_the_forms_font | **yes** - font inheritance was deliberately changed for the VCL only, FireMonkey's defaults differ and its behaviour was left alone |
 | right_to_left_flips_alignment_and_anchors | **partly** - `Anchors` is a VCL notion; FireMonkey needs the `Align` and `TextSettings.HorzAlign` half |
 
-So ten of the twelve are framework-neutral planner behaviour that simply has no
-FireMonkey fixture yet. The planner measures through a seam - GDI for VCL,
+Judged one at a time against what each contract actually tests, rather than by
+name:
+
+**Nine are clean gaps** - framework-neutral planner behaviour that FireMonkey
+can and should be held to: a button gets room for its caption; a caption stops
+at the button beside it; a heading widens before it wraps; a paragraph stays on
+the form; caption far wider than its box; a long word gets room; stacked
+paragraphs share a size; wrapped text is balanced; transport buttons keep their
+order.
+
+**One is a partial gap.** `right_to_left_flips_alignment_and_anchors` covers
+`Align`, `Anchors` and text alignment. FireMonkey has all three - `TAlignLayout`,
+`Anchors`, `TextSettings.HorzAlign` - and the runtime side is already tested by
+`FMXRightToLeftSmokeTests`, but no FireMonkey *contract* checks that the planner
+proposes them. Worth a twin.
+
+**Two are legitimately VCL-only.**
+
+- `inherited_font_is_the_forms_font` - font inheritance down the object tree was
+  changed for the VCL alone, on VCL evidence, and FireMonkey's differing
+  defaults were deliberately left as they were. FireMonkey inherits through
+  `StyledSettings` and `TextSettings` instead, so its equivalent is a
+  *different* contract rather than a twin, and writing one would be new work
+  rather than parity work.
+- `a_grid_does_not_end_the_form` - this guards a `.dfm` parsing hazard
+  specifically: a collection written as `item ... end` blocks, whose `end`
+  lines were emptying the object stack so that every control after a grid was
+  read as a form. FireMonkey files do not use that syntax. It has its own
+  nesting risks, which is a different contract again.
+
+So the honest target is **ten new FireMonkey contracts**, not twelve. The planner measures through a seam - GDI for VCL,
 `TTextLayout` for FireMonkey - so the same rule can produce different numbers,
 which is precisely why a twin is worth having rather than assumed.
 
@@ -483,6 +512,23 @@ behaviour instead of requiring it. Two contracts in this project have already
 had to be rebuilt for exactly that fault. Each twin needs its expected numbers
 reasoned from what the layout *should* be and confirmed to fail before the code
 is right - which is a fixture at a time, not a batch.
+
+### Harness parity
+
+Separately from the contracts, the 28 test harnesses pair like this:
+
+- **Five paired**: design streaming, language manager, manager lifecycle,
+  right-to-left, runtime smoke - each with a VCL and a FireMonkey version.
+- **Fifteen framework-neutral**: contracts, scanning, providers, packs,
+  hyphenation, context and the rest.
+- **Three VCL with no FireMonkey twin**: `VCLDiscoverySmokeTests`,
+  `VCLWrapSmokeTests`, `VCLManagerMDILifecycleSpikeTests`.
+- **None** FireMonkey-only.
+
+Of those three, MDI is a VCL concept and needs no twin. Discovery and wrap both
+have FireMonkey meaning and do not have it covered - wrap especially, since the
+soft-hyphen resolution it exercises is the one place the two frameworks were
+measured to behave differently.
 
 ## Not yet verified
 
