@@ -148,7 +148,8 @@ Italian is **fine**. The residue only appears after leaving a right-to-left
 language, and then survives every later change.
 
 A field diagnostic is now in `ApplyReadingOrder`, writing to
-`%LOCALAPPDATA%\DelphiAppTranslationStudiotl-diagnostic.log` with no setup
+`%LOCALAPPDATA%\DelphiAppTranslationStudio
+tl-diagnostic.log` with no setup
 at all. It began as an environment-variable switch and produced nothing, which
 told us only that either the variable had not reached the process or the
 routine had not run - the two things the log exists to tell apart. It records, before and after each apply:
@@ -269,6 +270,37 @@ the two are not confused with one another.
   languages do not wrap on spaces and do not hyphenate, and they usually run
   shorter than English rather than longer, so the settling pass would be
   exercised in a direction it has never seen.
+
+---
+
+## To strip before release
+
+### The right-to-left field diagnostic
+
+`LogReadingOrder` in `DAT.Runtime.VCL` writes a line to
+`%LOCALAPPDATA%\DelphiAppTranslationStudiotl-diagnostic.log` on every
+apply. It exists to catch the menu residue above and has no business in a
+shipped runtime, because it writes to a user's disk unasked from inside their
+application.
+
+Remove it, or return it to the environment-variable gate it started with, as
+soon as the menu defect is understood. Nothing else depends on it.
+
+### Nothing else, and that is worth saying
+
+The eight probes written while chasing these defects - BiDiProbe, FlipProbe,
+GridReverseProbe, GroupsReplicaProbe, BidiNumeralProbe, SoftHyphenProbe,
+FMXSoftHyphenProbe, ShowValidation - live in a scratch directory outside the
+repository and are tracked by nothing. They need no cleanup; they will vanish
+with the session.
+
+The 28 harnesses under `tools	ests` and the 52 layout contracts are **not**
+clutter and should not be pruned. Every one encodes a defect that actually
+happened: the grid headings, the duplicate form name, the colour that would not
+stay, the encoding that arrived wrong, the placeholders a service ate, the
+language code a service refused, the rate limit treated as a failure, the
+property list that existed in four places. They are the reason those defects
+cannot come back quietly, and each one cost a real debugging session to learn.
 
 ---
 
