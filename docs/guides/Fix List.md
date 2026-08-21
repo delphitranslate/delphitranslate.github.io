@@ -346,6 +346,40 @@ a document. Its own conclusions, and the ones worth arguing with:
   the FireMonkey runtime may not be, and that is a materially stronger claim
   if it holds.
 
+### Add several languages in one pass, without a person driving it
+
+Adding a language today means a whole wizard run: scan, translate, review,
+export, deploy. Shipping ten common languages means doing that ten times, and
+most of it is wasted - **the scan is language-independent.** Reading the forms,
+working out what is translatable, building the domain profile and resolving
+word senses do not change between Spanish and Swedish, yet they are paid for
+every time.
+
+What differs per language is small and already exists as library calls: build
+the catalog from the scan, translate, validate, run the layout review, export
+the pack. A batch runner would be orchestration rather than new capability.
+
+Cost is not the obstacle. Carillon is about 6,500 billable characters per
+language, so ten languages is roughly 65,000 - about six per cent of DeepL's
+one-time Developer credit, with re-runs free because a translated string is
+never sent twice. Time is the real cost: a few hundred requests per language,
+so ten is perhaps half an hour unattended.
+
+**The obstacle is that batching hides per-language quality.** The validator
+catches structural damage - it is what stopped the Arabic run when format
+specifiers were eaten - but nothing structural was wrong with a Help menu
+reading "he helps". Ten packs produced unattended may contain that class of
+error and look perfectly healthy.
+
+So it should stop on a language that fails validation, carry on with the rest,
+and end with a per-language summary naming whatever needs a person's eye -
+rather than reporting silent success.
+
+Worth building as a **headless command-line runner** rather than another wizard
+page. That also closes a gap the competitive analysis names: every serious
+rival ships a CLI for build servers and this does not. Two gaps, one piece of
+work.
+
 ### Translation memory
 
 Nothing remembers a translation across applications. The shared per-language
@@ -414,6 +448,41 @@ for one. Worth doing after the per-string context work has been measured, so
 the two are not confused with one another.
 
 ---
+
+## Contract coverage is uneven between the frameworks
+
+Audited 20 August. The 54 layout contracts cover **33 distinct behaviours**:
+21 are proven on both frameworks, **12 on VCL only, and none on FireMonkey
+only**.
+
+The twelve without a FireMonkey twin:
+
+| behaviour | genuinely VCL-specific? |
+|---|---|
+| a_button_gets_room_for_its_caption | no |
+| a_caption_stops_at_the_button_beside_it | no |
+| a_grid_does_not_end_the_form | no |
+| a_heading_widens_before_it_wraps | no |
+| a_long_word_gets_room | no |
+| a_paragraph_stays_on_the_form | no |
+| caption_far_wider_than_its_box | no |
+| stacked_paragraphs_share_a_size | no |
+| transport_buttons_keep_their_order | no |
+| wrapped_text_is_balanced | no |
+| inherited_font_is_the_forms_font | **yes** - font inheritance was deliberately changed for the VCL only, FireMonkey's defaults differ and its behaviour was left alone |
+| right_to_left_flips_alignment_and_anchors | **partly** - `Anchors` is a VCL notion; FireMonkey needs the `Align` and `TextSettings.HorzAlign` half |
+
+So ten of the twelve are framework-neutral planner behaviour that simply has no
+FireMonkey fixture yet. The planner measures through a seam - GDI for VCL,
+`TTextLayout` for FireMonkey - so the same rule can produce different numbers,
+which is precisely why a twin is worth having rather than assumed.
+
+**These must not be produced in bulk.** A contract whose expected values are
+copied from what the planner currently does proves nothing; it records
+behaviour instead of requiring it. Two contracts in this project have already
+had to be rebuilt for exactly that fault. Each twin needs its expected numbers
+reasoned from what the layout *should* be and confirmed to fail before the code
+is right - which is a fixture at a time, not a batch.
 
 ## Not yet verified
 

@@ -1,0 +1,746 @@
+<html>
+<head><meta charset="utf-8"><title>Delphi App Translation Studio — Engineering Guide</title></head>
+<body>
+
+<p style="text-align:center; margin-top:180pt; font-size:30pt; font-weight:bold; color:#1a3a5c">
+Delphi App Translation Studio</p>
+<p style="text-align:center; font-size:19pt; color:#1a3a5c">Engineering Guide</p>
+<p style="text-align:center; font-size:12pt; color:#555; margin-top:30pt">
+How the product is built, why it is built that way,<br/>
+and what holds it together</p>
+<p style="text-align:center; font-size:11pt; color:#555; margin-top:60pt">
+Last changed: 20 August 2026<br/>
+Applies to: alpha, build 2026.08.18.128<br/>
+Frameworks: Delphi VCL and FireMonkey &nbsp;·&nbsp; Platform: Windows (Studio)</p>
+<p style="text-align:center; font-size:10pt; color:#777; margin-top:40pt">
+Written from the source. Every number, file name and line reference in this<br/>
+document was taken from the code as it stands on the date above.</p>
+
+<p style="page-break-before:always"></p>
+
+<h1>Contents</h1>
+<p>Headings use the built-in Heading&nbsp;1–3 styles, so a live page-numbered table of
+contents can be inserted over this list at any time through <i>References &gt; Table of
+Contents</i>.</p>
+<ol>
+<li>Purpose and audience</li>
+<li>What the product does</li>
+<li>The five principles</li>
+<li>Architecture</li>
+<li>The scan</li>
+<li>Context: telling the translator what a string means</li>
+<li>The catalog and its validator</li>
+<li>Translation providers</li>
+<li>Terminology, dictionaries and hyphenation</li>
+<li>The layout planner</li>
+<li>Right-to-left</li>
+<li>The runtime pack</li>
+<li>The runtime</li>
+<li>Contracts — how this product is kept honest</li>
+<li>Build and release validation</li>
+<li>Known limits</li>
+</ol>
+<p>Appendix A — Unit inventory<br/>
+Appendix B — Contract inventory and framework parity<br/>
+Appendix C — Files, folders and where things live</p>
+
+<p style="page-break-before:always"></p>
+
+<h1>1. Purpose and audience</h1>
+<p>This guide is for the engineer who has to change this product: to fix a defect, add a
+capability, or judge whether a proposed change is safe. It assumes fluency in Delphi and
+no prior knowledge of this codebase.</p>
+<p>It is not a user guide. It does not explain how to run the Setup Wizard; it explains
+what the Wizard is doing and why.</p>
+<p>Where a design decision was reached by measurement rather than by reasoning, the
+measurement is given. Where something is known to be wrong, it is said so plainly and
+pointed at the Fix List rather than glossed over. A guide that only describes the parts
+that work is not an engineering document.</p>
+
+<h1>2. What the product does</h1>
+<p>Delphi App Translation Studio takes a Delphi application and produces the files needed
+to run that application in another language — including the layout adjustments the new
+language requires, because translated text is rarely the same size as the original.</p>
+<p>Concretely, it:</p>
+<ul>
+<li>reads the application's forms and source and finds the text a user will see;</li>
+<li>works out what each string <i>means</i> in that application, without a person typing anything;</li>
+<li>translates through DeepL or Google using the developer's own API key;</li>
+<li>measures the translated text with the same engine the framework will draw it with, and
+plans the width, height, wrapping, font size and position changes it needs;</li>
+<li>writes an offline JSON language pack;</li>
+<li>and applies that pack at run time through a component, so the user can change language
+while the application is running.</li>
+</ul>
+<p>The deployed application needs no API key and no internet connection.</p>
+
+<h1>3. The five principles</h1>
+<p>Almost every design decision in this codebase follows from one of five commitments.
+When a change seems to conflict with the surrounding code, it is usually because it
+conflicts with one of these.</p>
+
+<h2>3.1 The target application is evidence, never a workpiece</h2>
+<p>The translator reads the target project's <code>.dfm</code>, <code>.fmx</code>,
+<code>.pas</code>, <code>.dpr</code> and <code>.dproj</code> files and never writes to
+them. Every artefact it produces lives outside the target tree. This is not a
+configuration option; it is the reason a developer can trust the tool with a working
+application.</p>
+<p>It has a consequence that recurs throughout this guide: where a translation genuinely
+requires a change to the application — a <code>TranslateText</code> call for a string the
+application composes itself — the tool's job is to <i>say so precisely</i>, not to make
+the change.</p>
+
+<h2>3.2 The runtime is offline</h2>
+<p>Translation happens once, at development time. What ships is a JSON pack read from
+disk. No key, no network, no telemetry. This separates the one phase that needs the
+internet from the one that must never depend on it.</p>
+
+<h2>3.3 Artefacts are readable and diffable</h2>
+<p>The catalog, the layout proposal and the runtime pack are JSON. They can be read in a
+text editor, compared between versions, committed to source control and corrected by
+hand. Several defects described in this guide were diagnosed by reading those files
+rather than by debugging, which is an argument for the format on its own.</p>
+
+<h2>3.4 One decision lives in one place</h2>
+<p>Learned the hard way. The list of layout properties a pack may carry once existed in
+<b>four</b> units. They drifted, and each drift silently deleted a feature: the planner
+decided correctly, the runtime would have applied correctly, and the pack in between
+simply did not carry the value. There was no error anywhere.</p>
+<p>That list now lives only in <code>DAT.Runtime.LanguagePack</code>, which the exporter
+and both applicators already share. Section&nbsp;14 explains the tests that now guard
+the joins.</p>
+
+<h2>3.5 Both frameworks, one implementation</h2>
+<p>VCL and FireMonkey differ in defaults, in property names and in what the framework
+does for you. The response is not two code paths but one implementation behind a seam.
+The clearest example is text measurement (section&nbsp;10.1); the clearest payoff is
+right-to-left mirroring (section&nbsp;11), where the VCL has native support,
+FireMonkey has none at all, and both are served by the same pass.</p>
+
+<p style="page-break-before:always"></p>
+
+<h1>4. Architecture</h1>
+<p><img src="fig1-pipeline.png" width="700"/></p>
+<p>Each stage writes a durable artefact and the next stage reads it. That is what makes
+the pipeline diagnosable: when something is wrong on screen, the question is always
+<i>which artefact first contains the mistake</i>, and every one of them can be opened and
+read.</p>
+
+<h2>4.1 Source layout</h2>
+<table border="1" cellpadding="5" cellspacing="0" width="100%">
+<tr style="background:#eef4fa"><th align="left">Folder</th><th align="left">Units</th><th align="left">Lines</th><th align="left">Responsibility</th></tr>
+<tr><td><code>source\core</code></td><td>10</td><td>3,497</td><td>Catalog types, JSON, workspace paths, glossary, hyphenation, pack builder</td></tr>
+<tr><td><code>source\scan</code></td><td>10</td><td>3,741</td><td>Reading forms and Pascal; context and domain profiling</td></tr>
+<tr><td><code>source\review</code></td><td>5</td><td>4,720</td><td>The layout planner, text measurement seam, code-owned geometry</td></tr>
+<tr><td><code>source\provider</code></td><td>8</td><td>1,371</td><td>DeepL and Google: placeholders, batching, language codes, retry, credentials</td></tr>
+<tr><td><code>source\runtime</code></td><td>5</td><td>4,452</td><td>What ships inside the customer's application</td></tr>
+<tr><td><code>source\components</code></td><td>7</td><td>2,064</td><td><code>TDATLanguageManager</code> and the language selectors</td></tr>
+<tr><td><code>source\studio</code></td><td>4</td><td>5,204</td><td>The Studio and the Setup Wizard</td></tr>
+<tr><td><code>source\integration</code></td><td>5</td><td>2,172</td><td>Component kits, packages, deployment</td></tr>
+<tr><td><code>source\validation</code></td><td>1</td><td>403</td><td>The catalog validator</td></tr>
+</table>
+<p>The division that matters most is <b>runtime versus everything else</b>. Units under
+<code>source\runtime</code> and <code>source\components</code> are compiled into the
+customer's application. They must be small, must not reach for the network, and must
+never write to a user's disk uninvited. Everything else runs only in the Studio.</p>
+
+<h1>5. The scan</h1>
+<p><code>DAT.Scan.Project</code> drives the scan; <code>DAT.Scan.FormText</code> reads
+designer files and <code>DAT.Scan.PascalResources</code> reads Pascal.</p>
+
+<h2>5.1 What is collected, and what is deliberately not</h2>
+<p>The scan is limited to project-referenced source units and designer resources. Broad
+harvesting of <code>Items.Add</code>, <code>Lines.Add</code>, <code>TextOut</code> and
+similar calls is <b>disabled on purpose</b>: in practice those carry data rows, file
+names, log lines and generated content rather than stable interface text. An earlier
+version harvested them and produced thousands of non-UI strings from one application.</p>
+<p>Designer-authored <code>Items</code> and <code>Lines</code> are still covered, because
+those come from the form file where they belong.</p>
+
+<h2>5.2 Collections</h2>
+<p>Grid columns are the awkward case and are worth understanding before changing the
+parser. A <code>TDBGrid</code> keeps its heading on the column's <code>Title</code>, so
+the catalog key is <code>grdSchedule.Columns[0].Title.Caption</code> — one level further
+in than the column itself. Collections nest, so a collection's <code>end</code> must not
+pop the object stack; getting that wrong corrupts every control after the grid.</p>
+
+<h2>5.3 Text ownership</h2>
+<p>Every string is classified by who controls it at run time. The classification decides
+what happens later and is worth stating exactly:</p>
+<table border="1" cellpadding="5" cellspacing="0" width="100%">
+<tr style="background:#eef4fa"><th align="left">Classification</th><th align="left">Meaning</th><th align="left">Applied automatically?</th></tr>
+<tr><td>designerAutomatic</td><td>Set in the form file and not touched by code</td><td>Yes</td></tr>
+<tr><td>runtimeWired</td><td>Assigned in code, but through a path the runtime can reach</td><td>Yes</td></tr>
+<tr><td>runtimeUnwired</td><td>Assigned in code, composed at run time</td><td><b>No</b> — needs a call in the application</td></tr>
+<tr><td>applicationData</td><td>A data value, not interface text</td><td>No</td></tr>
+<tr><td>suspicious</td><td>Looks like data, or like something that should not be translated</td><td>No</td></tr>
+</table>
+<p>The third row is the one that surprises people. Carillon builds its status bar in
+code — <code>StatusBar1.Panels[1].Text := 'Songs in Playlist:  ' +
+PlaylistCount.ToString;</code> — so anything the pack writes there is overwritten moments
+later. The classification is correct and the translation is genuinely impossible without
+a <code>TranslateText</code> call in the application. What the product does <i>not</i> yet
+do is tell the developer which strings those are and where they live, though it holds the
+file and line for each. That is on the Fix List.</p>
+
+<p style="page-break-before:always"></p>
+
+<h1>6. Context: telling the translator what a string means</h1>
+<p>A translation service sees one string at a time. Given <i>Play Date From</i> and told
+only that it is "text used in a desktop application", DeepL returned
+<i>Spielverabredungen</i> — an afternoon arranged between children — for a column of bell
+timings. Given <i>Close</i>, Spanish returned <i>cerca</i>, meaning <i>nearby</i>.</p>
+<p>Everything needed to settle both was already in the scan. Nobody had to type it.</p>
+
+<h2>6.1 The application domain profile</h2>
+<p><code>DAT.Scan.DomainProfile</code> reads the application rather than recognising it.
+An earlier version matched six subjects from keyword lists — music, scheduling, business
+records, clinical records, email, backups. It read one application correctly and would
+have failed file utilities, database tools, point of sale, laboratory systems and most of
+the long tail Delphi is actually used for. A recogniser can only recognise what somebody
+already thought of.</p>
+<p>Two things come out of reading an application:</p>
+<ul>
+<li><b>Its own vocabulary</b>, with the furniture every program shares (File, Edit,
+Cancel, Save, OK, Close) set aside. What remains is characteristic: <i>song, playlist,
+chime, bell</i> for a carillon scheduler; <i>rename, mask, extension, folder</i> for a
+file renamer.</li>
+<li><b>Which sense of an ambiguous word this application means.</b> A shared list names
+the English words that are ambiguous in a user interface and gives each sense the
+evidence words that would be present if it were the one meant. The application's own
+vocabulary casts the vote.</li>
+</ul>
+<p><i>Volume</i> is loudness in an application that says mute and speaker; a disk in one
+that says partition and format. <i>Mask</i> is a filename pattern where the application
+talks about filenames. Nothing has to know what kind of application it is looking at.</p>
+<p>Where the application settles nothing, <b>nothing is said</b>. A guess between two
+senses is worse than silence: it is a confident instruction to be wrong.</p>
+
+<h2>6.2 Part of speech</h2>
+<p>A button says what pressing it will do, so its caption is an instruction. A menu item
+names a thing. English hides the difference because its imperative and its dictionary
+form are the same word — so a service given <i>Help</i> alone may reasonably return a
+statement, and Arabic did: the third person singular, for Help, Close and Play alike.
+Grammatical, and useless on a button.</p>
+<p>The context now states which is wanted, chosen from the control class, which every
+string already carries.</p>
+
+<h2>6.3 Getting the context to the string it describes</h2>
+<p>This was right and was being wasted. A service takes one <code>context</code> per
+request, and the client batched fifty strings and concatenated all fifty of their
+contexts into that single field — so <i>Help</i> arrived wearing forty-nine descriptions
+of other controls.</p>
+<p>The economics make the fix free. <b>Billing is per translated character, not per
+request</b>, and DeepL does not count context characters at all. Measured on one
+application:</p>
+<table border="1" cellpadding="5" cellspacing="0" width="70%">
+<tr style="background:#eef4fa"><th align="left">&nbsp;</th><th align="left">Characters</th></tr>
+<tr><td>Source text (billed)</td><td>6,471</td></tr>
+<tr><td>Context (not billed)</td><td>65,466</td></tr>
+</table>
+<p>The application costs 6,471 characters whether it goes as six requests or as 297.
+<code>DAT.Provider.Batching</code> therefore groups strings by <i>identical</i> context:
+where a context is unique the group holds one string; where many share a context, or have
+none, they travel together as before. The cost is round trips — a minute or two, once per
+language, for a result that is then stored.</p>
+
+<p style="page-break-before:always"></p>
+
+<h1>7. The catalog and its validator</h1>
+<p>The catalog (<code>DAT.Core.CatalogJson</code>) is the editable record of one
+application in one language, held under
+<code>%LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\&lt;project&gt;\Development</code>.
+Each entry carries the source text, the translation, where it came from, its
+classification, its context description and its status.</p>
+<p><code>DAT.Validation.Catalog</code> refuses to let a pack be built from a catalog with
+errors. It is not decoration. When the first Arabic run stopped with two blocking errors,
+those errors were real: the provider had turned every <code>%</code> into a
+<code>0</code>, so <code>%.2f GB used</code> came back as <code>0.2f</code>. Shipping that
+would have printed nonsense at users for ever. The validator is frequently the only thing
+standing between a plausible-looking translation and a broken application.</p>
+
+<h1>8. Translation providers</h1>
+<p>Two services are supported, both using the developer's own key:
+<b>DeepL</b> and <b>Google Cloud Translation</b>. The key is held in Windows Credential
+Manager or session-only, and never written to the catalog, the pack or any log.</p>
+<p>Four units exist because four separate things went wrong in production. Each is worth
+knowing about before changing that code.</p>
+
+<h2>8.1 Placeholders (<code>DAT.Provider.Placeholders</code>)</h2>
+<p>Format specifiers are lifted out before a request and replaced by a token
+(<code>ZQPH0ZQPH</code>) that carries its own index, so a token the engine moves still
+returns as the specifier it stood for — right-to-left languages move things. Identical
+specifiers get separate tokens, because one string had three <code>%.2f</code> in it and
+a search-and-replace cannot tell them apart.</p>
+<p>Afterwards the specifiers are restored and checked. If they still do not match, the
+<b>source text is returned</b> rather than the translation: an English string among Arabic
+ones is visible in review, whereas a broken format string is invisible until a customer
+sees it.</p>
+<p>A string that is <i>nothing but</i> specifiers is never sent. <code>%.2d/%.2d</code> is
+a date, not a sentence.</p>
+
+<h2>8.2 Language codes (<code>DAT.Provider.LanguageCodes</code>)</h2>
+<p>A catalog names languages the way Windows does — <code>ar-SA</code>,
+<code>es-ES</code>. DeepL accepts two-letter codes plus a published list of variants
+(<code>EN-GB</code>, <code>EN-US</code>, <code>PT-BR</code>, <code>PT-PT</code>,
+<code>ZH-HANS</code>, <code>ZH-HANT</code>, <code>ES-419</code>, <code>DE-DE</code>,
+<code>DE-CH</code>, <code>FR-CA</code>, <code>FR-FR</code>) and rejects everything else
+with HTTP 400.</p>
+<p>The earlier normaliser passed the region through unchanged, so German worked by luck —
+<code>DE-DE</code> happens to be on that list — and Arabic, Spanish and Hebrew could never
+have worked. A region is now kept only where the service is known to accept it and
+dropped everywhere else. <b>Dropping is the safe direction</b>: the general code works for
+every language DeepL supports, so a language added after this was written still
+translates.</p>
+
+<h2>8.3 Retry (<code>DAT.Provider.Retry</code>)</h2>
+<p>A 429 is not a failure; it is the service asking for a slower pace, and the only wrong
+answer is to stop. Six attempts, waiting one second, two, four, eight, sixteen —
+thirty-one seconds of patience against the nine hundred milliseconds it used to allow.
+<code>Retry-After</code> is obeyed to the second where sent, capped, and treated as absent
+rather than guessed at when it is a date form or a zero.</p>
+<p>A 400, 403 or 456 is <i>not</i> retried: a malformed request, a refused key and an
+exhausted quota all come back just as fast.</p>
+<p>The client also paces itself. The delay starts at zero, grows by a quarter second each
+time a 429 is met and holds for the rest of the run — so a run that is never refused pays
+nothing, and one that is refused once slows down instead of arguing.</p>
+
+<h2>8.4 Saying what the service said</h2>
+<p>Refusals used to read <i>"Check the key, plan, billing, quota, language codes, and
+network connection"</i> — six possibilities, one of them right, and no way to tell which.
+Both services return an explanation in the body and it was being discarded. Rejections
+now quote it and add one line where the status code carries meaning of its own.</p>
+
+<p style="page-break-before:always"></p>
+
+<h1>9. Terminology, dictionaries and hyphenation</h1>
+<p>Three shared, editable stores live under
+<code>C:\Users\Public\Documents\Delphi App Translation</code>. All three are plain JSON
+and are meant to be corrected by hand.</p>
+<table border="1" cellpadding="5" cellspacing="0" width="100%">
+<tr style="background:#eef4fa"><th align="left">Store</th><th align="left">Scope</th><th align="left">Purpose</th></tr>
+<tr><td><code>Dictionaries\&lt;lang&gt;.json</code></td><td>Per language</td><td>Approved wording earned on one application, available to every later one</td></tr>
+<tr><td><code>Terms\ambiguous-terms.json</code></td><td>One, English</td><td>Words ambiguous in a UI, with the evidence that settles each sense</td></tr>
+<tr><td><code>Hyphenation\&lt;lang&gt;.json</code></td><td>Per language</td><td>Where a long word may be broken</td></tr>
+</table>
+
+<h2>9.1 Hyphenation, and a measured difference between the frameworks</h2>
+<p>German builds one word where English uses three, and a single word cannot wrap: there
+is no space in <i>Benachrichtigungseinstellungen</i> for a column heading to break at, so
+it is simply cut off. Adding a language installs a companion dictionary saying which
+letters are vowels, which consonant groups are one sound, and how much of a word must be
+left whole at each end.</p>
+<p>The pack carries a soft hyphen (U+00AD) at every allowed break, because nothing at
+build time knows how wide a control will end up. <b>Captions only</b> — format strings are
+left exactly as written, since their text goes on to be filled with data.</p>
+<p>The two frameworks then differ, and this was measured rather than assumed:</p>
+<ul>
+<li><b>FireMonkey honours soft hyphens.</b> A marked word measures exactly as wide as an
+unmarked one — 168.5 either way — and breaks at a mark when it must. Nothing needed
+doing.</li>
+<li><b>GDI does not.</b> It draws U+00AD as an ordinary hyphen and
+<code>DrawText</code> will not break a line at one. The same word measured 205px marked
+against 170px plain, and stayed on one line.</li>
+</ul>
+<p>So <code>DAT.Runtime.VCL</code> resolves the marks itself, after every layout rule has
+been applied and each control is the size it will really be: a control that wraps gets a
+real hyphen and a real line break at the last mark that fits; one that cannot wrap gets
+the plain word with the marks removed. <b>No soft hyphen ever reaches a VCL caption.</b></p>
+
+<p style="page-break-before:always"></p>
+
+<h1>10. The layout planner</h1>
+<p><code>DAT.Review.Localization</code> is the largest and most consequential unit in the
+product. It decides what has to change so that translated text fits.</p>
+
+<h2>10.1 The measurement seam</h2>
+<p>Text is measured with the engine that will actually draw it:
+<code>GetTextExtentPoint32</code> through <code>DAT.Review.TextMeasurement.GDI</code> for
+the VCL, <code>TTextLayout</code> through
+<code>DAT.Review.TextMeasurement.FMX</code> for FireMonkey, chosen by
+<code>DAT.Review.TextMeasurement</code> from the catalog's framework. DPI is pinned to 96
+because that is the basis a form was designed at.</p>
+<p>Measuring with the wrong engine produces a plan that is confidently wrong — it fails
+correct layouts and passes incorrect ones — which is why this seam exists rather than one
+"good enough" measurement.</p>
+
+<h2>10.2 Framework facts the planner had to be taught</h2>
+<p>Each of these produced wrong layouts before it was understood:</p>
+<ul>
+<li><code>TLabel.AutoSize</code> defaults to <b>True</b> and <code>WordWrap</code> to
+False — the opposite of an FMX label. A translated caption therefore stretches a VCL label
+before any rule is applied, so <code>AutoSize</code> must be cleared <i>before</i> the
+text is assigned, not after.</li>
+<li>A <code>.dfm</code> records fonts as <code>Font.Height</code> in negative pixels, not
+<code>Font.Size</code> in points. The conversion is
+<code>Round(-Height * 72 / 96)</code>, matching what <code>TFont</code> itself does, and
+fonts inherit down the object tree. Assuming twelve points where the form said nine
+overstated every caption by a third.</li>
+<li>The VCL names a second instance of a form <code>Name_1</code>. Looking up the instance
+name rather than the form's identity left every duplicate dialog untranslated.</li>
+</ul>
+
+<h2>10.3 The phases</h2>
+<p>The planner runs a sequence of passes over a single resolved model, so the values it
+finally exports agree with one another rather than describing conflicting placements:</p>
+<ol>
+<li><b>Phase 1</b> — start every control from its designer geometry.</li>
+<li><b>Phase 2</b> — size each control against its measured translated text; rows of
+buttons, captions above fields, and evenly pitched rows are treated as sets rather than
+individuals.</li>
+<li><b>Phase 3</b> — resolve collisions repeatedly against the planned geometry; hold
+captions inside the frames drawn around them.</li>
+<li><b>Phase 3d</b> — the settling pass: level rows, widen and re-centre headings, widen
+lone buttons rightward only (a button keeps its place), give stacked paragraphs one font
+size, narrow wrapped text to the width its wrap actually uses.</li>
+<li><b>Phase 3e</b> — mirror the form for a right-to-left language (section&nbsp;11).</li>
+<li><b>Phase 4</b> — emit proposals from the settled geometry.</li>
+</ol>
+<p>Every step in the settling pass is <b>trial and revert</b>: a change that breaks a
+contract is undone rather than kept.</p>
+
+<h2>10.4 Geometry the application owns</h2>
+<p>A late and important addition. <code>DAT.Review.CodeGeometry</code> reads the Pascal
+unit beside each form and notes any control whose <code>Left</code>, <code>Top</code>,
+<code>Width</code>, <code>Height</code>, <code>Position.X</code>,
+<code>Position.Y</code>, <code>Align</code> or <code>SetBounds</code> is assigned there.
+Those controls have their text translated and their <b>geometry left entirely alone</b>.</p>
+<p>The case that produced it: an application centres its main heading in code at start-up,
+<code>lblMainHeader.Left := (Screen.Width - lblMainHeader.Width) div 2;</code>. The planner
+knew nothing of that, read the designer geometry, and proposed numbers that held the
+caption's own centre exactly — and overwrote a decision the application had already made
+and would never make again. Returning to English restored the <i>designed</i> position
+rather than the computed one.</p>
+<p>The detection is deliberately literal: an assignment to a named identifier's geometry
+property and nothing cleverer. A control it misses behaves as before; a control it claims
+wrongly loses only its layout adjustments and is still translated. <b>Both directions fail
+softly</b>, which is the right property for a heuristic that reads somebody else's
+source.</p>
+<p>One reading serves both frameworks, because what is read is Pascal rather than VCL or
+FireMonkey.</p>
+
+<p style="page-break-before:always"></p>
+
+<h1>11. Right-to-left</h1>
+<p>Arabic, Hebrew, Farsi and Urdu were offered by the Wizard and marked <code>rtl</code>
+in the catalog long before anything read that value. A user could pick Arabic, get a clean
+run, and receive an application with Arabic text laid out left to right — worse than
+refusing, because it looks like it worked.</p>
+<p>A right-to-left interface is a <b>reflected</b> interface, not reversed text.</p>
+
+<h2>11.1 Measured first</h2>
+<p>Two experiments settled the design before any code was written.</p>
+<table border="1" cellpadding="5" cellspacing="0" width="100%">
+<tr style="background:#eef4fa"><th align="left">BiDiMode</th><th align="left">Flips alignment</th><th align="left">RTL reading</th><th align="left">Left scroll bar</th></tr>
+<tr><td><code>bdRightToLeft</code></td><td><b>yes</b></td><td>yes</td><td>yes</td></tr>
+<tr><td><code>bdRightToLeftNoAlign</code></td><td>no</td><td>yes</td><td>yes</td></tr>
+<tr><td><code>bdRightToLeftReadingOnly</code></td><td>no</td><td>yes</td><td>no</td></tr>
+</table>
+<p>A label set <code>taLeftJustify</code> draws as <code>DT_RIGHT</code> under
+<code>bdRightToLeft</code>. Since the planner already decides alignment for every control,
+that flip would land on top of ours and undo it silently.
+<b><code>bdRightToLeftNoAlign</code> is therefore what the runtime uses.</b></p>
+<p>The second experiment: digits look after themselves. A Hebrew word followed by
+<code>2026</code> comes out with the letters reversed and the year intact, in both
+renderers. Version strings, times and quantities need no help.</p>
+
+<h2>11.2 Mirrored by the planner, not by the framework</h2>
+<p>The VCL has <code>BiDiMode</code> and <code>FlipChildren</code>. FireMonkey has neither.
+Leaning on the VCL's mechanism would mean writing the FireMonkey half separately and
+getting different behaviour on each, so the mirror is computed by the planner and emitted
+as the ordinary position rules the runtime already applies. The transform is
+parent-relative, which handles nesting without recursion:</p>
+<p><code>MirroredLeft := ParentInnerWidth - (PlannedLeft + PlannedWidth)</code></p>
+<p><b>A form is never mirrored.</b> A window has no parent to be reflected within, so the
+arithmetic degenerates into negating its own position — which put three forms of one
+application at a negative <code>Left</code> and showed a strip of desktop down one side.</p>
+
+<h2>11.3 What mirrors, and what deliberately does not</h2>
+<table border="1" cellpadding="5" cellspacing="0" width="100%">
+<tr style="background:#eef4fa"><th align="left">Mirrors</th><th align="left">Does not</th></tr>
+<tr><td valign="top">Coordinates, within each parent<br/>
+<code>Align</code>, for framework-placed controls<br/>
+<code>Anchors</code>, where one horizontal edge is anchored<br/>
+Text alignment (centre stays centre)<br/>
+Grid column order<br/>
+Tab order<br/>
+Reading order and scroll-bar side (VCL)</td>
+<td valign="top">Transport buttons — rewind, play and stop refer to tape
+direction, not reading direction, so the group moves as a block and keeps its
+order<br/><br/>
+Numbers, times, versions and paths — handled by the renderers<br/><br/>
+Images — the transform only ever moves a control, never its contents, so logos are safe
+by construction</td></tr>
+</table>
+
+<h2>11.4 Order of application</h2>
+<p>Reading order is applied <b>before</b> the text, and the reason is subtle enough to
+document. Translating a menu item's caption rebuilds the menu, and Delphi stamps each item
+with the reading order in force at the moment of the rebuild. Applying direction after the
+text meant rebuilding the menu in the language being <i>left</i>, then relying on
+<code>TMenu.DoBiDiModeChanged</code> to correct it — which returns early on several
+conditions, including a window handle that is momentarily zero while the form's window is
+recreated. Menus stayed reversed until the application was restarted.</p>
+<p>Setting direction first removes the dependency entirely: whatever is rebuilt afterwards
+is rebuilt the right way round to begin with.</p>
+<p>Worth knowing when reproducing menu behaviour: <code>TMenu.DoBiDiModeChanged</code>
+begins <code>if (not SysLocale.MiddleEast) or (WindowHandle = 0) then Exit</code>. On a
+machine whose Windows locale is not Middle-Eastern, the VCL does not lay menus out
+right-to-left at all, whatever <code>BiDiMode</code> says.</p>
+
+<p style="page-break-before:always"></p>
+
+<h1>12. The runtime pack</h1>
+<p><code>DAT.Core.RuntimePack</code> writes schema&nbsp;3: language and locale, the
+translated strings by key, source-text fallbacks, runtime templates, font colours, and the
+layout rules. It is the only artefact that ships.</p>
+<p>Two rules govern what may go in:</p>
+<ul>
+<li>A proposal must be <b>accepted</b>. A rejection made in review is honoured; a
+proposal left pending is not exported.</li>
+<li>A property must be in the one list —
+<code>IsRuntimeLayoutProperty</code> in <code>DAT.Runtime.LanguagePack</code>.</li>
+</ul>
+<p>Both rules once had private copies elsewhere and both silently deleted features. The
+pending case is the more instructive: <code>RestoreDecisions</code> reads the previous
+run's proposal file and copies each saved decision over the analyser's, so that a
+rejection survives a re-scan. But it also copied <i>pending</i>, and pending is not a
+decision — it is the absence of one. A proposal file written by a build that did not know
+a property existed recorded it as pending, and every later run restored that over a
+freshly accepted decision. The feature was vetoed in perpetuity by a stale file, and no
+amount of rebuilding the analyser could have fixed it.</p>
+
+<h1>13. The runtime</h1>
+<p><code>DAT.Runtime.VCL</code> and <code>DAT.Runtime.FMX</code> apply a pack to a live
+form. <code>DAT.Components.Core</code> holds the shared language manager; the VCL and FMX
+adapters differ only where the frameworks do.</p>
+
+<h2>13.1 Order of operations in <code>ApplyToForm</code></h2>
+<ol>
+<li>Snapshot the original geometry — once, before any language is applied.</li>
+<li><b>Restore</b> from that snapshot. Without this, each language inherits whatever the
+last one changed, and a rule simply absent from the new pack has nothing to undo it.</li>
+<li>Apply reading order (section&nbsp;11.4).</li>
+<li>Apply text, including collections such as grid headings.</li>
+<li>Apply layout rules in a fixed order: <code>AutoSize</code>, <code>FontSize</code>,
+<code>WordWrap</code>, alignment, <code>Align</code>, size, position,
+<code>Anchors</code>, <code>TabOrder</code>, column widths, column order.</li>
+<li>Resolve soft hyphens, now that every control is its final size.</li>
+</ol>
+<p>The ordering is not arbitrary. An auto-sizing label recomputes its own bounds from one
+line of text and discards an assigned width, so <code>AutoSize</code> must be cleared
+first. Column widths name a column by its designed index, so the column <i>order</i> must
+be reversed last or every width lands on the wrong column.</p>
+
+<h2>13.2 What is never restored</h2>
+<p><b>Colour.</b> The applicator does not set colours, so putting one back can only undo
+what the application itself did. One application paints its own colours from a menu after
+the form is up; restoring the design-time colour stamped a maroon heading over a white one
+and turned captions black. What we never changed, we never restore.</p>
+
+<p style="page-break-before:always"></p>
+
+<h1>14. Contracts — how this product is kept honest</h1>
+<p>This section describes the practice that most distinguishes this codebase. It is worth
+reading even by someone who intends to change nothing.</p>
+
+<h2>14.1 What a contract is</h2>
+<p>A layout contract is three files: a small purpose-built form, a catalog naming the
+translated text for it, and an expectation file stating in numbers what the analyser must
+do. Assertions are numeric because layout is numeric — a right edge that must not move, a
+control that must keep its place, a caption that must still hold its text.</p>
+<p>The forms are purpose-built rather than taken from a real application, so each rule is
+proved on the <i>shape</i> of a problem rather than on one customer's project.</p>
+<p><b>54 layout contracts</b> currently run, alongside 3 form-scan fixtures, 9 pascal-scan
+checks and <b>28 test harnesses</b>.</p>
+
+<h2>14.2 A contract must fail first</h2>
+<p>The single most important rule. A contract whose expected values are copied from what
+the code currently does proves nothing — it records behaviour instead of requiring it.</p>
+<p>Two contracts in this project had to be rebuilt for exactly that fault: one flipped a
+constant the fixture never reached, and another used a caption that lacked the hard line
+breaks the real one had. Both passed. Both were worthless.</p>
+<p>The discipline is therefore: write the assertion, watch it fail for the right reason,
+then make it pass. Where a test was written after the code — which happens — it is
+verified by deliberately disabling the code and confirming the test fails. This guide's
+author did that twice in one day.</p>
+
+<h2>14.3 Contracts must cross seams, not sit at ends</h2>
+<p><img src="fig2-seams.png" width="700"/></p>
+<p>The hardest defects this product has had all shared one shape: <b>a value correct at
+both ends of the pipeline and absent in the middle.</b></p>
+<p>Three separate failures deleted the right-to-left feature before anyone noticed:</p>
+<ol>
+<li>The FireMonkey applicator held its own copy of the allowed-property list and dropped
+every mirroring rule.</li>
+<li>The pack exporter held another copy and dropped them again.</li>
+<li>The auto-accept rule held a third, so the proposals were created <i>pending</i> — and
+<code>RestoreDecisions</code> made that permanent.</li>
+</ol>
+<p>Every one was invisible to every test that existed, because the tests sat at the ends:
+the layout contracts passed because the plan was right, and the applicator tests passed
+because they were handed a pack written by hand. Nothing crossed the joins.</p>
+<p>Three tests now do: <code>PackLayoutSmokeTests</code> goes proposal-to-pack, the
+contract harness can assert a proposal's <i>decision</i> as well as its value, and
+<code>ProposalDecisionSmokeTests</code> goes run-to-run. The first failed on seven of
+eight checks when written.</p>
+
+<h2>14.4 A test must not change what it measures</h2>
+<p>A field diagnostic added to the VCL runtime read <code>TMenu.Handle</code> to report
+the native right-to-left flag. <code>TMenu.Handle</code> creates and populates the menu if
+it does not exist — and doing that mid-apply <b>destroyed the translated menu
+captions</b>. The VCL runtime smoke test failed within seconds of the diagnostic being
+switched on, which is exactly what that test is for. The diagnostic was changed to ask
+Windows for the menu already on the window, which creates nothing.</p>
+
+<h2>14.5 Guards around the suite</h2>
+<ul>
+<li><b>Stale-harness rejection.</b> If any analyser source is newer than the contract
+executable, the run stops rather than reporting on code that is no longer the code being
+changed.</li>
+<li><b>Coverage enforcement.</b> A fixture with no expectation file fails the run, so a
+rule cannot quietly exist without a contract.</li>
+<li><b>Source encoding.</b> <code>tools\check_source_encoding.ps1</code> fails the build
+if any <code>.pas</code>, <code>.dpr</code> or <code>.dpk</code> holds a character outside
+ASCII without a byte order mark — because Delphi reads such a file in the ANSI codepage
+and its text arrives wrong. It has caught two real defects that would otherwise have
+shipped, including the German and Spanish vowel sets in the hyphenation dictionaries.</li>
+<li><b>Rebuild after every change.</b> All four configurations, every time. An evening was
+once lost to testing a three-hour-old binary.</li>
+</ul>
+
+<h2>14.6 Framework parity — an honest gap</h2>
+<p>The 54 contracts cover <b>33 distinct behaviours</b>: 21 proven on both frameworks,
+<b>12 on VCL only, none on FireMonkey only</b>. Ten of the twelve are framework-neutral
+planner behaviour that simply has no FireMonkey fixture yet; one
+(<code>inherited_font_is_the_forms_font</code>) is genuinely VCL-specific by design, and
+one is partly so.</p>
+<p>Because the planner measures through a seam, the same rule can legitimately produce
+different numbers on each framework — which is the argument for a twin rather than an
+assumption. Appendix&nbsp;B lists them. They must be written one at a time, each failing
+first; producing them in bulk from current output would recreate precisely the fault
+described in 14.2.</p>
+
+<p style="page-break-before:always"></p>
+
+<h1>15. Build and release validation</h1>
+<p>All four configurations — Win32 and Win64, Debug and Release — are rebuilt after every
+change. <code>tools\tests\RunPhase10ReleaseValidation.ps1</code> requires one
+uninterrupted pass of the complete matrix, plus the Studio launch and self-localization
+smoke tests.</p>
+<p>The full suite: 54 layout contracts, 3 form-scan fixtures, 9 pascal-scan checks, the
+foundation, scanner, catalog, runtime, validation and export tests, the VCL and FMX
+runtime smoke tests, the four language-manager suites, and the focused harnesses for
+retry, language codes, context batching, proposal decisions, pack export, placeholders,
+hyphenation, context, wrap, discovery, and right-to-left on both frameworks.</p>
+<p>Runtime <b>packages</b> must be rebuilt separately when a runtime unit changes; an
+application that links them will not otherwise pick the change up. This has cost real
+debugging time and is easy to forget.</p>
+
+<h1>16. Known limits</h1>
+<p>Recorded properly in <code>docs\guides\Fix List.md</code>. The ones an engineer should
+know before planning work:</p>
+<ul>
+<li><b>No translation memory</b> and no TMX/TBX interchange. This is the largest
+functional gap against every commercial competitor and the main obstacle to a customer
+migrating existing assets in.</li>
+<li><b>Runtime-composed strings</b> cannot be translated without a call in the target
+application, and the product does not yet tell the developer which strings those are —
+though it holds the file and line for each.</li>
+<li><b>Rows at a fixed pitch cannot grow.</b> Where a language needs more width per member
+than the designed pitch allows, the last members are wrapped or cramped rather than the
+row being re-pitched.</li>
+<li><b>First run shows the source language</b> whatever the machine is set to; nothing
+consults the operating system's UI language.</li>
+<li><b>CJK is untested.</b> Chinese, Japanese and Korean do not wrap on spaces and do not
+hyphenate, and they usually run shorter than English rather than longer — so the settling
+pass would be exercised in a direction it has never seen.</li>
+<li><b>Validation breadth.</b> Every significant defect this product has found came from a
+real application. At the time of writing that is one application plus a synthetic test
+app, and the observed rate suggests a second and third will find another batch.</li>
+</ul>
+
+<p style="page-break-before:always"></p>
+
+<h1>Appendix A — Unit inventory</h1>
+<table border="1" cellpadding="4" cellspacing="0" width="100%">
+<tr style="background:#eef4fa"><th align="left">Unit</th><th align="left">Purpose</th></tr>
+<tr><td colspan="2" style="background:#f6f6f6"><b>core</b></td></tr>
+<tr><td>DAT.Core.Types</td><td>Catalog, entry, locale and enumeration types</td></tr>
+<tr><td>DAT.Core.CatalogJson</td><td>Catalog read and write</td></tr>
+<tr><td>DAT.Core.RuntimePack</td><td>Builds the shipped pack</td></tr>
+<tr><td>DAT.Core.Glossary</td><td>Per-project approved terms</td></tr>
+<tr><td>DAT.Core.SharedDictionary</td><td>Per-language wording shared across applications</td></tr>
+<tr><td>DAT.Core.Hyphenation</td><td>Per-language break dictionaries</td></tr>
+<tr><td>DAT.Core.Terminology</td><td>Authoritative term resolution</td></tr>
+<tr><td>DAT.Core.TranslationWorkspace</td><td>Where every artefact lives</td></tr>
+<tr><td>DAT.Core.ProjectDetection</td><td>Recognising a Delphi project and its framework</td></tr>
+<tr><td>DAT.Core.AITranslation</td><td>The copy-and-paste AI workflow</td></tr>
+<tr><td colspan="2" style="background:#f6f6f6"><b>scan</b></td></tr>
+<tr><td>DAT.Scan.Project</td><td>Drives the scan</td></tr>
+<tr><td>DAT.Scan.FormText</td><td>Reads .dfm and .fmx</td></tr>
+<tr><td>DAT.Scan.PascalResources</td><td>Reads .pas</td></tr>
+<tr><td>DAT.Scan.Context</td><td>Writes each string's context sentence</td></tr>
+<tr><td>DAT.Scan.DomainProfile</td><td>Vocabulary and word-sense resolution</td></tr>
+<tr><td>DAT.Scan.Rules / Quality / TextCodec / Types / CatalogMerge</td><td>Classification, quality checks, encoding, types, merge</td></tr>
+<tr><td colspan="2" style="background:#f6f6f6"><b>review</b></td></tr>
+<tr><td>DAT.Review.Localization</td><td>The layout planner</td></tr>
+<tr><td>DAT.Review.TextMeasurement</td><td>The measurement seam</td></tr>
+<tr><td>DAT.Review.TextMeasurement.GDI / .FMX</td><td>Per-framework measurement</td></tr>
+<tr><td>DAT.Review.CodeGeometry</td><td>Controls the application positions itself</td></tr>
+<tr><td colspan="2" style="background:#f6f6f6"><b>provider</b></td></tr>
+<tr><td>DAT.Provider.Client</td><td>DeepL and Google</td></tr>
+<tr><td>DAT.Provider.Placeholders</td><td>Format specifier protection</td></tr>
+<tr><td>DAT.Provider.Batching</td><td>Grouping by shared context</td></tr>
+<tr><td>DAT.Provider.LanguageCodes</td><td>Codes a service will accept</td></tr>
+<tr><td>DAT.Provider.Retry</td><td>Rate limits and backoff</td></tr>
+<tr><td>DAT.Provider.CredentialStore / Settings / Types</td><td>Keys, settings, provider types</td></tr>
+<tr><td colspan="2" style="background:#f6f6f6"><b>runtime (ships in the customer's application)</b></td></tr>
+<tr><td>DAT.Runtime.LanguagePack</td><td>Pack loading; the one allowed-property list</td></tr>
+<tr><td>DAT.Runtime.VCL / .FMX</td><td>Applying a pack to a live form</td></tr>
+<tr><td>DAT.Runtime.Manager</td><td>Language selection and format settings</td></tr>
+<tr><td>DAT.Runtime.Preference</td><td>Remembering the chosen language</td></tr>
+<tr><td colspan="2" style="background:#f6f6f6"><b>components (ship in the customer's application)</b></td></tr>
+<tr><td>DAT.Components.Core</td><td>Shared language-manager behaviour</td></tr>
+<tr><td>DAT.Components.VCL / .FMX</td><td>Framework adapters</td></tr>
+<tr><td>DAT.Components.VCL/FMX.LanguageSelector</td><td>Optional bound selector</td></tr>
+</table>
+
+<h1>Appendix B — Contract inventory and framework parity</h1>
+<p>21 behaviours proven on both frameworks: button above grid padding; button keeps its
+place when text grows; button row keeps even pitch; caption above field takes its column;
+centred heading widens about centre; checkbox caption inside container; checkbox caption
+note; code-positioned control is left alone; container keeps its size; designed overlap is
+left alone; email label button padding; frame grows and says so; grid headers fit; intro
+paragraph wraps compact; left caption takes left margin; long button and field stack;
+media button row container; memo label pair; preserve label font; right-aligned caption
+grows leftward; right-to-left mirrors the form.</p>
+<p><b>Twelve awaiting a FireMonkey twin:</b> a button gets room for its caption; a caption
+stops at the button beside it; a grid does not end the form; a heading widens before it
+wraps; a long word gets room; a paragraph stays on the form; caption far wider than its
+box; stacked paragraphs share a size; transport buttons keep their order; wrapped text is
+balanced; right-to-left flips alignment and anchors <i>(partly VCL-specific —
+<code>Anchors</code> is a VCL notion)</i>; inherited font is the form's font <i>(genuinely
+VCL-specific — font inheritance was changed for the VCL only, and FireMonkey's differing
+defaults were deliberately left alone)</i>.</p>
+
+<h1>Appendix C — Files, folders and where things live</h1>
+<table border="1" cellpadding="5" cellspacing="0" width="100%">
+<tr style="background:#eef4fa"><th align="left">What</th><th align="left">Where</th></tr>
+<tr><td>Development catalog</td><td><code>%LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\&lt;project&gt;\Development</code></td></tr>
+<tr><td>Runtime packs</td><td><code>…\Workspaces\&lt;project&gt;\Languages</code>, deployed to <code>Localization\Languages</code> beside the executable</td></tr>
+<tr><td>Layout proposal and review</td><td><code>export\localization-review\&lt;project&gt;\&lt;language&gt;</code></td></tr>
+<tr><td>Shared dictionaries, terms, hyphenation</td><td><code>C:\Users\Public\Documents\Delphi App Translation</code></td></tr>
+<tr><td>Language preference (target app)</td><td><code>%LOCALAPPDATA%</code></td></tr>
+<tr><td>Contracts</td><td><code>contracts\layout</code></td></tr>
+<tr><td>Test harnesses</td><td><code>tools\tests</code></td></tr>
+<tr><td>Engineering notes and Fix List</td><td><code>docs\guides</code></td></tr>
+</table>
+
+<p style="margin-top:24pt; font-size:10pt; color:#666">
+<i>This guide describes the product as it stood on 20 August 2026. Where it disagrees with
+the code, the code is right and this document is stale — the Engineering Notes in
+<code>docs\guides\Engineering Notes.md</code> carry the running record of change.</i></p>
+
+</body>
+</html>
