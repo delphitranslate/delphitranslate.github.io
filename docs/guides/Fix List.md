@@ -83,14 +83,32 @@ form and not on one where text sits over artwork - a splash screen, an About
 box, a form with a full-size image. Such a form probably wants its words
 translated and its geometry frozen.
 
-### Status bar panels need a call in the target application
+### Runtime-composed strings are never translated, and nothing says why
 
-`StatusBar1.Panels[n].Text` is classified `dynamicValue` /
-`manualTranslateText` because the application rebuilds those strings whenever
-it likes; stamping a translation once would be overwritten immediately. The
-translations are in the pack and ready. This is correct behaviour but it is not
-documented anywhere a developer would find it, and in Carillon it looks like a
-missing translation.
+Reported again 20 August: the status bar is not translated in any language.
+
+It cannot be, from here. Carillon builds those strings in code:
+
+    StatusBar1.Panels[0].Text := ' Last Song played: ' + LastSongName;
+    StatusBar1.Panels[1].Text := 'Songs in Playlist:  ' + PlaylistCount.ToString;
+    StatusBar1.Panels[2].Text := 'Songs Played Today:  ' + ...
+
+The English is a literal in the source, concatenated with data and written
+whenever the panel refreshes. Anything the pack puts there is overwritten
+moments later. The classification is right - `dynamicValue` /
+`manualTranslateText` means exactly "the application must ask for this itself"
+- and the only fix is a `TranslateText` call in the application, which the
+translator is forbidden to make and the application's own developer can make in
+a minute.
+
+What is missing is that **the product never says so**. Four entries in Carillon
+are in this category and the developer has no way to discover which, or where.
+
+The data to fix that is already held: every such entry carries its source file
+and line. A short report - "these strings are composed at run time; wrap them
+in TranslateText, here is the file and line for each" - would turn a silent
+gap into a five-minute job. That report should be produced by the Wizard and
+named in the review, not left in the catalog for someone to notice.
 
 ---
 

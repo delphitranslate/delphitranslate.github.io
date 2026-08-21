@@ -1,5 +1,5 @@
 object ContractForm: TContractForm
-  Left = 0
+  Left = 120
   Top = 0
   Caption = 'Contract Form'
   ClientHeight = 300

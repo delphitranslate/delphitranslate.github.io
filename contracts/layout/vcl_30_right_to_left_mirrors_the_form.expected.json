@@ -1,7 +1,12 @@
 {
-  "description": "A right-to-left interface is a reflected interface, not merely reversed text. The whole form is mirrored: a caption drawn to the left of its edit box belongs to the right of it, and a button at the right of the form belongs at the left. Each control is reflected within its own parent, so the button inside the panel mirrors against the panel's 200 pixels and not against the form's 400. The arithmetic is the same in every case - the new left edge is the space that used to lie to the right of the control.",
+  "description": "A right-to-left interface is a reflected interface, not merely reversed text. The whole form is mirrored: a caption drawn to the left of its edit box belongs to the right of it, and a button at the right of the form belongs at the left. Each control is reflected within its own parent, so the button inside the panel mirrors against the panel's 200 pixels and not against the form's 400. The arithmetic is the same in every case - the new left edge is the space that used to lie to the right of the control. The form itself is not mirrored. A window has no parent to be reflected within, so the arithmetic degenerates into negating its own position - which is how three Carillon forms came to be given a negative Left and why a strip of desktop showed down one side of the main window.",
   "catalog_file": "vcl_30_right_to_left_mirrors_the_form.catalog.json",
   "controls": [
+    {
+      "form": "ContractForm",
+      "name": "ContractForm",
+      "planned_left_equals": 120
+    },
     {
       "form": "ContractForm",
       "name": "lblName",

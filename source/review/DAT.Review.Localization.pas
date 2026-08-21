@@ -3733,6 +3733,13 @@ begin
     begin
       if Control.MirrorHandled then
         Continue;
+      { A window is not reflected within anything. The form is in this list
+        like every other control, and mirroring it against its own width
+        reduces to negating its position: Carillon's three forms came out at
+        Left -20, -500 and -120, which is why a strip of desktop showed down
+        one side of the main window until it was maximised again by hand. }
+      if SameText(Control.ComponentName, Control.FormName) then
+        Continue;
       { A control the framework positions is mirrored by changing which edge
         it is told to sit against, not by moving it. Moving it would be
         ignored, and the two instructions together would contradict each

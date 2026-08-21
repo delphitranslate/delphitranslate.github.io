@@ -224,6 +224,12 @@ begin
       Inner.SetBounds(10, 15, 75, 25);
       Inner.Caption := 'Inner';
 
+      { A maximised window is the ordinary case for a main form, and changing
+        BiDiMode recreates the window. Whatever the recreation does not carry
+        across is lost - which is what leaves a strip of desktop down one side
+        after a switch to Arabic, until the user maximises it again by hand. }
+      Form.WindowState := wsMaximized;
+
       Pack := HebrewPack;
       try
         TVCLTranslationApplicator.ApplyToForm(Form, Pack, 'frmRtl', True);
@@ -232,6 +238,11 @@ begin
       end;
 
       Writeln;
+      Writeln(Format('        window state after Arabic: %d (maximized=%d)',
+        [Ord(Form.WindowState), Ord(wsMaximized)]));
+      Check(Form.WindowState = wsMaximized,
+        'A maximised form is still maximised after the language changes.');
+
       Writeln('  after a Hebrew pack:');
       Writeln(Format('        label  Left=%d  Alignment=%d', [Name_.Left,
         Ord(Name_.Alignment)]));
