@@ -81,20 +81,48 @@ function Invoke-LibreOffice {
 
 try {
   # --- 1. figures -------------------------------------------------------------
-  $figures = @(
-    @{ Name = 'fig1-pipeline'; Width = 2080; Height = 660 }
-    @{ Name = 'fig2-seams';    Width = 2080; Height = 800 }
-  )
+  # LibreOffice renders an .svg to .png at the drawing's own size and ignores
+  # the PixelWidth and PixelHeight export options - passing them changed
+  # nothing, which is easy to believe worked because the file is produced
+  # either way. A figure placed 6.2 inches wide from a 760-unit drawing would
+  # therefore print at about 123 dots per inch.
+  #
+  # So each drawing is copied with its width and height attributes doubled and
+  # its viewBox untouched, which is the one scaling instruction the renderer
+  # does obey. The .svg on disk stays the authoritative drawing at its real
+  # coordinates; only the throwaway copy is doubled.
+  $figures = @('fig1-pipeline', 'fig2-seams')
   foreach ($figure in $figures) {
-    $svg = Join-Path $guideDirectory ($figure.Name + '.svg')
+    $svg = Join-Path $guideDirectory ($figure + '.svg')
     if (-not (Test-Path -LiteralPath $svg)) {
       throw "Figure source not found: $svg"
     }
-    $filter = 'png:draw_png_Export:{{"PixelWidth":{{"type":"long","value":{0}}},"PixelHeight":{{"type":"long","value":{1}}}}}' -f
-      $figure.Width, $figure.Height
-    Invoke-LibreOffice @('--headless', '--convert-to', $filter,
-      '--outdir', $guideDirectory, $svg)
-    Write-Output ("rendered {0}.png" -f $figure.Name)
+    $drawing = Get-Content -LiteralPath $svg -Raw -Encoding UTF8
+    $openTag = [regex]::Match($drawing, '<svg\b[^>]*>')
+    if (-not $openTag.Success) {
+      throw "Not an SVG drawing: $svg"
+    }
+    $doubledTag = [regex]::Replace($openTag.Value,
+      '\b(width|height)="(\d+(?:\.\d+)?)"',
+      { param($m)
+        '{0}="{1}"' -f $m.Groups[1].Value,
+          ([double]$m.Groups[2].Value * 2).ToString(
+            [System.Globalization.CultureInfo]::InvariantCulture) })
+    $doubled = $drawing.Remove($openTag.Index, $openTag.Length).
+      Insert($openTag.Index, $doubledTag)
+    $scaled = Join-Path $work ($figure + '.svg')
+    [System.IO.File]::WriteAllText($scaled, $doubled,
+      (New-Object System.Text.UTF8Encoding($false)))
+
+    Invoke-LibreOffice @('--headless', '--convert-to', 'png',
+      '--outdir', $work, $scaled)
+    $rendered = Join-Path $work ($figure + '.png')
+    if (-not (Test-Path -LiteralPath $rendered)) {
+      throw "LibreOffice produced no .png for $figure"
+    }
+    Copy-Item -LiteralPath $rendered `
+      -Destination (Join-Path $guideDirectory ($figure + '.png')) -Force
+    Write-Output ("rendered {0}.png" -f $figure)
   }
 
   # --- 2. document ------------------------------------------------------------

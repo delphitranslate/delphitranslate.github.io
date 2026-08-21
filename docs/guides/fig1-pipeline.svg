@@ -1,49 +1,56 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="330" viewBox="0 0 1040 330" font-family="Segoe UI, Arial, sans-serif">
-  <rect width="1040" height="330" fill="#ffffff"/>
-  <text x="20" y="30" font-size="17" font-weight="600" fill="#1a3a5c">Figure 1 — The translation pipeline</text>
-  <text x="20" y="52" font-size="13" fill="#555">Each stage writes a durable artefact. Nothing downstream reads the target application.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="410" viewBox="0 0 760 410" font-family="Segoe UI, Arial, sans-serif">
+  <!-- Drawn 760 units wide on purpose. The figure is placed 6.2 inches wide,
+       which is the printable width of the page, so one unit here is about
+       0.78 of a point on paper. A wider drawing puts this text below eight
+       points and the figure becomes unreadable in print. -->
+  <rect width="760" height="410" fill="#ffffff"/>
+  <text x="20" y="32" font-size="20" font-weight="600" fill="#1a3a5c">Figure 1 — The translation pipeline</text>
+  <text x="20" y="56" font-size="14" fill="#555">Each stage writes a durable artifact. Nothing downstream reads the target application.</text>
 
   <g font-size="13">
-    <rect x="20"  y="80" width="150" height="70" rx="6" fill="#eef4fa" stroke="#1a3a5c"/>
-    <text x="95" y="106" text-anchor="middle" font-weight="600" fill="#1a3a5c">Delphi project</text>
-    <text x="95" y="126" text-anchor="middle" fill="#555">.dfm  .fmx  .pas</text>
-    <text x="95" y="142" text-anchor="middle" fill="#8a1f1f" font-size="11">read only, never written</text>
+    <rect x="20"  y="80" width="220" height="80" rx="6" fill="#eef4fa" stroke="#1a3a5c"/>
+    <text x="130" y="107" text-anchor="middle" font-size="15" font-weight="600" fill="#1a3a5c">Delphi project</text>
+    <text x="130" y="128" text-anchor="middle" fill="#555">.dfm  .fmx  .pas</text>
+    <text x="130" y="147" text-anchor="middle" font-size="12" fill="#8a1f1f">read only, never written</text>
 
-    <rect x="205" y="80" width="150" height="70" rx="6" fill="#eef4fa" stroke="#1a3a5c"/>
-    <text x="280" y="106" text-anchor="middle" font-weight="600" fill="#1a3a5c">Scan</text>
-    <text x="280" y="126" text-anchor="middle" fill="#555">strings + context</text>
-    <text x="280" y="142" text-anchor="middle" fill="#555">domain profile</text>
+    <rect x="270" y="80" width="220" height="80" rx="6" fill="#eef4fa" stroke="#1a3a5c"/>
+    <text x="380" y="107" text-anchor="middle" font-size="15" font-weight="600" fill="#1a3a5c">Scan</text>
+    <text x="380" y="128" text-anchor="middle" fill="#555">strings + context</text>
+    <text x="380" y="147" text-anchor="middle" fill="#555">domain profile</text>
 
-    <rect x="390" y="80" width="150" height="70" rx="6" fill="#eef4fa" stroke="#1a3a5c"/>
-    <text x="465" y="106" text-anchor="middle" font-weight="600" fill="#1a3a5c">Catalog</text>
-    <text x="465" y="126" text-anchor="middle" fill="#555">editable JSON</text>
-    <text x="465" y="142" text-anchor="middle" fill="#555">one per language</text>
+    <rect x="520" y="80" width="220" height="80" rx="6" fill="#eef4fa" stroke="#1a3a5c"/>
+    <text x="630" y="107" text-anchor="middle" font-size="15" font-weight="600" fill="#1a3a5c">Catalog</text>
+    <text x="630" y="128" text-anchor="middle" fill="#555">editable JSON</text>
+    <text x="630" y="147" text-anchor="middle" fill="#555">one per language</text>
 
-    <rect x="575" y="80" width="150" height="70" rx="6" fill="#eef4fa" stroke="#1a3a5c"/>
-    <text x="650" y="106" text-anchor="middle" font-weight="600" fill="#1a3a5c">Translate</text>
-    <text x="650" y="126" text-anchor="middle" fill="#555">DeepL / Google</text>
-    <text x="650" y="142" text-anchor="middle" fill="#555">glossary, memory</text>
+    <rect x="20"  y="200" width="220" height="80" rx="6" fill="#eef4fa" stroke="#1a3a5c"/>
+    <text x="130" y="227" text-anchor="middle" font-size="15" font-weight="600" fill="#1a3a5c">Translate</text>
+    <text x="130" y="248" text-anchor="middle" fill="#555">DeepL / Google</text>
+    <text x="130" y="267" text-anchor="middle" fill="#555">glossary, terminology</text>
 
-    <rect x="760" y="80" width="150" height="70" rx="6" fill="#eef4fa" stroke="#1a3a5c"/>
-    <text x="835" y="106" text-anchor="middle" font-weight="600" fill="#1a3a5c">Layout review</text>
-    <text x="835" y="126" text-anchor="middle" fill="#555">measure and plan</text>
-    <text x="835" y="142" text-anchor="middle" fill="#555">proposals</text>
+    <rect x="270" y="200" width="220" height="80" rx="6" fill="#eef4fa" stroke="#1a3a5c"/>
+    <text x="380" y="227" text-anchor="middle" font-size="15" font-weight="600" fill="#1a3a5c">Layout review</text>
+    <text x="380" y="248" text-anchor="middle" fill="#555">measure and plan</text>
+    <text x="380" y="267" text-anchor="middle" fill="#555">proposals</text>
 
-    <rect x="390" y="215" width="150" height="70" rx="6" fill="#e8f2e8" stroke="#2c5f2d"/>
-    <text x="465" y="241" text-anchor="middle" font-weight="600" fill="#2c5f2d">Runtime pack</text>
-    <text x="465" y="261" text-anchor="middle" fill="#555">offline JSON</text>
-    <text x="465" y="277" text-anchor="middle" fill="#555">text + layout rules</text>
+    <rect x="520" y="200" width="220" height="80" rx="6" fill="#e8f2e8" stroke="#2c5f2d"/>
+    <text x="630" y="227" text-anchor="middle" font-size="15" font-weight="600" fill="#2c5f2d">Runtime pack</text>
+    <text x="630" y="248" text-anchor="middle" fill="#555">offline JSON</text>
+    <text x="630" y="267" text-anchor="middle" fill="#555">text + layout rules</text>
 
-    <rect x="575" y="215" width="335" height="70" rx="6" fill="#e8f2e8" stroke="#2c5f2d"/>
-    <text x="742" y="241" text-anchor="middle" font-weight="600" fill="#2c5f2d">Translated application</text>
-    <text x="742" y="261" text-anchor="middle" fill="#555">TDATLanguageManager applies text and layout</text>
-    <text x="742" y="277" text-anchor="middle" fill="#555">no API key, no internet</text>
+    <rect x="145" y="325" width="470" height="70" rx="6" fill="#e8f2e8" stroke="#2c5f2d"/>
+    <text x="380" y="351" text-anchor="middle" font-size="15" font-weight="600" fill="#2c5f2d">Translated application</text>
+    <text x="380" y="372" text-anchor="middle" fill="#555">TDATLanguageManager applies text and layout</text>
+    <text x="380" y="389" text-anchor="middle" font-size="12" fill="#8a1f1f">no API key, no internet</text>
   </g>
 
-  <g stroke="#1a3a5c" stroke-width="1.6" fill="none" marker-end="url(#a)">
-    <path d="M170 115 H203"/><path d="M355 115 H388"/><path d="M540 115 H573"/><path d="M725 115 H758"/>
-    <path d="M835 152 V180 H465 V213"/>
-    <path d="M540 250 H573"/>
+  <g stroke="#1a3a5c" stroke-width="1.8" fill="none" marker-end="url(#a)">
+    <path d="M240 120 H266"/>
+    <path d="M490 120 H516"/>
+    <path d="M630 160 V180 H130 V196"/>
+    <path d="M240 240 H266"/>
+    <path d="M490 240 H516"/>
+    <path d="M630 280 V303 H380 V321"/>
   </g>
   <defs><marker id="a" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
     <path d="M0,0 L9,4.5 L0,9 z" fill="#1a3a5c"/></marker></defs>
