@@ -1,5 +1,36 @@
 <html>
-<head><meta charset="utf-8"><title>Delphi App Translation Studio — Engineering Guide</title></head>
+<head>
+<meta charset="utf-8">
+<title>Delphi App Translation Studio — Engineering Guide</title>
+<style type="text/css">
+/* Spacing, stated once. Without it every heading sits hard against the
+   paragraph beneath it and the document reads as one undifferentiated block:
+   the space above a heading is what groups it with what follows, and the
+   space below is what separates the title from the text it titles. Both are
+   needed, and the space above must be the larger of the two or a heading
+   appears to belong to the section it has just ended. */
+body      { font-family: "Segoe UI"; font-size: 11pt;
+            line-height: 1.35; color: #222; }
+h1        { font-family: "Segoe UI"; font-size: 20pt;
+            font-weight: bold; color: #1a3a5c;
+            margin-top: 26pt; margin-bottom: 12pt; line-height: 1.2; }
+h2        { font-family: "Segoe UI"; font-size: 15pt;
+            font-weight: bold; color: #1a3a5c;
+            margin-top: 20pt; margin-bottom: 9pt; line-height: 1.25; }
+h3        { font-family: "Segoe UI"; font-size: 12.5pt;
+            font-weight: bold; color: #2b4d70;
+            margin-top: 16pt; margin-bottom: 7pt; line-height: 1.3; }
+p         { margin-top: 0pt; margin-bottom: 9pt; }
+ul, ol    { margin-top: 4pt; margin-bottom: 11pt; }
+li        { margin-top: 0pt; margin-bottom: 5pt; }
+table     { margin-top: 8pt; margin-bottom: 14pt; border-collapse: collapse; }
+th, td    { font-size: 10.5pt; vertical-align: top; }
+th        { font-weight: bold; }
+code      { font-family: Consolas; font-size: 10pt; }
+pre       { font-family: Consolas; font-size: 9.5pt;
+            margin-top: 6pt; margin-bottom: 12pt; line-height: 1.25; }
+</style>
+</head>
 <body>
 
 <p style="text-align:center; margin-top:180pt; font-size:30pt; font-weight:bold; color:#1a3a5c">
@@ -9,7 +40,7 @@ Delphi App Translation Studio</p>
 How the product is built, why it is built that way,<br/>
 and what holds it together</p>
 <p style="text-align:center; font-size:11pt; color:#555; margin-top:60pt">
-Last changed: 20 August 2026<br/>
+Last changed: 21 August 2026<br/>
 Applies to: alpha, build 2026.08.18.128<br/>
 Frameworks: Delphi VCL and FireMonkey &nbsp;·&nbsp; Platform: Windows (Studio)</p>
 <p style="text-align:center; font-size:10pt; color:#777; margin-top:40pt">
@@ -175,9 +206,9 @@ what happens later and is worth stating exactly:</p>
 <tr><td>applicationData</td><td>A data value, not interface text</td><td>No</td></tr>
 <tr><td>suspicious</td><td>Looks like data, or like something that should not be translated</td><td>No</td></tr>
 </table>
-<p>The third row is the one that surprises people. Carillon builds its status bar in
-code — <code>StatusBar1.Panels[1].Text := 'Songs in Playlist:  ' +
-PlaylistCount.ToString;</code> — so anything the pack writes there is overwritten moments
+<p>The third row is the one that surprises people. An application that builds a status
+bar in code — <code>StatusBar1.Panels[1].Text := 'Items in list:  ' +
+ItemCount.ToString;</code> — overwrites anything the pack writes there moments
 later. The classification is correct and the translation is genuinely impossible without
 a <code>TranslateText</code> call in the application. What the product does <i>not</i> yet
 do is tell the developer which strings those are and where they live, though it holds the
@@ -188,8 +219,9 @@ file and line for each. That is on the Fix List.</p>
 <h1>6. Context: telling the translator what a string means</h1>
 <p>A translation service sees one string at a time. Given <i>Play Date From</i> and told
 only that it is "text used in a desktop application", DeepL returned
-<i>Spielverabredungen</i> — an afternoon arranged between children — for a column of bell
-timings. Given <i>Close</i>, Spanish returned <i>cerca</i>, meaning <i>nearby</i>.</p>
+<i>Spielverabredungen</i> — an afternoon arranged between children — for a column of
+scheduled start times. Given <i>Close</i>, Spanish returned <i>cerca</i>, meaning
+<i>nearby</i>.</p>
 <p>Everything needed to settle both was already in the scan. Nobody had to type it.</p>
 
 <h2>6.1 The application domain profile</h2>
@@ -202,9 +234,9 @@ already thought of.</p>
 <p>Two things come out of reading an application:</p>
 <ul>
 <li><b>Its own vocabulary</b>, with the furniture every program shares (File, Edit,
-Cancel, Save, OK, Close) set aside. What remains is characteristic: <i>song, playlist,
-chime, bell</i> for a carillon scheduler; <i>rename, mask, extension, folder</i> for a
-file renamer.</li>
+Cancel, Save, OK, Close) set aside. What remains is characteristic: <i>invoice, ledger,
+posting, reconcile</i> for an accounts package; <i>rename, mask, extension, folder</i> for
+a file renamer.</li>
 <li><b>Which sense of an ambiguous word this application means.</b> A shared list names
 the English words that are ambiguous in a user interface and gives each sense the
 evidence words that would be present if it were the one meant. The application's own
