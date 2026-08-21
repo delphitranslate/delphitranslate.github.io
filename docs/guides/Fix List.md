@@ -255,6 +255,39 @@ this is a quality judgement rather than a rule that was broken.
 
 ---
 
+### A row at a fixed pitch cannot grow, so its last members are squeezed
+
+Reported 20 August against Vietnamese, whose day abbreviations are longer than
+the English Mon, Tue, Wed. On Carillon's "Play on the following days" the seven
+days are seven check boxes each with a separate label, laid out at a fixed
+pitch: Lefts 78, 158, 236, 318, 398, 462 and 534, gaps of 80, 78, 82, 80, 64
+and 72.
+
+The planner widened what it could and then ran out of room:
+
+| label | width | outcome |
+|---|---|---|
+| Label5 | 16 to 56 | spans 398-454, eight pixels short of the next |
+| Label6 | 21 to 21 | **no room at all** - wrapped instead |
+| Label7 | 24 to 37 | wrapped, height 20 to 35 |
+
+Each decision is defensible on its own: widen where there is room, wrap where
+there is not, shrink the font a little. Together they produce a row where five
+days read normally and two are cramped onto two lines.
+
+The right answer is to treat the row as a row. Seven pairs at an even pitch,
+needing more width per pair than the pitch allows, should be **re-pitched
+across the space the row actually has** - moving the check boxes with their
+labels - rather than each label fighting for room inside a slot that was sized
+for English.
+
+There is already a pass that recognises an evenly pitched row of captions and
+*preserves* the pitch. What is missing is letting the pitch itself grow when
+the contents demand it and the parent has the room.
+
+This is the general case of the cramped system-volume label below, which is the
+same thing with two controls instead of fourteen.
+
 ### The system-volume label is cramped
 
 Reported 20 August against the Spanish run: "Volumen del sistema:" crowds the
