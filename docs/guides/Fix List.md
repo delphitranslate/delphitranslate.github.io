@@ -209,15 +209,42 @@ recreated when its `BiDiMode` changes, and the maximised state is a property of
 the window rather than of anything the applicator restores. Worth re-testing
 once the reading order is applied before the text rather than after.
 
-### The heading is not centred after a right-to-left round trip
+### Geometry the application sets in code is overwritten, and never given back
 
-Reported 20 August, on the same run. The main form's heading sits too far left
-on return from Arabic, and is not properly centred under Arabic either, which
-suggests the second is the cause of the first rather than two faults.
+The heading on Carillon's main form goes off centre on any language change and
+stays off, including English to Italian and back. It has nothing to do with
+right-to-left; that was a coincidence of when it was noticed.
 
-A centred caption is centred by the planner using the container's width. If the
-window is the wrong width at the moment the rule is applied - see above - the
-centre is computed against the wrong number.
+Carillon positions that label itself, once, at startup:
+
+    lblMainHeader.Left := (Screen.Width - lblMainHeader.Width) div 2;
+
+`Playlist.pas:1095`. It centres against the **screen**, not the form.
+
+The planner works from the designer geometry - Left 303, Width 545 in a form of
+1597 - and proposes Left 303 to 286, Width 545 to 579. Those numbers are
+internally right: 303+545/2 and 286+579/2 are both 575.5, so the label's own
+centre is held exactly. But 575.5 was never where the label sat at run time,
+because the application had already moved it. Applying the rule overwrites the
+application's decision, and returning to English restores the *designed* 303
+rather than the centre the application computed - and that line of code never
+runs again, so nothing puts it right.
+
+Widening the control alone would break it too, since the application's centring
+used the old width.
+
+**The fix is not better arithmetic.** A control whose geometry the application
+assigns in code should have its text translated and its geometry left alone.
+The scanner reads the Pascal source already but looks only for strings; it
+would need to notice assignments to `Left`, `Top`, `Width`, `Height`,
+`Position.X` and `Position.Y` and mark those controls, and the planner would
+need to skip them.
+
+This is the same machinery wanted for an image-backed form - *words yes,
+geometry no* - reached from a different direction. Worth building once and
+using for both. It is also the same family as the runtime-composed strings
+above: three cases now where the application owns something at run time and
+the tool assumes the designer owned it.
 
 ### Label layout on the random-directory screen
 
