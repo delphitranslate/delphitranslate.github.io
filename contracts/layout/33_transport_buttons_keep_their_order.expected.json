@@ -1,0 +1,26 @@
+{
+  "description": "The FireMonkey counterpart of vcl_33. Almost everything mirrors; transport controls do not. Rewind, play and stop refer to the direction a tape moves, not to the direction a language is read. So the group moves to the mirrored side of the form as a block and keeps its internal order: the block spans 20 to 220 and the form is 400 wide, so it lands at 180 to 380 with rewind still first. An ordinary button beside it mirrors as usual. Mirroring is done by the planner rather than by either framework, so the numbers are identical to the VCL contract because the arithmetic is identical.",
+  "catalog_file": "33_transport_buttons_keep_their_order.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "btnRewind",
+      "planned_left_equals": 180
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnPlay",
+      "planned_left_equals": 250
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnStop",
+      "planned_left_equals": 320
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnClose",
+      "planned_left_equals": 25
+    }
+  ]
+}

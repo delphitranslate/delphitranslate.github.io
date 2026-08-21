@@ -1,0 +1,12 @@
+{
+  "description": "The FireMonkey counterpart of vcl_25. A heading has a whole form to widen into and should use it before it breaks onto another line. This one is centred on a form 989 wide and drawn at twenty-eight point in both fixtures, so the situation is the same one; wrapping it instead would take it to three lines and reach down into the labels beneath it. The height bound is what says it stayed on one line.",
+  "catalog_file": "25_a_heading_widens_before_it_wraps.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblHeader",
+      "text_fits": true,
+      "planned_height_at_most": 60
+    }
+  ]
+}

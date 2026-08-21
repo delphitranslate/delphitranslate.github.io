@@ -1,0 +1,18 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 300
+  ClientWidth = 500
+  object lblInstructions: TLabel
+    StyledSettings = []
+    Position.X = 24.000000000000000000
+    Position.Y = 24.000000000000000000
+    Size.Width = 452.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 12.000000000000000000
+    WordWrap = True
+    Text = 'Click the Select Random Directory button for any directory box, pick a directory and add the dates.'
+  end
+end

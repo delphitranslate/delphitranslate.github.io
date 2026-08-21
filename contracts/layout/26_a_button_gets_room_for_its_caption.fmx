@@ -1,0 +1,25 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 400
+  ClientWidth = 700
+  object btnRecalcEaster: TButton
+    StyledSettings = []
+    Position.X = 182.000000000000000000
+    Position.Y = 120.000000000000000000
+    Size.Width = 129.000000000000000000
+    Size.Height = 41.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 12.000000000000000000
+    WordWrap = True
+    Text = 'Recalculate Easter and All Souls Dates'
+  end
+  object edtAnchor: TEdit
+    Position.X = 400.000000000000000000
+    Position.Y = 120.000000000000000000
+    Size.Width = 120.000000000000000000
+    Size.Height = 23.000000000000000000
+    Size.PlatformDefault = False
+  end
+end

@@ -409,7 +409,7 @@ var
   Names: TJSONArray;
   Item: TJSONValue;
   Control, Previous: TLayoutControl;
-  FirstWidth, Pitch, ThisPitch: Double;
+  FirstWidth, FirstFont, Pitch, ThisPitch: Double;
   Index: Integer;
 begin
   Names := ARoot.GetValue('uniform_width_group') as TJSONArray;
@@ -427,6 +427,29 @@ begin
         Check(Abs(Control.PlannedWidth - FirstWidth) <= 1,
           Format('%s width is %.0f but the row settled on %.0f',
             [Item.Value, Control.PlannedWidth, FirstWidth]));
+    end;
+  end;
+
+  { Whatever size a group of paragraphs settles at, they settle at it
+    together. Worth stating on its own rather than leaving it to be implied
+    by a band each control happens to fall in: a band proves both sizes are
+    acceptable, not that they are the same, and two controls can satisfy one
+    band at different sizes with the rule not kept at all. }
+  Names := ARoot.GetValue('uniform_font_group') as TJSONArray;
+  if Names <> nil then
+  begin
+    FirstFont := -1;
+    for Item in Names do
+    begin
+      Control := FindControl(AReview, AFormName, Item.Value);
+      if Control = nil then
+        Continue;
+      if FirstFont < 0 then
+        FirstFont := PlannedFontOf(Control)
+      else
+        Check(Abs(PlannedFontOf(Control) - FirstFont) <= 0.01,
+          Format('%s settled on font %.1f but the group settled on %.1f',
+            [Item.Value, PlannedFontOf(Control), FirstFont]));
     end;
   end;
 

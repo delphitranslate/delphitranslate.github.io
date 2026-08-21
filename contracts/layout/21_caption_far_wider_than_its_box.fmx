@@ -1,0 +1,35 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 220
+  ClientWidth = 460
+  object btnRecalc: TButton
+    StyledSettings = []
+    Position.X = 24.000000000000000000
+    Position.Y = 24.000000000000000000
+    Size.Width = 153.000000000000000000
+    Size.Height = 57.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 11.000000000000000000
+    Text = 'Recalculate Dates for Upcoming Year'
+  end
+  object pnlMedia: TPanel
+    Position.X = 24.000000000000000000
+    Position.Y = 110.000000000000000000
+    Size.Width = 300.000000000000000000
+    Size.Height = 90.000000000000000000
+    Size.PlatformDefault = False
+    object lblMedia: TLabel
+      StyledSettings = []
+      Position.X = 13.000000000000000000
+      Position.Y = 3.000000000000000000
+      Size.Width = 76.000000000000000000
+      Size.Height = 17.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 10.000000000000000000
+      WordWrap = True
+      Text = 'Media Player'
+    end
+  end
+end

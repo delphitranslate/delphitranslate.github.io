@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "xx-XX",
+    "nativeLanguageName": "Contract",
+    "textDirection": "ltr",
+    "shortDateFormat": "dd/mm/yyyy",
+    "longDateFormat": "dddd, d mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "$"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblSelDir.Text",
+      "sourceText": "Click the button for any directory box and add the dates.",
+      "translatedText": "Haz clic en el boton Seleccionar directorio aleatorio para cualquier cuadro de directorio, selecciona un directorio y anade las fechas para incluirlo en la rotacion.",
+      "formName": "ContractForm",
+      "componentName": "lblSelDir",
+      "componentClassName": "TLabel",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\27_stacked_paragraphs_share_a_size.fmx",
+      "sourceLine": 12,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.lblDir2.Text",
+      "sourceText": "Random music needs a default directory to be configured.",
+      "translatedText": "Para que se reproduzca musica aleatoria, debe configurarse el directorio predeterminado. Si no se configura, no se reproducira musica aleatoria. Si los demas directorios no estan disponibles, la reproduccion se realizara en el directorio especificado en este campo.",
+      "formName": "ContractForm",
+      "componentName": "lblDir2",
+      "componentClassName": "TLabel",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\27_stacked_paragraphs_share_a_size.fmx",
+      "sourceLine": 25,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

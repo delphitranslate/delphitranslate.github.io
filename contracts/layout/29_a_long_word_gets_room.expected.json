@@ -1,0 +1,13 @@
+{
+  "description": "The FireMonkey counterpart of vcl_29. A single word cannot be wrapped - there is no space in Benachrichtigungseinstellungen to break at - so the control must be given room for its longest single word, or made small enough that the word fits, before anything else is considered. There is empty form to the right here, so it may have some of it. At twelve point the word is wider than it is at the VCL's nine, so the floor of 170 is the same floor reached by a longer stride.",
+  "catalog_file": "29_a_long_word_gets_room.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblSetting",
+      "text_fits": true,
+      "planned_width_at_least": 170,
+      "planned_left_equals": 24
+    }
+  ]
+}

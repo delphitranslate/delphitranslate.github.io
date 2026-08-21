@@ -1,0 +1,13 @@
+{
+  "description": "The FireMonkey counterpart of vcl_23. A paragraph that grows in translation grows downwards, and may not grow sideways past the edge of the form it sits on: there is nothing out there, and the text is simply cut off mid-sentence. The form is 500 wide and the label starts 24 in, so 452 is all the width there is. The label is drawn at FireMonkey's own default of twelve point rather than the VCL's nine, which makes the same translation need more room and the rule harder to keep, which is the right direction for a twin to differ in.",
+  "catalog_file": "23_a_paragraph_stays_on_the_form.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblInstructions",
+      "text_fits": true,
+      "planned_width_at_most": 452,
+      "planned_left_equals": 24
+    }
+  ]
+}

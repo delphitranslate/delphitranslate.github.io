@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "he-IL",
+    "nativeLanguageName": "Contract",
+    "textDirection": "rtl",
+    "shortDateFormat": "dd/mm/yyyy",
+    "longDateFormat": "dddd, d mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "$"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblLeft.Text",
+      "sourceText": "Name",
+      "translatedText": "\u05e9\u05dd",
+      "formName": "ContractForm",
+      "componentName": "lblLeft",
+      "componentClassName": "TLabel",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\32_right_to_left_flips_alignment_and_anchors.fmx",
+      "sourceLine": 26,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.lblCentre.Text",
+      "sourceText": "Title",
+      "translatedText": "\u05db\u05d5\u05ea\u05e8\u05ea",
+      "formName": "ContractForm",
+      "componentName": "lblCentre",
+      "componentClassName": "TLabel",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\32_right_to_left_flips_alignment_and_anchors.fmx",
+      "sourceLine": 35,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

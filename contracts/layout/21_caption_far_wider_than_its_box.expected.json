@@ -1,0 +1,16 @@
+{
+  "description": "The FireMonkey counterpart of vcl_21. A caption that outgrows its control by a wide margin has to be given room, and that is a rule about text and boxes rather than about a windowing toolkit. FireMonkey measures through TTextLayout where the VCL measures through GDI, so the two frameworks do not agree to the pixel on what a string needs; what they must agree on is that a control which cannot hold its caption at any readable size is given more room. The geometry is the VCL fixture's, in points rather than in negative pixel heights.",
+  "catalog_file": "21_caption_far_wider_than_its_box.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "btnRecalc",
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "lblMedia",
+      "text_fits": true
+    }
+  ]
+}

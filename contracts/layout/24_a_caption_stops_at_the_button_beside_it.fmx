@@ -1,0 +1,35 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 620
+  ClientWidth = 700
+  object btnClearOtherDates: TButton
+    StyledSettings = []
+    Position.X = 182.000000000000000000
+    Position.Y = 502.000000000000000000
+    Size.Width = 81.000000000000000000
+    Size.Height = 42.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 9.000000000000000000
+    Text = 'Reset Funeral Date Fields'
+  end
+  object lblTimes: TLabel
+    AutoSize = False
+    StyledSettings = []
+    Position.X = 344.000000000000000000
+    Position.Y = 539.000000000000000000
+    Size.Width = 52.000000000000000000
+    Size.Height = 30.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 9.000000000000000000
+    Text = 'Start/End Times:'
+  end
+  object edtStart: TEdit
+    Position.X = 404.000000000000000000
+    Position.Y = 536.000000000000000000
+    Size.Width = 100.000000000000000000
+    Size.Height = 23.000000000000000000
+    Size.PlatformDefault = False
+  end
+end

@@ -1,0 +1,18 @@
+{
+  "description": "The FireMonkey counterpart of vcl_24. Two controls may not occupy the same pixels, whichever of them moved. The button occupies 182 to 263; the caption may take everything from 267 rightwards and no more, and the button may reach no further right than 267 either. The boundary is arithmetic on the designed geometry, so it is the same number on both frameworks; only the measurement of the text behind it differs.",
+  "catalog_file": "24_a_caption_stops_at_the_button_beside_it.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblTimes",
+      "planned_left_at_least": 267,
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnClearOtherDates",
+      "text_fits": true,
+      "planned_right_at_most": 267
+    }
+  ]
+}

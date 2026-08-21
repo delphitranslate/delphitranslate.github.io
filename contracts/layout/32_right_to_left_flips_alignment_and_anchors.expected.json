@@ -1,0 +1,31 @@
+{
+  "description": "The FireMonkey counterpart of vcl_32. Coordinates are not the whole of a mirror, and that is true on both frameworks for the same reason: a control placed by an alignment constant is not placed by its coordinate, so reflecting the coordinate does nothing at all and the navigation band stays on the left of a right-to-left form. What differs is only the spelling. FireMonkey writes TAlignLayout.Left where the VCL writes alLeft, TextSettings.HorzAlign = Leading where the VCL writes Alignment = taLeftJustify, and shares Anchors with it. The planner names the property in the spelling the form file uses, so one rule serves both. Centre is centre in every language and is deliberately absent from the proposals.",
+  "catalog_file": "32_right_to_left_flips_alignment_and_anchors.catalog.json",
+  "proposals": [
+    {
+      "name": "pnlNav",
+      "property": "Align",
+      "value": "Right",
+      "decision": "accepted"
+    },
+    {
+      "name": "lblLeft",
+      "property": "TextSettings.HorzAlign",
+      "value": "Trailing",
+      "decision": "accepted"
+    },
+    {
+      "name": "edtStretch",
+      "property": "Anchors",
+      "value": "akRight,akTop",
+      "decision": "accepted"
+    }
+  ],
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblCentre",
+      "planned_left_equals": 160
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "description": "The FireMonkey counterpart of vcl_28. Text that wraps should not be given more width than the wrap actually uses: leaving the box at its designed 820 puts almost all of the words on the first line and one or two on the second, which is the ragged look a typesetter spends their life avoiding. Narrowing the box to the least width that still gives the same number of lines shares the words between them. The box may not grow, and the text must still fit. The label is drawn at twelve point where the VCL twin uses nine, and the difference is not decoration: FireMonkey measures through TTextLayout and the VCL through GDI, and DirectWrite reports this string about a quarter narrower than GDI does at the same size. At nine point it is 768 pixels wide and fits the 820 box on one line, so there would be no second line to balance and the fixture would prove nothing. Twelve point restores the two-line case the rule is about. A twin has to reproduce the situation, not the numbers.",
+  "catalog_file": "28_wrapped_text_is_balanced.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblNote",
+      "text_fits": true,
+      "planned_width_at_most": 620,
+      "planned_left_equals": 24
+    }
+  ]
+}

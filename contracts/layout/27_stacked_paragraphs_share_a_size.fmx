@@ -1,0 +1,37 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 400
+  ClientWidth = 974
+  object lblSelDir: TLabel
+    StyledSettings = []
+    Position.X = 176.000000000000000000
+    Position.Y = 85.000000000000000000
+    Size.Width = 577.000000000000000000
+    Size.Height = 60.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 15.000000000000000000
+    Text = 'Click the button for any directory box and add the dates.'
+  end
+  object lblDir2: TLabel
+    StyledSettings = []
+    Position.X = 176.000000000000000000
+    Position.Y = 160.000000000000000000
+    Size.Width = 571.000000000000000000
+    Size.Height = 60.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 15.000000000000000000
+    Text = 'Random music needs a default directory to be configured.'
+  end
+  object lblAnchor: TLabel
+    StyledSettings = []
+    Position.X = 176.000000000000000000
+    Position.Y = 240.000000000000000000
+    Size.Width = 200.000000000000000000
+    Size.Height = 17.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 12.000000000000000000
+    Text = 'Default music directory'
+  end
+end

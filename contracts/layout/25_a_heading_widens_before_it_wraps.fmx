@@ -1,0 +1,37 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 400
+  ClientWidth = 989
+  object lblHeader: TLabel
+    AutoSize = False
+    StyledSettings = []
+    Position.X = 392.000000000000000000
+    Position.Y = 32.000000000000000000
+    Size.Width = 231.000000000000000000
+    Size.Height = 50.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 28.000000000000000000
+    TextSettings.HorzAlign = Center
+    Text = 'Email Settings'
+  end
+  object chkEnableEmail: TCheckBox
+    Position.X = 745.000000000000000000
+    Position.Y = 44.000000000000000000
+    Size.Width = 120.000000000000000000
+    Size.Height = 19.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Enable Email'
+  end
+  object lblRecipients: TLabel
+    StyledSettings = []
+    Position.X = 470.000000000000000000
+    Position.Y = 150.000000000000000000
+    Size.Width = 130.000000000000000000
+    Size.Height = 17.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 12.000000000000000000
+    Text = 'Email Recipients:'
+  end
+end

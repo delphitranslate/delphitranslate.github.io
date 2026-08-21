@@ -4,7 +4,7 @@ Known defects and unfinished work, newest first. Items are removed when fixed,
 not struck through. Anything here is deliberately *not* being worked on right
 now; the point of the list is that nothing has to be remembered.
 
-Last changed: August 20, 2026
+Last changed: August 21, 2026
 
 ---
 
@@ -449,86 +449,71 @@ the two are not confused with one another.
 
 ---
 
-## Contract coverage is uneven between the frameworks
+## Contract coverage between the frameworks - closed 21 August
 
-Audited 20 August. The 54 layout contracts cover **33 distinct behaviours**:
-21 are proven on both frameworks, **12 on VCL only, and none on FireMonkey
-only**.
+Audited 20 August, closed 21 August. The layout contracts now number **64**,
+and every behaviour that both frameworks can be held to is held to on both.
 
-The twelve without a FireMonkey twin:
+Ten FireMonkey contracts were added: a button gets room for its caption; a
+caption stops at the button beside it; a heading widens before it wraps; a
+paragraph stays on the form; a caption far wider than its box; a long word gets
+room; stacked paragraphs share a size; wrapped text is balanced; transport
+buttons keep their order; and right-to-left flips alignment and anchors.
 
-| behaviour | genuinely VCL-specific? |
-|---|---|
-| a_button_gets_room_for_its_caption | no |
-| a_caption_stops_at_the_button_beside_it | no |
-| a_grid_does_not_end_the_form | no |
-| a_heading_widens_before_it_wraps | no |
-| a_long_word_gets_room | no |
-| a_paragraph_stays_on_the_form | no |
-| caption_far_wider_than_its_box | no |
-| stacked_paragraphs_share_a_size | no |
-| transport_buttons_keep_their_order | no |
-| wrapped_text_is_balanced | no |
-| inherited_font_is_the_forms_font | **yes** - font inheritance was deliberately changed for the VCL only, FireMonkey's defaults differ and its behaviour was left alone |
-| right_to_left_flips_alignment_and_anchors | **partly** - `Anchors` is a VCL notion; FireMonkey needs the `Align` and `TextSettings.HorzAlign` half |
+Two remain VCL-only, and deliberately so. `inherited_font_is_the_forms_font`
+guards a change made for the VCL alone on VCL evidence; FireMonkey inherits
+through `StyledSettings` and `TextSettings` instead, so its equivalent is a
+different contract rather than a twin. `a_grid_does_not_end_the_form` guards a
+`.dfm` parsing hazard - a collection written as `item ... end` blocks, whose
+`end` lines emptied the object stack - and FireMonkey files have no such
+syntax.
 
-Judged one at a time against what each contract actually tests, rather than by
-name:
+**What the seam cost, measured.** Two of the ten did not transfer, and neither
+was a planner fault. FireMonkey measures through `TTextLayout` and the VCL
+through GDI, and DirectWrite reports the same string at the same point size
+about **a quarter narrower** than GDI does: a paragraph GDI makes 1745 pixels
+wide comes out 1272 under DirectWrite. So a fixture built by copying the VCL
+twin's font size reproduces the VCL twin's numbers and not its *situation*. The
+stacked-paragraph pair fitted their boxes at eleven point under FireMonkey and
+nothing had to give, so the rule was never asked to do anything; the wrapping
+label fitted its 820-pixel box on one line, so there was no second line to
+balance. Both were rebuilt at the point size that restores the situation -
+fifteen and twelve - and both then failed and passed for the right reasons.
+This is exactly the fault the audit warned about, caught by insisting each twin
+fail first.
 
-**Nine are clean gaps** - framework-neutral planner behaviour that FireMonkey
-can and should be held to: a button gets room for its caption; a caption stops
-at the button beside it; a heading widens before it wraps; a paragraph stays on
-the form; caption far wider than its box; a long word gets room; stacked
-paragraphs share a size; wrapped text is balanced; transport buttons keep their
-order.
+A new assertion, `uniform_font_group`, was added to the harness while doing it.
+The sharing rule had been proven only by both controls landing inside one
+numeric band, and a band proves both sizes are allowed rather than that they
+are the same. Both the VCL and FireMonkey contracts now state it directly.
 
-**One is a partial gap.** `right_to_left_flips_alignment_and_anchors` covers
-`Align`, `Anchors` and text alignment. FireMonkey has all three - `TAlignLayout`,
-`Anchors`, `TextSettings.HorzAlign` - and the runtime side is already tested by
-`FMXRightToLeftSmokeTests`, but no FireMonkey *contract* checks that the planner
-proposes them. Worth a twin.
+### Harness parity - closed 21 August
 
-**Two are legitimately VCL-only.**
+`FMXDiscoverySmokeTests` and `FMXWrapSmokeTests` were written, leaving
+`VCLManagerMDILifecycleSpikeTests` as the only unpaired harness, which is
+correct: MDI is a VCL concept.
 
-- `inherited_font_is_the_forms_font` - font inheritance down the object tree was
-  changed for the VCL alone, on VCL evidence, and FireMonkey's differing
-  defaults were deliberately left as they were. FireMonkey inherits through
-  `StyledSettings` and `TextSettings` instead, so its equivalent is a
-  *different* contract rather than a twin, and writing one would be new work
-  rather than parity work.
-- `a_grid_does_not_end_the_form` - this guards a `.dfm` parsing hazard
-  specifically: a collection written as `item ... end` blocks, whose `end`
-  lines were emptying the object stack so that every control after a grid was
-  read as a form. FireMonkey files do not use that syntax. It has its own
-  nesting risks, which is a different contract again.
+Discovery needed its own test rather than a shared one because the two
+frameworks find their forms by unrelated means - the VCL manager watches
+`Screen` and hooks the window procedure, while FireMonkey subscribes to
+`TFormBeforeShownMessage` through `TMessageManager`. One working says nothing
+about the other. Verified to bite: with `AutoTranslateNewForms` turned off, five
+of its checks fail.
 
-So the honest target is **ten new FireMonkey contracts**, not twelve. The planner measures through a seam - GDI for VCL,
-`TTextLayout` for FireMonkey - so the same rule can produce different numbers,
-which is precisely why a twin is worth having rather than assumed.
+The wrap twin is the one place the two frameworks are asserted to behave
+*oppositely*, and the measurements behind it were taken rather than assumed:
 
-**These must not be produced in bulk.** A contract whose expected values are
-copied from what the planner currently does proves nothing; it records
-behaviour instead of requiring it. Two contracts in this project have already
-had to be rebuilt for exactly that fault. Each twin needs its expected numbers
-reasoned from what the layout *should* be and confirmed to fail before the code
-is right - which is a fixture at a time, not a batch.
-
-### Harness parity
-
-Separately from the contracts, the 28 test harnesses pair like this:
-
-- **Five paired**: design streaming, language manager, manager lifecycle,
-  right-to-left, runtime smoke - each with a VCL and a FireMonkey version.
-- **Fifteen framework-neutral**: contracts, scanning, providers, packs,
-  hyphenation, context and the rest.
-- **Three VCL with no FireMonkey twin**: `VCLDiscoverySmokeTests`,
-  `VCLWrapSmokeTests`, `VCLManagerMDILifecycleSpikeTests`.
-- **None** FireMonkey-only.
-
-Of those three, MDI is a VCL concept and needs no twin. Discovery and wrap both
-have FireMonkey meaning and do not have it covered - wrap especially, since the
-soft-hyphen resolution it exercises is the one place the two frameworks were
-measured to behave differently.
+- On one line, the marked and unmarked German compound both measure 168.51
+  pixels - so DirectWrite renders U+00AD as nothing at all, where GDI draws it
+  as an ordinary hyphen. Soft hyphens may therefore reach a FireMonkey caption,
+  and the VCL runtime is right to strip them from a VCL one.
+- Wrapped into a 120-pixel box the marked word uses 113.55 and the plain one
+  118.64 - different break points, so the mark is genuinely taken as a break
+  opportunity.
+- Line *height* cannot tell these apart: both come out on two lines, because an
+  unbreakable word is simply broken mid-letter. The first version of this test
+  compared heights and passed nothing useful. The width the wrap leaves behind
+  is what carries the answer.
 
 ## Not yet verified
 
