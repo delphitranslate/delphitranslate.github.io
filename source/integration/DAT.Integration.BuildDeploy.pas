@@ -31,6 +31,56 @@ const
   BuildProcessTimeout = 1800000;
   ProcessTerminationWait = 5000;
 
+{ The lines of a build log that say what went wrong.
+
+  An MSBuild log for a failed Delphi build is mostly noise: the interesting
+  part is the handful of lines carrying 'error' or a Delphi diagnostic code,
+  and the first of those is almost always the real cause. Everything after
+  the first few is usually the same fault repeated per unit. }
+function BuildErrorSummary(const ALogFileName: string): string;
+const
+  MaximumLines = 12;
+var
+  Lines: TStringList;
+  Line: string;
+  Trimmed: string;
+  Shown: Integer;
+begin
+  Result := '';
+  if not TFile.Exists(ALogFileName) then
+    Exit('The build wrote no log.');
+  Lines := TStringList.Create;
+  try
+    try
+      Lines.LoadFromFile(ALogFileName);
+    except
+      Exit('The build log could not be read.');
+    end;
+    Shown := 0;
+    for Line in Lines do
+    begin
+      Trimmed := Trim(Line);
+      if Trimmed = '' then
+        Continue;
+      if (Pos('error', LowerCase(Trimmed)) = 0) and
+        not TRegEx.IsMatch(Trimmed, '[EFH]\d{4}') then
+        Continue;
+      Result := Result + Trimmed + sLineBreak;
+      Inc(Shown);
+      if Shown >= MaximumLines then
+      begin
+        Result := Result + '... more in the log.' + sLineBreak;
+        Break;
+      end;
+    end;
+    if Shown = 0 then
+      Result := 'The log names no error; the last lines of it are worth ' +
+        'reading.' + sLineBreak;
+  finally
+    Lines.Free;
+  end;
+end;
+
 procedure RunHiddenBuild(const AProjectFileName, APlatform,
   AConfiguration, APackageDirectory: string);
 var
@@ -42,6 +92,7 @@ var
   StartupInfo: TStartupInfo;
   WaitResult: Cardinal;
   WorkDirectory: string;
+  LogFileName: string;
 begin
   ComponentSourceDirectory := TPath.Combine(APackageDirectory,
     'ComponentSource');
@@ -50,10 +101,19 @@ begin
     SearchPathProperty := Format(
       ' /p:DCC_UnitSearchPath="%s;$(DCC_UnitSearchPath)"',
       [ComponentSourceDirectory]);
+  { The output goes to a file rather than nowhere.
+
+    This used to run with the output discarded and report only the exit
+    code, so a failed build said 'exit code 1' and stopped - leaving a
+    developer with a broken run, no error text, and no way to find out
+    what MSBuild had objected to. The compiler already says exactly what
+    is wrong; it was simply being thrown away. }
+  LogFileName := TPath.Combine(TPath.GetTempPath,
+    Format('dat-build-%s-%s.log', [APlatform, AConfiguration]));
   CommandLine := Format(
-    'cmd.exe /d /s /c ""%s" && msbuild "%s" /t:Build /p:Platform=%s /p:Config=%s%s"',
+    'cmd.exe /d /s /c ""%s" && msbuild "%s" /t:Build /p:Platform=%s /p:Config=%s%s > "%s" 2>&1"',
     [DelphiEnvironmentFile, AProjectFileName, APlatform, AConfiguration,
-     SearchPathProperty]);
+     SearchPathProperty, LogFileName]);
   WorkDirectory := TPath.GetDirectoryName(AProjectFileName);
   ZeroMemory(@StartupInfo, SizeOf(StartupInfo));
   ZeroMemory(@ProcessInfo, SizeOf(ProcessInfo));
@@ -85,8 +145,9 @@ begin
       RaiseLastOSError;
     if ExitCode <> 0 then
       raise Exception.CreateFmt(
-        'The %s %s build failed with exit code %d.',
-        [APlatform, AConfiguration, ExitCode]);
+        'The %s %s build failed with exit code %d.%s%s%sFull log: %s',
+        [APlatform, AConfiguration, ExitCode, sLineBreak,
+         BuildErrorSummary(LogFileName), sLineBreak, LogFileName]);
   finally
     if ProcessInfo.hThread <> 0 then
       CloseHandle(ProcessInfo.hThread);
