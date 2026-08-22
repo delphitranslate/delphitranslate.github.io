@@ -1,5 +1,5 @@
 <#
-Rebuilds every runtime and design package into bin\packages.
+Rebuilds every runtime and design package into bin\packages, using MSBuild.
 
 This exists because forgetting it has cost real debugging time more than once,
 and because the failure it causes is not obvious. The packages carry a compiled
@@ -9,13 +9,29 @@ the IDE has an old component registered, the design BPL the Wizard points at is
 old, and a build that links a package gets last week's behaviour with this
 week's source sitting right next to it.
 
-Worse, the copies are in three places and they drift apart:
+Why MSBuild rather than dcc32, which is what this used to do:
 
-  packages\runtime, packages\design   where dcc32 puts them by default
+  A package is described by two files. The .dpk says what it contains; the
+  .dproj says how RAD Studio builds it - defines, debug information, package
+  flags, search paths. Driving dcc32 at the .dpk skips the .dproj entirely, so
+  the switches were hand-assembled here instead, and "how the packages are
+  built" quietly became two different answers: one the IDE used and one this
+  script used. They agreed only for as long as nobody changed either.
+
+  The BPLs are precisely the artifact the IDE and the Wizard load. Building
+  them by a route neither of those ever takes is how "works in our build, fails
+  in the IDE" happens. Four of the five packages had no .dproj at all until
+  they were written; now all five build the way RAD Studio builds them.
+
+Output locations are still passed on the command line rather than written into
+the .dproj files, so where artifacts land stays one decision in one place:
+
   bin\packages\<platform>\<config>    where the Studio and the Wizard look
+  dcu\packages\<platform>\<config>    intermediate units, of interest to nobody
 
-Only the second matters at run time. The first is a by-product, and it is the
-one that gets rebuilt by hand when somebody remembers to rebuild anything.
+Build order is not alphabetical and is not adjustable. A package that requires
+another needs that one's .dcp to exist first, so the shared core is built
+before the frameworks and the design packages last.
 
 Design packages are Win32 only - the IDE loads them and the IDE is a 32-bit
 host. Runtime packages are built for both platforms because a customer's
@@ -42,11 +58,7 @@ if (-not (Test-Path -LiteralPath $Rsvars)) {
   throw "The Delphi environment file was not found: $Rsvars"
 }
 
-$searchPath = @('runtime', 'components', 'core') |
-  ForEach-Object { Join-Path $ProjectRoot "source\$_" }
-$searchPath += Join-Path $ProjectRoot 'source\design'
-$searchPath = $searchPath -join ';'
-
+# Dependency order, not alphabetical order. See the header.
 $runtimePackages = @(
   'DATLanguageManagerCoreRuntime',
   'DATLanguageManagerVCLRuntime',
@@ -64,27 +76,51 @@ function Build-Package {
     [string]$Platform,
     [string]$Configuration
   )
-  $compiler = if ($Platform -eq 'Win64') { 'dcc64.exe' } else { 'dcc32.exe' }
+  $projectFile = Join-Path $SourceDirectory "$Name.dproj"
+  if (-not (Test-Path -LiteralPath $projectFile)) {
+    Write-Output ("  FAIL  {0,-32} no .dproj - MSBuild cannot build a bare .dpk" -f $Name)
+    $script:failures++
+    return
+  }
+
   $output = Join-Path $ProjectRoot "bin\packages\$Platform\$Configuration"
   $units  = Join-Path $ProjectRoot "dcu\packages\$Platform\$Configuration"
   New-Item -ItemType Directory -Force -Path $output, $units | Out-Null
 
-  # -LE and -LN place the .bpl and .dcp where the Studio and the Wizard expect
-  # them; without those they land beside the .dpk and nothing that matters ever
-  # sees them.
-  $arguments = '-B -Q -U"{0}" -N0"{1}" -LE"{2}" -LN"{2}" {3}.dpk' -f
-    $searchPath, $units, $output, $Name
-  if ($Configuration -eq 'Debug') { $arguments = '-V -VN ' + $arguments }
+  # A package that requires another finds it by .dcp, and the .dcp is wherever
+  # the previous package in the order just put it - which is this same folder.
+  $arguments = @(
+    ('"{0}"' -f $projectFile)
+    '/t:Build'
+    ('/p:Platform={0}' -f $Platform)
+    ('/p:Config={0}' -f $Configuration)
+    ('/p:DCC_BplOutput="{0}"' -f $output)
+    ('/p:DCC_DcpOutput="{0}"' -f $output)
+    ('/p:DCC_DcuOutput="{0}"' -f $units)
+    ('/p:DCC_UnitSearchPath="{0}"' -f $output)
+    '/nologo'
+    '/v:minimal'
+  ) -join ' '
 
+  $logFile = Join-Path ([System.IO.Path]::GetTempPath()) "dat-package-$Name-$Platform-$Configuration.log"
   Push-Location $SourceDirectory
   try {
-    $result = cmd /c "`"$Rsvars`" && $compiler $arguments 2>&1"
+    cmd /c "`"$Rsvars`" && msbuild $arguments > `"$logFile`" 2>&1"
     if ($LASTEXITCODE -eq 0) {
       Write-Output ("  ok    {0,-32} {1} {2}" -f $Name, $Platform, $Configuration)
     }
     else {
       Write-Output ("  FAIL  {0,-32} {1} {2}" -f $Name, $Platform, $Configuration)
-      $result | Select-Object -Last 8 | ForEach-Object { Write-Output "          $_" }
+      # An MSBuild log for a failed Delphi build is mostly noise. The compiler
+      # lines are the part worth reading, so those are what get shown.
+      $interesting = Get-Content -LiteralPath $logFile |
+        Where-Object { $_ -match '(error|fatal|E\d{4}|F\d{4})' } |
+        Select-Object -First 6
+      if (-not $interesting) {
+        $interesting = Get-Content -LiteralPath $logFile | Select-Object -Last 6
+      }
+      $interesting | ForEach-Object { Write-Output "          $_" }
+      Write-Output ("          Full log: {0}" -f $logFile)
       $script:failures++
     }
   }

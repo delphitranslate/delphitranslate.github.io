@@ -55,6 +55,29 @@ function Check {
   else { Write-Output "  FAIL  $Message"; $script:failures++ }
 }
 
+function Invoke-MSBuild {
+  param(
+    [string]$WorkingDirectory,
+    [string]$ProjectFile,
+    [hashtable]$Properties,
+    [string]$What
+  )
+  $settings = ($Properties.GetEnumerator() |
+    ForEach-Object { '/p:{0}="{1}"' -f $_.Key, $_.Value }) -join ' '
+  $logFile = Join-Path ([System.IO.Path]::GetTempPath()) "dat-e2e-$What.log"
+  Push-Location $WorkingDirectory
+  try {
+    cmd /c "`"$Rsvars`" && msbuild `"$ProjectFile`" /t:Build /p:Platform=Win32 /p:Config=Debug $settings /nologo /v:minimal > `"$logFile`" 2>&1"
+    if ($LASTEXITCODE -ne 0) {
+      Get-Content -LiteralPath $logFile |
+        Where-Object { $_ -match '(error|fatal|E\d{4}|F\d{4})' } |
+        Select-Object -First 6 | ForEach-Object { Write-Output $_ }
+      throw "Build failed: $What. Full log: $logFile"
+    }
+  }
+  finally { Pop-Location }
+}
+
 function Invoke-Compiler {
   param([string]$WorkingDirectory, [string]$Arguments, [string]$What)
   Push-Location $WorkingDirectory
@@ -124,9 +147,24 @@ try {
   Write-Output 'Building the sample against the kit only'
   $app = Join-Path $work 'app'
   New-Item -ItemType Directory -Force -Path $app, (Join-Path $work 'dcu') | Out-Null
-  Invoke-Compiler $sample `
-    ('-Q -B -E"{0}" -N0"{1}" -U"{2}" SampleVCLApp.dpr' -f
-      $app, (Join-Path $work 'dcu'), $componentSource) 'SampleVCLApp'
+  # MSBuild, not dcc32, and the difference is the point of this step.
+  #
+  # This build stands in for a customer's build, and a customer builds with
+  # MSBuild - that is what the Wizard drives. Simulating a customer with a
+  # tool no customer runs is how this run once passed green while the Wizard's
+  # path was broken: the two used different compilers, so the thing being
+  # proved here was not the thing that failed there.
+  #
+  # DCC_UnitSearchPath is overridden rather than added to, which is what makes
+  # this the kit-alone test: the sample's own .dproj declares no search path,
+  # so after this override the kit is genuinely the only place a unit can come
+  # from. A unit missing from the kit fails here rather than in a customer's
+  # project a week later.
+  Invoke-MSBuild $sample 'SampleVCLApp.dproj' @{
+    DCC_ExeOutput      = $app
+    DCC_DcuOutput      = (Join-Path $work 'dcu')
+    DCC_UnitSearchPath = $componentSource
+  } 'SampleVCLApp'
   Check (Test-Path (Join-Path $app 'SampleVCLApp.exe')) `
     'It compiles against the kit with no reference to the product tree, so the kit is complete.'
 

@@ -68,22 +68,26 @@ function Run-Script {
 Step 'Packages' { Run-Script 'build_packages.ps1' | Select-Object -Last 4 }
 
 Step 'Studio' {
-  $searchPath = @('studio', 'review', 'core', 'scan', 'runtime', 'integration',
-    'provider', 'validation', 'components') |
-    ForEach-Object { Join-Path $ProjectRoot "source\$_" }
+  # MSBuild, driven at the Studio's own .dproj. Nothing is passed on the
+  # command line because the .dproj already declares its output folders and
+  # its unit search path - so "how the Studio is built" is one answer, living
+  # in the project file, and the IDE and this script both read it.
+  #
+  # It used to be two answers: a hand-written search path here and a
+  # DCCReference list there, agreeing only for as long as nobody touched
+  # either. They had already drifted - this script searched source\components
+  # and the .dproj did not.
+  $project = Join-Path $ProjectRoot 'DelphiAppTranslationStudio.dproj'
   foreach ($configuration in 'Debug', 'Release') {
-    $output = Join-Path $ProjectRoot "bin\Win32\$configuration"
-    $units  = Join-Path $ProjectRoot "dcu\Win32\$configuration"
-    New-Item -ItemType Directory -Force -Path $output, $units | Out-Null
-    $arguments = '-Q -B -E"{0}" -N0"{1}" -U"{2}" -R"{3}" "{3}\DelphiAppTranslationStudio.dpr"' -f
-      $output, $units, ($searchPath -join ';'), $ProjectRoot
-    if ($configuration -eq 'Debug') { $arguments = '-V -VN ' + $arguments }
+    $logFile = Join-Path ([System.IO.Path]::GetTempPath()) "dat-studio-$configuration.log"
     Push-Location $ProjectRoot
     try {
-      $result = cmd /c "`"$Rsvars`" && dcc32.exe $arguments 2>&1"
+      cmd /c "`"$Rsvars`" && msbuild `"$project`" /t:Build /p:Platform=Win32 /p:Config=$configuration /nologo /v:minimal > `"$logFile`" 2>&1"
       if ($LASTEXITCODE -ne 0) {
-        $result | Select-Object -Last 8 | ForEach-Object { Write-Output "  $_" }
-        throw "Studio $configuration build failed."
+        Get-Content -LiteralPath $logFile |
+          Where-Object { $_ -match '(error|fatal|E\d{4}|F\d{4})' } |
+          Select-Object -First 6 | ForEach-Object { Write-Output "  $_" }
+        throw "Studio $configuration build failed. Full log: $logFile"
       }
       Write-Output ("  ok    Studio {0}" -f $configuration)
     }
@@ -167,6 +171,7 @@ if (-not $SkipEndToEnd) {
 }
 
 # --- 3. the guards, judging what was just built ------------------------------
+Step 'Build paths agree' { Run-Script 'check_build_paths_agree.ps1' | Select-Object -Last 3 }
 Step 'Shipped units complete' { Run-Script 'check_shipped_units_complete.ps1' | Select-Object -Last 2 }
 Step 'Artifacts current' { Run-Script 'check_artifacts_current.ps1' | Select-Object -Last 3 }
 
