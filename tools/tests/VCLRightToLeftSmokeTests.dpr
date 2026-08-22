@@ -366,6 +366,14 @@ begin
         'The menu bar is in a different order than designed.');
       Check(Menu.Items[Menu.Items.Count - 1].Name = 'mnuFile',
         'The first menu is last in the list, which puts it on the right.');
+      { VCL invents a keyboard shortcut for any menu item without one, and
+        for scripts Unicode calls OtherLetter - Hebrew here, Arabic in the
+        field - it appends it as visible text rather than underlining a
+        letter. The menu then reads the Hebrew for "File" followed by (Z), with Roman letters
+        marching through a right-to-left menu. Nothing was wrong with the
+        translation; VCL decorated it afterwards. }
+      Check(Pos('(', Menu.Items[0].Caption) = 0,
+        'No Roman keyboard shortcut is bolted onto a translated menu caption.');
       Writeln(Format('        window ExStyle RTLREADING=%s LEFTSCROLLBAR=%s LAYOUTRTL=%s',
         [BoolToStr((ExStyleUnderArabic and WS_EX_RTLREADING) <> 0, True),
          BoolToStr((ExStyleUnderArabic and WS_EX_LEFTSCROLLBAR) <> 0, True),

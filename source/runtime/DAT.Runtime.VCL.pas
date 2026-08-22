@@ -10,6 +10,9 @@ uses
     interface rather than only in the implementation. }
   Vcl.Controls,
   Vcl.Forms,
+  { TMenuAutoFlag is named in the class below, so it belongs here rather
+    than only in the implementation. }
+  Vcl.Menus,
   DAT.Runtime.LanguagePack;
 
 type
@@ -66,6 +69,9 @@ type
       right-to-left language reverses it back exactly once. Reversal is its
       own inverse; doing it twice or not at all are both wrong. }
     class var FReversedMenus: TDictionary<string, Boolean>;
+    { What each form's menu had for AutoHotkeys before a translation was
+      applied, so the source language gets it back. }
+    class var FMenuAutoHotkeys: TDictionary<string, TMenuAutoFlag>;
     class procedure SnapshotOriginalGeometry(const AForm: TCustomForm;
       const AFormIdentity: string); static;
     class function RestoreOriginalGeometry(const AForm: TCustomForm;
@@ -99,8 +105,6 @@ uses
   System.StrUtils,
   System.TypInfo,
   Vcl.Graphics,
-  { For TMenuItemInfo and the menu API surface. }
-  Vcl.Menus,
   Vcl.StdCtrls;
 
 { Declared here because restoring a form needs it before it is defined: a grid
@@ -1140,6 +1144,60 @@ begin
     DrawMenuBar(AForm.Handle);
 end;
 
+{ VCL stops inventing keyboard shortcuts once the captions are not English.
+
+  Menu items with no ampersand of their own get one from VCL, because
+  TMenu.AutoHotkeys defaults to maAutomatic and re-runs every time a caption
+  changes - which is every time a language is applied.
+
+  For Latin text that is invisible: a letter gets underlined. For anything
+  Unicode calls an OtherLetter - Arabic, Hebrew, Thai, the CJK scripts, most
+  of Indic - VCL takes a different branch, InsertHotkeyFarEastFormat, and
+  appends the shortcut as visible text:
+
+    ACaption := ACaption + '(' + cHotkeyPrefix + AHotKey + ')';
+
+  So a menu translated to Arabic reads the Arabic for "File" followed by (Z), and its submenus the same, with
+  Roman letters marching through them in reverse alphabetical order. The
+  translation was never wrong; VCL decorated it afterwards.
+
+  That convention is right where it comes from - a Japanese menu really does
+  show (&F) - but it is applied here on the basis of the script alone, with no
+  regard for whether the application, the user or the language wants it.
+
+  Turning it off costs the Alt-key shortcuts VCL was inventing. Items with an
+  ampersand written into the .dfm keep theirs, because those are the
+  application's own and are not touched. Invented ones were never designed and
+  the letters were arbitrary, so what is lost is a shortcut nobody chose,
+  spelled in an alphabet the reader may not use.
+
+  Only while a translation is active. Back in the source language the menu is
+  the application's again, and whatever it did before it does again. }
+procedure ApplyMenuHotkeyPolicy(const AForm: TCustomForm;
+  const AFormIdentity: string; const ATranslated: Boolean);
+var
+  Original: TMenuAutoFlag;
+begin
+  if (AForm = nil) or (AForm.Menu = nil) then
+    Exit;
+  if ATranslated then
+  begin
+    { Remembered on the way in, so returning to the source language restores
+      what the application chose rather than what this unit prefers. }
+    if not TVCLTranslationApplicator.FMenuAutoHotkeys.ContainsKey(
+      AFormIdentity) then
+      TVCLTranslationApplicator.FMenuAutoHotkeys.Add(AFormIdentity,
+        AForm.Menu.AutoHotkeys);
+    AForm.Menu.AutoHotkeys := maManual;
+  end
+  else if TVCLTranslationApplicator.FMenuAutoHotkeys.TryGetValue(
+    AFormIdentity, Original) then
+  begin
+    AForm.Menu.AutoHotkeys := Original;
+    TVCLTranslationApplicator.FMenuAutoHotkeys.Remove(AFormIdentity);
+  end;
+end;
+
 procedure ApplyMenuReadingOrder(const AForm: TCustomForm;
   const AFormIdentity: string; const ARightToLeft: Boolean);
 var
@@ -1271,6 +1329,10 @@ begin
     property of the language rather than of any one control, so first is also
     where it belongs. The alignment rules still come later, in
     ApplyLayoutToForm, and still have the last word on alignment. }
+  { Before any caption is written, because the decoration happens as a
+    side effect of writing one. }
+  ApplyMenuHotkeyPolicy(AForm, FormIdentity,
+    not SameText(APack.LanguageCode, APack.SourceLanguage));
   ApplyReadingOrder(AForm, FormIdentity, APack);
 
   SavedFocusedControl := nil;
@@ -1500,6 +1562,8 @@ initialization
     TDictionary<string, Boolean>.Create;
   TVCLTranslationApplicator.FReversedMenus :=
     TDictionary<string, Boolean>.Create;
+  TVCLTranslationApplicator.FMenuAutoHotkeys :=
+    TDictionary<string, TMenuAutoFlag>.Create;
   TVCLTranslationApplicator.FOriginalGeometry :=
     TDictionary<string, TDATVCLControlSnapshot>.Create;
 
@@ -1510,5 +1574,7 @@ finalization
   TVCLTranslationApplicator.FReversedColumns := nil;
   TVCLTranslationApplicator.FReversedMenus.Free;
   TVCLTranslationApplicator.FReversedMenus := nil;
+  TVCLTranslationApplicator.FMenuAutoHotkeys.Free;
+  TVCLTranslationApplicator.FMenuAutoHotkeys := nil;
 
 end.
