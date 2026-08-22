@@ -62,6 +62,10 @@ type
       returning to the source language can undo it. Reversing is its own
       opposite, so undoing it is doing it again. }
     class var FReversedColumns: TDictionary<string, Boolean>;
+    { Which forms currently have their menu bar reversed, so that leaving a
+      right-to-left language reverses it back exactly once. Reversal is its
+      own inverse; doing it twice or not at all are both wrong. }
+    class var FReversedMenus: TDictionary<string, Boolean>;
     class procedure SnapshotOriginalGeometry(const AForm: TCustomForm;
       const AFormIdentity: string); static;
     class function RestoreOriginalGeometry(const AForm: TCustomForm;
@@ -1033,40 +1037,73 @@ end;
   BiDiMode does not move child controls in any mode - also measured - so this
   neither duplicates nor fights the mirrored coordinates in the pack. }
 
-{ The menu bar reads in the language's direction, on any Windows.
+{ The menu bar reads in the language's direction.
 
-  VCL has exactly one path that mirrors a menu, TMenu.DoBiDiModeChanged, and
-  its first line is:
+  Three things were tried before this one, and the first two are worth
+  recording because they look right and are not:
 
-    if (not SysLocale.MiddleEast) or (WindowHandle = 0) then Exit;
+    - TMenu.BiDiMode. Follows the form, reports right-to-left, changes
+      nothing on screen. VCL's only mirroring path, DoBiDiModeChanged,
+      gives up when the machine is not Middle Eastern or the window handle
+      is not yet made.
 
-  SysLocale.MiddleEast describes the machine, not the application. On a
-  Western Windows install it is False, so that method returns immediately and
-  the menu keeps its left-to-right item order however the form's BiDiMode is
-  set. Which would merely be a missing feature, except that the window is
-  mirrored anyway - so the bar is painted right-to-left over hit regions that
-  were never moved. The rightmost item reads File and opens Help.
+    - MFT_RIGHTORDER or MFT_RIGHTJUSTIFY on item zero, which is what VCL
+      itself sets. These decide which way submenus cascade and push the bar
+      against the right edge. Neither reverses the order of the top-level
+      items, so File stays leftmost and the bar merely moves. A probe with
+      four items read back File Schedule Settings Help both before and
+      after applying an Arabic pack - the flag was set and nothing had
+      moved. That is exactly what a tester sees and calls "unchanged".
 
-  That is the same defect as a grid whose headers mirror while its columns do
-  not: presentation reversed over structure that was not. Partial mirroring is
-  worse than none, because none is at least honest about which item is which.
+  The order only truly reverses under WS_EX_LAYOUTRTL, and VCL never sets
+  it - deliberately, because it mirrors every child window too and this
+  applicator already computes mirrored positions itself. Turning it on
+  would mirror everything twice.
 
-  A menu is also not a TControl, so the BiDiMode assigned across the control
-  tree never reached it to begin with - both halves of the problem had to be
-  fixed for either to matter.
+  So the order is reversed here, the same way grid columns already are:
+  explicitly, in the collection, rather than by asking the framework to
+  present the same order differently. Delete unlinks a TMenuItem without
+  freeing it, so walking the bar backwards and re-adding each item leaves
+  the same objects in the opposite order, with their captions, shortcuts
+  and handlers intact.
 
-  Setting the flag directly is precisely what DoBiDiModeChanged would have
-  done had it not disqualified the machine. It lives on item zero and governs
-  the whole bar, and Windows derives both the painting and the hit regions
-  from it, which is what makes the two agree again. }
-procedure ApplyMenuReadingOrder(const AForm: TCustomForm;
+  Reversal is its own inverse, so the registry records which forms are
+  currently reversed. Without it, applying Arabic twice would reverse the
+  bar back to English order, and returning to English would leave it
+  reversed - both of which are worse than never mirroring at all. }
+function ReverseMenuBar(const AMenu: TMenu): Boolean;
+var
+  Items: TList<TMenuItem>;
+  Item: TMenuItem;
+  Index: Integer;
+begin
+  Result := False;
+  if (AMenu = nil) or (AMenu.Items = nil) or (AMenu.Items.Count < 2) then
+    Exit;
+  Items := TList<TMenuItem>.Create;
+  try
+    for Index := AMenu.Items.Count - 1 downto 0 do
+    begin
+      Item := AMenu.Items[Index];
+      AMenu.Items.Delete(Index);
+      Items.Add(Item);
+    end;
+    for Item in Items do
+      AMenu.Items.Add(Item);
+  finally
+    Items.Free;
+  end;
+  Result := True;
+end;
+
+{ The cascade direction of submenus, which is a separate question from the
+  order of the bar and is what the flag genuinely controls. }
+procedure ApplyMenuCascadeDirection(const AForm: TCustomForm;
   const ARightToLeft: Boolean);
 const
   BufferSize = 80;
-  { Vcl.Menus declares this, but in its implementation section, so it is
-    not importable. Restated rather than invented: the value is VCL's
-    own, and the two must agree or a menu VCL mirrored and one this unit
-    mirrored would disagree about what mirrored means. }
+  { Vcl.Menus declares this in its implementation section, so it cannot be
+    imported. Restated rather than invented: the value is VCL's own. }
   RightToLeftMenuFlag = MFT_RIGHTORDER or MFT_RIGHTJUSTIFY;
 var
   MenuHandle: HMENU;
@@ -1079,7 +1116,6 @@ begin
   MenuHandle := AForm.Menu.Handle;
   if (MenuHandle = 0) or (GetMenuItemCount(MenuHandle) <= 0) then
     Exit;
-
   FillChar(ItemInfo, SizeOf(ItemInfo), 0);
   ItemInfo.cbSize := SizeOf(TMenuItemInfo);
   ItemInfo.fMask := MIIM_TYPE;
@@ -1087,18 +1123,15 @@ begin
   ItemInfo.dwTypeData := @Buffer[0];
   if not GetMenuItemInfo(MenuHandle, 0, True, ItemInfo) then
     Exit;
-
   if ARightToLeft then
     Desired := ItemInfo.fType or RightToLeftMenuFlag
   else
     Desired := ItemInfo.fType and not RightToLeftMenuFlag;
   if Desired = ItemInfo.fType then
     Exit;
-
-  { Only fType is being written. Handing back the buffer that GetMenuItemInfo
-    filled would rewrite item zero's caption as a side effect of changing a
-    layout flag, and on a menu whose captions were just translated that is a
-    good way to lose one. }
+  { Only fType is written. Handing back the buffer GetMenuItemInfo filled
+    would rewrite item zero's caption as a side effect of a layout flag, and
+    on a menu whose captions were just translated that loses one. }
   FillChar(ItemInfo, SizeOf(ItemInfo), 0);
   ItemInfo.cbSize := SizeOf(TMenuItemInfo);
   ItemInfo.fMask := MIIM_FTYPE;
@@ -1107,8 +1140,30 @@ begin
     DrawMenuBar(AForm.Handle);
 end;
 
+procedure ApplyMenuReadingOrder(const AForm: TCustomForm;
+  const AFormIdentity: string; const ARightToLeft: Boolean);
+var
+  AlreadyReversed: Boolean;
+begin
+  if (AForm = nil) or (AForm.Menu = nil) then
+    Exit;
+  ApplyMenuCascadeDirection(AForm, ARightToLeft);
+  AlreadyReversed := TVCLTranslationApplicator.FReversedMenus.ContainsKey(
+    AFormIdentity);
+  if AlreadyReversed = ARightToLeft then
+    Exit;
+  if not ReverseMenuBar(AForm.Menu) then
+    Exit;
+  if ARightToLeft then
+    TVCLTranslationApplicator.FReversedMenus.AddOrSetValue(AFormIdentity, True)
+  else
+    TVCLTranslationApplicator.FReversedMenus.Remove(AFormIdentity);
+  if AForm.HandleAllocated then
+    DrawMenuBar(AForm.Handle);
+end;
+
 procedure ApplyReadingOrder(const AForm: TCustomForm;
-  const APack: TRuntimeLanguagePack);
+  const AFormIdentity: string; const APack: TRuntimeLanguagePack);
 var
   Component: TComponent;
   Mode: TBiDiMode;
@@ -1135,7 +1190,7 @@ begin
   AForm.BiDiMode := Mode;
   for Component in AForm do
     SetTree(Component);
-  ApplyMenuReadingOrder(AForm, Mode <> bdLeftToRight);
+  ApplyMenuReadingOrder(AForm, AFormIdentity, Mode <> bdLeftToRight);
 end;
 
 procedure ApplyAutoSizeRulesFirst(const AForm: TCustomForm;
@@ -1216,7 +1271,7 @@ begin
     property of the language rather than of any one control, so first is also
     where it belongs. The alignment rules still come later, in
     ApplyLayoutToForm, and still have the last word on alignment. }
-  ApplyReadingOrder(AForm, APack);
+  ApplyReadingOrder(AForm, FormIdentity, APack);
 
   SavedFocusedControl := nil;
   SavedFocusedState := False;
@@ -1279,7 +1334,7 @@ begin
       is not sufficient on its own, because the flag that survives a
       rebuild is the one written after it. Doing both costs an early
       exit when nothing changed. }
-    ApplyMenuReadingOrder(AForm,
+    ApplyMenuReadingOrder(AForm, FormIdentity,
       SameText(Trim(APack.TextDirection), 'rtl'));
   finally
     if APreserveControlState and SavedFocusedState and
@@ -1443,6 +1498,8 @@ end;
 initialization
   TVCLTranslationApplicator.FReversedColumns :=
     TDictionary<string, Boolean>.Create;
+  TVCLTranslationApplicator.FReversedMenus :=
+    TDictionary<string, Boolean>.Create;
   TVCLTranslationApplicator.FOriginalGeometry :=
     TDictionary<string, TDATVCLControlSnapshot>.Create;
 
@@ -1451,5 +1508,7 @@ finalization
   TVCLTranslationApplicator.FOriginalGeometry := nil;
   TVCLTranslationApplicator.FReversedColumns.Free;
   TVCLTranslationApplicator.FReversedColumns := nil;
+  TVCLTranslationApplicator.FReversedMenus.Free;
+  TVCLTranslationApplicator.FReversedMenus := nil;
 
 end.

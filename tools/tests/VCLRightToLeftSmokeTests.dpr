@@ -130,6 +130,22 @@ begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
 
+{ The order Windows actually holds, which is the thing on screen.
+
+  The flag below is not this. MFT_RIGHTORDER and MFT_RIGHTJUSTIFY decide how
+  submenus cascade and push the bar to the right edge; neither reorders the
+  top-level items. Asserting the flag while believing it meant order is how a
+  bar that never moved passed as mirrored. }
+function MenuBarOrder(const AMenu: TMainMenu): string;
+var
+  Index: Integer;
+begin
+  Result := '';
+  for Index := 0 to AMenu.Items.Count - 1 do
+    Result := Result + AMenu.Items[Index].Name + ' ';
+  Result := Trim(Result);
+end;
+
 function MenuIsRightToLeft(const AMenu: TMainMenu): Boolean;
 const
   RightToLeftMenuFlag = MFT_RIGHTORDER or MFT_RIGHTJUSTIFY;
@@ -155,6 +171,10 @@ var
   Inner: TButton;
   Grid: TDBGrid;
   Menu: TMainMenu;
+  ExtraItem: TMenuItem;
+  MenuIndex: Integer;
+  DesignedMenuOrder: string;
+  ReversedMenuOrder: string;
   FileItem: TMenuItem;
   ExStyleUnderArabic: NativeInt;
 
@@ -232,6 +252,16 @@ begin
         the menu fresh and leaving it to inherit, as this file used to, is the
         one case where the bug cannot appear. }
       Menu.BiDiMode := bdLeftToRight;
+      { Three more, because a bar with one item looks identical mirrored and
+        unmirrored - which is why one item was never going to catch this. }
+      for MenuIndex := 0 to 2 do
+      begin
+        ExtraItem := TMenuItem.Create(Form);
+        ExtraItem.Name := 'mnuExtra' + IntToStr(MenuIndex);
+        ExtraItem.Caption := 'Extra' + IntToStr(MenuIndex);
+        Menu.Items.Add(ExtraItem);
+      end;
+      DesignedMenuOrder := MenuBarOrder(Menu);
 
       Inner := TButton.Create(Form);
       Inner.Parent := Nav;
@@ -327,6 +357,15 @@ begin
         Help. The value was on the screen above this line the whole time. }
       Check(MenuIsRightToLeft(Menu),
         'The menu bar itself opens right to left, not merely the form.');
+      ReversedMenuOrder := MenuBarOrder(Menu);
+      Writeln('        menu order: ' + ReversedMenuOrder);
+      { The assertion that would have caught what shipped: the items are in
+        the opposite order, so the first menu sits where a right-to-left
+        reader starts. }
+      Check(ReversedMenuOrder <> DesignedMenuOrder,
+        'The menu bar is in a different order than designed.');
+      Check(Menu.Items[Menu.Items.Count - 1].Name = 'mnuFile',
+        'The first menu is last in the list, which puts it on the right.');
       Writeln(Format('        window ExStyle RTLREADING=%s LEFTSCROLLBAR=%s LAYOUTRTL=%s',
         [BoolToStr((ExStyleUnderArabic and WS_EX_RTLREADING) <> 0, True),
          BoolToStr((ExStyleUnderArabic and WS_EX_LEFTSCROLLBAR) <> 0, True),
@@ -432,6 +471,8 @@ begin
         check passed and the menus stayed reversed until a restart. }
       Check(not MenuIsRightToLeft(Menu),
         'The menu itself stops opening right to left.');
+      Check(MenuBarOrder(Menu) = DesignedMenuOrder,
+        'and the menu bar returns to its designed order.');
       Writeln(Format('        grid   headings: %s, %s, %s',
         [Grid.Columns[0].Title.Caption, Grid.Columns[1].Title.Caption,
          Grid.Columns[2].Title.Caption]));
