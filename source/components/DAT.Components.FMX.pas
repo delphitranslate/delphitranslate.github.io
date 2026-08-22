@@ -70,6 +70,7 @@ uses
     its own harness, which lists it explicitly, so every test passed while
     no real application ever installed the hook. }
   DAT.Runtime.SplashTranslation.FMX,
+  DAT.Runtime.TemplateRewrite.FMX,
   DAT.Runtime.FMX;
 
 constructor TDATFMXLanguageManager.Create(AOwner: TComponent);
@@ -136,6 +137,11 @@ begin
         TCommonCustomForm(Form).Name);
       TFMXTranslationApplicator.ApplyToForm(TCommonCustomForm(Form),
         ActivePack, FormIdentity, PreserveControlState, False);
+      { Text the application built for itself, which no property this
+        applicator sets ever carried. VCL catches this at the window; FMX
+        has no message to catch, so it is corrected here instead. }
+      TDATFMXTemplateRewrite.RefreshCaption(TCommonCustomForm(Form),
+        ActivePack);
     end;
   finally
     Forms.Free;

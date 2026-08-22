@@ -65,6 +65,7 @@ uses
     its own harness, which lists it explicitly, so every test passed while
     no real application ever installed the hook. }
   DAT.Runtime.SplashTranslation.VCL,
+  DAT.Runtime.TemplateRewrite.VCL,
   DAT.Runtime.VCL;
 
 constructor TDATVCLLanguageManager.Create(AOwner: TComponent);
@@ -117,6 +118,12 @@ begin
     It inferred its settings from the shipping defaults; this component was
     told them, and being told beats inferring. }
   TDATSplashTranslation.StandDown;
+  { Text the application builds for itself never passes through a property
+    this applicator sets - a caption rebuilt on a timer is the usual case.
+    Catching it at the window means the source language is never painted,
+    where re-writing it afterwards would only alternate with the
+    application. }
+  TDATVCLTemplateIntercept.Install(TCustomForm(AManagedObject), APack);
   Result := TVCLTranslationApplicator.ApplyToForm(
     TCustomForm(AManagedObject), APack, AFormIdentity,
     PreserveControlState);
