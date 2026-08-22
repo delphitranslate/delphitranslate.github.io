@@ -1,8 +1,16 @@
-# Fix list
+# Fix list - archive
 
-The running record of what has been fixed, what has not, and how well each
-claim is actually supported. Nothing here is being worked on unless the
-developer says so.
+**This list is closed. The live one is `docs/guides/Fix List.md`.**
+
+Two lists ran alongside each other and disagreed in places, which is worse
+than having one. On 22 August the three items still open here were moved to
+the live list, and this became what it had mostly already become: the record
+of what was fixed up to 2026-08-18 and how well each claim was supported at
+the time.
+
+Nothing here is open, and nothing should be added to it. It is kept because
+every entry below is a defect that actually happened, together with the
+reasoning that found it.
 
 Last reconciled against the source: 2026-08-18, build 2026.08.18.128.
 
@@ -28,57 +36,12 @@ sounds.
 
 ---
 
-## Open
+## What was fixed, and how well each claim is supported
 
-### 7c. The runtime harness does not cover styled containers or a non-default style
-**Status:** open, narrowed twice. **Severity:** low.
+The three items that were still open here moved to the live list on
+22 August. Everything below is closed.
 
-The harness asserted one label. It now asserts a label, a button, a check box
-and a grid column, across all seven layout properties, plus the round trip back
-to the source language. A check box carries its caption beside a tick box, so
-its width means something different from a label's; a grid column is not a
-control in the ordinary sense and is reached through the grid that owns it.
-Both are now exercised.
-
-What remains: a control inside a styled container, and a form running under a
-platform style other than the default. The second is the more interesting, as
-the style is what silently overrides a font size or a wrapping setting when the
-styled settings are not cleared - the trap behind two of the defects fixed on
-2026-08-18.
-
-### 8. No VCL application has been through the full pipeline
-**Status:** open. **Severity:** medium.
-
-**Correction, 2026-08-17.** This item previously read "no VCL application has
-been run end to end". A VCL sample form *is* built, translated and asserted in
-process by `VCLRuntimeSmokeTests`, which passes. What has never happened is a
-VCL project taken through the whole pipeline the way Carillon is: scan,
-catalog, review, kit generation, build and deploy, then launched and looked at.
-`samples/VCLBasic` and the `WebsiteAnalytics` kit would serve.
-
-`TDBGrid` column titles (item 6b) would be exercised by this.
-
-### 13. Controls the application builds in code get no layout attention
-**Status:** open. **Severity:** low, but it is visible to the developer today.
-**Raised:** 2026-08-17 by the developer, "very tiny script; needs to be 1-2 pts
-larger".
-
-`LogViewerForm.FHeaderLabel` and `FStatusLabel` are created in code, not drawn
-on a form, so they reach the catalog as `Runtime.` entries and their text is
-translated correctly. They have no designed geometry, so the layout analyser
-never sees them and no size, width or wrapping rule is ever written for them.
-Their appearance is entirely the application's own choice.
-
-Two ways out, for the developer to pick:
-
-- Have the application draw them at a larger size, which is a change to
-  Carillon rather than to the translator.
-- Teach the runtime to accept layout rules for controls it can find by name
-  even when the analyser has no designed geometry for them, sized from the
-  translated text alone. That is real work and it applies to any application
-  that builds part of its interface in code.
-
-### 1. Carillon.exe deployed twice to the outboard drive
+### 1. The pilot executable deployed twice to the outboard drive
 **Fixed:** 2026-08-17, build .111, commit `ea14c91`.
 
 Two steps copied the executable: the build step, and final processing after it.
@@ -334,7 +297,7 @@ Both suites now pass on Win32 and Win64.
 **Proved by:** `contracts/pascalscan`.
 
 The statement collector walked the source line by line with no notion of
-comments. An apostrophe inside one - `Carillon's log`, `don't`, `the
+comments. An apostrophe inside one - `the first VCL pilot's log`, `don't`, `the
 developer's choice` - opens a string literal as far as a naive reader is
 concerned, and it never closes, so every statement after that point in the file
 was swallowed into one unterminated literal and nothing further was scanned.
@@ -367,12 +330,12 @@ Four faults, all in how literals were judged, and they compounded.
 picked every quoted run out of an expression and concatenated them:
 
 ```pascal
-Result := 'logs' + PathDelim + 'CarillonPlayLog.txt';
+Result := 'logs' + PathDelim + 'PlayLog.txt';
 ```
 
-became `logsCarillonPlayLog.txt` - a file name with its separator missing,
+became `logsPlayLog.txt` - a file name with its separator missing,
 which is neither a path nor a caption and so passes the very guard written to
-reject both. Carillon's play log was translated on the strength of it, and the
+reject both. The first VCL pilot's play log was translated on the strength of it, and the
 application reads that file by name. At scale the same fault swallowed 4,874
 characters of Pascal, every literal in a long run of code glued end to end, and
 sent it to the translator, which rendered `begin`, `end` and `then` into
@@ -399,11 +362,11 @@ whitespace, and a short run of letters or digits after its last dot. The
 length limit was widened to suit at the same time, because a short cap is right
 for a token and wrong for prose.
 
-Across the whole of Carillon the scanner now claims no file names and no
+Across the whole of the first VCL pilot the scanner now claims no file names and no
 oversized captures.
 
 **Found while writing the fixture, and worth knowing:** the statement collector
-does not skip comments, so an apostrophe inside one - `Carillon's` - opens a
+does not skip comments, so an apostrophe inside one - `the user's` - opens a
 string literal that never closes and silently swallows the rest of the file.
 The fixture avoids apostrophes for that reason. It is recorded as item 14.
 
@@ -753,7 +716,7 @@ discarded as a duplicate. The scanner had been finding it all along.
 | Suite | Covers | Run with |
 | --- | --- | --- |
 | Layout contracts (16) | Analyser decisions on purpose-built forms | `tools/run_layout_contracts.ps1` |
-| Carillon layout smoke (9 forms) | Analyser decisions on the real catalog | `bin/Tests/Win32/LayoutFittingSmokeTests.exe <catalog>` |
+| The first VCL pilot layout smoke (9 forms) | Analyser decisions on the real catalog | `bin/Tests/Win32/LayoutFittingSmokeTests.exe <catalog>` |
 | Form scan contracts (2) | What the scanner reads out of a form | `tools/run_form_scan_contracts.ps1` |
 | Scanner smoke | What the Pascal scanner claims from one unit | `bin/Tests/Win32/ScannerSmokeTests.exe <file.pas>` |
 

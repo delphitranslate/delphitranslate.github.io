@@ -26,7 +26,7 @@ of the release matrix:
 - Italian Studio self-localization in all four build combinations.
 
 The Phase 9 disposable real-application pilots also remain part of the evidence:
-Website Analytics (FMX) and Courier Herald Reader (VCL) built and opened with
+The FireMonkey pilot (FMX) and the second VCL pilot (VCL) built and opened with
 translated first forms on Win32 and Win64 without editing their originals.
 
 ## Defect repaired during the gate

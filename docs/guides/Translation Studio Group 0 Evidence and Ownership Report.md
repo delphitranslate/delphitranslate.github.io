@@ -4,9 +4,9 @@
 
 **Completed:** August 9, 2026  
 **Status:** Group 0 complete; no remediation source code changed  
-**Studio project:** `C:\New Delphi Projects\Delphi App Translation`  
-**Disposable pilot:** `C:\New Delphi Projects\Echurchsite Analytical - Component Test`  
-**Pristine comparison:** `C:\New Delphi Projects\Echurchsite Analytical - Pristine GA4`
+**Studio project:** `C:\Projects\Delphi App Translation`  
+**Disposable pilot:** `C:\Projects\FMXPilot - Component Test`  
+**Pristine comparison:** `C:\Projects\FMXPilot - Pristine`
 
 ---
 
@@ -14,25 +14,25 @@
 
 Group 0 is complete. The two blocking ownership questions from the completed test report have been resolved:
 
-1. The earlier 179-entry scan and the current 173-entry scan do not reveal six lost Website Analytics strings. The six retired keys belong exclusively to the Studio's former source-modifying menu integration. Those menu controls are absent from both the pristine GA4 source and the current component pilot. The current 173-entry result is therefore the correct like-for-like form-resource baseline.
-2. The TC-18 repeating offline dialog is owned by Website Analytics, not by `TDATLanguageManager`. The pristine application and component pilot contain identical startup-authentication, auto-update, and update-button procedures. The unhandled network call occurs in the pristine application's startup authentication timer before localization participates.
+1. The earlier 179-entry scan and the current 173-entry scan do not reveal six lost the FireMonkey pilot strings. The six retired keys belong exclusively to the Studio's former source-modifying menu integration. Those menu controls are absent from both the pristine GA4 source and the current component pilot. The current 173-entry result is therefore the correct like-for-like form-resource baseline.
+2. The TC-18 repeating offline dialog is owned by the FireMonkey pilot, not by `TDATLanguageManager`. The pristine application and component pilot contain identical startup-authentication, auto-update, and update-button procedures. The unhandled network call occurs in the pristine application's startup authentication timer before localization participates.
 
-The localization project should not modify Website Analytics to repair TC-18. Website Analytics needs its own controlled network-failure correction. Translation Studio work can now proceed to Group 1: runtime lifecycle and state ownership.
+The localization project should not modify the FireMonkey pilot to repair TC-18. The FireMonkey pilot needs its own controlled network-failure correction. Translation Studio work can now proceed to Group 1: runtime lifecycle and state ownership.
 
 ## 2. Preservation and safety record
 
 Before Group 0 work, complete pre-change backups were created:
 
 - `G:\Delphi App Translation Backup\Pre-Group-0-Translation-Studio-2026-08-09_191054`
-- `G:\Echurchsite Analytical - Component Test Backup\Pre-Group-0-Component-Test-2026-08-09_191054`
+- `G:\FMXPilot - Component Test Backup\Pre-Group-0-Component-Test-2026-08-09_191054`
 
 The following evidence remained available in place:
 
-- Current development catalog: `C:\New Delphi Projects\Echurchsite Analytical - Component Test\Localization\Development\WebsiteAnalytics.es-ES.translation-project.json`
-- Current Spanish runtime pack: `C:\New Delphi Projects\Echurchsite Analytical - Component Test\Localization\Languages\es-ES.json`
-- Generated component kit: `C:\New Delphi Projects\Delphi App Translation\export\component-integration\WebsiteAnalytics`
+- Current development catalog: `C:\Projects\FMXPilot - Component Test\Localization\Development\FMXPilot.es-ES.translation-project.json`
+- Current Spanish runtime pack: `C:\Projects\FMXPilot - Component Test\Localization\Languages\es-ES.json`
+- Generated component kit: `C:\Projects\Delphi App Translation\export\component-integration\FMXPilot`
 - Earlier test archive: `C:\Downloads\First Test on Translator`
-- Pristine GA4 source: `C:\New Delphi Projects\Echurchsite Analytical - Pristine GA4`
+- Pristine GA4 source: `C:\Projects\FMXPilot - Pristine`
 
 The disposable pilot was clean in Git before investigation. The Studio contained known pre-existing untracked generated/export files; those files were not staged or altered as part of Group 0.
 
@@ -41,12 +41,12 @@ The disposable pilot was clean in Git before investigation. The Studio contained
 ### 3.1 Compared catalogs
 
 **Earlier 179-entry catalog**  
-`C:\Downloads\First Test on Translator\Localization\Development\WebsiteAnalytics.es-ES.translation-project.json`
+`C:\Downloads\First Test on Translator\Localization\Development\FMXPilot.es-ES.translation-project.json`
 
 SHA-256: `246f386c1c60dc2f4d18d9d975a660bb005587f0ed62b0713eef60d647650709`
 
 **Current 173-entry catalog**  
-`C:\New Delphi Projects\Echurchsite Analytical - Component Test\Localization\Development\WebsiteAnalytics.es-ES.translation-project.json`
+`C:\Projects\FMXPilot - Component Test\Localization\Development\FMXPilot.es-ES.translation-project.json`
 
 SHA-256: `cb0fc82490dc644eeca60d9577c13c887bb41cd013bf9e81db056e6b1c90a4fb`
 
@@ -72,8 +72,8 @@ The six earlier-only keys are:
 
 All six controls exist in the archived source-mutating pilot under:
 
-- `C:\Downloads\First Test on Translator\Echurchsite Analytical - Old-Component Test\WebsiteAnalytics.MainForm.fmx`
-- `C:\Downloads\First Test on Translator\Echurchsite Analytical - Old-Component Test\WebsiteAnalytics.MainForm.pas`
+- `C:\Downloads\First Test on Translator\the FireMonkey pilot - Old-Component Test\FMXPilot.MainForm.fmx`
+- `C:\Downloads\First Test on Translator\the FireMonkey pilot - Old-Component Test\FMXPilot.MainForm.pas`
 
 None of the six controls exists in:
 
@@ -90,11 +90,11 @@ Close DAT-004 as **resolved - explained architecture change, not scanner regress
 
 ### 4.1 Observed failure
 
-During TC-18, Website Analytics was run without internet connectivity. It displayed `Error sending data: (12007) The server name or address could not be resolved.` Dismissing the modal dialog led to another occurrence, making the application effectively unusable.
+During TC-18, the FireMonkey pilot was run without internet connectivity. It displayed `Error sending data: (12007) The server name or address could not be resolved.` Dismissing the modal dialog led to another occurrence, making the application effectively unusable.
 
 ### 4.2 Static execution trace
 
-Website Analytics starts `AuthStartupTimer`. When a saved Google refresh token is available, `TfrmMainDashboard.AuthStartupTimerTimer` calls:
+The FireMonkey pilot starts `AuthStartupTimer`. When a saved Google refresh token is available, `TfrmMainDashboard.AuthStartupTimerTimer` calls:
 
 `dmAuthentication.RefreshAccessToken(OAuthClientId, OAuthClientSecret)`
 
@@ -124,9 +124,9 @@ The supplied TC-18 screenshot establishes the runtime symptom. The identical pri
 
 ### 4.5 Decision
 
-Assign DAT-001 to **Website Analytics**. Keep it visible as a pilot release blocker, but do not repair it inside Translation Studio or `TDATLanguageManager`.
+Assign DAT-001 to **The FireMonkey pilot**. Keep it visible as a pilot release blocker, but do not repair it inside Translation Studio or `TDATLanguageManager`.
 
-Website Analytics acceptance behavior should be:
+The FireMonkey pilot acceptance behavior should be:
 
 - catch network exceptions inside startup authentication;
 - disable or back off the responsible timer after failure;
@@ -139,7 +139,7 @@ Website Analytics acceptance behavior should be:
 
 | Defect | Proven owner | Group | Acceptance test |
 |---|---|---:|---|
-| DAT-001 repeating offline dialogs | Website Analytics networking/authentication | Separate GA4 correction | Offline startup produces no repeated modal dialogs; retry succeeds after reconnection. |
+| DAT-001 repeating offline dialogs | The FireMonkey pilot networking/authentication | Separate GA4 correction | Offline startup produces no repeated modal dialogs; retry succeeds after reconnection. |
 | DAT-002 localization overwrites live state | Language-manager classification plus host runtime-message integration | 1 | Language switching preserves actual connection state, selected dates, and live values. |
 | DAT-003 mixed-language restart | Manager lifecycle plus host post-load/generated assignments | 1 | Restored Spanish is consistent after startup and after the first data refresh. |
 | DAT-004 179 versus 173 | Resolved; former menu integration | 0 complete | Stable-key diff remains exactly the six retired menu controls; current baseline stays 173. |
@@ -170,7 +170,7 @@ The developer should:
 
 1. Read this report, especially Sections 3 through 6.
 2. Confirm that the six retired menu keys should remain retired under the component architecture.
-3. Confirm that the Website Analytics offline-loop repair remains separate from Translation Studio Group 1.
+3. Confirm that the the FireMonkey pilot offline-loop repair remains separate from Translation Studio Group 1.
 4. Approve Group 1 when ready.
 
 The next hands-on application testing begins only after Group 1 implementation. Exact steps will be supplied at that time.

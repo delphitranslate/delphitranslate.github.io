@@ -2,18 +2,18 @@
 
 Last changed: August 10, 2026
 
-## Carillon FMX Coverage and Context Repair - August 10, 2026
+## the first VCL pilot FMX Coverage and Context Repair - August 10, 2026
 
 - The form scanner now reads multiline Delphi string expressions from text FMX/DFM resources.
 - The Pascal scanner now inventories supported runtime assignments to `Text`, `Caption`, `Header`, `Hint`, and `TextPrompt`, plus `Format` templates used for visible dynamic text.
 - SQL statements and HTML row/cell payloads are rejected even when assigned through a property named `Text`.
-- Directories containing a separate nested DPROJ or DPR are excluded. Selecting Carillon therefore no longer includes its independent database-conversion utility.
-- The Carillon test scan now identifies 257 relevant entries: 213 form properties and 44 runtime UI assignments. This count is evidence for the new scanner, not a universal expected count for future Carillon revisions.
+- Directories containing a separate nested DPROJ or DPR are excluded. Selecting the first VCL pilot therefore no longer includes its independent database-conversion utility.
+- The the first VCL pilot test scan now identifies 257 relevant entries: 213 form properties and 44 runtime UI assignments. This count is evidence for the new scanner, not a universal expected count for future the first VCL pilot revisions.
 - Vetted terminology now covers definitive desktop commands, media playback, scheduling phrases, weekday abbreviations, dynamic states, grid headings, and the uptime template. It is applied before provider translation and repairs unreviewed machine drafts such as Spanish `Cerca` for Close or `Casarse` for Wed. Reviewed, Approved, and Edited work remains protected.
 - Runtime-pack schema version 2 adds keyed source text, exact source-string translations, and source-template translations while retaining the original keyed dictionaries. The loader remains compatible with schema version 1.
 - The FMX runtime now translates anonymous runtime-created components by current source text and can translate formatted dynamic captions. `TDATFMXLanguageManager.AutoRefreshDynamicText` and `DynamicRefreshInterval` are Object Inspector properties; their defaults reapply translations to visible forms every second when application timers or code overwrite UI text.
 - The Studio displays a designer-authored dimmed backdrop while the modal Setup Wizard is open.
-- No universal control resizing is performed. Automatic resizing would be unsafe for carefully designed target layouts; accurate, shorter terminology and complete text capture resolve the demonstrated Carillon crowding without rearranging the application.
+- No universal control resizing is performed. Automatic resizing would be unsafe for carefully designed target layouts; accurate, shorter terminology and complete text capture resolve the demonstrated the first VCL pilot crowding without rearranging the application.
 
 ## Contextual Translation Engine - August 10, 2026
 
@@ -1192,7 +1192,7 @@ between the terminated `uses` clause and `begin`. The editor now searches
 backward for the actual semicolon-terminated unit reference, changes that
 terminator to a comma, inserts the generated translation unit before the
 directive, and leaves the directive in its original position. A deterministic
-WebsiteAnalytics-style DPR fixture protects this layout.
+FMXPilot-style DPR fixture protects this layout.
 
 The designer-authored Integration page now provides larger gutters between
 the menu-name field, Build Integration Plan button, plan list, Exact changes
@@ -1210,7 +1210,7 @@ directive. The integration source editor previously stopped at the resource
 directive and inserted a second `uses` clause. It now scans past compiler
 directives, merges the generated translation unit into the existing clause,
 and stops only at a real implementation declaration. A deterministic
-WebsiteAnalytics-style fixture protects this form-unit layout.
+FMXPilot-style fixture protects this form-unit layout.
 
 Transactional integration backup verification now uses SHA-256 rather than
 file length. Apply hashes each original, copies it to the backup, and refuses
@@ -1275,7 +1275,7 @@ existing menus are not given new unrelated items automatically.
 Regression coverage verifies removal of all multi-form FMX DPR translation
 calls, designer startup wiring for secondary forms, nil-safe generated
 wrappers, File/Exit fields and events, idempotent re-integration, Win32/Win64
-compilation, deployed-pack startup, and the real WebsiteAnalytics restart with
+compilation, deployed-pack startup, and the real FMXPilot restart with
 `Selected=es-ES`.
 
 ## Runtime Language Refresh and Streamlined Integration
@@ -1497,7 +1497,7 @@ Completion date: August 8, 2026
 Disposable real-application copies proved the component-first workflow without
 generated translation units or project startup edits. The pristine Website
 Analytics FMX application built on Win32 and Win64 and displayed its first form
-as `Analítica del sitio web`. Courier Herald Reader built on both architectures
+as `Analítica del sitio web`. The second VCL pilot built on both architectures
 and displayed its primary VCL form as `Lector de PDF del periódico`.
 
 Each pilot used one designer-streamed manager on the primary form, copied
@@ -1506,10 +1506,10 @@ executable-folder preference for deterministic testing. Ordinary forms were
 unchanged. The original applications were accessed read-only and the disposable
 copies were removed after testing.
 
-An attempted Carillon VCL runtime pilot exposed an unrelated missing SQLite
+An attempted the first VCL pilot VCL runtime pilot exposed an unrelated missing SQLite
 deployment database after compiling successfully on both architectures. It was
 replaced with the self-contained VCL pilot rather than weakening or bypassing
-Carillon's startup contract. See
+The first VCL pilot's startup contract. See
 `TDATLanguageManager Phase 9 Real Application Pilot Report.md`.
 
 ## TDATLanguageManager Phase 10 Release Decision
@@ -1598,7 +1598,7 @@ editable-value, selection, focus, combo selection, and event-suppression
 protections remain in force.
 
 Foundation, shared-core, FMX, VCL, package, design-streaming, Studio build, and
-Studio launch validation passed for Win32 and Win64. The Website Analytics pilot
+Studio launch validation passed for Win32 and Win64. The the FireMonkey pilot pilot
 was not modified. Full implementation evidence and developer validation steps
 are recorded in `Translation Studio Group 1 Runtime Lifecycle and State
 Ownership Report.md`.
@@ -1619,7 +1619,7 @@ entry list.
 
 The automatic-translation confirmation now reports active catalog entries,
 unresolved translation candidates, protected/non-translatable entries, and
-already-resolved entries separately. In the clean Website Analytics acceptance
+already-resolved entries separately. In the clean the FireMonkey pilot acceptance
 catalog, the 173 scanned entries comprise 151 static text entries, 4 dynamic
 values, 7 data values, and 11 explicitly excluded entries. The resulting
 statuses are 155 `needsTranslation` and 18 `excluded`; the lower API candidate
@@ -1635,7 +1635,7 @@ Completion date: August 9, 2026
 The Export page reports the number of entries actually written to the runtime
 pack rather than the total number of development-catalog entries. Protected,
 excluded, and obsolete entries are not included in that success count. For the
-Website Analytics acceptance catalog, the correct result is 155 runtime entries
+The FireMonkey pilot acceptance catalog, the correct result is 155 runtime entries
 (151 static strings and 4 runtime templates), not the 173-entry development
 catalog total.
 
@@ -1660,7 +1660,7 @@ The deployment instructions now use an explicit PowerShell executable with
 `-NoProfile -ExecutionPolicy Bypass -File`, preventing the documented local
 execution-policy failure.
 
-### Website Analytics untranslated-text deep dive
+### the FireMonkey pilot untranslated-text deep dive
 
 Completion date: August 10, 2026
 
@@ -1854,7 +1854,7 @@ package output cannot be replaced safely.
 
 # Scan and Layout Correction Pass (2026-08-14)
 
-The Carillon acceptance test exposed two root causes that made the previous
+The the first VCL pilot acceptance test exposed two root causes that made the previous
 repair appear to do nothing:
 
 1. the scanner was over-collecting project-folder material, producing thousands
@@ -1898,7 +1898,7 @@ produced wrong layouts:
 2. A `.dfm` records fonts as `Font.Height` in negative pixels, not `Font.Size`
    in points. The conversion is `Round(-Height * 72 / 96)`, matching what
    `TFont` itself does, and fonts inherit down the object tree.
-3. A second instance of a form is named `Name_1` by the VCL. Carillon dialogs
+3. A second instance of a form is named `Name_1` by the VCL. The first VCL pilot dialogs
    were left untranslated because the runtime looked up the instance name rather
    than the form identity.
 4. Collections (`Columns = <item ... end>`) nest, so a collection `end` must not
@@ -1928,7 +1928,7 @@ dictionary speaks first and the project glossary overrides it.
 ## Colour is never restored
 
 Restoring a form to its design-time state used to stamp design-time colours back
-over an application's own theming, which broke the Carillon `ApplyTheme` method.
+over an application's own theming, which broke the the first VCL pilot `ApplyTheme` method.
 Colour was removed from the snapshot: the translator restores words and
 geometry, never appearance.
 
@@ -1997,7 +1997,7 @@ the column width can, which the `Columns[i].Width` planning already does.
 
 The first version of the context work recognised six subjects - music,
 scheduling, business records, clinical records, email, backups - from keyword
-lists. It read Carillon correctly and would have failed almost everything else:
+lists. It read the first VCL pilot correctly and would have failed almost everything else:
 file and disk utilities, database administration tools, point of sale,
 inventory, engineering and instrumentation, laboratory systems, reporting tools,
 and the rest of the long tail that Delphi is mostly used for. A recogniser can
@@ -2020,7 +2020,7 @@ Two things come out of reading an application:
 1. **Its own vocabulary.** Word frequencies across every scanned string, with
    the furniture of every user interface (File, Edit, Cancel, Save, OK, Close)
    set aside. What remains is characteristic: song, playlist, chime, bell for
-   Carillon; rename, mask, extension, folder for a file renamer. The context
+   the first VCL pilot; rename, mask, extension, folder for a file renamer. The context
    sentence quotes it directly rather than naming a category.
 
 2. **Which sense of an ambiguous word this application means.** This is the part
@@ -2031,7 +2031,7 @@ Two things come out of reading an application:
    evidence words that would be present if it were the one meant. The
    application's own vocabulary casts the vote.
 
-   Volume is loudness in Carillon (which says mute, speaker, audio) and a disk
+   Volume is loudness in the first VCL pilot (which says mute, speaker, audio) and a disk
    in a file utility (which says partition, format, drive). Mask is a filename
    pattern where the application talks about filenames. Date is a calendar date.
    Nothing has to know what kind of application it is looking at.
@@ -2047,7 +2047,7 @@ than one per target language.
 `ContextSmokeTests` was rewritten to test shape rather than wording - that a
 domain sentence is present, that an ambiguous word carries an explicit sense -
 because the wording is now read from each application rather than written in the
-source. It covers Carillon, a file-renaming utility that no domain list would
+source. It covers the first VCL pilot, a file-renaming utility that no domain list would
 have held, and an application that settles nothing.
 
 # Right-to-Left Mirroring (2026-08-20)
@@ -2183,7 +2183,7 @@ group is gathered before any of it moves.
 
 ## Not done
 
-Phase 9 of the plan - a real Hebrew or Arabic pack against Carillon, with
+Phase 9 of the plan - a real Hebrew or Arabic pack against the first VCL pilot, with
 screenshots. Everything above is proved by contract and by applicator test on
 purpose-built forms. It has not been seen on a real application in a real
 language, and every significant defect this project has found came from exactly
@@ -2194,7 +2194,7 @@ them rather than assuming.
 
 # Protecting Format Specifiers from the Translator (2026-08-20)
 
-The first Arabic run of Carillon stopped with two blocking validation errors.
+The first Arabic run of the first VCL pilot stopped with two blocking validation errors.
 Both were the same thing: the provider had destroyed the printf specifiers.
 
     source:      %.2f GB used / %.2f GB free of %.2f GB (%.1f%%)
@@ -2238,13 +2238,13 @@ damage it, and asking costs money.
 `TranslateBatch` does the protecting and `PostBatch` does the HTTP, so no
 caller can reach the service unprotected by accident.
 
-The two damaged Carillon entries were repaired by hand and marked reviewed, so
+The two damaged the first VCL pilot entries were repaired by hand and marked reviewed, so
 a re-run leaves them alone. Their Arabic wording is the provider's own; only
 the % signs were restored.
 
 # One List, Not Three (2026-08-20)
 
-The first Arabic run of Carillon worked: the forms mirrored, the transport
+The first Arabic run of the first VCL pilot worked: the forms mirrored, the transport
 buttons kept their order, checkbox captions moved to the left of their boxes.
 Two things did not. The grids kept their designed column order, and label
 alignment never flipped.
@@ -2266,7 +2266,7 @@ the exporter's inline list are gone.
 The list also now admits `Columns[...]`, which it never did. Grid column widths
 have therefore never reached a pack through the normal pipeline - the feature
 was proved by contract and by an applicator test fed a hand-written pack, and
-the seam between them was never crossed. Carillon has not needed one yet, so
+the seam between them was never crossed. The first VCL pilot has not needed one yet, so
 nothing was visibly wrong.
 
 `PackLayoutSmokeTests` guards that seam now. It writes a layout proposal
@@ -2387,7 +2387,7 @@ reason the Arabic run still returned Help, Close and Play as third-person
 statements.
 
 The economics make the fix free. **Billing is per translated character, not
-per request.** Measured on Carillon:
+per request.** Measured on the first VCL pilot:
 
 | | characters |
 |---|---|
@@ -2398,7 +2398,7 @@ So the whole application costs 6,471 characters whether it is sent as six
 requests or as 297. Grouping by shared context therefore costs nothing but
 round trips - about a minute, once per language, for a result that is stored.
 DeepL's free tier of 500,000 characters a month is roughly seventy-seven
-runs of Carillon's size.
+runs of the first VCL pilot's size.
 
 `DAT.Provider.Batching` groups strings by identical context. Where a context
 is unique the group holds one string; where many share a context, or have
@@ -2461,7 +2461,7 @@ longer be bought; new customers get Developer, Growth or Enterprise. Developer
 is free and carries a **one-time** credit of one million characters, one API
 key and one glossary.
 
-At 6,471 characters for a Carillon-sized application in one language, and with
+At 6,471 characters for a the first VCL pilot-sized application in one language, and with
 the wizard never re-translating a string that already has a translation, that
 credit is roughly 150 new application-languages with re-runs costing nothing.
 The single glossary is enough to build and test DeepL server-side glossary

@@ -254,7 +254,7 @@ Run the following elevated so RAD Studio can read its environment files:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File `
-  "C:\New Delphi Projects\Delphi App Translation\tools\tests\RunLanguageManagerLifecycleSpike.ps1"
+  "C:\Projects\Delphi App Translation\tools\tests\RunLanguageManagerLifecycleSpike.ps1"
 ```
 
 The runner compiles and executes these programs for Win32 and Win64:

@@ -5,7 +5,7 @@
 **Last changed:** August 9, 2026
 **Status:** Group 1 implementation complete; automated validation passed
 **Scope:** Translation Studio, shared runtime, FMX lifecycle, and compatibility validation
-**Target-source policy:** No Website Analytics or other target-application source file was changed
+**Target-source policy:** No the FireMonkey pilot or other target-application source file was changed
 
 ## 1. Outcome
 
@@ -102,7 +102,7 @@ The implementation changed the following source areas:
 - Studio catalog-status presentation;
 - foundation and FMX regression tests.
 
-No `.dpr`, `.dproj`, `.pas`, `.fmx`, or localization file in Website Analytics was modified.
+No `.dpr`, `.dproj`, `.pas`, `.fmx`, or localization file in the FireMonkey pilot was modified.
 
 ## 8. Automated validation evidence
 
@@ -129,12 +129,12 @@ The FMX suite now explicitly proves all of the following:
 - hidden forms update at their next before-show notification;
 - released forms are removed from manager tracking.
 
-## 9. Developer validation for the Website Analytics pilot
+## 9. Developer validation for the the FireMonkey pilot pilot
 
 Group 1 did not mutate the pilot. The developer's next controlled test begins from the existing clean component-test folder.
 
 1. Open the newly built Studio executable, preferably `bin\Win32\Debug\DelphiAppTranslationStudio.exe` for diagnostic testing.
-2. Open `C:\New Delphi Projects\Echurchsite Analytical - Component Test\WebsiteAnalytics.dproj` in the Studio.
+2. Open `C:\Projects\FMXPilot - Component Test\FMXPilot.dproj` in the Studio.
 3. Scan the project again so the development catalog is upgraded and the new ownership roles are assigned.
 4. Open the Spanish catalog and inspect representative entries:
    - ordinary captions should show `staticText` and `automatic`;
@@ -144,7 +144,7 @@ Group 1 did not mutate the pilot. The developer's next controlled test begins fr
 6. Generate a fresh component integration kit. Do not reuse the earlier exported kit because it contains the previous runtime sources.
 7. Replace only the previously installed test package/source deployment using the documented manual package procedure.
 8. Deploy the new language packs beside both Debug executables.
-9. Build Website Analytics for Win32 and Win64.
+9. Build the FireMonkey pilot for Win32 and Win64.
 10. Select Spanish and verify that live connection state, dates, counts, metrics, and user data do not revert to designer placeholders.
 11. Close and restart while Spanish is saved, then verify that static text is Spanish on first display and live state remains accurate.
 12. Record any human-language runtime messages that remain English. Those entries belong to Group 2 template coverage and should not be forced into automatic form application.
@@ -161,4 +161,4 @@ Group 1 meets its implementation exit criteria in automated testing:
 - VCL compatibility remains intact;
 - no target application was changed.
 
-The final Group 1 acceptance decision should be made after the developer completes the Website Analytics pilot steps above. If the pilot confirms that dynamic values remain intact, work can proceed to Group 2 extraction coverage and keyed-message registration.
+The final Group 1 acceptance decision should be made after the developer completes the the FireMonkey pilot pilot steps above. If the pilot confirms that dynamic values remain intact, work can proceed to Group 2 extraction coverage and keyed-message registration.

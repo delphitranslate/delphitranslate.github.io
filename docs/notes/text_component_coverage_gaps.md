@@ -135,7 +135,7 @@ not verified it.
 
 ## What this application actually uses
 
-Component classes counted across the Carillon test target's form files, as a
+Component classes counted across the the first VCL pilot test target's form files, as a
 sanity check on priorities:
 
 ```

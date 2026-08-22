@@ -4,7 +4,7 @@ Known defects and unfinished work, newest first. Items are removed when fixed,
 not struck through. Anything here is deliberately *not* being worked on right
 now; the point of the list is that nothing has to be remembered.
 
-Last changed: August 22, 2026
+Last changed: August 22, 2026 (merged with the notes list)
 
 ---
 
@@ -222,6 +222,59 @@ needed, or the pair were never treated as a row.
 Everything that was here is done. What comes next is ordered in
 `Development Plan.md`, which is built from the competitive analysis
 rather than from this list.
+
+## Moved here from the notes list, 22 August
+
+`docs/notes/fix_list.md` ran alongside this one and carried three open items
+nobody was reading. They are here now, and that file is an archive.
+
+### The runtime harness does not cover a non-default platform style
+
+Low. Narrowed twice. The harness once asserted a single label; it now asserts
+a label, a button, a check box and a grid column across all seven layout
+properties, plus the round trip home. A check box carries its caption beside a
+tick box, so its width means something different from a label's, and a grid
+column is not a control in the ordinary sense.
+
+What remains is a control inside a styled container, and a form running under
+a platform style other than the default. The second is the more interesting:
+the style is what silently overrides a font size or a wrapping setting when
+styled settings have not been cleared, which was the trap behind two separate
+defects.
+
+### No VCL application has been through the whole pipeline
+
+Medium. *Partly overtaken 22 August.* `DATBatch` now takes `samples/VCLBasic`
+through scan, catalog, memory, validation, layout planning and pack export,
+and that path is exercised. What has still never happened is the rest of it:
+kit generation, build, deploy, launch, and somebody looking at the result.
+
+A VCL sample form is built, translated and asserted in process by
+`VCLRuntimeSmokeTests`, which passes, so this is about the pipeline rather
+than the runtime. Grid column titles would be exercised by it.
+
+### Controls the application builds in code get no layout attention
+
+Low, but visible to a developer today. Distinct from the code-owned geometry
+work: those controls *have* designer geometry that the application then
+overrides, and the planner now leaves them alone. These have none at all.
+
+A control created in code rather than drawn on a form reaches the catalog and
+its text is translated correctly. It has no designed geometry, so the planner
+never sees it and no size, width or wrapping rule is ever written for it. Its
+appearance stays entirely the application's own choice, which is sometimes
+wanted and sometimes not.
+
+Two ways out, and it is a decision rather than a defect:
+
+- Have the application draw them at the size it wants, which is a change to
+  the application rather than to the translator.
+- Teach the runtime to accept layout rules for controls it can find by name
+  even with no designed geometry, sized from the translated text alone. That
+  is real work, and it applies to any application that builds part of its
+  interface in code.
+
+---
 
 ## Not yet verified
 

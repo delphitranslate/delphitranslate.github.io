@@ -4,15 +4,15 @@
 
 **Test cycle completed:** August 9, 2026  
 **Report status:** Approved planning baseline - no remediation code implemented  
-**Studio project:** `C:\New Delphi Projects\Delphi App Translation`  
-**Disposable pilot project:** `C:\New Delphi Projects\Echurchsite Analytical - Component Test`  
+**Studio project:** `C:\Projects\Delphi App Translation`  
+**Disposable pilot project:** `C:\Projects\FMXPilot - Component Test`  
 **Pilot branch:** `codex/component-manager-pilot`
 
 ---
 
 ## 1. Executive assessment
 
-The completed test cycle proves that the central product concept works. The Studio can open and scan a Delphi FMX project, create a development catalog, obtain automatic translations through a configured provider, validate and export JSON runtime packs, generate a non-mutating component kit, support manual Delphi package installation, and drive immediate language changes through a `TDATFMXLanguageManager` and bound language selector. The disposable Website Analytics pilot built successfully for Win32 and Win64, discovered deployed English and Spanish packs, persisted the selected language, and reapplied it after restart.
+The completed test cycle proves that the central product concept works. The Studio can open and scan a Delphi FMX project, create a development catalog, obtain automatic translations through a configured provider, validate and export JSON runtime packs, generate a non-mutating component kit, support manual Delphi package installation, and drive immediate language changes through a `TDATFMXLanguageManager` and bound language selector. The disposable the FireMonkey pilot pilot built successfully for Win32 and Win64, discovered deployed English and Spanish packs, persisted the selected language, and reapplied it after restart.
 
 The product is not yet ready for a general release. The test cycle exposed one critical offline failure in the pilot, several high-priority localization lifecycle defects, incomplete string coverage, translation-driven layout problems, and numerous documentation ambiguities. The most important technical lesson is that static designer text, dynamic runtime state, generated messages, owner-drawn text, data values, and help content cannot all be treated as the same class of string.
 
@@ -44,7 +44,7 @@ The product is not yet ready for a general release. The test cycle exposed one c
 
 ## 2. Test scope and evidence
 
-The test followed the nineteen cases in the **Delphi App Translation Studio Complete Test Guide**. The pilot was intentionally disposable and was created from the pristine Website Analytics source. Testing covered Studio navigation, project scanning, provider configuration, catalog creation, automatic translation, validation, runtime export, component kit generation, Delphi package installation, visible component integration, Win32 and Win64 builds, pack deployment, language switching, state preservation, restart persistence, offline operation, and malformed-pack handling.
+The test followed the nineteen cases in the **Delphi App Translation Studio Complete Test Guide**. The pilot was intentionally disposable and was created from the pristine the FireMonkey pilot source. Testing covered Studio navigation, project scanning, provider configuration, catalog creation, automatic translation, validation, runtime export, component kit generation, Delphi package installation, visible component integration, Win32 and Win64 builds, pack deployment, language switching, state preservation, restart persistence, offline operation, and malformed-pack handling.
 
 Evidence consisted of the tester's direct observations, command output, Git status output, build results, and screenshots supplied during the test session. Where no defect was reported for a completed case, this report records the case as passed without an observed defect. That status is not a substitute for automated regression coverage.
 
@@ -80,7 +80,7 @@ Evidence consisted of the tester's direct observations, command output, Git stat
 **Observed in:** TC-18  
 **Symptom:** With internet connectivity removed, dismissing the `server name or address could not be resolved` dialog leads to another dialog, preventing normal use.
 
-**Important ownership question:** Website Analytics requires the internet for GA4 data, whereas the localization runtime does not. The loop may therefore be an existing target-application timer/retry defect rather than a defect in `TDATLanguageManager`. The first remediation task must reproduce the condition with localization disabled or removed. The localization product must neither trigger nor amplify the loop, but it should not absorb responsibility for an unrelated target networking defect.
+**Important ownership question:** the FireMonkey pilot requires the internet for GA4 data, whereas the localization runtime does not. The loop may therefore be an existing target-application timer/retry defect rather than a defect in `TDATLanguageManager`. The first remediation task must reproduce the condition with localization disabled or removed. The localization product must neither trigger nor amplify the loop, but it should not absorb responsibility for an unrelated target networking defect.
 
 **Required behavior:** One controlled offline notification, automatic refresh suspended or rate-limited, no modal-dialog loop, retained UI state, and a manual retry path after connectivity returns. Any displayed error should follow the selected language where the host application provides localized error resources.
 
@@ -169,7 +169,7 @@ Evidence consisted of the tester's direct observations, command output, Git stat
 1. Preserve the current Studio catalog, runtime packs, component kit, pilot source, screenshots, build outputs, and test guide.
 2. Recover the earlier 179-entry scan/catalog if available.
 3. Create a stable-key comparison between the 179-entry and 173-entry states.
-4. Reproduce TC-18 with the language manager disabled or absent to determine whether the loop belongs to Website Analytics, the component, or their interaction.
+4. Reproduce TC-18 with the language manager disabled or absent to determine whether the loop belongs to the FireMonkey pilot, the component, or their interaction.
 5. Record an owner and acceptance test for every defect before implementation.
 
 **Exit criterion:** Every release-blocking symptom has a proven owner and reproducible test.
