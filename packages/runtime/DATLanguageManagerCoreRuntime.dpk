@@ -13,6 +13,8 @@ contains
   DAT.Runtime.LayoutOverrides in
     '..\..\source\runtime\DAT.Runtime.LayoutOverrides.pas',
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
+  DAT.Runtime.SplashTranslation in
+    '..\..\source\runtime\DAT.Runtime.SplashTranslation.pas',
   DAT.Components.Core in '..\..\source\components\DAT.Components.Core.pas';
 
 end.

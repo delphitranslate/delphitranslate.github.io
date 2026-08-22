@@ -1,13 +1,12 @@
 unit DAT.Runtime.SplashTranslation;
 
-{ Forms that appear before any language manager exists.
+{ Forms that appear before any language manager exists - the part that is the
+  same in both frameworks.
 
-  A splash screen is the case, and it is not an unusual one. The pattern
-  every Delphi application uses looks like this:
+  A splash screen is the case, and it is not an unusual one:
 
     Application.CreateForm(TForm1, Form1);   // the splash
     Form1.Show;
-    Form1.Update;
     ... load ...
     Form1.Free;                              // gone
     Application.CreateForm(TfmMain, fmMain); // the manager arrives here
@@ -15,64 +14,66 @@ unit DAT.Runtime.SplashTranslation;
   The splash is created, shown, and destroyed before the form carrying the
   language manager is even constructed. Nothing owner-based can reach it,
   because at the moment it matters there is no owner and no manager - and the
-  application cannot be edited to add one, which is the whole premise of this
+  application cannot be edited to add one, which is the premise of this
   product.
 
-  So this unit acts earlier than any component can. It chains itself onto
-  Screen.OnActiveFormChange when the unit initialises, which happens before
-  the first line of the .dpr body runs, and translates each form that becomes
-  active until a real manager takes over.
+  So something has to act earlier than any component can. That something
+  differs by framework and lives next door, in
+  DAT.Runtime.SplashTranslation.VCL and DAT.Runtime.SplashTranslation.FMX:
+  VCL chains Screen.OnActiveFormChange, FMX subscribes to
+  TFormBeforeShownMessage. What does NOT differ is deciding which pack to
+  apply and when to stop, and that is here so there is one answer rather than
+  two that drift.
 
-  Three rules govern everything below, in order of importance:
+  Three rules govern all of it, in order of importance:
 
     1. Never raise. A splash translator that throws during startup turns a
-       cosmetic shortcoming into an application that will not launch. Every
-       entry point swallows its exceptions, and an untranslated splash is the
-       correct failure.
+       cosmetic shortcoming into an application that will not launch. An
+       untranslated splash is the correct failure.
 
-    2. Never steal. Screen.OnActiveFormChange is a single slot the host
-       application may already be using. The previous handler is kept and
-       called, so installing this is invisible to code that was there first.
+    2. Never steal. Whatever hook a framework offers may already be in use by
+       the host application, and installing this must be invisible to code
+       that was there first.
 
     3. Stand down when the real thing arrives. Once a manager initialises it
-       knows the application id, the folders and the preferences properly,
-       and this unit's inferences are no longer the best available answer.
+       knows the application id, the folders and the preferences properly, and
+       these inferences are no longer the best available answer.
 
-  What it has to infer, and why that is acceptable here:
+  What has to be inferred, and why that is acceptable:
 
   A manager is configured in the Object Inspector - application id, languages
-  folder, where preferences live. None of that is available before one exists,
-  so the defaults are assumed: the languages folder beside the executable and
-  the preference file under LOCALAPPDATA. Those are the defaults the component
-  ships with and what the Wizard deploys, so they are right for any
-  application that has not deliberately moved them. An application that has
-  moved them gets an untranslated splash rather than a wrong one, which is the
-  right way round. }
+  folder, where preferences live. None of that exists before one does, so the
+  shipping defaults are assumed: the languages folder beside the executable,
+  the preference file under LOCALAPPDATA. Those are what the component ships
+  with and what the Wizard deploys, so they are right for any application that
+  has not deliberately moved them. One that has gets an untranslated splash
+  rather than a wrong one, which is the right way round. }
 
 interface
 
 uses
-  System.Classes,
-  Vcl.Forms;
+  DAT.Runtime.LanguagePack;
 
 type
   TDATSplashTranslation = class
   private
-    class var FInstalled: Boolean;
     class var FStoodDown: Boolean;
-    class var FPreviousHandler: TNotifyEvent;
     class var FResolved: Boolean;
-    { Not static: Screen.OnActiveFormChange is a method pointer, and a
-      class method satisfies one where a plain procedure does not. }
-    class procedure ActiveFormChanged(Sender: TObject);
-    class procedure TranslateActiveForm; static;
+    class var FPack: TRuntimeLanguagePack;
   public
-    { Chains onto Screen.OnActiveFormChange. Called from initialization; safe
-      to call more than once. }
-    class procedure Install; static;
-    { Called by a language manager as it initialises. From here on the manager
-      is a better authority than anything this unit can infer. }
+    { The pack to apply to a form appearing this early, or nil if there is
+      none, the preference has never been set, or a manager has taken over.
+      Resolved once and kept: a splash is usually followed straight away by
+      another form, and reading the folder per form would be waste.
+
+      The returned pack belongs to this class. Callers apply it and forget it. }
+    class function PackForEarlyForms: TRuntimeLanguagePack; static;
+    { Whether the framework hooks should still be doing anything. }
+    class function Active: Boolean; static;
+    { Called by a language manager as it applies. From here on the manager is
+      a better authority than anything inferred here. }
     class procedure StandDown; static;
+    class procedure Cleanup; static;
   end;
 
 implementation
@@ -80,27 +81,18 @@ implementation
 uses
   System.SysUtils,
   System.IOUtils,
-  Vcl.Controls,
-  DAT.Runtime.LanguagePack,
-  DAT.Runtime.Preference,
-  DAT.Runtime.VCL;
-
-var
-  { Held for the life of the process. Loading a pack per form shown would be
-    wasteful, and a splash is usually followed immediately by another form. }
-  ResolvedPack: TRuntimeLanguagePack = nil;
+  DAT.Runtime.Preference;
 
 { The language the user last chose, or nothing.
 
   Deliberately not falling back to the system language. A first run has no
   stored preference, and guessing at that moment would mean a splash in one
-  language followed by a main window in another - which looks like a fault
+  language followed by a main window in another - which reads as a fault
   rather than a feature. With no preference the splash stays as designed. }
 function StoredLanguageCode(const AApplicationId: string): string;
 var
   BaseFolder: string;
 begin
-  Result := '';
   BaseFolder := GetEnvironmentVariable('LOCALAPPDATA');
   if BaseFolder = '' then
     BaseFolder := ExtractFilePath(ParamStr(0));
@@ -109,12 +101,9 @@ begin
     '');
 end;
 
-{ The pack to apply, or nil.
-
-  The folder is read rather than searched for a name, because the application
-  id is one of the things not yet known - but any pack in the folder carries
-  it, so reading one answers the question that finding it would have required
-  knowing. }
+{ The folder is read rather than searched for a name, because the application
+  id is one of the things not yet known - but every pack carries it, so
+  reading one answers the question that finding it would have required knowing. }
 function ResolvePack: TRuntimeLanguagePack;
 var
   Folder: string;
@@ -136,8 +125,6 @@ begin
       Candidate := TRuntimeLanguagePack.LoadFromFile(FileName);
       if Wanted = '' then
         Wanted := StoredLanguageCode(Candidate.ApplicationId);
-      { No stored preference means the application has never been switched
-        away from the language it was written in. Nothing to do. }
       if Wanted = '' then
       begin
         Candidate.Free;
@@ -153,62 +140,37 @@ begin
   end;
 end;
 
-class procedure TDATSplashTranslation.TranslateActiveForm;
-var
-  Form: TCustomForm;
+class function TDATSplashTranslation.Active: Boolean;
 begin
+  Result := not FStoodDown;
+end;
+
+class function TDATSplashTranslation.PackForEarlyForms: TRuntimeLanguagePack;
+begin
+  Result := nil;
   if FStoodDown then
     Exit;
-  Form := Screen.ActiveCustomForm;
-  if (Form = nil) or (Form.Name = '') then
-    Exit;
-
   if not FResolved then
   begin
     FResolved := True;
-    ResolvedPack := ResolvePack;
+    try
+      FPack := ResolvePack;
+    except
+      FPack := nil;
+    end;
   end;
-  if ResolvedPack = nil then
-    Exit;
-
-  { The same call a manager makes. Control state is not preserved because
-    nothing has been typed into a form that has only just appeared, and asking
-    to preserve it would mean reading properties off controls mid-construction. }
-  TVCLTranslationApplicator.ApplyToForm(Form, ResolvedPack, Form.Name, False);
-end;
-
-class procedure TDATSplashTranslation.ActiveFormChanged(Sender: TObject);
-begin
-  try
-    TranslateActiveForm;
-  except
-    { Rule 1. An untranslated splash is a blemish; an exception here is a
-      startup crash, and the application is not ours to crash. }
-  end;
-  if Assigned(FPreviousHandler) then
-    FPreviousHandler(Sender);
-end;
-
-class procedure TDATSplashTranslation.Install;
-begin
-  if FInstalled or (Screen = nil) then
-    Exit;
-  FInstalled := True;
-  FPreviousHandler := Screen.OnActiveFormChange;
-  Screen.OnActiveFormChange := TDATSplashTranslation.ActiveFormChanged;
+  Result := FPack;
 end;
 
 class procedure TDATSplashTranslation.StandDown;
 begin
   FStoodDown := True;
-  FreeAndNil(ResolvedPack);
+  FreeAndNil(FPack);
 end;
 
-initialization
-  TDATSplashTranslation.Install;
-
-finalization
-  ResolvedPack.Free;
-  ResolvedPack := nil;
+class procedure TDATSplashTranslation.Cleanup;
+begin
+  FreeAndNil(FPack);
+end;
 
 end.

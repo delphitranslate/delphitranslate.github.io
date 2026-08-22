@@ -83,6 +83,7 @@
         <DCCReference Include="fmx.dcp"/>
         <DCCReference Include="DATLanguageManagerCoreRuntime.dcp"/>
         <DCCReference Include="..\..\source\runtime\DAT.Runtime.FMX.pas"/>
+        <DCCReference Include="..\..\source\runtime\DAT.Runtime.SplashTranslation.FMX.pas"/>
         <DCCReference Include="..\..\source\components\DAT.Components.FMX.pas"/>
         <DCCReference Include="..\..\source\components\DAT.Components.FMX.LanguageSelector.pas"/>
         <BuildConfiguration Include="Base">

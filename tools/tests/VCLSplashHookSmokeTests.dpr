@@ -31,7 +31,10 @@ uses
   Vcl.Forms,
   Vcl.Controls,
   Vcl.StdCtrls,
-  DAT.Runtime.SplashTranslation in '..\..\source\runtime\DAT.Runtime.SplashTranslation.pas',
+  DAT.Runtime.SplashTranslation.VCL in
+    '..\..\source\runtime\DAT.Runtime.SplashTranslation.VCL.pas',
+  DAT.Runtime.SplashTranslation in
+    '..\..\source\runtime\DAT.Runtime.SplashTranslation.pas',
   DAT.Runtime.VCL in '..\..\source\runtime\DAT.Runtime.VCL.pas',
   DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas';

@@ -84,6 +84,7 @@
         <DCCReference Include="..\..\source\runtime\DAT.Runtime.Preference.pas"/>
         <DCCReference Include="..\..\source\runtime\DAT.Runtime.LayoutOverrides.pas"/>
         <DCCReference Include="..\..\source\runtime\DAT.Runtime.Manager.pas"/>
+        <DCCReference Include="..\..\source\runtime\DAT.Runtime.SplashTranslation.pas"/>
         <DCCReference Include="..\..\source\components\DAT.Components.Core.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>

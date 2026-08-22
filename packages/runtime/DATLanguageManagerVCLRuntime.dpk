@@ -11,8 +11,8 @@ requires
 
 contains
   DAT.Runtime.VCL in '..\..\source\runtime\DAT.Runtime.VCL.pas',
-  DAT.Runtime.SplashTranslation in
-    '..\..\source\runtime\DAT.Runtime.SplashTranslation.pas',
+  DAT.Runtime.SplashTranslation.VCL in
+    '..\..\source\runtime\DAT.Runtime.SplashTranslation.VCL.pas',
   DAT.Components.VCL in '..\..\source\components\DAT.Components.VCL.pas',
   DAT.Components.VCL.LanguageSelector in '..\..\source\components\DAT.Components.VCL.LanguageSelector.pas';
 

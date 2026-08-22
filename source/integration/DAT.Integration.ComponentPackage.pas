@@ -237,13 +237,15 @@ begin
     which is the worst place to find out. }
   CopyUnit(ARuntimeSourceDirectory, ComponentDirectory,
     'DAT.Runtime.LayoutOverrides');
+  CopyUnit(ARuntimeSourceDirectory, ComponentDirectory,
+    'DAT.Runtime.SplashTranslation');
   CopyUnit(AComponentSourceDirectory, ComponentDirectory,
     'DAT.Components.Core');
   if AProfile.Framework = tfVCL then
   begin
     CopyUnit(ARuntimeSourceDirectory, ComponentDirectory, 'DAT.Runtime.VCL');
     CopyUnit(ARuntimeSourceDirectory, ComponentDirectory,
-      'DAT.Runtime.SplashTranslation');
+      'DAT.Runtime.SplashTranslation.VCL');
     CopyUnit(AComponentSourceDirectory, ComponentDirectory,
       'DAT.Components.VCL');
     CopyUnit(AComponentSourceDirectory, ComponentDirectory,
@@ -252,6 +254,8 @@ begin
   else
   begin
     CopyUnit(ARuntimeSourceDirectory, ComponentDirectory, 'DAT.Runtime.FMX');
+    CopyUnit(ARuntimeSourceDirectory, ComponentDirectory,
+      'DAT.Runtime.SplashTranslation.FMX');
     CopyUnit(AComponentSourceDirectory, ComponentDirectory,
       'DAT.Components.FMX');
     CopyUnit(AComponentSourceDirectory, ComponentDirectory,

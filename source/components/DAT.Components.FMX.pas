@@ -61,6 +61,7 @@ type
 implementation
 
 uses
+  DAT.Runtime.SplashTranslation,
   DAT.Runtime.FMX;
 
 constructor TDATFMXLanguageManager.Create(AOwner: TComponent);
@@ -151,6 +152,11 @@ function TDATFMXLanguageManager.ApplyLanguagePack(
   const AManagedObject: TObject; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string): Integer;
 begin
+  { The manager is now doing the work, so the startup hook that covered
+    forms appearing before any manager existed - a splash, typically - stops.
+    It inferred its settings from the shipping defaults; this component was
+    told them, and being told beats inferring. }
+  TDATSplashTranslation.StandDown;
   Result := TFMXTranslationApplicator.ApplyToForm(
     TCommonCustomForm(AManagedObject), APack, AFormIdentity,
     PreserveControlState);
