@@ -284,6 +284,7 @@
         <DCCReference Include="source\core\DAT.Core.TranslationMemory.pas"/>
         <DCCReference Include="source\core\DAT.Core.Interchange.pas"/>
         <DCCReference Include="source\core\DAT.Core.LocaleFacts.pas"/>
+        <DCCReference Include="source\core\DAT.Core.BuildInfo.pas"/>
         <DCCReference Include="source\review\DAT.Review.ApplicationStrings.pas"/>
         <DCCReference Include="source\review\DAT.Review.CodeGeometry.pas"/>
         <DCCReference Include="source\review\DAT.Review.Localization.pas"/>

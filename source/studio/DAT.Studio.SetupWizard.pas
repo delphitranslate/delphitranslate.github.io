@@ -223,6 +223,7 @@ type
 implementation
 
 uses
+  DAT.Core.BuildInfo,
   System.IOUtils,
   System.JSON,
   System.Math,
@@ -264,30 +265,12 @@ const
   StepCount = 9;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
-  StudioBuildLabel = 'Build 2026.08.18.128';
-
-
-{ When this executable was produced, read from the executable itself.
-
-  A fixed version string cannot tell a fresh build from a stale one, and an
-  evening was lost testing a binary three hours older than the fixes it was
-  supposed to contain. The file's own timestamp cannot drift out of step with
-  the file, which a hand-maintained constant always eventually does. }
-function StudioBuildStamp: string;
-var
-  BuiltAt: TDateTime;
-begin
-  if FileAge(ParamStr(0), BuiltAt) then
-    Result := ' (built ' + FormatDateTime('yyyy-mm-dd hh:nn', BuiltAt) + ')'
-  else
-    Result := '';
-end;
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
-  Caption := 'Translation Setup Wizard - ' + StudioBuildLabel + StudioBuildStamp;
+  Caption := 'Translation Setup Wizard - ' + StudioBuildDescription;
   lblSubtitle.Text := 'A safe, step-by-step path from Delphi project to offline language pack - ' +
-    StudioBuildLabel + StudioBuildStamp;
+    StudioBuildDescription;
   FCurrentStep := 1;
   FHighestStep := 1;
   cboSourceLanguage.ItemIndex := 0;

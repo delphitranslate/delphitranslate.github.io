@@ -275,6 +275,7 @@ var
 implementation
 
 uses
+  DAT.Core.BuildInfo,
   System.Generics.Collections,
   System.IOUtils,
   System.Math,
@@ -302,26 +303,6 @@ uses
   DAT.Scan.Project;
 
 {$R *.fmx}
-
-const
-  StudioBuildLabel = 'Build 2026.08.18.128';
-
-
-{ When this executable was produced, read from the executable itself.
-
-  A fixed version string cannot tell a fresh build from a stale one, and an
-  evening was lost testing a binary three hours older than the fixes it was
-  supposed to contain. The file's own timestamp cannot drift out of step with
-  the file, which a hand-maintained constant always eventually does. }
-function StudioBuildStamp: string;
-var
-  BuiltAt: TDateTime;
-begin
-  if FileAge(ParamStr(0), BuiltAt) then
-    Result := ' (built ' + FormatDateTime('yyyy-mm-dd hh:nn', BuiltAt) + ')'
-  else
-    Result := '';
-end;
 
 procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var
@@ -363,12 +344,12 @@ begin
   BaseCaption := Trim(Caption);
   if BaseCaption = '' then
     BaseCaption := 'Delphi App Translation Studio';
-  Caption := BaseCaption + ' - ' + StudioBuildLabel + StudioBuildStamp;
+  Caption := BaseCaption + ' - ' + StudioBuildDescription;
   BaseSubtitle := Trim(lblApplicationSubtitle.Text);
   if BaseSubtitle = '' then
     BaseSubtitle :=
       'Offline language packs for Delphi VCL and FireMonkey applications';
-  lblApplicationSubtitle.Text := BaseSubtitle + ' - ' + StudioBuildLabel + StudioBuildStamp;
+  lblApplicationSubtitle.Text := BaseSubtitle + ' - ' + StudioBuildDescription;
   SelectLanguageCode(cboSourceLanguage, 'en-US');
   cboTextDirection.ItemIndex := 0;
   cboBuildPlatform.ItemIndex := 0;

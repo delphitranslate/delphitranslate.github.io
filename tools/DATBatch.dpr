@@ -48,6 +48,7 @@ uses
   DAT.Core.TranslationMemory in '..\source\core\DAT.Core.TranslationMemory.pas',
   DAT.Core.Interchange in '..\source\core\DAT.Core.Interchange.pas',
   DAT.Core.LocaleFacts in '..\source\core\DAT.Core.LocaleFacts.pas',
+  DAT.Core.BuildInfo in '..\source\core\DAT.Core.BuildInfo.pas',
   DAT.Core.AITranslation in '..\source\core\DAT.Core.AITranslation.pas',
   DAT.Scan.Types in '..\source\scan\DAT.Scan.Types.pas',
   DAT.Scan.Project in '..\source\scan\DAT.Scan.Project.pas',
@@ -442,6 +443,9 @@ begin
       ProductRoot := TPath.GetFullPath(
         TPath.Combine(ProductRoot, '..'));
     end;
+    { Every entry point reports the same build, from the same constant, so
+      a log from one can be compared with a log from another. }
+    Say('DATBatch  ' + StudioBuildDescription);
     Profile := TProjectDetector.Detect(Options.ProjectFileName);
     Say(Format('Project : %s (%s)', [Profile.ProjectName,
       TargetFrameworkToString(Profile.Framework)]));
