@@ -83,6 +83,7 @@
         <DCCReference Include="vcl.dcp"/>
         <DCCReference Include="DATLanguageManagerCoreRuntime.dcp"/>
         <DCCReference Include="..\..\source\runtime\DAT.Runtime.VCL.pas"/>
+        <DCCReference Include="..\..\source\runtime\DAT.Runtime.SplashTranslation.pas"/>
         <DCCReference Include="..\..\source\components\DAT.Components.VCL.pas"/>
         <DCCReference Include="..\..\source\components\DAT.Components.VCL.LanguageSelector.pas"/>
         <BuildConfiguration Include="Base">

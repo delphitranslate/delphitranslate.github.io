@@ -242,6 +242,8 @@ begin
   if AProfile.Framework = tfVCL then
   begin
     CopyUnit(ARuntimeSourceDirectory, ComponentDirectory, 'DAT.Runtime.VCL');
+    CopyUnit(ARuntimeSourceDirectory, ComponentDirectory,
+      'DAT.Runtime.SplashTranslation');
     CopyUnit(AComponentSourceDirectory, ComponentDirectory,
       'DAT.Components.VCL');
     CopyUnit(AComponentSourceDirectory, ComponentDirectory,

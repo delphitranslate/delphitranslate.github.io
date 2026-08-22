@@ -56,6 +56,7 @@ implementation
 uses
   System.SysUtils,
   Winapi.Windows,
+  DAT.Runtime.SplashTranslation,
   DAT.Runtime.VCL;
 
 constructor TDATVCLLanguageManager.Create(AOwner: TComponent);
@@ -103,6 +104,11 @@ function TDATVCLLanguageManager.ApplyLanguagePack(
   const AManagedObject: TObject; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string): Integer;
 begin
+  { The manager is now doing the work, so the startup hook that covered
+    forms appearing before any manager existed - a splash, typically - stops.
+    It inferred its settings from the shipping defaults; this component was
+    told them, and being told beats inferring. }
+  TDATSplashTranslation.StandDown;
   Result := TVCLTranslationApplicator.ApplyToForm(
     TCustomForm(AManagedObject), APack, AFormIdentity,
     PreserveControlState);
