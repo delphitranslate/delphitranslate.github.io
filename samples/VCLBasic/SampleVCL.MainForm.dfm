@@ -83,4 +83,9 @@ object frmVCLSample: TfrmVCLSample
       Caption = '&Language'
     end
   end
+  object DATManager: TDATVCLLanguageManager
+    ApplicationId = 'SampleVCLApp'
+    LanguagesFolder = 'Localization\Languages'
+    SourceLanguage = 'en-US'
+  end
 end

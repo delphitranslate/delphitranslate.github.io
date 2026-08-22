@@ -1810,6 +1810,11 @@ begin
     if not (Found is TControl) then
       Continue;
     Control := TControl(Found);
+    { Font size first, for the same reason as under the VCL: it moves
+      the bounds of a control that sizes itself. }
+    if Entry.HasFontSize and (Entry.FontSize > 0) then
+      if ApplyFontSizeSetting(Control, Entry.FontSize) then
+        Inc(Result);
     { The same two decisions as the VCL, in FireMonkey's spelling. }
     if Entry.HasSize then
     begin

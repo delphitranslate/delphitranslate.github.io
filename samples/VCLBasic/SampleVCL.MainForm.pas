@@ -7,7 +7,8 @@ uses
   Vcl.Controls,
   Vcl.Forms,
   Vcl.StdCtrls,
-  Vcl.Menus;
+  Vcl.Menus,
+  DAT.Components.VCL;
 
 resourcestring
   SWelcomeMessage = 'Welcome to the VCL translation sample.';
@@ -25,6 +26,10 @@ type
     btnSave: TButton;
     memInstructions: TMemo;
     cmbDateRange: TComboBox;
+    { Dropped on the form in the designer, exactly as the component kit's
+      instructions say to. Its three properties are set in the Object
+      Inspector and stream from the .dfm; nothing is configured in code. }
+    DATManager: TDATVCLLanguageManager;
     procedure btnSaveClick(Sender: TObject);
     procedure mnuExitClick(Sender: TObject);
   end;

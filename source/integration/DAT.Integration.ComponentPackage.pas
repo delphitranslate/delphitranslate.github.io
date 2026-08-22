@@ -232,6 +232,11 @@ begin
     'DAT.Runtime.Preference');
   CopyUnit(ARuntimeSourceDirectory, ComponentDirectory,
     'DAT.Runtime.Manager');
+  { Both applicators use it, so it ships whatever the framework is.
+    Leaving it out compiles here and fails in the customer's project,
+    which is the worst place to find out. }
+  CopyUnit(ARuntimeSourceDirectory, ComponentDirectory,
+    'DAT.Runtime.LayoutOverrides');
   CopyUnit(AComponentSourceDirectory, ComponentDirectory,
     'DAT.Components.Core');
   if AProfile.Framework = tfVCL then

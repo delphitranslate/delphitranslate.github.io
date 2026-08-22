@@ -1221,6 +1221,13 @@ begin
     if not (Found is TControl) then
       Continue;
     Control := TControl(Found);
+    { Font size first: changing it on a control that sizes itself moves
+      its bounds, so any width or position recorded afterwards has to be
+      applied on top of that rather than under it. }
+    if Entry.HasFontSize and (Entry.FontSize > 0) then
+      if TrySetLayoutProperty(Control, 'FontSize',
+        IntToStr(Entry.FontSize)) then
+        Inc(Result);
     { Position and size are separate, so nudging a control does not also
       freeze a width the planner should still be free to compute. }
     if Entry.HasSize then

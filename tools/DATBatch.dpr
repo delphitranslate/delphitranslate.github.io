@@ -21,7 +21,7 @@
 
     DATBatch --project <file.dproj> --languages de-DE,fr-FR,es-ES
              [--source en-US] [--provider deepl|google] [--key <apikey>]
-             [--out <folder>] [--no-translate]
+             [--out <folder>] [--kit <folder>] [--no-translate]
 
   --no-translate scans, plans, and writes packs from whatever the catalogs
   already hold, which is what a build server wants: no key, no network, and a
@@ -61,7 +61,11 @@ uses
   DAT.Review.TextMeasurement.GDI in '..\source\review\DAT.Review.TextMeasurement.GDI.pas',
   DAT.Review.TextMeasurement.FMX in '..\source\review\DAT.Review.TextMeasurement.FMX.pas',
   DAT.Provider.Types in '..\source\provider\DAT.Provider.Types.pas',
-  DAT.Provider.Client in '..\source\provider\DAT.Provider.Client.pas';
+  DAT.Provider.Client in '..\source\provider\DAT.Provider.Client.pas',
+  DAT.Integration.ComponentPackage in '..\source\integration\DAT.Integration.ComponentPackage.pas',
+  DAT.Integration.DelphiSource in '..\source\integration\DAT.Integration.DelphiSource.pas',
+  DAT.Integration.Package in '..\source\integration\DAT.Integration.Package.pas',
+  DAT.Integration.MenuResource in '..\source\integration\DAT.Integration.MenuResource.pas';
 
 type
   TBatchOptions = record
@@ -71,6 +75,7 @@ type
     Provider: TTranslationProvider;
     ApiKey: string;
     OutputDirectory: string;
+    KitDirectory: string;
     Translate: Boolean;
     Valid: Boolean;
     Problem: string;
@@ -95,6 +100,7 @@ begin
   Say('  --provider deepl|google     which service to use');
   Say('  --key <apikey>              the key for that service');
   Say('  --out <folder>              where to write the packs');
+  Say('  --kit <folder>              also generate the component kit there');
   Say('  --no-translate              plan and export from existing catalogs only');
   Say('');
   Say('The target project is read and never written to.');
@@ -184,6 +190,7 @@ begin
     end;
   ArgumentValue('--key', Result.ApiKey);
   ArgumentValue('--out', Result.OutputDirectory);
+  ArgumentValue('--kit', Result.KitDirectory);
 
   if Result.Translate and (Trim(Result.ApiKey) = '') then
   begin
@@ -214,6 +221,7 @@ var
   OwnedCount: Integer;
   Untranslated: Integer;
   Facts: TLocaleFacts;
+  ProposalFileName: string;
   Issue: TValidationIssue;
   Shown: Integer;
   Entry: TTranslationEntry;
@@ -338,15 +346,6 @@ begin
 
     { The layout plan, and the report of what the application must translate
       for itself. }
-    Review := TLocalizationReviewer.Analyze(Catalog);
-    try
-      if Review <> nil then
-        Say(Format('  planned %d layout proposal(s)',
-          [Review.Proposals.Count]));
-    finally
-      Review.Free;
-    end;
-
     if AOptions.OutputDirectory <> '' then
     begin
       TDirectory.CreateDirectory(AOptions.OutputDirectory);
@@ -363,13 +362,36 @@ begin
         '-application-owned-strings.md';
     end;
 
+    Review := TLocalizationReviewer.Analyze(Catalog);
+    try
+      if Review <> nil then
+      begin
+        { The proposals have to be written down before the pack is
+          built, because the exporter reads them from that file rather
+          than from the review in memory. Skipping this produced packs
+          that carried every translated word and not one layout rule -
+          and said '8 proposals planned' while doing it, which is the
+          kind of quiet wrong answer this product exists to avoid. }
+        ProposalFileName := TPath.ChangeExtension(PackFileName, '') +
+          'layout-proposal.json';
+        TLocalizationReviewer.RestoreDecisions(Review,
+          ProposalFileName);
+        TLocalizationReviewer.SaveProposal(Review, ProposalFileName);
+        Say(Format('  planned %d layout proposal(s)',
+          [Review.Proposals.Count]));
+      end;
+    finally
+      Review.Free;
+    end;
+
     OwnedCount := TApplicationOwnedStrings.WriteReport(Catalog,
       ReportFileName);
     if OwnedCount > 0 then
       Say(Format('  %d string(s) the application must translate itself; see %s',
         [OwnedCount, TPath.GetFileName(ReportFileName)]));
 
-    TRuntimePackBuilder.ExportToFile(Catalog, PackFileName);
+    TRuntimePackBuilder.ExportToFile(Catalog, PackFileName,
+      ProposalFileName);
     Say('  wrote ' + PackFileName);
     Result := True;
   finally
@@ -383,6 +405,8 @@ var
   ScanResult: TProjectScanResult;
   Language: string;
   Written: Integer;
+  KitPath: string;
+  ProductRoot: string;
 begin
   try
     if (ParamCount = 0) or HasSwitch('--help') or HasSwitch('-h') then
@@ -400,6 +424,24 @@ begin
       Halt(2);
     end;
 
+    { The kit is built from the product's own runtime and component
+      sources, so they have to be found rather than assumed. Walking up
+      from this executable until sourceuntime appears works wherever
+      it was built to - bin\Tools, a scratch folder, or beside the
+      sources themselves - which guessing at a depth does not. }
+    ProductRoot := TPath.GetDirectoryName(ParamStr(0));
+    while (ProductRoot <> '') and
+      not TDirectory.Exists(TPath.Combine(ProductRoot,
+        'source' + PathDelim + 'runtime')) do
+    begin
+      if TPath.GetPathRoot(ProductRoot) = ProductRoot then
+      begin
+        ProductRoot := '';
+        Break;
+      end;
+      ProductRoot := TPath.GetFullPath(
+        TPath.Combine(ProductRoot, '..'));
+    end;
     Profile := TProjectDetector.Detect(Options.ProjectFileName);
     Say(Format('Project : %s (%s)', [Profile.ProjectName,
       TargetFrameworkToString(Profile.Framework)]));
@@ -419,6 +461,30 @@ begin
       for Language in Options.Languages do
         if RunLanguage(Profile, ScanResult, Options, Language) then
           Inc(Written);
+
+      { The component kit: the units, the package and the instructions a
+        developer needs to put the runtime into their own application. It is
+        generated once, not once per language, and it is generated into a
+        folder of its own - nothing is written into the target project. }
+      if Options.KitDirectory <> '' then
+        if ProductRoot = '' then
+        begin
+          Say('');
+          Say('No component kit written: this executable is not inside the product tree,');
+          Say('so the runtime and component sources cannot be found.');
+          ExitStatus := 1;
+        end
+        else
+        begin
+          TDirectory.CreateDirectory(Options.KitDirectory);
+          KitPath := TComponentIntegrationPackageGenerator.Generate(
+            Profile, Options.KitDirectory,
+            TPath.Combine(ProductRoot, 'source' + PathDelim + 'runtime'),
+            TPath.Combine(ProductRoot,
+              'source' + PathDelim + 'components'));
+          Say('');
+          Say('Component kit: ' + KitPath);
+        end;
 
       Say('');
       Say(Format('%d of %d language(s) written.',

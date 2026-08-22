@@ -50,6 +50,8 @@ type
     FHeight: Integer;
     FHasPosition: Boolean;
     FHasSize: Boolean;
+    FFontSize: Integer;
+    FHasFontSize: Boolean;
   public
     property FormName: string read FFormName write FFormName;
     property ComponentName: string read FComponentName write FComponentName;
@@ -62,6 +64,13 @@ type
       compute. }
     property HasPosition: Boolean read FHasPosition write FHasPosition;
     property HasSize: Boolean read FHasSize write FHasSize;
+    { Recorded separately again, and for the case that prompted it: a
+      control an application creates in code has no designed geometry, so
+      the planner never sees it and never sizes its text. Its type is
+      whatever the application happened to choose, which in one real
+      application was too small to read comfortably. }
+    property FontSize: Integer read FFontSize write FFontSize;
+    property HasFontSize: Boolean read FHasFontSize write FHasFontSize;
   end;
 
   TLayoutOverrides = class
@@ -92,6 +101,8 @@ type
       const ALeft, ATop: Integer);
     procedure RecordSize(const AFormName, AComponentName: string;
       const AWidth, AHeight: Integer);
+    procedure RecordFontSize(const AFormName, AComponentName: string;
+      const APointSize: Integer);
 
     { Forgets one control, or everything on one form. The way back from an
       adjustment somebody regrets, without editing a file by hand. }
@@ -202,12 +213,16 @@ begin
             'hasPosition', False);
           Entry.HasSize := (Item as TJSONObject).GetValue<Boolean>(
             'hasSize', False);
+          Entry.HasFontSize := (Item as TJSONObject).GetValue<Boolean>(
+            'hasFontSize', False);
+          Entry.FontSize := (Item as TJSONObject).GetValue<Integer>(
+            'fontSize', 0);
           Entry.Left := (Item as TJSONObject).GetValue<Integer>('left', 0);
           Entry.Top := (Item as TJSONObject).GetValue<Integer>('top', 0);
           Entry.Width := (Item as TJSONObject).GetValue<Integer>('width', 0);
           Entry.Height := (Item as TJSONObject).GetValue<Integer>('height', 0);
           if (Entry.FormName <> '') and (Entry.ComponentName <> '') and
-            (Entry.HasPosition or Entry.HasSize) then
+            (Entry.HasPosition or Entry.HasSize or Entry.HasFontSize) then
             Overrides.Items.Add(Entry)
           else
             Entry.Free;
@@ -246,6 +261,7 @@ begin
       Item.AddPair('componentName', Entry.ComponentName);
       Item.AddPair('hasPosition', TJSONBool.Create(Entry.HasPosition));
       Item.AddPair('hasSize', TJSONBool.Create(Entry.HasSize));
+      Item.AddPair('hasFontSize', TJSONBool.Create(Entry.HasFontSize));
       if Entry.HasPosition then
       begin
         Item.AddPair('left', TJSONNumber.Create(Entry.Left));
@@ -256,6 +272,8 @@ begin
         Item.AddPair('width', TJSONNumber.Create(Entry.Width));
         Item.AddPair('height', TJSONNumber.Create(Entry.Height));
       end;
+      if Entry.HasFontSize then
+        Item.AddPair('fontSize', TJSONNumber.Create(Entry.FontSize));
       Items.AddElement(Item);
     end;
     Root.AddPair('adjustments', Items);
@@ -299,6 +317,23 @@ begin
   Entry.Width := AWidth;
   Entry.Height := AHeight;
   Entry.HasSize := True;
+end;
+
+procedure TLayoutOverrides.RecordFontSize(const AFormName,
+  AComponentName: string; const APointSize: Integer);
+var
+  Entry: TLayoutOverride;
+begin
+  Entry := Find(AFormName, AComponentName);
+  if Entry = nil then
+  begin
+    Entry := TLayoutOverride.Create;
+    Entry.FormName := AFormName;
+    Entry.ComponentName := AComponentName;
+    FItems.Add(Entry);
+  end;
+  Entry.FontSize := APointSize;
+  Entry.HasFontSize := True;
 end;
 
 function TLayoutOverrides.Forget(const AFormName,

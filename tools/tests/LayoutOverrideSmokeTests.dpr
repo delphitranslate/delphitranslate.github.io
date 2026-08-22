@@ -77,6 +77,7 @@ var
   Other: TLayoutOverrides;
   Form: TForm;
   Button: TButton;
+  CodeLabel: TLabel;
   Pack: TRuntimeLanguagePack;
   Applied: Integer;
 begin
@@ -198,6 +199,55 @@ begin
           'frmHost') = 0, 'and nothing is applied afterwards.');
         Check(TVCLTranslationApplicator.ApplyOverrides(Form, nil,
           'frmHost') = 0, 'An application with no overrides at all is fine.');
+      finally
+        Reloaded.Free;
+      end;
+    finally
+      Form.Free;
+    end;
+
+    Writeln;
+    Writeln('=== a control the application creates in code ===');
+    { The case this was built for. A control built in code rather than drawn
+      on a form has no designed geometry, so the planner never sees it and
+      never sizes its text: its appearance is whatever the application
+      happened to choose, and in one application that was too small to read.
+      The planner cannot fix that - it has no box to fit anything to - but a
+      person looking at the running form can, and it is remembered. }
+    Form := TForm.CreateNew(nil);
+    try
+      Form.Name := 'frmHost';
+      Form.ClientWidth := 400;
+      Form.ClientHeight := 300;
+      { Created here, exactly as an application would: never in a .dfm, so
+        nothing in the catalog has geometry for it. }
+      CodeLabel := TLabel.Create(Form);
+      CodeLabel.Parent := Form;
+      CodeLabel.Name := 'lblBuiltInCode';
+      CodeLabel.Caption := 'Status';
+      CodeLabel.Font.Size := 7;
+
+      Reloaded := TLayoutOverrides.Load(Folder, 'OverrideSample', 'de-DE');
+      try
+        Reloaded.RecordFontSize('frmHost', 'lblBuiltInCode', 10);
+        Reloaded.RecordPosition('frmHost', 'lblBuiltInCode', 30, 60);
+        Reloaded.Save;
+      finally
+        Reloaded.Free;
+      end;
+
+      Reloaded := TLayoutOverrides.Load(Folder, 'OverrideSample', 'de-DE');
+      try
+        Applied := TVCLTranslationApplicator.ApplyOverrides(Form, Reloaded,
+          'frmHost');
+        Writeln(Format('        code-built label: font %d, left %d (%d adjustment(s))',
+          [CodeLabel.Font.Size, CodeLabel.Left, Applied]));
+        Check(Applied = 2,
+          'A control with no designed geometry is still found by name.');
+        Check(CodeLabel.Font.Size = 10,
+          'Its type size can be corrected - the complaint that prompted this.');
+        Check(CodeLabel.Left = 30,
+          'and it can be moved, though the application placed it.');
       finally
         Reloaded.Free;
       end;
