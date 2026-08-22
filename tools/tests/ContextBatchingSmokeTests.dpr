@@ -117,6 +117,36 @@ begin
     Check(Length(Groups[0].Indexes) = 50, 'and fill each batch before opening another.');
 
     Writeln;
+    Writeln('=== a long string is its own context ===');
+    { Precision is what per-string context buys, and it buys nothing for
+      prose: forty words tell a service more about themselves than any
+      description of the control could. Isolating them cost a round trip
+      each and bought nothing, which is the whole of the speed problem. }
+    SetLength(Texts, 4);
+    SetLength(Contexts, 4);
+    Texts[0] := 'Help';
+    Texts[1] := 'Close';
+    Texts[2] := 'Click the button beside any directory box, choose a directory, and add the dates that put it into the rotation.';
+    Texts[3] := 'Random playback needs a default directory. Without one, nothing is played when the other directories are unavailable.';
+    Contexts[0] := 'a menu item';
+    Contexts[1] := 'a button';
+    Contexts[2] := 'an instruction paragraph on the directory page';
+    Contexts[3] := 'an instruction paragraph on the playback page';
+    Groups := TContextBatching.Group(Texts, Contexts, 50);
+    Writeln('  groups: ', Describe(Groups));
+    Check(Length(Groups) = 3,
+      'Two short strings keep their own context; the two paragraphs share one request instead of opening two.');
+    Total := 0;
+    for Group in Groups do
+      Total := Total + Length(Group.Indexes);
+    Check(Total = 4, 'and nothing is lost.');
+
+    Groups := TContextBatching.Group(Texts, Contexts, 50, 0);
+    Writeln('  groups: ', Describe(Groups));
+    Check(Length(Groups) = 4,
+      'The limit can be switched off, and then every string is isolated again.');
+
+    Writeln;
     Writeln('=== nothing to do ===');
     SetLength(Texts, 0);
     SetLength(Contexts, 0);

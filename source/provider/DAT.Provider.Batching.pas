@@ -32,8 +32,13 @@ type
 
   TContextBatching = record
   public
+    { Strings longer than AIndividualContextLimit are grouped together
+      instead of each opening a request of its own. Pass 0 to give every
+      string its own context regardless of length. }
     class function Group(const ATexts, AContexts: TArray<string>;
-      const AMaximumBatchSize: Integer): TArray<TContextGroup>; static;
+      const AMaximumBatchSize: Integer;
+      const AIndividualContextLimit: Integer = 60):
+      TArray<TContextGroup>; static;
   end;
 
 implementation
@@ -42,8 +47,16 @@ uses
   System.Generics.Collections,
   System.SysUtils;
 
+const
+  { Deliberately a sentence rather than an empty string: the strings that
+    land here are prose, and saying so is still worth more than saying
+    nothing. }
+  LongStringContext =
+    'Body text shown in a desktop application interface.';
+
 class function TContextBatching.Group(const ATexts, AContexts: TArray<string>;
-  const AMaximumBatchSize: Integer): TArray<TContextGroup>;
+  const AMaximumBatchSize: Integer;
+  const AIndividualContextLimit: Integer): TArray<TContextGroup>;
 var
   Groups: TList<TContextGroup>;
   OpenGroup: TDictionary<string, Integer>;
@@ -69,6 +82,18 @@ begin
         Context := AContexts[Index]
       else
         Context := '';
+
+      { A long string is its own context. Forty words of prose tell a
+        service far more about themselves than any description of the
+        control they sit on, so isolating them buys nothing and costs a
+        round trip each. Precision matters for the short ones - Help,
+        Close, Play, a bare day abbreviation - where there is nothing to
+        go on but the description. Long strings therefore share one
+        context and travel together, which is what they did before
+        per-string context existed. }
+      if (AIndividualContextLimit > 0) and
+        (Length(ATexts[Index]) > AIndividualContextLimit) then
+        Context := LongStringContext;
 
       if not OpenGroup.TryGetValue(Context, Position) then
       begin

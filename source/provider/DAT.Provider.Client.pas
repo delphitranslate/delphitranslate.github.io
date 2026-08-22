@@ -19,6 +19,7 @@ type
     FDeepLPlan: TDeepLPlan;
     FApiKey: string;
     FTimeoutSeconds: Integer;
+    FGlossaryId: string;
     FBatchSize: Integer;
     { Zero until the service first says "slower", then a short wait kept
       between requests for the rest of the run. Recovering from a rate limit
@@ -42,6 +43,10 @@ type
     constructor Create(const AProvider: TTranslationProvider;
       const ADeepLPlan: TDeepLPlan; const AApiKey: string;
       const ATimeoutSeconds, ABatchSize: Integer);
+    { The identifier of a glossary already created on the service, or an
+      empty string. Set by the caller that created it; the client itself
+      neither creates nor deletes one. }
+    property GlossaryId: string read FGlossaryId write FGlossaryId;
     function Translate(const ATexts: TArray<string>;
       const ASourceLanguage, ATargetLanguage: string;
       const ACancelCheck: TTranslationCancelCheck = nil;
@@ -138,6 +143,11 @@ begin
         NormalizeDeepLLanguageCode(ATargetLanguage, True));
       if Trim(AContext) <> '' then
         JsonObject.AddPair('context', AContext);
+      { A glossary held on the service's side binds it, where a context field
+        only informs it. Sent only when one was created for this pair; the
+        run translates perfectly well without one. }
+      if Trim(FGlossaryId) <> '' then
+        JsonObject.AddPair('glossary_id', FGlossaryId);
     end;
     Result := JsonObject.ToJSON;
   finally
