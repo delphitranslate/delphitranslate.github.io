@@ -227,21 +227,35 @@ rather than from this list.
 
 `docs/notes/fix_list.md` ran alongside this one and carried three open
 items nobody was reading. They came here, and that file is an archive.
-Two of the three are now closed; one remains.
+Two of the three are closed. The third is narrowed to one
+unproven assertion, described below.
 
-### The runtime harness does not cover a non-default platform style
+### Wrapping under a platform style that overrides it - unproven
 
-Low. Narrowed twice. The harness once asserted a single label; it now asserts
-a label, a button, a check box and a grid column across all seven layout
-properties, plus the round trip home. A check box carries its caption beside a
-tick box, so its width means something different from a label's, and a grid
-column is not a control in the ordinary sense.
+Narrowed to almost nothing on 22 August, and worth keeping only for what it
+still does not say.
 
-What remains is a control inside a styled container, and a form running under
-a platform style other than the default. The second is the more interesting:
-the style is what silently overrides a font size or a wrapping setting when
-styled settings have not been cleared, which was the trap behind two separate
-defects.
+`FMXStyledRuntimeSmokeTests` now applies a pack to a label nested two levels
+inside a form and checks the result under **every platform style installed
+with RAD Studio** - twenty-three of them - reading `ResultingTextSettings`,
+which is what the control will actually render, rather than `TextSettings`,
+which merely reports what was assigned.
+
+The font-size guard is proven: delete the applicator's clearing of
+`TStyledSetting.Size` and all twenty-three styles fail it.
+
+The wrapping guard is **not** proven. Delete the clearing of
+`TStyledSetting.Other` and it still passes, because no style shipped with
+RAD Studio overrides wrapping on a label - there is nothing for that clearing
+to defend against, so nothing can demonstrate it works. The assertion stays,
+since it costs nothing and would catch a style that did override it, but a
+pass there is not evidence.
+
+Closing this properly needs a style authored for the purpose: one whose label
+style sets wrapping, so the clearing has something to overcome. That is a
+small piece of work and nobody has done it.
+
+---
 
 ## Not yet verified
 
