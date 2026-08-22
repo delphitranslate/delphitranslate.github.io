@@ -3,6 +3,7 @@ unit DAT.Runtime.VCL;
 interface
 
 uses
+  DAT.Runtime.LayoutOverrides,
   System.Classes,
   System.Generics.Collections,
   { TAlign and TAnchors are named in the snapshot below, so they belong in the
@@ -72,6 +73,13 @@ type
     class function ApplyToForm(const AForm: TCustomForm;
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const APreserveControlState: Boolean = True): Integer; overload; static;
+    { Adjustments a person made while the application was running, applied
+      after every rule the pack carries. They are last on purpose: an
+      override is the correction of somebody who looked at the result, and
+      where the planner and a person disagree the person is right. }
+    class function ApplyOverrides(const AForm: TCustomForm;
+      const AOverrides: TLayoutOverrides;
+      const AFormIdentity: string): Integer; static;
     class function ApplyLayoutToForm(const AForm: TCustomForm;
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const AUseTranslatedValues: Boolean): Integer; static;
@@ -1189,6 +1197,44 @@ begin
     if APreserveControlState and SavedFocusedState and
       (SavedFocusedControl <> nil) and SavedFocusedControl.CanFocus then
       SavedFocusedControl.SetFocus;
+  end;
+end;
+
+class function TVCLTranslationApplicator.ApplyOverrides(
+  const AForm: TCustomForm; const AOverrides: TLayoutOverrides;
+  const AFormIdentity: string): Integer;
+var
+  Index: Integer;
+  Entry: TLayoutOverride;
+  Found: TComponent;
+  Control: TControl;
+begin
+  Result := 0;
+  if (AForm = nil) or (AOverrides = nil) then
+    Exit;
+  for Index := 0 to AOverrides.Items.Count - 1 do
+  begin
+    Entry := AOverrides.Items[Index];
+    if not SameText(Entry.FormName, AFormIdentity) then
+      Continue;
+    Found := AForm.FindComponent(Entry.ComponentName);
+    if not (Found is TControl) then
+      Continue;
+    Control := TControl(Found);
+    { Position and size are separate, so nudging a control does not also
+      freeze a width the planner should still be free to compute. }
+    if Entry.HasSize then
+    begin
+      Control.Width := Entry.Width;
+      Control.Height := Entry.Height;
+      Inc(Result);
+    end;
+    if Entry.HasPosition then
+    begin
+      Control.Left := Entry.Left;
+      Control.Top := Entry.Top;
+      Inc(Result);
+    end;
   end;
 end;
 

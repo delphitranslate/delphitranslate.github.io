@@ -3,6 +3,7 @@ unit DAT.Runtime.FMX;
 interface
 
 uses
+  DAT.Runtime.LayoutOverrides,
   System.Generics.Collections,
   System.Types,
   { TAlignLayout is named in the snapshot below, so it belongs in the
@@ -61,6 +62,13 @@ type
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const APreserveControlState: Boolean = True;
       const AApplyLayout: Boolean = True): Integer; overload; static;
+    { Adjustments a person made while the application was running, applied
+      after every rule the pack carries. They are last on purpose: an
+      override is the correction of somebody who looked at the result, and
+      where the planner and a person disagree the person is right. }
+    class function ApplyOverrides(const AForm: TCommonCustomForm;
+      const AOverrides: TLayoutOverrides;
+      const AFormIdentity: string): Integer; static;
     class function ApplyLayoutToForm(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const AUseTranslatedValues: Boolean): Integer; static;
@@ -1778,6 +1786,42 @@ begin
     VisitedComponents.Free;
     if APreserveControlState and (SavedFocusedControl <> nil) then
       AForm.Focused := SavedFocusedControl;
+  end;
+end;
+
+class function TFMXTranslationApplicator.ApplyOverrides(
+  const AForm: TCommonCustomForm; const AOverrides: TLayoutOverrides;
+  const AFormIdentity: string): Integer;
+var
+  Index: Integer;
+  Entry: TLayoutOverride;
+  Found: TComponent;
+  Control: TControl;
+begin
+  Result := 0;
+  if (AForm = nil) or (AOverrides = nil) then
+    Exit;
+  for Index := 0 to AOverrides.Items.Count - 1 do
+  begin
+    Entry := AOverrides.Items[Index];
+    if not SameText(Entry.FormName, AFormIdentity) then
+      Continue;
+    Found := AForm.FindComponent(Entry.ComponentName);
+    if not (Found is TControl) then
+      Continue;
+    Control := TControl(Found);
+    { The same two decisions as the VCL, in FireMonkey's spelling. }
+    if Entry.HasSize then
+    begin
+      Control.Size.Size := TSizeF.Create(Entry.Width, Entry.Height);
+      Inc(Result);
+    end;
+    if Entry.HasPosition then
+    begin
+      Control.Position.X := Entry.Left;
+      Control.Position.Y := Entry.Top;
+      Inc(Result);
+    end;
   end;
 end;
 
