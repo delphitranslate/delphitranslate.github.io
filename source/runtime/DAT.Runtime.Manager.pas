@@ -339,17 +339,33 @@ begin
     Result := FActivePack.FormatTemplate(AKey, AFallbackText, AArgs);
 end;
 
+{ Dates and times follow the machine, not the language.
+
+  These used to be built from the pack's language code, so translating an
+  application to Arabic also switched its dates to the Saudi calendar
+  conventions - on a machine whose owner had chosen US formats and had every
+  other application obeying that choice.
+
+  That is the wrong default. A language is what someone reads; a date format
+  is what their country writes, and the two are not the same question. Somebody
+  in Chicago reading an application in Arabic still wants 8/22/2026, because
+  that is what their bank statement, their calendar and every other window on
+  the screen says. Windows already knows the answer and every application on
+  the machine except this one was already asking it.
+
+  So the base is the user's own regional settings, and the pack is not allowed
+  to overrule them for dates or times.
+
+  Numbers and currency are still taken from the pack when it supplies them.
+  Those travel with the content rather than the reader: a price written in a
+  pack's currency means that currency wherever it is read, and reformatting it
+  to local conventions would change what it says rather than how it looks. }
 procedure TTranslationRuntime.UpdateFormatSettings;
 begin
-  FFormatSettings := TFormatSettings.Create(FActivePack.LanguageCode);
-  if FActivePack.Locale.ShortDateFormat <> '' then
-    FFormatSettings.ShortDateFormat := FActivePack.Locale.ShortDateFormat;
-  if FActivePack.Locale.LongDateFormat <> '' then
-    FFormatSettings.LongDateFormat := FActivePack.Locale.LongDateFormat;
-  if FActivePack.Locale.ShortTimeFormat <> '' then
-    FFormatSettings.ShortTimeFormat := FActivePack.Locale.ShortTimeFormat;
-  if FActivePack.Locale.LongTimeFormat <> '' then
-    FFormatSettings.LongTimeFormat := FActivePack.Locale.LongTimeFormat;
+  { No argument: the user's default locale, which is what every other
+    application on this machine formats dates with. }
+  FFormatSettings := TFormatSettings.Create;
+
   if FActivePack.Locale.DecimalSeparator <> '' then
     FFormatSettings.DecimalSeparator :=
       FActivePack.Locale.DecimalSeparator[1];

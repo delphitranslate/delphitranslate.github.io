@@ -60,7 +60,14 @@ const
     '"locale":{"shortDateFormat":"dd/MM/yyyy","longDateFormat":"",' +
     '"shortTimeFormat":"HH:mm","longTimeFormat":"HH:mm:ss",' +
     '"decimalSeparator":",","thousandSeparator":".","currencySymbol":"NIS"},' +
-    '"strings":{"frmRtl.lblName.Caption":"\u05E9\u05DD",' +
+    { The menu caption is translated here on purpose. Writing a menu item's
+      caption rebuilds the menu, and the rebuild does not carry the
+      right-to-left flag across, so a pack that renames a menu quietly undoes
+      the mirroring applied before it. The Hebrew pack used to leave the menu
+      alone while the English pack renamed it - which is exactly why this file
+      passed while real applications came back with unmirrored menus. }
+    '"strings":{"frmRtl.mnuFile.Caption":"\u05E7\u05D5\u05D1\u05E5",' +
+    '"frmRtl.lblName.Caption":"\u05E9\u05DD",' +
     '"frmRtl.btnOk.Caption":"\u05D0\u05D9\u05E9\u05D5\u05E8"},' +
     '"sources":{},' +
     '"layout":[' +
@@ -217,6 +224,14 @@ begin
       FileItem.Caption := 'File';
       Menu.Items.Add(FileItem);
       Form.Menu := Menu;
+      { A menu built in the designer, not at run time. Setting BiDiMode on a
+        TMenu clears ParentBiDiMode, so any application whose menu was ever
+        given an explicit reading order stops following its form - and a menu
+        that does not follow its form is one VCL will never mirror, because
+        the only path that mirrors one hangs off that inheritance. Creating
+        the menu fresh and leaving it to inherit, as this file used to, is the
+        one case where the bug cannot appear. }
+      Menu.BiDiMode := bdLeftToRight;
 
       Inner := TButton.Create(Form);
       Inner.Parent := Nav;
@@ -292,6 +307,26 @@ begin
       Writeln(Format('        SysLocale.MiddleEast = %s   menu RTL flag = %s',
         [BoolToStr(SysLocale.MiddleEast, True),
          BoolToStr(MenuIsRightToLeft(Menu), True)]));
+      { The assertion this file was missing, and the reason a broken menu
+        shipped green.
+
+        The right-to-left side only ever printed this flag. The left-to-right
+        side below asserted "not right to left" - which was trivially true,
+        because the flag was never being set in either direction. So the pair
+        read like symmetric coverage and was nothing of the kind: one half
+        tested the applicator, the other half tested nothing at all.
+
+        What it hid: VCL's only menu-mirroring path begins
+
+          if (not SysLocale.MiddleEast) or (WindowHandle = 0) then Exit;
+
+        and SysLocale.MiddleEast is False on a Western Windows install, so the
+        flag was never set on this machine no matter what the form was told.
+        The window mirrored anyway, so the bar painted right-to-left over hit
+        regions that had not moved - the rightmost item read File and opened
+        Help. The value was on the screen above this line the whole time. }
+      Check(MenuIsRightToLeft(Menu),
+        'The menu bar itself opens right to left, not merely the form.');
       Writeln(Format('        window ExStyle RTLREADING=%s LEFTSCROLLBAR=%s LAYOUTRTL=%s',
         [BoolToStr((ExStyleUnderArabic and WS_EX_RTLREADING) <> 0, True),
          BoolToStr((ExStyleUnderArabic and WS_EX_LEFTSCROLLBAR) <> 0, True),

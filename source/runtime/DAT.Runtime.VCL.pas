@@ -90,10 +90,13 @@ type
 implementation
 
 uses
+  Winapi.Windows,
   System.SysUtils,
   System.StrUtils,
   System.TypInfo,
   Vcl.Graphics,
+  { For TMenuItemInfo and the menu API surface. }
+  Vcl.Menus,
   Vcl.StdCtrls;
 
 { Declared here because restoring a form needs it before it is defined: a grid
@@ -1030,6 +1033,80 @@ end;
   BiDiMode does not move child controls in any mode - also measured - so this
   neither duplicates nor fights the mirrored coordinates in the pack. }
 
+{ The menu bar reads in the language's direction, on any Windows.
+
+  VCL has exactly one path that mirrors a menu, TMenu.DoBiDiModeChanged, and
+  its first line is:
+
+    if (not SysLocale.MiddleEast) or (WindowHandle = 0) then Exit;
+
+  SysLocale.MiddleEast describes the machine, not the application. On a
+  Western Windows install it is False, so that method returns immediately and
+  the menu keeps its left-to-right item order however the form's BiDiMode is
+  set. Which would merely be a missing feature, except that the window is
+  mirrored anyway - so the bar is painted right-to-left over hit regions that
+  were never moved. The rightmost item reads File and opens Help.
+
+  That is the same defect as a grid whose headers mirror while its columns do
+  not: presentation reversed over structure that was not. Partial mirroring is
+  worse than none, because none is at least honest about which item is which.
+
+  A menu is also not a TControl, so the BiDiMode assigned across the control
+  tree never reached it to begin with - both halves of the problem had to be
+  fixed for either to matter.
+
+  Setting the flag directly is precisely what DoBiDiModeChanged would have
+  done had it not disqualified the machine. It lives on item zero and governs
+  the whole bar, and Windows derives both the painting and the hit regions
+  from it, which is what makes the two agree again. }
+procedure ApplyMenuReadingOrder(const AForm: TCustomForm;
+  const ARightToLeft: Boolean);
+const
+  BufferSize = 80;
+  { Vcl.Menus declares this, but in its implementation section, so it is
+    not importable. Restated rather than invented: the value is VCL's
+    own, and the two must agree or a menu VCL mirrored and one this unit
+    mirrored would disagree about what mirrored means. }
+  RightToLeftMenuFlag = MFT_RIGHTORDER or MFT_RIGHTJUSTIFY;
+var
+  MenuHandle: HMENU;
+  ItemInfo: TMenuItemInfo;
+  Buffer: array[0..BufferSize - 1] of Char;
+  Desired: UINT;
+begin
+  if (AForm = nil) or (AForm.Menu = nil) or (not AForm.HandleAllocated) then
+    Exit;
+  MenuHandle := AForm.Menu.Handle;
+  if (MenuHandle = 0) or (GetMenuItemCount(MenuHandle) <= 0) then
+    Exit;
+
+  FillChar(ItemInfo, SizeOf(ItemInfo), 0);
+  ItemInfo.cbSize := SizeOf(TMenuItemInfo);
+  ItemInfo.fMask := MIIM_TYPE;
+  ItemInfo.cch := BufferSize;
+  ItemInfo.dwTypeData := @Buffer[0];
+  if not GetMenuItemInfo(MenuHandle, 0, True, ItemInfo) then
+    Exit;
+
+  if ARightToLeft then
+    Desired := ItemInfo.fType or RightToLeftMenuFlag
+  else
+    Desired := ItemInfo.fType and not RightToLeftMenuFlag;
+  if Desired = ItemInfo.fType then
+    Exit;
+
+  { Only fType is being written. Handing back the buffer that GetMenuItemInfo
+    filled would rewrite item zero's caption as a side effect of changing a
+    layout flag, and on a menu whose captions were just translated that is a
+    good way to lose one. }
+  FillChar(ItemInfo, SizeOf(ItemInfo), 0);
+  ItemInfo.cbSize := SizeOf(TMenuItemInfo);
+  ItemInfo.fMask := MIIM_FTYPE;
+  ItemInfo.fType := Desired;
+  if SetMenuItemInfo(MenuHandle, 0, True, ItemInfo) then
+    DrawMenuBar(AForm.Handle);
+end;
+
 procedure ApplyReadingOrder(const AForm: TCustomForm;
   const APack: TRuntimeLanguagePack);
 var
@@ -1058,6 +1135,7 @@ begin
   AForm.BiDiMode := Mode;
   for Component in AForm do
     SetTree(Component);
+  ApplyMenuReadingOrder(AForm, Mode <> bdLeftToRight);
 end;
 
 procedure ApplyAutoSizeRulesFirst(const AForm: TCustomForm;
@@ -1193,6 +1271,16 @@ begin
     Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
     { Last of all, now that every control is the size it will really be. }
     ResolveSoftHyphensOnForm(AForm);
+    { And the menu once more, after the captions.
+
+      Writing a menu item's caption can rebuild the menu, and a rebuild
+      carries no reading order with it. Setting the direction first is
+      still right - it decides how anything rebuilt is built - but first
+      is not sufficient on its own, because the flag that survives a
+      rebuild is the one written after it. Doing both costs an early
+      exit when nothing changed. }
+    ApplyMenuReadingOrder(AForm,
+      SameText(Trim(APack.TextDirection), 'rtl'));
   finally
     if APreserveControlState and SavedFocusedState and
       (SavedFocusedControl <> nil) and SavedFocusedControl.CanFocus then

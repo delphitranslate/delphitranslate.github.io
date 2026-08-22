@@ -312,8 +312,22 @@ begin
       'Open forms did not reapply the selected language.');
     Require(Manager.Translate('Messages.Dynamic', 'fallback') =
       'Dynamic de-DE', 'Dynamic translation lookup failed.');
-    Require(Manager.CurrentFormatSettings.ShortDateFormat = 'dd.MM.yyyy',
-      'Locale format settings did not follow the active pack.');
+    { The pack asked for dd.MM.yyyy and does not get it.
+
+      A language is what someone reads; a date format is what their
+      country writes. Someone in Chicago reading an application in German
+      still wants the dates their calendar and their bank statement use,
+      and Windows already knows which those are. This asserts the machine
+      wins, which is the opposite of what it asserted before. }
+    Require(Manager.CurrentFormatSettings.ShortDateFormat =
+      TFormatSettings.Create.ShortDateFormat,
+      'Dates should follow the machine''s regional settings, not the pack.');
+    Require(Manager.CurrentFormatSettings.ShortDateFormat <> 'dd.MM.yyyy',
+      'The pack overrode the date format, which it must not do.');
+    { Numbers still travel with the pack - they describe the content
+      rather than the reader. }
+    Require(Manager.CurrentFormatSettings.DecimalSeparator = ',',
+      'Number formats should still follow the active pack.');
 
     InitialApplyCount := FirstForm.ApplyCount;
     MissingGeneration := Manager.Generation;
