@@ -118,6 +118,17 @@ type
       const AFormIdentity: string): Integer; virtual; abstract;
     procedure CollectOpenManagedObjects(
       const AObjects: TList<TObject>); virtual; abstract;
+    { The open forms, and the form this manager belongs to whether or not it
+      is open.
+
+      A splash screen is the case that needs it. It is created, shown, and
+      then sat on while the application loads, so it is often not on Screen
+      when a language is chosen and there is no message traffic to carry a
+      discovery hook. Applying to the open forms alone misses it in both
+      directions: the splash stays in the source language, and - worse - once
+      something does reach it, choosing the source language again never puts
+      it back. }
+    procedure CollectManagedObjects(const AObjects: TList<TObject>);
     procedure NotifyMissingTranslation(const AFormIdentity, AKey,
       AFallbackText: string);
     property Runtime: TTranslationRuntime read FRuntime;
@@ -364,6 +375,15 @@ begin
   Result := ApplyToManagedObjectInternal(AManagedObject, True);
 end;
 
+procedure TDATCustomLanguageManager.CollectManagedObjects(
+  const AObjects: TList<TObject>);
+begin
+  CollectOpenManagedObjects(AObjects);
+  if FAutoTranslateOwner and (Owner <> nil) and
+    SupportsManagedObject(Owner) and (AObjects.IndexOf(Owner) < 0) then
+    AObjects.Add(Owner);
+end;
+
 procedure TDATCustomLanguageManager.ApplyToOpenForms;
 var
   ManagedObject: TObject;
@@ -378,7 +398,7 @@ begin
       'ApplyToOpenForms cannot run during another application pass.');
   ManagedObjects := TList<TObject>.Create;
   try
-    CollectOpenManagedObjects(ManagedObjects);
+    CollectManagedObjects(ManagedObjects);
     for ManagedObject in ManagedObjects do
       ApplyToManagedObject(ManagedObject);
   finally
@@ -749,7 +769,7 @@ begin
       if FRuntime.ActivePack <> nil then
       begin
         ManagedObjects := TList<TObject>.Create;
-        CollectOpenManagedObjects(ManagedObjects);
+        CollectManagedObjects(ManagedObjects);
         for ManagedObject in ManagedObjects do
         begin
           InstanceName := ManagedObjectInstanceName(ManagedObject);
