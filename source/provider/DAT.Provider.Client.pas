@@ -62,6 +62,7 @@ uses
   System.Net.HttpClient,
   System.Net.URLClient,
   DAT.Provider.Batching,
+  DAT.Provider.CalendarTerms,
   DAT.Provider.LanguageCodes,
   DAT.Provider.Placeholders,
   DAT.Provider.Retry;
@@ -213,6 +214,7 @@ var
   Specifiers: TArray<TArray<string>>;
   Answers: TArray<string>;
   Restored: string;
+  Resolved: string;
   Index: Integer;
   Sent: Integer;
 begin
@@ -223,6 +225,17 @@ begin
 
   for Index := 0 to High(ATexts) do
   begin
+    { A day or month name is a closed set the operating system already
+      holds for every locale it supports. Sending one asks a service to
+      translate three letters with no context, and it answers with
+      whatever those letters mean as a word - which for several
+      languages is a verb rather than a day. }
+    if TCalendarTerms.TryResolve(ATexts[Index], ASourceLanguage,
+      ATargetLanguage, Resolved) then
+    begin
+      Result[Index] := Resolved;
+      Continue;
+    end;
     if TPlaceholderProtection.IsOnlyPlaceholders(ATexts[Index]) then
     begin
       Result[Index] := ATexts[Index];

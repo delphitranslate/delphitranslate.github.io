@@ -20,7 +20,8 @@ uses
   FMX.Types,
   DAT.Core.Types,
   DAT.Core.Glossary,
-  DAT.Review.Localization;
+  DAT.Review.Localization,
+  DAT.Review.ApplicationStrings;
 
 type
   TfrmLocalizationReview = class(TForm)
@@ -101,6 +102,7 @@ type
     FOutputDirectory: string;
     FGlossaryFileName: string;
     FProposalFileName: string;
+    FApplicationStringCount: Integer;
     FReviewFileName: string;
     FGlossarySuggestions: TObjectList<TGlossarySuggestion>;
     FGlossaryDirty: Boolean;
@@ -168,6 +170,16 @@ begin
   RunAudit;
   TLocalizationReviewer.GenerateReviewPackage(FReview, FReviewFileName,
     FProposalFileName);
+  { The strings a pack can never apply, named and located. Written
+    beside the review rather than left in the catalog for somebody to
+    notice, and said out loud here, because a gap nobody is told about
+    is indistinguishable from a defect. }
+  FApplicationStringCount := TApplicationOwnedStrings.WriteReport(
+    FCatalog, TPath.Combine(FOutputDirectory,
+    'application-owned-strings.md'));
+  if FApplicationStringCount > 0 then
+    lblStatus.Text := Format('%d string(s) are composed by the application and cannot be translated by the pack. See application-owned-strings.md beside this review.',
+      [FApplicationStringCount]);
   btnOpenPackage.Enabled := TFile.Exists(FReviewFileName);
 end;
 

@@ -24,6 +24,18 @@ type
     function AvailableLanguages: TObjectList<TLanguagePackDescriptor>;
     function LoadLanguage(const ALanguageCode: string): Boolean;
     function LoadPreferredLanguage: Boolean;
+    { Whether this user has ever chosen a language in this application.
+      False on a first run, which is the only time the operating
+      system's own language is worth consulting - after that, what the
+      user chose outranks what the machine is set to. }
+    function HasStoredPreference: Boolean;
+    { The language the machine is set to, as a locale name, or an empty
+      string where the platform cannot say. }
+    class function SystemLanguageCode: string; static;
+    { Loads the pack that best matches the machine's language: an exact
+      locale match first, then any pack sharing its language. False when
+      no pack matches, which leaves the caller to fall back. }
+    function LoadLanguageForSystem: Boolean;
     function Translate(const AKey, AFallbackText: string): string;
     function TranslateDynamicText(const ASourceText: string): string;
     function TranslateHtmlText(const AHtmlText: string): string;
@@ -36,6 +48,9 @@ type
 implementation
 
 uses
+{$IFDEF MSWINDOWS}
+  Winapi.Windows,
+{$ENDIF}
   System.Classes,
   System.IOUtils,
   System.StrUtils,
@@ -106,6 +121,67 @@ begin
   finally
     NewPack.Free;
   end;
+end;
+
+function TTranslationRuntime.HasStoredPreference: Boolean;
+begin
+  Result := TFile.Exists(FPreferenceFileName);
+end;
+
+class function TTranslationRuntime.SystemLanguageCode: string;
+{$IFDEF MSWINDOWS}
+var
+  Buffer: array [0 .. 85] of Char;
+  Count: Integer;
+begin
+  Result := '';
+  Count := GetUserDefaultLocaleName(@Buffer[0], Length(Buffer));
+  { The count includes the terminating null. }
+  if Count > 1 then
+    SetString(Result, PChar(@Buffer[0]), Count - 1);
+end;
+{$ELSE}
+begin
+  { Nothing to ask on a platform this runtime has not been taught about.
+    An empty answer means the caller keeps its existing behavior. }
+  Result := '';
+end;
+{$ENDIF}
+
+function TTranslationRuntime.LoadLanguageForSystem: Boolean;
+var
+  Wanted: string;
+  WantedLanguage: string;
+  Packs: TObjectList<TLanguagePackDescriptor>;
+  Pack: TLanguagePackDescriptor;
+  Fallback: string;
+begin
+  Result := False;
+  Wanted := Trim(SystemLanguageCode);
+  if Wanted = '' then
+    Exit;
+  WantedLanguage := Wanted;
+  if Pos('-', WantedLanguage) > 0 then
+    WantedLanguage := Copy(WantedLanguage, 1, Pos('-', WantedLanguage) - 1);
+  Fallback := '';
+  Packs := AvailableLanguages;
+  try
+    for Pack in Packs do
+    begin
+      if SameText(Pack.LanguageCode, Wanted) then
+        Exit(LoadLanguage(Pack.LanguageCode));
+      { A machine set to one region of a language should still get that
+        language where only another region was translated. }
+      if (Fallback = '') and
+        (SameText(Pack.LanguageCode, WantedLanguage) or
+         StartsText(WantedLanguage + '-', Pack.LanguageCode)) then
+        Fallback := Pack.LanguageCode;
+    end;
+  finally
+    Packs.Free;
+  end;
+  if Fallback <> '' then
+    Result := LoadLanguage(Fallback);
 end;
 
 function TTranslationRuntime.LoadPreferredLanguage: Boolean;

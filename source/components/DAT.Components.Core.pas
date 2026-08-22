@@ -46,6 +46,7 @@ type
     FSourceLanguage: string;
     FActiveLanguage: string;
     FAutoLoadPreferred: Boolean;
+    FFirstRunUsesSystemLanguage: Boolean;
     FAutoTranslateOwner: Boolean;
     FAutoTranslateNewForms: Boolean;
     FReapplyOpenForms: Boolean;
@@ -156,6 +157,16 @@ type
       write SetSourceLanguage;
     property AutoLoadPreferred: Boolean read FAutoLoadPreferred
       write FAutoLoadPreferred default True;
+    { On the very first run, before this user has ever chosen a language,
+      start in the language the machine is set to rather than in the
+      source language. A user who installs the application in a country
+      whose language was translated should not have to find the language
+      menu to see it. Applies only when there is no stored preference and
+      only when a pack for that language was actually shipped; otherwise
+      the source language is used exactly as before. }
+    property FirstRunUsesSystemLanguage: Boolean
+      read FFirstRunUsesSystemLanguage write FFirstRunUsesSystemLanguage
+      default True;
     property AutoTranslateOwner: Boolean read FAutoTranslateOwner
       write FAutoTranslateOwner default True;
     property AutoTranslateNewForms: Boolean read FAutoTranslateNewForms
@@ -228,6 +239,7 @@ begin
   FSourceLanguage := 'en-US';
   FPreferenceFileName := 'language.ini';
   FAutoLoadPreferred := True;
+  FFirstRunUsesSystemLanguage := True;
   FAutoTranslateOwner := True;
   FAutoTranslateNewForms := True;
   FReapplyOpenForms := True;
@@ -451,10 +463,18 @@ begin
     try
       FRuntime := TTranslationRuntime.Create(FApplicationId,
         ResolveLanguagesDirectory, ResolvePreferencePath, FSourceLanguage);
-      if FAutoLoadPreferred then
-        LoadedLanguage := FRuntime.LoadPreferredLanguage
-      else
-        LoadedLanguage := FRuntime.LoadLanguage(FSourceLanguage);
+      LoadedLanguage := False;
+      { The machine's own language is consulted once, on a first run, and
+        only if it was actually translated. A stored preference always
+        wins: it is what this user chose. }
+      if FAutoLoadPreferred and FFirstRunUsesSystemLanguage and
+        not FRuntime.HasStoredPreference then
+        LoadedLanguage := FRuntime.LoadLanguageForSystem;
+      if not LoadedLanguage then
+        if FAutoLoadPreferred then
+          LoadedLanguage := FRuntime.LoadPreferredLanguage
+        else
+          LoadedLanguage := FRuntime.LoadLanguage(FSourceLanguage);
       if not LoadedLanguage then
         LoadedLanguage := FRuntime.LoadLanguage(FSourceLanguage);
       if not LoadedLanguage then

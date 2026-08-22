@@ -281,6 +281,7 @@
         <DCCReference Include="source\core\DAT.Core.RuntimePack.pas"/>
         <DCCReference Include="source\core\DAT.Core.Terminology.pas"/>
         <DCCReference Include="source\core\DAT.Core.Glossary.pas"/>
+        <DCCReference Include="source\review\DAT.Review.ApplicationStrings.pas"/>
         <DCCReference Include="source\review\DAT.Review.CodeGeometry.pas"/>
         <DCCReference Include="source\review\DAT.Review.Localization.pas"/>
         <DCCReference Include="source\scan\DAT.Scan.Types.pas"/>
@@ -304,6 +305,7 @@
         <DCCReference Include="source\provider\DAT.Provider.Settings.pas"/>
         <DCCReference Include="source\provider\DAT.Provider.CredentialStore.pas"/>
         <DCCReference Include="source\provider\DAT.Provider.Client.pas"/>
+        <DCCReference Include="source\provider\DAT.Provider.CalendarTerms.pas"/>
         <DCCReference Include="source\studio\DAT.Studio.Translation.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>

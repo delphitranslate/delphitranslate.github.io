@@ -118,7 +118,6 @@ var
   PropertyName: string;
   At: Integer;
   Assignment: Integer;
-  Name_: string;
 
   procedure Note(const AName: string);
   begin

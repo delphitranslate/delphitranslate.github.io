@@ -537,7 +537,7 @@ object frmSetupWizard: TfrmSetupWizard
             object cboTargetLanguage: TComboBox
               Position.X = 370.000000000000000000
               Position.Y = 160.000000000000000000
-              Size.Width = 368.000000000000000000
+              Size.Width = 308.000000000000000000
               Size.Height = 42.000000000000000000
               Size.PlatformDefault = False
               Items.Strings = (
