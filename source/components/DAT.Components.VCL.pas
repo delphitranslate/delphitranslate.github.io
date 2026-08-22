@@ -57,6 +57,14 @@ uses
   System.SysUtils,
   Winapi.Windows,
   DAT.Runtime.SplashTranslation,
+  { Named so it is linked at all.
+
+    Its work happens in its initialization section, and a unit no other
+    unit uses is a unit the linker leaves out - so copying it into the
+    component kit was not enough to make it run. It was reached only by
+    its own harness, which lists it explicitly, so every test passed while
+    no real application ever installed the hook. }
+  DAT.Runtime.SplashTranslation.VCL,
   DAT.Runtime.VCL;
 
 constructor TDATVCLLanguageManager.Create(AOwner: TComponent);

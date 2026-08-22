@@ -150,6 +150,35 @@ else {
 }
 
 Write-Output ''
+
+# --- and nothing shipped is unreachable ------------------------------------
+# The mirror image of the check above, and it has now cost a test cycle too.
+#
+# A unit was added under source\runtime whose entire job happens in its
+# initialization section. It was added to the package, added to the kit, and
+# referenced by nothing. The linker drops a unit no other unit uses, so it was
+# never in any application - while every harness passed, because a harness
+# names the unit it is testing in its own uses clause.
+#
+# "Shipped" and "reachable" are different questions. This asks the second one:
+# starting from the units an application actually names, is every unit we ship
+# arrived at? One that is not is either dead weight or, worse, code someone
+# believes is running.
+$roots = @('DAT.Components.Core', 'DAT.Components.VCL', 'DAT.Components.FMX',
+  'DAT.Components.VCL.LanguageSelector', 'DAT.Components.FMX.LanguageSelector')
+$reachable = Get-Closure $roots
+$unreachable = @($kitUnits | Where-Object {
+    $reachable -notcontains $_ -and $roots -notcontains $_ })
+if ($unreachable.Count -eq 0) {
+  Pass 'Every unit the kit ships is reachable from the units an application names.'
+}
+else {
+  foreach ($name in $unreachable) {
+    Fail ("{0} is shipped but nothing references it, so the linker will drop it and its initialization will never run." -f $name)
+  }
+}
+
+Write-Output ''
 if ($failures -eq 0) { Write-Output 'RESULT: pass'; exit 0 }
 Write-Output "RESULT: fail ($failures)"
 exit 1
