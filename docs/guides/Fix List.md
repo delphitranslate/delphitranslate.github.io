@@ -27,10 +27,9 @@ The original finding:
 | Close | يغلق | "he closes" |
 | Play | يلعب | "he plays" - a game |
 | Stop | قف | "stand!" |
-| Play Schedule | جدول المباريات | "fixture list", as in sport |
 
 The domain profile settles which *sense* a word carries and does that
-correctly - the liturgical and email screens read well. What it does not carry
+correctly - the screens it was tried on read well. What it does not carry
 is that a button caption is an imperative and a menu item is a noun. The
 control class is already known for every string, so this is a matter of saying
 so in the context sentence rather than of new machinery.
@@ -168,10 +167,10 @@ recreated when its `BiDiMode` changes, and the maximised state is a property of
 the window rather than of anything the applicator restores. Worth re-testing
 once the reading order is applied before the text rather than after.
 
-### Label layout on the random-directory screen
+### Label layout on a screen of paragraphs and numbered rows
 
 Reported 20 August against the Italian run. The instruction paragraphs and the
-numbered directory rows read as loose and unevenly spaced; the layout can be
+numbered rows beneath them read as loose and unevenly spaced; the layout can be
 better than the planner currently makes it. No specific defect identified yet -
 this is a quality judgement rather than a rule that was broken.
 
@@ -180,8 +179,8 @@ this is a quality judgement rather than a rule that was broken.
 ### A row at a fixed pitch cannot grow, so its last members are squeezed
 
 Reported 20 August against Vietnamese, whose day abbreviations are longer than
-the English Mon, Tue, Wed. On Carillon's "Play on the following days" the seven
-days are seven check boxes each with a separate label, laid out at a fixed
+the English Mon, Tue, Wed. On a seven-day schedule row the days are seven
+check boxes each with a separate label, laid out at a fixed
 pitch: Lefts 78, 158, 236, 318, 398, 462 and 534, gaps of 80, 78, 82, 80, 64
 and 72.
 
@@ -207,13 +206,13 @@ There is already a pass that recognises an evenly pitched row of captions and
 *preserves* the pitch. What is missing is letting the pitch itself grow when
 the contents demand it and the parent has the room.
 
-This is the general case of the cramped system-volume label below, which is the
+This is the general case of the cramped caption below, which is the
 same thing with two controls instead of fourteen.
 
-### The system-volume label is cramped
+### A caption beside a slider is cramped
 
-Reported 20 August against the Spanish run: "Volumen del sistema:" crowds the
-slider beside it. A caption that grew has taken room the control next to it
+Reported 20 August against the Spanish run: a caption that grew in
+translation crowds the slider beside it. A caption that grew has taken room the control next to it
 needed, or the pair were never treated as a row.
 
 ---

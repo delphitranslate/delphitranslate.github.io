@@ -28,11 +28,22 @@ unit DAT.Provider.Glossary;
   glossary and is still applied locally by the terminology resolver, which was
   the only mechanism before this one existed.
 
-  The HTTP in this unit follows DeepL's published glossary API and has not been
-  exercised against a live service, because that needs a paid key. The parts
-  that decide *what* is sent are covered by tests and are the parts most likely
-  to be wrong. Every call fails soft: a glossary that cannot be created leaves
-  the run to translate without one, which is what it did before. }
+  **What is here, and what is not.** This unit decides what may be sent. It
+  contains no HTTP at all: nothing here creates, replaces, or deletes a
+  glossary on the service, and nothing calls it. TTranslationProviderClient
+  has a GlossaryId property and sends glossary_id with a DeepL request when it
+  is set - but nothing in the product sets it yet, so today that property is
+  always empty and every request goes without a glossary.
+
+  The two ends are therefore built and not joined. Finishing it needs a POST
+  to /v2/glossaries carrying the tab-separated form below, somewhere to keep
+  the identifier it returns, a DELETE when the terms change, and a caller in
+  the Studio that sets GlossaryId from it. That work is deliberately not done
+  here rather than half-done: it cannot be exercised without a paid key, and
+  network code that has never once run is a liability rather than a feature.
+
+  What this unit does do is the part most likely to be wrong, and it is
+  covered by ProviderGlossarySmokeTests. }
 
 interface
 

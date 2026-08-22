@@ -44,8 +44,10 @@ type
       const ADeepLPlan: TDeepLPlan; const AApiKey: string;
       const ATimeoutSeconds, ABatchSize: Integer);
     { The identifier of a glossary already created on the service, or an
-      empty string. Set by the caller that created it; the client itself
-      neither creates nor deletes one. }
+      empty string. The client neither creates nor deletes one, and
+      nothing in the product sets this yet, so it is empty in every run
+      today and glossary_id is not sent. See DAT.Provider.Glossary for
+      what is built and what is still missing. }
     property GlossaryId: string read FGlossaryId write FGlossaryId;
     function Translate(const ATexts: TArray<string>;
       const ASourceLanguage, ATargetLanguage: string;
