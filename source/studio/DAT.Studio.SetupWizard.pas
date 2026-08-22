@@ -241,6 +241,7 @@ uses
   DAT.Core.Hyphenation,
   DAT.Scan.DomainProfile,
   DAT.Core.SharedDictionary,
+  DAT.Core.TranslationMemory,
   DAT.Core.ProjectDetection,
   DAT.Core.RuntimePack,
   DAT.Core.Terminology,
@@ -1597,6 +1598,8 @@ end;
 
 procedure TfrmSetupWizard.ExecuteFinalProcessing;
 var
+  SharedMemory: TTranslationMemory;
+  MemoryCount: Integer;
   ApiKey: string;
   BackupDirectory: string;
   Client: TTranslationProviderClient;
@@ -1739,6 +1742,33 @@ begin
       Glossary.Free;
     end;
     TTerminologyResolver.ApplyAuthoritativeTerms(FCatalog);
+
+    { Segments already settled while translating another application. This
+      runs before anything is counted as missing, so a string translated once
+      is neither paid for a second time nor given a second, different
+      wording. Only exact matches are applied; a near match is a suggestion
+      for a human and is deliberately not used here. }
+    SharedMemory := TTranslationMemory.Load(FCatalog.Locale.LanguageCode);
+    try
+      MemoryCount := SharedMemory.ApplyToCatalog(FCatalog);
+      if MemoryCount > 0 then
+        AddProgress(Format(
+          '%d entry(ies) reused from the shared %s translation memory.',
+          [MemoryCount, FCatalog.Locale.LanguageCode]));
+      { And what this project has already had reviewed goes back the other
+        way, so the next application starts from it. }
+      MemoryCount := SharedMemory.RememberCatalog(FCatalog,
+        FormatDateTime('yyyy-mm-dd', Now));
+      if MemoryCount > 0 then
+      begin
+        SharedMemory.Save;
+        AddProgress(Format(
+          '%d reviewed entry(ies) contributed to the shared %s memory.',
+          [MemoryCount, FCatalog.Locale.LanguageCode]));
+      end;
+    finally
+      SharedMemory.Free;
+    end;
     MissingCount := 0;
     for Entry in FCatalog.Entries do
       if TranslationEntryEligibleForAutomaticTranslation(Entry) and
