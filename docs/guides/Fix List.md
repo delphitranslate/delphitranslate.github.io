@@ -4,7 +4,7 @@ Known defects and unfinished work, newest first. Items are removed when fixed,
 not struck through. Anything here is deliberately *not* being worked on right
 now; the point of the list is that nothing has to be remembered.
 
-Last changed: August 21, 2026 (evening)
+Last changed: August 22, 2026
 
 ---
 
@@ -220,135 +220,9 @@ needed, or the pair were never treated as a row.
 
 ## Wanted
 
-### Work the competitive analysis into the development plan
-
-`C:\Downloads\Delphi Localization Tools Competitive Analysis.docx`, 20 August
-2026. A read-only survey of the thirteen live products in this market, their
-prices, and where this one stands against them.
-
-It should be read properly and turned into an ordered plan rather than left as
-a document. Its own conclusions, and the ones worth arguing with:
-
-- **Translation memory is the largest gap.** Every commercial rival has it and
-  the strongest free one has it too. It is listed separately below and should
-  be first.
-- Price band for what exists today is $189-$499; the layout work is the
-  argument for the upper end.
-- Two former market leaders, Sisulizer and Multilizer, have closed. A
-  documented import path for their project files is a direct acquisition
-  channel that one competitor already exploits.
-- The report was written from the README and therefore misses three things
-  this product now does that nothing else in the field does: automatic
-  per-string translation context, automatic right-to-left mirroring on both
-  frameworks, and format-specifier protection. The README should say so.
-- Two of its concessions deserve testing before they are accepted. "No
-  C++Builder" - the scanner reads the same `.dfm` and `.fmx` files, so the
-  reach may be much closer than assumed. "Windows only" - the Studio is, but
-  the FireMonkey runtime may not be, and that is a materially stronger claim
-  if it holds.
-
-### Add several languages in one pass, without a person driving it
-
-Adding a language today means a whole wizard run: scan, translate, review,
-export, deploy. Shipping ten common languages means doing that ten times, and
-most of it is wasted - **the scan is language-independent.** Reading the forms,
-working out what is translatable, building the domain profile and resolving
-word senses do not change between Spanish and Swedish, yet they are paid for
-every time.
-
-What differs per language is small and already exists as library calls: build
-the catalog from the scan, translate, validate, run the layout review, export
-the pack. A batch runner would be orchestration rather than new capability.
-
-Cost is not the obstacle. Carillon is about 6,500 billable characters per
-language, so ten languages is roughly 65,000 - about six per cent of DeepL's
-one-time Developer credit, with re-runs free because a translated string is
-never sent twice. Time is the real cost: a few hundred requests per language,
-so ten is perhaps half an hour unattended.
-
-**The obstacle is that batching hides per-language quality.** The validator
-catches structural damage - it is what stopped the Arabic run when format
-specifiers were eaten - but nothing structural was wrong with a Help menu
-reading "he helps". Ten packs produced unattended may contain that class of
-error and look perfectly healthy.
-
-So it should stop on a language that fails validation, carry on with the rest,
-and end with a per-language summary naming whatever needs a person's eye -
-rather than reporting silent success.
-
-Worth building as a **headless command-line runner** rather than another wizard
-page. That also closes a gap the competitive analysis names: every serious
-rival ships a CLI for build servers and this does not. Two gaps, one piece of
-work.
-
-### Translation memory
-
-Nothing remembers a translation across applications. The shared per-language
-dictionaries carry approved *terms*, which is not the same thing: a term is a
-word, and a memory is a sentence with the wording that was settled for it.
-
-Every application translated adds to what the product knows, and at present
-almost all of it is thrown away. A memory would mean the second application in
-a language costs less than the first, the tenth costs very little, and the
-wording a developer approved once never has to be approved again. It also
-makes the product better the longer it is used, which no amount of engineering
-does on its own.
-
-Worth deciding early: whether a memory is per developer, per language, or
-shareable between installations, and whether an exact match is applied
-silently or offered for review.
-
-### Repositioning at run time, and remembering it
-
-A developer should be able to move and resize the controls on a translated
-form while the application is running, see the result immediately, and have
-those adjustments remembered - **without the original project's source, forms
-or resources being touched**, which is the standing rule the whole product is
-built on.
-
-The pieces already exist. The runtime applies `Left`, `Top`, `Width`,
-`Height`, alignment and the rest from a pack it reads at startup; the
-applicator can already put a form back exactly as it was drawn. What is
-missing is a way to capture a change made by hand and write it back into the
-pack as an accepted layout decision, so it survives the next run and the next
-scan.
-
-This is the natural answer to the cases the planner cannot judge: a splash
-screen, a form where text sits over artwork, a layout somebody simply prefers
-differently. The planner proposes; a person adjusts; the adjustment is kept.
-
-Design questions worth settling before any code: how the mode is entered and
-left, whether it is available in a shipped application or only in a build the
-developer runs, how an adjustment is attributed to a language, and what
-happens to it when the text later changes.
-
-### Buying back the speed lost to per-string context
-
-Giving each string its own context turned about six requests per run into
-about 297. It is correct, it is paid once per language, and since the retry
-work it is slow rather than fatal - but a DeepL run of a Carillon-sized
-application now takes minutes where it took seconds.
-
-Two ways out, either of which would recover most of it:
-
-- **Send several requests at once.** DeepL permits concurrency; a handful in
-  flight cuts wall-clock time roughly in proportion, with no change in cost or
-  in what is sent.
-- **Give individual context only to short strings.** Precision matters for
-  Help, Close, Play, Wed - a forty-word sentence is its own context and gains
-  nothing from being isolated. Long strings could batch as they used to.
-
-Neither is built. Both are cheap.
-
-### DeepL server-side glossaries
-
-DeepL can hold a glossary on its side and enforce it during translation, which
-is stronger than sending terminology as context and hoping. The shared
-per-language dictionaries this product already keeps are the obvious source
-for one. Worth doing after the per-string context work has been measured, so
-the two are not confused with one another.
-
----
+Everything that was here is done. What comes next is ordered in
+`Development Plan.md`, which is built from the competitive analysis
+rather than from this list.
 
 ## Not yet verified
 
@@ -389,37 +263,3 @@ cannot come back quietly, and each one cost a real debugging session to learn.
 
 ---
 
-## Splash screens
-
-Splash text and labels are not translated. Requested 20 August 2026.
-
-Three separate cases, and only the first is straightforward:
-
-1. **A form-based splash with real labels.** Dropping the language manager on
-   the splash form should be enough - `Loaded` fires when the form is
-   constructed, and `Initialize` reads the language preference from disk with
-   no dependence on the main form or on `Application.Run`. What is not yet
-   proved is whether the applicator ever *fires* for such a form: a splash is
-   usually shown and then blocked on, so `OnIdle` may never run and a
-   borderless window may never raise an active-form change. If it does not,
-   applying to the owner form at the end of `Initialize` is the fix, and it
-   belongs in the shared core rather than in either adapter. FireMonkey
-   already has the right hook in `TFormBeforeShownMessage`; the VCL has
-   nothing equivalent.
-
-2. **Text drawn onto the splash at run time** with `Canvas.TextOut`. Not
-   harvested by the scanner since 14 August, deliberately, because such calls
-   are usually data.
-
-3. **Text baked into the splash bitmap.** Cannot be translated at all - there
-   is nothing to scan, and the target application's resources are read-only by
-   standing rule. The honest handling is to detect it and say so: a form with
-   a full-size image and no translatable captions probably has its words in
-   the picture.
-
-Carillon's own splash is `CarillonSplash.dfm`, root object `Form1`, and the
-catalog holds four entries for it.
-
-A related risk is listed above under *Behaviour*: the settling pass can widen
-and re-level controls on a form where text sits over artwork, which is exactly
-what a splash is.
