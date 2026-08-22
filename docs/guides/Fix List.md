@@ -270,6 +270,48 @@ small piece of work and nobody has done it.
 
 ---
 
+## The standing rule: verify before handing back
+
+Added 22 August, after a wasted test cycle.
+
+A runtime unit was added, the source was rebuilt, and the packages were not.
+The Studio was current, the source was current, and the BPLs the Wizard
+actually loads were a week old - in three different folders, all disagreeing.
+A Wizard run then failed inside a customer-side build, reporting only
+"exit code 1", because the build threw its own error text away.
+
+**One command answers all of it:**
+
+    powershell -ExecutionPolicy Bypass -File tools\verify_all.ps1
+
+It builds the packages for both platforms and both configurations, the Studio,
+the batch runner and the contract harnesses, then runs every suite, then the
+two guards below. Passing means the source, the binaries and the tests agree
+with one another, which is the only state in which handing work back is
+honest.
+
+Two guards make the specific failure impossible to repeat:
+
+- `check_shipped_units_complete.ps1` reads the uses clauses of every unit the
+  component kit copies and every unit the packages contain, and fails if any
+  of them references a DAT unit that is not shipped with it. Verified against
+  the real defect: put back exactly the omission that caused it and the guard
+  names both the kit and the package, and says what to add.
+- `check_artifacts_current.ps1` refuses any compiled artifact older than the
+  source it carries. This is the guard the contract runner has always had -
+  a stale harness is rejected because a result describing code you are no
+  longer running is worse than no result - applied to the packages, the
+  Studio, the batch runner and the harnesses. Each is compared against the
+  source it actually compiles rather than the whole tree, because a guard
+  that cries wolf gets ignored.
+
+Running the whole thing also found three harnesses that had not been run in
+any recent pass: two resolved their fixtures from the working directory and
+one did not build for a missing search path. A harness that never builds is
+a harness nobody notices is missing.
+
+---
+
 ## Nothing waiting to be stripped before release
 
 The eight probes written while chasing these defects - BiDiProbe, FlipProbe,
