@@ -3849,6 +3849,52 @@ begin
       Min(Control.PlannedHeight, Ceil(SettleHeight)));
   end;
 
+  { Phase 3d2 - a row of buttons keeps one text size, after the fitting is
+    done.
+
+    The row is levelled as a set early on, and everything after that treats
+    each button on its own: the loop above fits each caption to its own box and
+    stops as soon as that one caption fits. Two buttons drawn as a pair, with
+    translations of different lengths, therefore stop at different points. The
+    German settings page shipped Speichern at 9.35 beside Schliessen at 9.44 -
+    close enough that nobody could say what was wrong with it, far enough that
+    the pair no longer looked drawn together.
+
+    Sizes are only ever brought down to the smallest the row already settled
+    on. Raising one to meet its neighbour would put back the overflow the
+    fitting loop just removed, and the smallest member is by definition the one
+    with the least room to give. }
+  RowSettled := TList<TLayoutControl>.Create;
+  try
+    for Control in AReview.Controls do
+    begin
+      if not IsButtonLike(Control) or (RowSettled.IndexOf(Control) >= 0) then
+        Continue;
+      Cluster := CollectButtonRow(Control);
+      try
+        if Cluster.Count < 2 then
+          Continue;
+        UniformFont := 0;
+        for Other in Cluster do
+        begin
+          RowSettled.Add(Other);
+          SetFont := Other.PlannedFontSize;
+          if SetFont <= 0 then
+            SetFont := Max(Other.FontSize, 9);
+          if (UniformFont = 0) or (SetFont < UniformFont) then
+            UniformFont := SetFont;
+        end;
+        for Other in Cluster do
+          if UniformFont < Other.PlannedFontSize then
+            Other.PlannedFontSize := UniformFont;
+      finally
+        Cluster.Free;
+      end;
+    end;
+  finally
+    RowSettled.Free;
+  end;
+
   { Text that wraps is given the width the wrap uses, and no more.
 
     A box wider than the text needs does not look generous, it looks ragged:

@@ -1,0 +1,24 @@
+{
+  "description": "Two buttons drawn as a pair, side by side at the same size, whose translations are not the same length. Each fitted on its own settles at a slightly different point size - the German settings page shipped 9.35 beside 9.44 - and a pair of buttons at almost but not quite the same size reads as a mistake rather than as a decision. The row is sized as a set early on; nothing put the sizes back together after the later passes had fitted each button's own caption.",
+  "catalog_file": "vcl_38_a_button_pair_shares_one_text_size.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "btnSave",
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "btnClose",
+      "text_fits": true
+    }
+  ],
+  "uniform_font_group": [
+    "btnSave",
+    "btnClose"
+  ],
+  "uniform_width_group": [
+    "btnSave",
+    "btnClose"
+  ]
+}

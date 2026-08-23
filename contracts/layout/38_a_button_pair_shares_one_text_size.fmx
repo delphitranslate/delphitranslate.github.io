@@ -1,0 +1,27 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 200
+  ClientWidth = 420
+  object btnSave: TButton
+    StyledSettings = []
+    Position.X = 60.000000000000000000
+    Position.Y = 120.000000000000000000
+    Size.Width = 90.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 11.000000000000000000
+    Text = 'Save'
+  end
+  object btnClose: TButton
+    StyledSettings = []
+    Position.X = 160.000000000000000000
+    Position.Y = 120.000000000000000000
+    Size.Width = 90.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 11.000000000000000000
+    Text = 'Close'
+  end
+end
