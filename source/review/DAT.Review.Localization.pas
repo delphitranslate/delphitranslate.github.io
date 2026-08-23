@@ -1080,9 +1080,10 @@ const
   { Gap kept between a caption and the frame the designer drew around it. }
   ContainerInset = 4;
 
-  { How much a caption and the field it names may touch before it counts as
-    one standing on the other. }
+  { How far a caption and the field it names may overlap before one counts
+    as standing on the other rather than merely touching it. }
   PairingContact = 2;
+
   { Room a tick box or radio dot takes from the caption beside it. }
   TickBoxAllowance = 22;
   { A frame may grow this much to hold its own children, and no more. Beyond it
@@ -1792,9 +1793,13 @@ var
         pairing - which is the Arabic day name found underneath its tick box,
         and the caption laid across the edit beside it on the funeral page.
         Touching is forgiven; standing on it is not. }
-      if IsInputControl(Candidate) or
+      if (IsInputControl(Candidate) or
         ContainsText(Candidate.ComponentClassName, 'CheckBox') or
-        ContainsText(Candidate.ComponentClassName, 'RadioButton') then
+        ContainsText(Candidate.ComponentClassName, 'RadioButton')) and
+        not Overlaps(AControl.PlannedLeft + PairingContact,
+          AControl.PlannedTop + PairingContact,
+          AControl.PlannedWidth - 2 * PairingContact,
+          AControl.PlannedHeight - 2 * PairingContact, Candidate) then
         Continue;
       if not Overlaps(AControl.PlannedLeft, AControl.PlannedTop,
         AControl.PlannedWidth, AControl.PlannedHeight, Candidate) then
@@ -2464,6 +2469,59 @@ begin
     Control.PlannedFontSize := Control.FontSize;
   end;
 
+  { Phase 1b - a caption takes the free margin beside it while the form is
+    still exactly as it was drawn.
+
+    This decision used to be made inside the sizing loop below, one control at
+    a time, and it asked two questions about the neighbourhood - how much room
+    is on my left, how much on my right. By then some of those neighbours had
+    already been through the loop and some had not, so the answers depended on
+    where the control happened to sit in the list.
+
+    That is not a theoretical worry. A caption and the button beside it on the
+    funeral page both wanted the same eighty-one pixels between them. On
+    FireMonkey the button was reached first, widened, and the caption then read
+    its left as fully occupied; on VCL the caption was reached first, slid into
+    the gap, and the button was the one that had to give and take a second line
+    instead. Same form, same arithmetic, opposite outcomes - decided by
+    declaration order in the .fmx file. Every attempt to fix that inside the
+    passes themselves moved the fault somewhere else, because a pass cannot
+    reason about a neighbour that is halfway through being resized.
+
+    Run first, the question has one answer. Nothing has been resized yet, so
+    every neighbour is at its designed geometry, which is the one state on
+    which both frameworks agree and which no later pass can have disturbed.
+
+    Only captions, and only leftwards. A button is not a caption: it has no
+    field to its right that it is naming, so sliding it towards one moves it
+    away from the thing it was drawn against and buys nothing. Two buttons
+    drawn as a pair against a shared right edge on the settings page were once
+    carried a hundred and twenty six and a hundred and forty two pixels to the
+    left margin by this, arriving ragged and attached to nothing, while the
+    space they left behind went unused. }
+  for Control in AReview.Controls do
+  begin
+    if (Control.TranslatedText = '') or not Control.HasSize or
+      not Control.HasPosition or (Control.Width <= 0) then
+      Continue;
+    if IsRightAligned(Control) or IsCentreAligned(Control) or
+      IsParagraphWidth(Control) or IsButtonLike(Control) or
+      IsInputControl(Control) then
+      Continue;
+    RequiredWidth := TextWidthEstimate(Control);
+    if Control.AutoSize then
+      RequiredWidth := RequiredWidth * MeasurementSafety;
+    { Nothing to solve unless the translation has outgrown the box. }
+    if RequiredWidth <= Control.Width then
+      Continue;
+    if RequiredWidth <= SpaceToRight(Control) then
+      Continue;
+    LeftRoom := SpaceToLeft(Control);
+    ShiftedLeft := Min(LeftRoom, RequiredWidth - SpaceToRight(Control));
+    if ShiftedLeft > 2 then
+      Control.PlannedLeft := Max(0, Control.PlannedLeft - ShiftedLeft);
+  end;
+
   { Phase 2 - size each control against its measured translated text, writing
     the outcome back into the planned geometry. }
   for Control in AReview.Controls do
@@ -2501,29 +2559,9 @@ begin
         2. If that needs an uncomfortable number of lines, reduce the font a
            little so it fits in fewer. This changes no geometry at all.
         3. Only when neither is enough, widen the control. }
-      { A caption sitting immediately left of the field it labels has almost no
-        room on its right, but forms usually leave a margin on the far left
-        that nothing occupies. Sliding the caption back into that margin buys
-        the width it needs and leaves every field exactly where it was drawn,
-        which is better than wrapping the caption or shrinking its text. }
-      { Captions only. A button is not a caption: it has no field to its right
-        that it is naming, so sliding it towards one moves it away from the
-        thing it was drawn against and buys nothing. Two buttons drawn as a
-        pair against a shared right edge on the settings page were carried a
-        hundred and twenty six and a hundred and forty two pixels to the left
-        margin by this, arriving ragged and attached to nothing, while the
-        space they left behind went unused. A button whose text has outgrown it
-        wraps or takes a smaller size, as the passes below arrange. }
-      if Control.HasPosition and not IsRightAligned(Control) and
-        not IsCentreAligned(Control) and not IsParagraphWidth(Control) and
-        not IsButtonLike(Control) and not IsInputControl(Control) and
-        (RequiredWidth > SpaceToRight(Control)) then
-      begin
-        LeftRoom := SpaceToLeft(Control);
-        ShiftedLeft := Min(LeftRoom, RequiredWidth - SpaceToRight(Control));
-        if ShiftedLeft > 2 then
-          Control.PlannedLeft := Max(0, Control.PlannedLeft - ShiftedLeft);
-      end;
+      { Sliding a caption into the free margin beside it is the first of these
+        and it is not done here - it is done in phase 1b, before anything on
+        the form has been resized. See the note there. }
       { Widening only costs something when there is something beside the
         control to disturb. A heading alone on its row has empty space either
         side, and taking that space changes nothing else on the form, whereas

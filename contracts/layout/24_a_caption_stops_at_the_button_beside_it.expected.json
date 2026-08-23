@@ -14,12 +14,5 @@
       "text_fits": true,
       "planned_right_at_most": 267
     }
-  ],
-  "known_overlaps": [
-    {
-      "a": "lblTimes",
-      "b": "edtStart",
-      "why": "The caption grows into the edit beside it. Same cause as the heading fixture - a neighbour treated as movable that nothing moves. The VCL twin does not collide because DirectWrite measures the same text narrower than GDI, which is a difference in measurement rather than in behaviour."
-    }
   ]
 }
