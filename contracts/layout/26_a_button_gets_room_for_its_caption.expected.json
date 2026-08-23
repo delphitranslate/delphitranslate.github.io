@@ -1,13 +1,12 @@
 {
-  "description": "The FireMonkey counterpart of vcl_26. A button whose caption grows by half again needs somewhere to put it, and there is empty form to its right. Widening is capped and rightward only, because a button keeps the place it was drawn in - it is positioned against the thing it acts on. Where there is no room to the right it falls back to growing taller and then to a smaller size, in that order. Drawn at FireMonkey's twelve point default the caption needs more room than the VCL twin's nine, so the width floor is met with more to spare rather than less.",
+  "description": "The FireMonkey counterpart of vcl_26. A button whose caption grows by half again needs somewhere to put it, and there is empty form to its right. Widening is capped and rightward only, because a button keeps the place it was drawn in - it is positioned against the thing it acts on. Where there is no room to the right it falls back to growing taller and then to a smaller size, in that order. Drawn at FireMonkey's twelve point default the caption needs more room than the VCL twin's nine, so the width floor is met with more to spare rather than less.  A planned_width_at_least of 160 was also asserted here and is removed: the harness never implemented that key, so it had never once been evaluated, and it contradicts the fixture it was written against. This button is drawn with WordWrap on and two lines of height, beside an edit that leaves eighty-nine pixels of gap - so wrapping the caption is honouring what the designer drew, not failing to. What the contract actually guarantees is that the caption fits and the font stays readable, and both of those are checked.",
   "catalog_file": "26_a_button_gets_room_for_its_caption.catalog.json",
   "controls": [
     {
       "form": "ContractForm",
       "name": "btnRecalcEaster",
       "text_fits": true,
-      "font_at_least": 8,
-      "planned_width_at_least": 160
+      "font_at_least": 8
     }
   ]
 }

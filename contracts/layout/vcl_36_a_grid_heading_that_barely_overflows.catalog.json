@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "ar-SA",
+    "nativeLanguageName": "Contract",
+    "textDirection": "rtl",
+    "shortDateFormat": "dd/mm/yyyy",
+    "longDateFormat": "dddd, d mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "$"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.grdSchedule.Columns[0].Title.Caption",
+      "sourceText": "Play Date To",
+      "translatedText": "\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u062a\u0634\u063a\u064a\u0644 \u062d\u062a\u0649",
+      "formName": "ContractForm",
+      "componentName": "grdSchedule.Columns[0]",
+      "componentClassName": "TColumn",
+      "propertyName": "Title.Caption",
+      "sourceFileName": "{FIXTUREDIR}\\\\vcl_36_a_grid_heading_that_barely_overflows.dfm",
+      "sourceLine": 26,
+      "sourceKind": "Form property",
+      "sourceChecksum": "",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

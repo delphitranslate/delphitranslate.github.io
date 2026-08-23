@@ -311,16 +311,35 @@ procedure CatalogTextForColumn(const ACatalog: TTranslationCatalog;
 var
   Entry: TTranslationEntry;
   Wanted: string;
+  ColumnName: string;
 begin
   ASourceText := '';
   ATranslatedText := '';
   if ACatalog = nil then
     Exit;
+  { A column heading is filed under one of two names, and only one of them
+    was being looked for.
+
+    The scanner writes the column as a component in its own right -
+    DBGrid1.Columns[0] carrying Title.Caption - which is the shape every
+    real catalogue in this product contains. This looked instead for the
+    grid carrying Columns[0].Title.Caption, found nothing, and handed back
+    an empty translation. A column with no translated text is skipped by
+    the sizing pass, so no heading was ever measured and none was ever
+    widened: an Arabic heading needing a hundred and twenty four pixels
+    sat in a column drawn at a hundred and fifteen with its first letter
+    clipped, and nothing in the pack said otherwise.
+
+    Both shapes are accepted rather than one being chosen, because a
+    catalogue written by an older build carries the other one. }
   Wanted := Format('Columns[%d].Title.Caption', [AColumnIndex]);
+  ColumnName := Format('%s.Columns[%d]', [AGridName, AColumnIndex]);
   for Entry in ACatalog.Entries do
     if SameText(Entry.FormName, AFormName) and
-      SameText(Entry.ComponentName, AGridName) and
-      SameText(Entry.PropertyName, Wanted) then
+      ((SameText(Entry.ComponentName, AGridName) and
+        SameText(Entry.PropertyName, Wanted)) or
+       (SameText(Entry.ComponentName, ColumnName) and
+        SameText(Entry.PropertyName, 'Title.Caption'))) then
     begin
       ASourceText := Entry.SourceText;
       ATranslatedText := Entry.TranslatedText;

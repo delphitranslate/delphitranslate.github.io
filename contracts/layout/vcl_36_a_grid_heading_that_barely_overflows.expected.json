@@ -1,0 +1,12 @@
+{
+  "description": "A grid heading that overflows its column by a few pixels rather than by most of its width. Measured with the grid's own title font, this Arabic heading needs 124 pixels in a column drawn at 115 - nine short, which is enough to clip the first letter and not enough to look like a fault in a screenshot. The German heading in contract 06 overflows by most of its width and has always been widened; this asks whether a small overflow is treated as an overflow at all.",
+  "catalog_file": "vcl_36_a_grid_heading_that_barely_overflows.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "grdSchedule.Columns[0]",
+      "text_fits": true,
+      "planned_width_at_least": 124
+    }
+  ]
+}

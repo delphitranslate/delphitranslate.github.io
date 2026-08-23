@@ -135,6 +135,46 @@ begin
     Failures.Add(AMessage);
 end;
 
+{ Every key a control expectation may carry.
+
+  Kept here rather than inferred, so that adding a check means adding its name
+  and forgetting to implement one is caught by the harness itself. }
+const
+  KnownControlKeys: array[0..20] of string = (
+    'form', 'name', 'text_fits',
+    'planned_left_equals', 'planned_left_at_least', 'planned_left_at_most',
+    'planned_top_equals', 'planned_top_at_least',
+    'planned_width_equals', 'planned_width_at_least', 'planned_width_at_most',
+    'planned_height_equals', 'planned_height_at_least', 'planned_height_at_most',
+    'planned_right_at_most', 'planned_bottom_at_most',
+    'font_at_least', 'font_at_most',
+    'right_edge_unchanged', 'centre_unchanged', 'inside_control');
+
+procedure CheckKnownKeys(const AObject: TJSONObject;
+  const AFormName, AControlName: string);
+var
+  Pair: TJSONPair;
+  Known: string;
+  Recognised: Boolean;
+  Index: Integer;
+begin
+  for Index := 0 to AObject.Count - 1 do
+  begin
+    Pair := AObject.Pairs[Index];
+    Recognised := False;
+    for Known in KnownControlKeys do
+      if SameText(Pair.JsonString.Value, Known) then
+      begin
+        Recognised := True;
+        Break;
+      end;
+    if not Recognised then
+      Failures.Add(Format('%s.%s carries "%s", which this harness does not ' +
+        'check - the expectation would pass whatever the planner did',
+        [AFormName, AControlName, Pair.JsonString.Value]));
+  end;
+end;
+
 function NumberOf(const AObject: TJSONObject; const AName: string;
   out AValue: Double): Boolean;
 var
@@ -175,6 +215,12 @@ begin
   if NumberOf(AExpectation, 'planned_width_at_most', Expected) then
     Check(AControl.PlannedWidth <= Expected + 1,
       Format('%s.%s width is %.0f, expected no more than %.0f',
+        [AControl.FormName, AControl.ComponentName, AControl.PlannedWidth,
+         Expected]));
+
+  if NumberOf(AExpectation, 'planned_width_at_least', Expected) then
+    Check(AControl.PlannedWidth >= Expected - 1,
+      Format('%s.%s width is %.0f, expected at least %.0f',
         [AControl.FormName, AControl.ComponentName, AControl.PlannedWidth,
          Expected]));
 
@@ -252,6 +298,19 @@ begin
       [FormName, ControlName]));
     Exit;
   end;
+
+  { An expectation this harness does not understand is a failure.
+
+    planned_width_at_least was used by the grid-heading contract from the day
+    it was written and was never implemented here. Reading an unknown key as
+    "nothing to check" meant that contract asserted only that the column held
+    its text - which a column with no text at all satisfies trivially - so the
+    guarantee it was written to defend had never once been tested, and the
+    fault it was meant to catch shipped.
+
+    A contract that cannot fail is worse than no contract: it occupies the
+    place where a real one would go and reports success while doing it. }
+  CheckKnownKeys(AExpectation, FormName, ControlName);
 
   if FlagOf(AExpectation, 'text_fits') then
   begin
