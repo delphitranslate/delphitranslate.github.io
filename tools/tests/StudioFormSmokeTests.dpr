@@ -199,8 +199,17 @@ begin
         raise Exception.Create('The main form caption is incorrect.');
       if not ContainsText(frmTranslationStudio.Caption, 'Build ') then
         raise Exception.Create('The main form caption omits the build label.');
-      if frmTranslationStudio.WindowState <> TWindowState.wsMaximized then
-        raise Exception.Create('The Studio is not configured to start maximized.');
+      { Opens at the size it was drawn, not filling the screen.
+
+        It used to start maximized, which made it tower over the windows
+        of the application being translated - the two are looked at side
+        by side, and a full-screen tool beside a normal-sized form is
+        awkward to work with. The designed size is 1220 by 760 and the
+        form is centred, so this asserts the state rather than the size:
+        the size belongs in the Object Inspector where it can be changed,
+        the decision not to maximize is what must not drift back. }
+      if frmTranslationStudio.WindowState <> TWindowState.wsNormal then
+        raise Exception.Create('The Studio should open at its designed size rather than maximized.');
       if (frmTranslationStudio.LanguagePageCard.Align <>
           TAlignLayout.Client) or
          (frmTranslationStudio.ValidationPageCard.Align <>

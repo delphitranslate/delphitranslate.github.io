@@ -7,7 +7,7 @@ object frmTranslationStudio: TfrmTranslationStudio
   Fill.Color = xFFF2F7FD
   Fill.Kind = Solid
   Position = ScreenCenter
-  WindowState = wsMaximized
+  WindowState = wsNormal
   FormFactor.Width = 320
   FormFactor.Height = 480
   FormFactor.Devices = [Desktop]

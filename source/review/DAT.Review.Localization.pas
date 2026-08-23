@@ -1551,6 +1551,48 @@ var
         Result := Max(Result, Candidate.Left + Candidate.Width);
   end;
 
+  { The room a control could have, counting room its container has not taken
+    yet.
+
+    ContentRightBound answers "how much is inside the parent now", and every
+    sizing decision was bounded by that. It makes the two rules that grow
+    things unable to help each other: a caption may not plan wider than the
+    panel it sits in, and a panel only grows to hold what its children planned.
+    So a caption in a panel that is fifty pixels too narrow wraps to two lines,
+    the panel is then exactly big enough for the wrapped caption, and nobody
+    ever asks whether the panel could have been fifty pixels wider. On a form
+    with a hundred and thirty pixels of clear space beside it.
+
+    This breaks the circle by letting the caption plan into room the panel can
+    still obtain. Nothing here grows the panel - phase 3 does that, once it
+    sees a child that needs the space. The bound is only made honest about what
+    is actually available.
+
+    The panel's own limits still apply: it may not grow past what holds it, nor
+    past MaximumContainerGrowth. A control whose parent is the form is
+    unaffected, because a form does not grow to suit its contents. }
+  function GrowableRightBound(const AControl: TLayoutControl): Double;
+  var
+    Container: TLayoutControl;
+    ContainerBound: Double;
+    ContainerCanReach: Double;
+  begin
+    Result := ContentRightBound(AControl);
+    Container := ParentContainerOf(AControl);
+    if (Container = nil) or not Container.HasSize then
+      Exit;
+    { What the container itself is allowed to reach. }
+    ContainerCanReach := Container.Width * MaximumContainerGrowth;
+    ContainerBound := ContentRightBound(Container);
+    if ContainerBound > 0 then
+      ContainerCanReach := Min(ContainerCanReach,
+        ContainerBound - Container.Left);
+    if ContainerCanReach <= Container.Width then
+      Exit;
+    Result := Max(Result, ContainerCanReach - ContainerInset);
+  end;
+
+
   { The bottom edge of the form holding this control, or zero when the scanned
     model does not record it. }
   function ContentBottomBound(const AControl: TLayoutControl): Double;
@@ -1840,14 +1882,22 @@ var
       Result := NearestLeft - AControl.PlannedLeft - ControlGap
     else
     begin
+      { Nothing fixed sits to the right, so the limit is the edge of the
+        content - counting room the container has not taken yet.
+
+        Measuring against the container's present width is what made two
+        rules unable to help each other: a caption may not plan wider than
+        the panel it sits in, and a panel only grows to hold what its
+        children planned. A caption in a panel fifty pixels too narrow
+        wrapped, the panel then fitted the wrapped caption exactly, and
+        nobody asked whether the panel could have been wider - on a form
+        with clear space beside it. }
       ParentWidth := ParentWidthFor(AControl);
       if ParentWidth > 0 then
-        Result := ParentWidth - AControl.PlannedLeft - ControlGap
+        Result := Max(ParentWidth, GrowableRightBound(AControl)) -
+          AControl.PlannedLeft - ControlGap
       else
-        { Nothing fixed sits to the right, so the only limit is the edge of the
-          designed content. Returning the control's own width would pin it to
-          its source-language size and clip the translation. }
-        Result := ContentRightBound(AControl) - AControl.PlannedLeft -
+        Result := GrowableRightBound(AControl) - AControl.PlannedLeft -
           ControlGap;
     end;
     Result := Min(Result, UnboundedWidthAllowance);

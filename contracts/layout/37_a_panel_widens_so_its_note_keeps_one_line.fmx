@@ -1,0 +1,24 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 700
+  ClientWidth = 990
+  object Panel1: TPanel
+    Position.X = 121.000000000000000000
+    Position.Y = 600.000000000000000000
+    Size.Width = 740.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    object Label3: TLabel
+      AutoSize = False
+      StyledSettings = []
+      Position.X = 20.000000000000000000
+      Position.Y = 10.000000000000000000
+      Size.Width = 701.000000000000000000
+      Size.Height = 17.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'Note: recipients and parameters must be filled in and Enable Email must be ticked'
+    end
+  end
+end

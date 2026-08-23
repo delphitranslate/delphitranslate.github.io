@@ -1,0 +1,17 @@
+{
+  "description": "A note drawn as one line across a panel, in a panel that is a little too narrow for the translation and a form with a hundred and thirty pixels of clear space beside it. Two rules could not help each other here: a caption may not plan wider than the panel it sits in, and a panel only grows to hold what its children planned. So the caption wrapped, the panel then fitted the wrapped caption exactly, and nobody asked whether the panel could have been wider. Counting room the container can still obtain breaks the circle: the note keeps its line and the panel grows to hold it, which is what the designer drew and what the form has room for.  The FireMonkey twin: the planner is shared, so the rule that lets a child count room its container can still obtain serves both frameworks from one place - only the spelling of the text property differs.",
+  "catalog_file": "37_a_panel_widens_so_its_note_keeps_one_line.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "Label3",
+      "text_fits": true,
+      "planned_height_at_most": 20
+    },
+    {
+      "form": "ContractForm",
+      "name": "Panel1",
+      "planned_width_at_least": 760
+    }
+  ]
+}
