@@ -8,12 +8,5 @@
       "text_fits": true,
       "planned_height_at_most": 60
     }
-  ],
-  "known_overlaps": [
-    {
-      "a": "lblHeader",
-      "b": "chkEnableEmail",
-      "why": "The heading widens past the checkbox beside it. AvailableWidth deliberately ignores neighbours it considers movable, on the understanding that a later pass steps them aside, and no pass does. Declared rather than fixed for the same reason as the checkbox fixtures: the resolution has to happen before containers are sized, not after."
-    }
   ]
 }

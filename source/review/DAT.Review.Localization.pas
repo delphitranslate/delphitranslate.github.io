@@ -1079,6 +1079,10 @@ const
   WrapSideAllowance = 6;
   { Gap kept between a caption and the frame the designer drew around it. }
   ContainerInset = 4;
+
+  { How much a caption and the field it names may touch before it counts as
+    one standing on the other. }
+  PairingContact = 2;
   { Room a tick box or radio dot takes from the caption beside it. }
   TickBoxAllowance = 22;
   { A frame may grow this much to hold its own children, and no more. Beyond it
@@ -1118,6 +1122,7 @@ var
   RequiredWidth, RequiredHeight, FontSize: Double;
   SettleGuard, SettleLines: Integer;
   SettleFont, SettleHeight: Double;
+  SettleSpanLeft, SettleSpanRight: Double;
   SettleRoom, SettleNeeded, SettleCentre: Double;
   RowMembers, RowSettled: TList<TLayoutControl>;
   RowWidth, RowGap, RowRoom: Double;
@@ -1126,6 +1131,7 @@ var
   SettleWanted, SettleTakeLeft, SettleTakeRight: Double;
   SettleFloor: Double;
   SettleSavedLeft, SettleSavedWidth: Double;
+  SettleSavedHeight: Double;
   BalanceLines: Integer;
   BalanceWidth, BalanceStep: Double;
   MirrorWidth: Double;
@@ -1361,20 +1367,67 @@ var
   { Apply a new width in the direction the text is anchored. Growing a
     right-aligned caption rightwards moves its text into whatever sits beside
     it, which on a form of captions and fields is always the field it labels. }
+  function SpaceToLeft(const AControl: TLayoutControl): Double; forward;
+  function SpaceToRight(const AControl: TLayoutControl): Double; forward;
+
   procedure SetPlannedWidthRespectingAlignment(const AControl: TLayoutControl;
     const ANewWidth: Double);
   var
     DesignedRight: Double;
+    CentredLeft: Double;
+    PriorWidth, SpanLeft, SpanRight: Double;
   begin
     DesignedRight := AControl.PlannedLeft + AControl.PlannedWidth;
     AControl.PlannedWidth := ANewWidth;
     if not AControl.HasPosition then
       Exit;
     if IsRightAligned(AControl) then
-      AControl.PlannedLeft := Max(0, DesignedRight - ANewWidth)
+    begin
+      { Its right edge is pinned against the field it names, so every pixel it
+        gains comes off its left edge - and the left edge has neighbours like
+        any other. Nothing here was asking what they were: a caption on the
+        funeral page took eighty-two pixels of growth straight back across the
+        button beside it, and the pass that later steps it clear of the edit
+        only pressed it harder against that button.
+
+        Only the free margin is taken, and where the text wants more than
+        that, it is the text that gives - it wraps, or it takes a smaller
+        size, both of which the passes below arrange. }
+      PriorWidth := DesignedRight - AControl.PlannedLeft;
+      SpanLeft := SpaceToLeft(AControl) + PriorWidth;
+      if AControl.PlannedWidth > SpanLeft then
+        AControl.PlannedWidth := Max(PriorWidth, SpanLeft);
+      AControl.PlannedLeft := Max(0, DesignedRight - AControl.PlannedWidth);
+    end
     else if IsCentreAligned(AControl) then
-      AControl.PlannedLeft := Max(0, AControl.Left + AControl.Width / 2 -
-        ANewWidth / 2);
+    begin
+      { A centred caption grows from the middle, so half of every pixel it
+        gains comes off its left edge - and the left edge has neighbours like
+        any other. Nothing here was asking what they were: a caption centred
+        beside its own check box took half its growth straight across it,
+        which is the Arabic day name found sitting under its tick box and the
+        Spanish caption over the box in front of it.
+
+        Only the free margin is taken. Where there is not enough of it the
+        caption stops being centred on its old middle, which is a compromise
+        the reader will not notice beside a caption drawn over a check box. }
+      PriorWidth := DesignedRight - AControl.PlannedLeft;
+      SpanLeft := AControl.PlannedLeft - SpaceToLeft(AControl);
+      { SpaceToRight is already the widest this control may be starting
+        where it is, not a gap beyond its right edge. }
+      SpanRight := AControl.PlannedLeft + SpaceToRight(AControl);
+      if AControl.PlannedWidth > SpanRight - SpanLeft then
+        AControl.PlannedWidth := Max(PriorWidth, SpanRight - SpanLeft);
+      CentredLeft := AControl.Left + AControl.Width / 2 -
+        AControl.PlannedWidth / 2;
+      { Centred if it can be, and inside the span either way. A heading with a
+        whole form to spread into was still centred on its old middle after it
+        grew, and walked its right-hand end across the check box at the other
+        side of the form. Sliding it a little off centre is what a person
+        would do with the same room. }
+      AControl.PlannedLeft := Max(0, Min(Max(CentredLeft, SpanLeft),
+        SpanRight - AControl.PlannedWidth));
+    end;
   end;
 
   function ShouldPreferWrap(const AControl: TLayoutControl): Boolean;
@@ -1725,12 +1778,20 @@ var
       if IsVisualContainer(Candidate) then
         Continue;
       { A caption drawn beside its own check box or edit shares a row with it
-        by design and often ends up touching it; that is the pairing working,
-        not an intrusion, and treating it as one shrank captions that were
-        placed perfectly. Anything else - a button, another caption - is
-        something this control has no business landing on, in any direction.
-        The settings page put a caption straight through the button to its
-        left, which a downward-only test could never have seen. }
+        by design and ends up touching it through padding and rounding; that
+        is the pairing working, not an intrusion, and treating it as one
+        shrank captions that were placed perfectly. Anything else - a button,
+        another caption - is something this control has no business landing
+        on, in any direction. The settings page put a caption straight through
+        the button to its left, which a downward-only test could never have
+        seen.
+
+        The allowance is a couple of pixels of contact, though, not a blanket
+        exemption for anything a person types into. Written as an exemption it
+        let a caption stand squarely on top of its own field and called it a
+        pairing - which is the Arabic day name found underneath its tick box,
+        and the caption laid across the edit beside it on the funeral page.
+        Touching is forgiven; standing on it is not. }
       if IsInputControl(Candidate) or
         ContainsText(Candidate.ComponentClassName, 'CheckBox') or
         ContainsText(Candidate.ComponentClassName, 'RadioButton') then
@@ -3146,6 +3207,14 @@ begin
           begin
             ShiftedLeft := Max(0, Follower.PlannedLeft - ControlGap -
               Leader.PlannedWidth);
+            { Far enough to clear the field, and no further than the room on
+              its own left. Stepping back from one neighbour without looking
+              at the other simply hands the collision along: the caption came
+              off the edit it was covering and landed flush on the button
+              beside it. Where the room runs out the width gives way instead,
+              which the pass below does on the next turn. }
+            ShiftedLeft := Max(ShiftedLeft,
+              Leader.PlannedLeft - SpaceToLeft(Leader));
             if ShiftedLeft < Leader.PlannedLeft - 1 then
             begin
               Leader.PlannedLeft := ShiftedLeft;
@@ -3306,12 +3375,45 @@ begin
         Continue;
       if not SameText(Other.FormName, Control.FormName) then
         Continue;
-      if not SameText(Other.ParentName, Control.ComponentName) then
-        Continue;
-      NeededWidth := Max(NeededWidth,
-        Other.PlannedLeft + Other.PlannedWidth + ContainerInset);
-      NeededHeight := Max(NeededHeight,
-        Other.PlannedTop + Other.PlannedHeight + ContainerInset);
+      if SameText(Other.ParentName, Control.ComponentName) then
+      begin
+        { A real child is placed inside its parent, so its own numbers already
+          say how much room the parent needs. }
+        NeededWidth := Max(NeededWidth,
+          Other.PlannedLeft + Other.PlannedWidth + ContainerInset);
+        NeededHeight := Max(NeededHeight,
+          Other.PlannedTop + Other.PlannedHeight + ContainerInset);
+      end
+      else if DesignedContainerOf(Other) = Control then
+      begin
+        { And a frame drawn round a control it does not own is answerable for
+          it too.
+
+          A rectangle behind a caption is a sibling of that caption, not its
+          parent - which is how a decorative frame is usually drawn. The pass
+          that holds a control inside its frame does not care about parentage
+          either: it finds the frame by position and pulls the control back
+          inside it. So the frame had the authority to squeeze a caption
+          without the responsibility to make room for it, and the caption,
+          pulled left off the frame's right edge, came down on the check box
+          beside it. That is the Arabic day name under its own tick box, and
+          the Spanish caption over the check box in front of it.
+
+          Authority and responsibility are the same relation, so they are
+          answered by the same one here. The bound below is unchanged and does
+          the work the parentage test used to do: a frame still may not grow
+          past twice its drawn size, nor past the edge of whatever holds it,
+          which is what stops a decorative header from swallowing its form.
+
+          These coordinates are the frame's own, not its children's, so the
+          frame's position comes off them first. }
+        NeededWidth := Max(NeededWidth,
+          Other.PlannedLeft + Other.PlannedWidth + ContainerInset -
+            Control.PlannedLeft);
+        NeededHeight := Max(NeededHeight,
+          Other.PlannedTop + Other.PlannedHeight + ContainerInset -
+            Control.PlannedTop);
+      end;
     end;
     { Never past the edge of what holds the frame itself. A frame pushed off
       the form takes its children with it. }
@@ -3561,9 +3663,24 @@ begin
         (SettleRoom > Control.PlannedWidth + 1) then
       begin
         SettleCentre := Control.PlannedLeft + Control.PlannedWidth / 2;
-        Control.PlannedWidth := Min(SettleNeeded, SettleRoom);
+        { The room AvailableWidth reports is optimistic on purpose: it passes
+          over a neighbour the separation pass could step aside, because
+          normally one will. Nothing steps anything aside after this - it is
+          the last pass there is - so here the optimism is simply wrong, and a
+          heading given the whole form to spread into took its right-hand end
+          across the check box at the other side of the page.
+
+          So the span is measured honestly, counting every neighbour whether
+          it could be moved or not, and the heading is centred inside it if it
+          can be and slid along it if it cannot. }
+        SettleSpanLeft := Control.PlannedLeft - SpaceToLeft(Control);
+        SettleSpanRight := Control.PlannedLeft + SpaceToRight(Control);
+        Control.PlannedWidth := Min(Min(SettleNeeded, SettleRoom),
+          SettleSpanRight - SettleSpanLeft);
         if IsCentreAligned(Control) then
-          Control.PlannedLeft := SettleCentre - Control.PlannedWidth / 2;
+          Control.PlannedLeft := Min(
+            Max(SettleCentre - Control.PlannedWidth / 2, SettleSpanLeft),
+            SettleSpanRight - Control.PlannedWidth);
         if Control.PlannedLeft < 0 then
           Control.PlannedLeft := 0;
         Continue;
@@ -3597,6 +3714,22 @@ begin
           SettleWanted := Min(SettleNeeded,
             Min(Max(Control.Width * 1.25, MinimumComfortableButtonWidth),
               SpaceToRight(Control)));
+          { The gap beside a button is not the button's to take. Something was
+            drawn in it or beside it, and whatever that is has the same claim
+            on the space - usually a caption whose own translation has grown
+            and which cannot move anywhere else. Reading the whole gap as free
+            is what put a button through the caption next to it on the funeral
+            page, on the framework whose passes happened to reach the button
+            first; on the other framework the caption got there first and the
+            button grew a second line instead, which is what it should have
+            done in both.
+
+            So it may reach half a gap past the edge it was drawn at, and no
+            further. Where its caption still does not fit, the height below is
+            the answer, and a two-line button is a better answer than a button
+            standing on its neighbour. }
+          if SpaceToRight(Control) < UnboundedWidthAllowance then
+            SettleWanted := Min(SettleWanted, Control.Width + ControlGap / 2);
           if SettleWanted > Control.PlannedWidth + 1 then
           begin
             Control.PlannedWidth := SettleWanted;
@@ -3764,6 +3897,120 @@ begin
       SettleFont := Min(SettleFont, SettleHeight);
     end;
     Control.PlannedFontSize := SettleFont;
+  end;
+
+  { Phase 3f - nothing keeps growth that lands on a neighbour.
+
+    Every layout complaint from five languages of field testing came back to
+    one sentence: something was made bigger and nothing asked what was already
+    there. A caption over the check box it names in Arabic, a caption across
+    the button beside it on the funeral page, a button drawn through the
+    labels next to it in Spanish and Italian.
+
+    Each of those was tracked to a pass measuring its room against another
+    pass's half-finished work - a button briefly wider than it would end up,
+    a caption not yet slid into the margin - and each was fixed where it
+    happened. What kept happening is that fixing one moved the fault to
+    another: the passes run in one order, they read each other's working
+    state, and no amount of care inside any one of them makes it independent
+    of when it runs.
+
+    So this asks the question once, at the end, when there is no working
+    state left. It only ever takes growth away, and only as much as the
+    collision needs; the floor is the geometry the designer drew, which
+    guarantees it can always succeed, because two controls drawn clear of each
+    other are clear of each other at their drawn size.
+
+    Text is settled afterwards rather than left hanging out of a box that has
+    just been made smaller: prose takes another line, and a caption that
+    cannot wrap takes a smaller size - which is what a reader asked for in
+    every language where this showed up. }
+  for Control in AReview.Controls do
+  begin
+    if not Control.HasPosition or not Control.HasSize then
+      Continue;
+    if IsVisualContainer(Control) or (Trim(Control.Align) <> '') then
+      Continue;
+    { A button belonging to a row is left out. The row was levelled as a set
+      further up, and handing one member back its drawn width while its
+      neighbours keep theirs is not a repair - it is the row broken, which is
+      what the even-pitch contracts caught the moment this pass was let loose
+      on everything. }
+    if IsButtonLike(Control) then
+    begin
+      SettleRow := CollectButtonRow(Control);
+      try
+        if SettleRow.Count > 1 then
+          Continue;
+      finally
+        SettleRow.Free;
+      end;
+      SettleRow := CollectButtonStack(Control);
+      try
+        if SettleRow.Count > 1 then
+          Continue;
+      finally
+        SettleRow.Free;
+      end;
+    end;
+
+    { Give back any move first. A control put back where it was drawn is
+      exactly where the designer proved it had room. }
+    if PlannedBoxIntrudes(Control) and
+      (Abs(Control.PlannedLeft - Control.Left) > 0.5) then
+    begin
+      SettleSavedLeft := Control.PlannedLeft;
+      Control.PlannedLeft := Control.Left;
+      if PlannedBoxIntrudes(Control) then
+        Control.PlannedLeft := SettleSavedLeft;
+    end;
+
+    { Then the width, and only down to the widest that actually clears. }
+    if PlannedBoxIntrudes(Control) and
+      (Control.PlannedWidth > Control.Width + 0.5) then
+    begin
+      SettleSavedWidth := Control.PlannedWidth;
+      Control.PlannedWidth := Control.Width;
+      while (Control.PlannedWidth < SettleSavedWidth - 1) and
+        not PlannedBoxIntrudes(Control) do
+        Control.PlannedWidth := Control.PlannedWidth + 1;
+      if PlannedBoxIntrudes(Control) then
+        Control.PlannedWidth := Max(Control.Width, Control.PlannedWidth - 1);
+    end;
+
+    { And last the height, the same way. }
+    if PlannedBoxIntrudes(Control) and
+      (Control.PlannedHeight > Control.Height + 0.5) then
+    begin
+      SettleSavedHeight := Control.PlannedHeight;
+      Control.PlannedHeight := Control.Height;
+      while (Control.PlannedHeight < SettleSavedHeight - 1) and
+        not PlannedBoxIntrudes(Control) do
+        Control.PlannedHeight := Control.PlannedHeight + 1;
+      if PlannedBoxIntrudes(Control) then
+        Control.PlannedHeight := Max(Control.Height, Control.PlannedHeight - 1);
+    end;
+
+    { The text follows the box it has been left with. }
+    if (Trim(Control.TranslatedText) = '') or (Control.PlannedWidth <= 0) then
+      Continue;
+    SettleLines := WrappedLineCount(Control, Control.PlannedWidth);
+    if SettleLines > 1 then
+      Control.PlannedWordWrap := True;
+    SettleFont := Control.PlannedFontSize;
+    if SettleFont <= 0 then
+      SettleFont := Max(Control.FontSize, 9);
+    if SettleLines * SettleFont * 1.65 + 2 * PaddingVertical(Control) >
+      Control.PlannedHeight + 0.5 then
+    begin
+      { More lines than the box holds, and the box may not grow. The size is
+        the only lever left, and a caption a size smaller reads better than
+        one with its last line cut off. }
+      SettleFont := Max(SmallestFontFor(Control),
+        FontFittingOneLine(Control, Control.PlannedWidth));
+      if SettleFont < Control.PlannedFontSize then
+        Control.PlannedFontSize := SettleFont;
+    end;
   end;
 
   { Phase 3e - reflect the whole form for a right-to-left language.
