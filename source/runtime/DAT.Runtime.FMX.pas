@@ -447,6 +447,70 @@ end;
 { TMainMenu hands its items back as TFmxObject rather than TMenuItem, and
   both the name and the position live at that level, so there is nothing to
   gain by casting down. }
+{ Entry fields a right-to-left reader is going to type into.
+
+  The VCL half of this sets BiDiMode to bdRightToLeft, which moves the caret
+  to the edge the reader starts from. FireMonkey has no BiDiMode at all, so
+  the same outcome is reached by the only lever it offers: the field's text
+  alignment. A field left aligned under Arabic puts the first character
+  somebody types at the far end of the box from where they are looking.
+
+  Captions are deliberately not touched here. Their alignment is decided by
+  the planner, which knows where each one sits and what it labels; overruling
+  that at run time would undo a decision made with the whole form in view.
+  A field is different - it has a caret rather than a position in a sentence,
+  and where the caret starts is a property of the reader, not the layout. }
+function IsFMXInputControl(const AObject: TFmxObject): Boolean;
+begin
+  { TComboEdit and the list controls live in units this one does not use,
+    and pulling them in for a type test would widen what every application
+    links. The two that matter are here; anything else keeps the alignment
+    the planner gave it. }
+  Result := (AObject is TCustomEdit) or (AObject is TCustomMemo);
+end;
+
+function FMXApplyInputReadingOrder(const AForm: TCommonCustomForm;
+  const ARightToLeft: Boolean): Integer;
+var
+  Applied: Integer;
+
+  procedure Walk(const AObject: TFmxObject);
+  var
+    Index: Integer;
+    Settings: TTextSettings;
+    Desired: TTextAlign;
+  begin
+    if AObject = nil then
+      Exit;
+    if IsFMXInputControl(AObject) and
+      Supports(AObject, ITextSettings) then
+    begin
+      Settings := (AObject as ITextSettings).TextSettings;
+      if Settings <> nil then
+      begin
+        if ARightToLeft then
+          Desired := TTextAlign.Trailing
+        else
+          Desired := TTextAlign.Leading;
+        if Settings.HorzAlign <> Desired then
+        begin
+          { The style puts its own alignment back unless the setting is taken
+            out of its hands first - the same trap as WordWrap above. }
+          Settings.HorzAlign := Desired;
+          Inc(Applied);
+        end;
+      end;
+    end;
+    for Index := 0 to AObject.ChildrenCount - 1 do
+      Walk(AObject.Children[Index]);
+  end;
+
+begin
+  Applied := 0;
+  Walk(AForm);
+  Result := Applied;
+end;
+
 function FMXMenuIdentity(const AItem: TFmxObject): string;
 begin
   Result := Trim(AItem.Name);
@@ -1993,6 +2057,11 @@ begin
     be. The VCL side does the same thing for the same reason, by different
     means - it has a framework flag to work around, and this does not. }
   FMXApplyMenuOrder(AForm, FormIdentity,
+    SameText(Trim(APack.TextDirection), 'rtl'));
+  { Where the caret starts, which is the reader's property rather than the
+    layout's. VCL reaches this through BiDiMode; FireMonkey has none, so it
+    is reached through the field's own alignment. }
+  FMXApplyInputReadingOrder(AForm,
     SameText(Trim(APack.TextDirection), 'rtl'));
   if APreserveControlState then
     SavedFocusedControl := AForm.Focused;

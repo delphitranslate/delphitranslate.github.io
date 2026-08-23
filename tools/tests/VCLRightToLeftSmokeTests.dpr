@@ -166,6 +166,7 @@ var
   Form: TForm;
   Name_: TLabel;
   Box: TEdit;
+  Number: TLabel;
   Ok: TButton;
   Nav: TPanel;
   Inner: TButton;
@@ -201,6 +202,15 @@ begin
       Name_.AutoSize := False;
       Name_.SetBounds(16, 20, 80, 17);
       Name_.Caption := 'Name';
+      { A caption of digits and a full stop. Every character in it is a
+        Unicode neutral, so in a right-to-left paragraph the algorithm reads
+        the run right to left and draws "1." as ".1" - a numbered list comes
+        out looking decorated, the same complaint the menu shortcuts drew. }
+      Number := TLabel.Create(Form);
+      Number.Parent := Form;
+      Number.Name := 'lblNumber';
+      Number.SetBounds(16, 200, 30, 17);
+      Number.Caption := '1.';
       Name_.Alignment := taLeftJustify;
 
       Box := TEdit.Create(Form);
@@ -322,6 +332,16 @@ begin
         'while still reading right to left.');
       Check(Form.UseRightToLeftScrollBar,
         'The scroll bar moves to the side the reader starts from.');
+      { Where the caret starts is the reader's property, not the layout's.
+        bdRightToLeftNoAlign gives the reading order without moving the
+        text, which is right for a caption the layout pass has already
+        placed and wrong for anything typed into: the field stays left
+        aligned, so the first character entered appears at the far end of
+        the box from where the reader is looking. }
+      Check(Box.BiDiMode = bdRightToLeft,
+        'A field takes the full right-to-left, so typing begins at the right.');
+      Check(Number.BiDiMode = bdLeftToRight,
+        'A caption of digits is left alone, so "1." is not drawn ".1".');
       Writeln(Format('        menu   BiDiMode=%d (form=%d)',
         [Ord(Menu.BiDiMode), Ord(Form.BiDiMode)]));
       Check(Menu.BiDiMode = bdRightToLeftNoAlign,

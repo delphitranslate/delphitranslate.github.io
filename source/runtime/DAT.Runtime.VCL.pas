@@ -103,6 +103,7 @@ implementation
 
 uses
   Winapi.Windows,
+  System.Character,
   System.SysUtils,
   System.StrUtils,
   System.TypInfo,
@@ -1344,20 +1345,85 @@ begin
     DrawMenuBar(AForm.Handle);
 end;
 
+{ Text that carries no letters of its own must not be turned round.
+
+  A caption of "1." is digits and a full stop, and Unicode calls every one of
+  those characters neutral - they take their direction from whatever is around
+  them. Put a neutral run in a right-to-left paragraph and the algorithm reads
+  it right to left too, so "1." is drawn ".1" and a numbered list comes out
+  looking like the menu captions did with shortcuts bolted on.
+
+  The text is not wrong and translating it differently would not help; only
+  the direction it is read in is wrong. A control holding nothing but neutrals
+  is therefore left reading left to right, which is what its digits mean. One
+  Arabic letter anywhere in it and this does not apply, because then the run
+  has a direction of its own and belongs with the rest of the form. }
+function HoldsOnlyNeutralText(const AControl: TControl): Boolean;
+var
+  Text: string;
+  Character: Char;
+  SawDigit: Boolean;
+begin
+  Result := False;
+  if not ReadStringProperty(AControl, 'Caption', Text) then
+    if not ReadStringProperty(AControl, 'Text', Text) then
+      Exit;
+  Text := Trim(Text);
+  if Text = '' then
+    Exit;
+  SawDigit := False;
+  for Character in Text do
+  begin
+    if TCharacter.IsLetter(Character) then
+      Exit;
+    if TCharacter.IsDigit(Character) then
+      SawDigit := True;
+  end;
+  { Digits are the case worth correcting. A caption of only punctuation - a
+    colon on its own, a dash between two fields - reads the same either way. }
+  Result := SawDigit;
+end;
+
+{ An entry field a right-to-left reader is going to type into.
+
+  bdRightToLeftNoAlign gives the reading order without moving the text, which
+  is right for a caption whose position the layout pass has already decided
+  and wrong for anything with a caret in it: the field stays left aligned, so
+  typing begins at the left and the first character a reader enters appears at
+  the wrong end of the box. An input control gets the full bdRightToLeft, so
+  the caret starts where the reader does. }
+function IsInputControl(const AControl: TControl): Boolean;
+begin
+  Result := (AControl is TCustomEdit) or (AControl is TCustomComboBox) or
+    (AControl is TCustomListBox);
+end;
+
 procedure ApplyReadingOrder(const AForm: TCustomForm;
   const AFormIdentity: string; const APack: TRuntimeLanguagePack);
 var
   Component: TComponent;
   Mode: TBiDiMode;
+  RightToLeft: Boolean;
 
   procedure SetTree(const AComponent: TComponent);
   var
     Child: TComponent;
+    Control: TControl;
   begin
     { Assigning BiDiMode clears ParentBiDiMode by itself, so the control
       keeps what it is given rather than inheriting it back. }
     if AComponent is TControl then
-      TControl(AComponent).BiDiMode := Mode;
+    begin
+      Control := TControl(AComponent);
+      if not RightToLeft then
+        Control.BiDiMode := Mode
+      else if HoldsOnlyNeutralText(Control) then
+        Control.BiDiMode := bdLeftToRight
+      else if IsInputControl(Control) then
+        Control.BiDiMode := bdRightToLeft
+      else
+        Control.BiDiMode := Mode;
+    end;
     for Child in AComponent do
       SetTree(Child);
   end;
@@ -1365,14 +1431,15 @@ var
 begin
   if (AForm = nil) or (APack = nil) then
     Exit;
-  if SameText(Trim(APack.TextDirection), 'rtl') then
+  RightToLeft := SameText(Trim(APack.TextDirection), 'rtl');
+  if RightToLeft then
     Mode := bdRightToLeftNoAlign
   else
     Mode := bdLeftToRight;
   AForm.BiDiMode := Mode;
   for Component in AForm do
     SetTree(Component);
-  ApplyMenuReadingOrder(AForm, AFormIdentity, Mode <> bdLeftToRight);
+  ApplyMenuReadingOrder(AForm, AFormIdentity, RightToLeft);
 end;
 
 procedure ApplyAutoSizeRulesFirst(const AForm: TCustomForm;
