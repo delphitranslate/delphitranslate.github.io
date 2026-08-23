@@ -423,6 +423,7 @@ begin
       Check(Grid.Columns[2].Width = 90,
         Format('A column keeps its own width through the reversal: %d, ' +
           'expected 90.', [Grid.Columns[2].Width]));
+
       Check((Box.TabOrder = 2) and (Ok.TabOrder = 0),
         Format('The Tab key follows the reader: edit %d, button %d.',
           [Box.TabOrder, Ok.TabOrder]));
@@ -430,6 +431,26 @@ begin
       { And back to English. Returning to the source language has to put every
         one of those decisions back, or a user who tries Hebrew once is left
         with a mirrored English program. }
+      { The path a manager takes when it is leaving a language: apply the
+        layout with original values rather than translated ones. It is what
+        runs on every switch, before the next pack is loaded.
+
+        While the order was a toggle this call did nothing at all for
+        columns - 'designed' was not 'reversed', so the branch was skipped -
+        and the grid was only ever put back by a different path that happened
+        to run later. Asking for the designed order is as much an instruction
+        as asking for its reverse, and both now go through the same call. }
+      Pack := HebrewPack;
+      try
+        TVCLTranslationApplicator.ApplyLayoutToForm(Form, Pack, 'frmRtl',
+          False);
+      finally
+        Pack.Free;
+      end;
+      Check((Grid.Columns[0].FieldName = 'FIRSTFIELD') and
+        (Grid.Columns[2].FieldName = 'THIRDFIELD'),
+        'Restoring with original values puts the columns back as designed.');
+
       Pack := EnglishPack;
       try
         TVCLTranslationApplicator.ApplyToForm(Form, Pack, 'frmRtl', True);

@@ -64,7 +64,9 @@ type
       fact about the language in force, and it has to be remembered so that
       returning to the source language can undo it. Reversing is its own
       opposite, so undoing it is doing it again. }
-    class var FReversedColumns: TDictionary<string, Boolean>;
+    { The order each grid was designed in, remembered once. The target
+      order is stated in terms of it, so applying twice cannot drift. }
+    class var FDesignedColumns: TDictionary<string, TArray<string>>;
     { Which forms currently have their menu bar reversed, so that leaving a
       right-to-left language reverses it back exactly once. Reversal is its
       own inverse; doing it twice or not at all are both wrong. }
@@ -107,10 +109,11 @@ uses
   Vcl.Graphics,
   Vcl.StdCtrls;
 
-{ Declared here because restoring a form needs it before it is defined: a grid
-  reversed for a right-to-left language is put back by reversing it again. }
-function ReverseColumnCollection(const AComponent: TComponent): Boolean;
-  forward;
+{ Declared here because restoring a form needs it before it is defined: a
+  grid is put back into its designed order the same way it was taken out of
+  it, by stating the order rather than counting flips. }
+function ApplyColumnOrder(const AComponent: TComponent;
+  const AKey: string; const AReversed: Boolean): Boolean; forward;
 
 function TrySetLayoutProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
@@ -550,14 +553,9 @@ var
       end;
       if Snapshot.HasAlignment then
         WriteOrdinal(AComponent, 'Alignment', Snapshot.Alignment);
-      { A grid whose columns were reversed for a right-to-left language is
-        reversed once more, which is what puts them back. }
-      if FReversedColumns.ContainsKey(Key) then
-      begin
-        if ReverseColumnCollection(AComponent) then
-          Inc(Restored);
-        FReversedColumns.Remove(Key);
-      end;
+      { Back to the order it was designed in - stated, not counted. }
+      if ApplyColumnOrder(AComponent, Key, False) then
+        Inc(Restored);
       if Snapshot.HasAutoSize then
         WriteBoolean(AComponent, 'AutoSize', Snapshot.AutoSize);
     end;
@@ -646,33 +644,159 @@ end;
   It runs after the column widths for the same reason: a width names a column
   by its designed index, and reversing first would put every width on the
   wrong column. }
-function ReverseColumnCollection(const AComponent: TComponent): Boolean;
+function ReadStringProperty(const AInstance: TObject;
+  const APropertyName: string; out AValue: string): Boolean;
 var
-  Collection: TCollection;
-  CollectionObject: TObject;
   PropertyInfo: PPropInfo;
-  Index: Integer;
 begin
   Result := False;
+  AValue := '';
+  if AInstance = nil then
+    Exit;
+  PropertyInfo := GetPropInfo(AInstance.ClassInfo, APropertyName);
+  if (PropertyInfo = nil) or
+    not (PropertyInfo^.PropType^.Kind in
+      [tkString, tkLString, tkWString, tkUString]) then
+    Exit;
+  AValue := GetStrProp(AInstance, PropertyInfo);
+  Result := True;
+end;
+
+{ How a column is recognised again after it has been moved. }
+function ColumnIdentity(const AItem: TCollectionItem): string;
+var
+  TitleObject: TObject;
+  PropertyInfo: PPropInfo;
+begin
+  { Field name first: it is what the column is for, and it does not change
+    when the heading is translated. }
+  if ReadStringProperty(AItem, 'FieldName', Result) and
+    (Trim(Result) <> '') then
+    Exit;
+  { Then the heading, for a grid with no data behind it. Title is an object of
+    its own, so its Caption is a second hop rather than a dotted name. }
+  PropertyInfo := GetPropInfo(AItem.ClassInfo, 'Title');
+  if PropertyInfo <> nil then
+  begin
+    TitleObject := GetObjectProp(AItem, PropertyInfo);
+    if (TitleObject <> nil) and
+      ReadStringProperty(TitleObject, 'Caption', Result) and
+      (Trim(Result) <> '') then
+      Exit;
+  end;
+  { And the designed position for a grid with neither. }
+  Result := '#' + IntToStr(AItem.Index);
+end;
+
+function ColumnCollectionOf(const AComponent: TComponent;
+  out ACollection: TCollection): Boolean;
+var
+  PropertyInfo: PPropInfo;
+  CollectionObject: TObject;
+begin
+  Result := False;
+  ACollection := nil;
+  if AComponent = nil then
+    Exit;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'Columns');
   if PropertyInfo = nil then
     Exit;
   CollectionObject := GetObjectProp(AComponent, PropertyInfo);
   if not (CollectionObject is TCollection) then
     Exit;
-  Collection := TCollection(CollectionObject);
-  if Collection.Count < 2 then
+  ACollection := TCollection(CollectionObject);
+  Result := ACollection.Count > 1;
+end;
+
+{ The order the grid was designed in, remembered the first time it is seen.
+
+  The target is stated in terms of this - right to left means the designed
+  order backwards, not whatever it is now backwards - so it has to be captured
+  before anything moves it. }
+function DesignedColumnOrder(const AComponent: TComponent;
+  const AKey: string): TArray<string>;
+var
+  Collection: TCollection;
+  Index: Integer;
+begin
+  if TVCLTranslationApplicator.FDesignedColumns.TryGetValue(AKey, Result) then
     Exit;
+  SetLength(Result, 0);
+  if not ColumnCollectionOf(AComponent, Collection) then
+    Exit;
+  SetLength(Result, Collection.Count);
+  for Index := 0 to Collection.Count - 1 do
+    Result[Index] := ColumnIdentity(Collection.Items[Index]);
+  TVCLTranslationApplicator.FDesignedColumns.AddOrSetValue(AKey, Result);
+end;
+
+{ Puts the columns in the order the language calls for.
+
+  This used to reverse the collection. Reversing is a toggle, and a toggle
+  only lands right if every caller agrees on how many times it has been
+  pulled - which they did not. A form applied twice, or restored by a path
+  that did not update the record of what it had done, came back to its
+  designed order under a right-to-left language.
+
+  So the order is asserted instead. The target is recomputed from the designed
+  order on every call and the columns are moved to match, which makes two
+  applications indistinguishable from one - the property a toggle cannot have. }
+function ApplyColumnOrder(const AComponent: TComponent;
+  const AKey: string; const AReversed: Boolean): Boolean;
+var
+  Collection: TCollection;
+  Designed, Target, Identities: TArray<string>;
+  Items: TArray<TCollectionItem>;
+  Used: TArray<Boolean>;
+  Index, Scan: Integer;
+begin
+  Result := False;
+  if not ColumnCollectionOf(AComponent, Collection) then
+    Exit;
+  Designed := DesignedColumnOrder(AComponent, AKey);
+  if Length(Designed) <> Collection.Count then
+    { The grid was rebuilt behind us - by a dataset opening, most likely - so
+      the designed order no longer describes it. Leaving it alone is the only
+      safe answer; a guess here reorders somebody's data. }
+    Exit;
+
+  SetLength(Target, Length(Designed));
+  for Index := 0 to High(Designed) do
+    if AReversed then
+      Target[Index] := Designed[High(Designed) - Index]
+    else
+      Target[Index] := Designed[Index];
+
+  { Taken by reference before anything moves. Tracking columns by position
+    does not work: assigning Index shifts every other item, so a position
+    noted a moment ago names a different column now. }
+  SetLength(Items, Collection.Count);
+  SetLength(Identities, Collection.Count);
+  SetLength(Used, Collection.Count);
+  for Index := 0 to Collection.Count - 1 do
+  begin
+    Items[Index] := Collection.Items[Index];
+    Identities[Index] := ColumnIdentity(Items[Index]);
+  end;
+
   Collection.BeginUpdate;
   try
-    { Walk the designed order and send each item to the end in turn. After
-      one pass the collection is reversed, whatever it started as. }
-    for Index := Collection.Count - 1 downto 0 do
-      Collection.Items[0].Index := Index;
+    for Index := 0 to High(Target) do
+      for Scan := 0 to High(Items) do
+      begin
+        if Used[Scan] or (Identities[Scan] <> Target[Index]) then
+          Continue;
+        if Items[Scan].Index <> Index then
+        begin
+          Items[Scan].Index := Index;
+          Result := True;
+        end;
+        Used[Scan] := True;
+        Break;
+      end;
   finally
     Collection.EndUpdate;
   end;
-  Result := True;
 end;
 
 function TrySetCollectionProperty(const AComponent: TComponent;
@@ -1542,13 +1666,14 @@ begin
       Value := Rule.OriginalValue;
     if SameText(Rule.PropertyName, 'ColumnOrder') then
     begin
-      if SameText(Trim(Value), 'reversed') and
-        ReverseColumnCollection(Component) then
-      begin
-        TVCLTranslationApplicator.FReversedColumns.AddOrSetValue(
-          VCLSnapshotKey(AFormIdentity, Component), True);
+      { Both directions go through the same call. Asking for the designed
+        order is as much an instruction as asking for the reverse of it,
+        and routing only one of them here is why restoring a language left
+        a grid in whatever order it happened to be in. }
+      if ApplyColumnOrder(Component,
+        VCLSnapshotKey(AFormIdentity, Component),
+        SameText(Trim(Value), 'reversed')) then
         Inc(Result);
-      end;
     end
     else if TrySetCollectionProperty(Component, Rule.PropertyName, Value) then
       Inc(Result)
@@ -1558,8 +1683,8 @@ begin
 end;
 
 initialization
-  TVCLTranslationApplicator.FReversedColumns :=
-    TDictionary<string, Boolean>.Create;
+  TVCLTranslationApplicator.FDesignedColumns :=
+    TDictionary<string, TArray<string>>.Create;
   TVCLTranslationApplicator.FReversedMenus :=
     TDictionary<string, Boolean>.Create;
   TVCLTranslationApplicator.FMenuAutoHotkeys :=
@@ -1570,8 +1695,8 @@ initialization
 finalization
   TVCLTranslationApplicator.FOriginalGeometry.Free;
   TVCLTranslationApplicator.FOriginalGeometry := nil;
-  TVCLTranslationApplicator.FReversedColumns.Free;
-  TVCLTranslationApplicator.FReversedColumns := nil;
+  TVCLTranslationApplicator.FDesignedColumns.Free;
+  TVCLTranslationApplicator.FDesignedColumns := nil;
   TVCLTranslationApplicator.FReversedMenus.Free;
   TVCLTranslationApplicator.FReversedMenus := nil;
   TVCLTranslationApplicator.FMenuAutoHotkeys.Free;
