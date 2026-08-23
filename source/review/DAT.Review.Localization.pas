@@ -1110,6 +1110,7 @@ var
   BalanceLines: Integer;
   BalanceWidth, BalanceStep: Double;
   MirrorWidth: Double;
+  AlignSource: string;
   MirrorValue: string;
   MirrorHighest: Integer;
   MirrorBlockLeft, MirrorBlockRight: Double;
@@ -2234,6 +2235,25 @@ var
       Result := 'Alignment'
     else
       Result := 'TextSettings.HorzAlign';
+  end;
+
+  { The alignment a form file does not bother to write down.
+
+    A designer stores a property only when it differs from the default, so a
+    label left as it was drawn carries no Alignment at all. Reading that
+    absence as "nothing to mirror" is why stacked paragraphs came out ragged
+    under a right-to-left language: each was placed correctly, against a
+    shared right edge, and each then rendered its text hard against its own
+    left edge - so blocks of different widths began in different places.
+
+    The absence means the default, and the default mirrors like any other
+    value. }
+  function DefaultTextAlign(const AControl: TLayoutControl): string;
+  begin
+    if SameText(TextAlignPropertyName(AControl), 'Alignment') then
+      Result := 'taLeftJustify'
+    else
+      Result := 'Leading';
   end;
 
   function PositionPropertyName(const AControl: TLayoutControl;
@@ -3863,10 +3883,22 @@ begin
           MirrorValue,
           'Right-to-left layout: the control is placed by the framework, so ' +
           'it is mirrored by naming the opposite edge.');
-      MirrorValue := MirroredTextAlign(Control.HorzAlign);
+      { An unstated alignment is the framework's default, not an absence
+        of one, and it mirrors like anything else.
+
+        Only controls that carry text are given one. A panel has an
+        Alignment property too, and proposing a value for a control with
+        nothing written in it is noise in the pack and a change nobody
+        can see. }
+      AlignSource := Trim(Control.HorzAlign);
+      if (AlignSource = '') and
+        ((Trim(Control.SourceText) <> '') or
+         (Trim(Control.TranslatedText) <> '')) then
+        AlignSource := DefaultTextAlign(Control);
+      MirrorValue := MirroredTextAlign(AlignSource);
       if MirrorValue <> '' then
         AddProposal(AReview, Control, TextAlignPropertyName(Control),
-          Trim(Control.HorzAlign), MirrorValue,
+          AlignSource, MirrorValue,
           'Right-to-left layout: the text sits against the opposite edge.');
       MirrorValue := MirroredAnchors(Control.Anchors);
       if MirrorValue <> '' then

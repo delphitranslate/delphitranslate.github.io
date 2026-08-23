@@ -1,0 +1,18 @@
+{
+  "description": "A form file stores a property only when it differs from the default, so a label left as it was drawn carries no alignment at all. Reading that absence as nothing-to-mirror is why stacked paragraphs came out ragged under a right-to-left language: each block was placed correctly, against a shared right edge, and each then rendered its text hard against its own left edge - so blocks of different widths began in different places. The absence means the default, and the default mirrors like any other value. Both paragraphs therefore end up reading from the same edge.",
+  "catalog_file": "35_stacked_paragraphs_share_a_reading_edge.catalog.json",
+  "proposals": [
+    {
+      "name": "lblFirst",
+      "property": "TextSettings.HorzAlign",
+      "value": "Trailing",
+      "decision": "accepted"
+    },
+    {
+      "name": "lblSecond",
+      "property": "TextSettings.HorzAlign",
+      "value": "Trailing",
+      "decision": "accepted"
+    }
+  ]
+}
