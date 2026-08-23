@@ -51,6 +51,11 @@ type
   TFMXTranslationApplicator = class
   private
     class var FOriginalGeometry: TDictionary<string, TDATControlSnapshot>;
+    { The order each grid was designed in, remembered once, so the target
+      order can be stated in terms of it rather than counted. }
+    class var FDesignedColumns: TDictionary<string, TArray<string>>;
+    { And the order each menu bar was designed in, for the same reason. }
+    class var FDesignedMenus: TDictionary<string, TArray<string>>;
     class procedure SnapshotOriginalGeometry(const AForm: TCommonCustomForm;
       const AFormIdentity: string); static;
     class function RestoreOriginalGeometry(const AForm: TCommonCustomForm;
@@ -92,6 +97,7 @@ uses
   FMX.Edit,
   FMX.Grid,
   FMX.Memo,
+  FMX.Menus,
   FMX.Graphics,
   FMX.StdCtrls,
   FMX.TextLayout,
@@ -409,6 +415,223 @@ begin
     Settings.TextSettings.Font.Size := AValue;
     Result := True;
   end;
+end;
+
+{ Reordering a grid's columns for a language that reads the other way.
+
+  The VCL half of this works on a TCollection and moves TCollectionItems.
+  FireMonkey has neither: a TColumn is a child object of the grid and its
+  place is its Index among the grid's children. The reasoning is identical
+  and the mechanics are not, which is the usual shape of parity between these
+  two frameworks.
+
+  As on the VCL side the order is stated rather than toggled. The designed
+  order is captured the first time a grid is seen, the target is recomputed
+  from it on every call, and the columns are moved to match - so applying
+  twice is indistinguishable from applying once. }
+{ The menu bar reads in the language's direction.
+
+  The VCL half of this had to fight the framework: VCL mirrors a menu only
+  through TMenu.DoBiDiModeChanged, which gives up unless the machine itself is
+  Middle Eastern, and the flag it sets governs how submenus cascade rather
+  than the order of the bar. The order had to be reversed by hand there.
+
+  FireMonkey needs no such argument, because it offers no such flag - there is
+  nothing that claims to mirror a menu and does something else. A TMenuItem is
+  a child object of the menu and its place is its Index, so reversing the bar
+  means moving the items, which is what the VCL side ended up doing anyway.
+
+  Stated rather than toggled, for the same reason as everywhere else here: the
+  designed order is captured once and the target recomputed from it, so a form
+  translated twice looks like a form translated once. }
+{ TMainMenu hands its items back as TFmxObject rather than TMenuItem, and
+  both the name and the position live at that level, so there is nothing to
+  gain by casting down. }
+function FMXMenuIdentity(const AItem: TFmxObject): string;
+begin
+  Result := Trim(AItem.Name);
+  if Result <> '' then
+    Exit;
+  Result := '#' + IntToStr(AItem.Index);
+end;
+
+function FMXMainMenuOf(const AForm: TCommonCustomForm;
+  out AMenu: TMainMenu): Boolean;
+var
+  Index: Integer;
+  Child: TFmxObject;
+begin
+  AMenu := nil;
+  Result := False;
+  if AForm = nil then
+    Exit;
+  for Index := 0 to AForm.ChildrenCount - 1 do
+  begin
+    Child := AForm.Children[Index];
+    if Child is TMainMenu then
+    begin
+      AMenu := TMainMenu(Child);
+      Exit(AMenu.ItemsCount > 1);
+    end;
+  end;
+end;
+
+function FMXDesignedMenuOrder(const AMenu: TMainMenu;
+  const AKey: string): TArray<string>;
+var
+  Index: Integer;
+  Item: TFmxObject;
+begin
+  if TFMXTranslationApplicator.FDesignedMenus.TryGetValue(AKey, Result) then
+    Exit;
+  SetLength(Result, AMenu.ItemsCount);
+  for Index := 0 to AMenu.ItemsCount - 1 do
+  begin
+    Item := AMenu.Items[Index];
+    Result[Index] := FMXMenuIdentity(Item);
+  end;
+  TFMXTranslationApplicator.FDesignedMenus.AddOrSetValue(AKey, Result);
+end;
+
+function FMXApplyMenuOrder(const AForm: TCommonCustomForm;
+  const AFormIdentity: string; const AReversed: Boolean): Boolean;
+var
+  Menu: TMainMenu;
+  Designed, Target, Identities: TArray<string>;
+  Items: TArray<TFmxObject>;
+  Used: TArray<Boolean>;
+  Index, Scan: Integer;
+begin
+  Result := False;
+  if not FMXMainMenuOf(AForm, Menu) then
+    Exit;
+  Designed := FMXDesignedMenuOrder(Menu, AFormIdentity);
+  if Length(Designed) <> Menu.ItemsCount then
+    Exit;
+
+  SetLength(Target, Length(Designed));
+  for Index := 0 to High(Designed) do
+    if AReversed then
+      Target[Index] := Designed[High(Designed) - Index]
+    else
+      Target[Index] := Designed[Index];
+
+  { By reference, because setting Index moves everything else. }
+  SetLength(Items, Menu.ItemsCount);
+  SetLength(Identities, Menu.ItemsCount);
+  SetLength(Used, Menu.ItemsCount);
+  for Index := 0 to Menu.ItemsCount - 1 do
+  begin
+    Items[Index] := Menu.Items[Index];
+    Identities[Index] := FMXMenuIdentity(Items[Index]);
+  end;
+
+  for Index := 0 to High(Target) do
+    for Scan := 0 to High(Items) do
+    begin
+      if Used[Scan] or (Identities[Scan] <> Target[Index]) then
+        Continue;
+      if Items[Scan].Index <> Index then
+      begin
+        Items[Scan].Index := Index;
+        Result := True;
+      end;
+      Used[Scan] := True;
+      Break;
+    end;
+end;
+
+function FMXColumnIdentity(const AColumn: TColumn): string;
+begin
+  { The header first, since it is what the column is called; the name of the
+    object next, which survives translation; and the position last. }
+  Result := Trim(AColumn.Header);
+  if Result <> '' then
+    Exit;
+  Result := Trim(AColumn.Name);
+  if Result <> '' then
+    Exit;
+  Result := '#' + IntToStr(AColumn.Index);
+end;
+
+function FMXGridOf(const AComponent: TComponent;
+  out AGrid: TCustomGrid): Boolean;
+begin
+  AGrid := nil;
+  Result := AComponent is TCustomGrid;
+  if Result then
+  begin
+    AGrid := TCustomGrid(AComponent);
+    Result := AGrid.ColumnCount > 1;
+  end;
+end;
+
+function FMXDesignedColumnOrder(const AComponent: TComponent;
+  const AKey: string): TArray<string>;
+var
+  Grid: TCustomGrid;
+  Index: Integer;
+begin
+  if TFMXTranslationApplicator.FDesignedColumns.TryGetValue(AKey, Result) then
+    Exit;
+  SetLength(Result, 0);
+  if not FMXGridOf(AComponent, Grid) then
+    Exit;
+  SetLength(Result, Grid.ColumnCount);
+  for Index := 0 to Grid.ColumnCount - 1 do
+    Result[Index] := FMXColumnIdentity(Grid.Columns[Index]);
+  TFMXTranslationApplicator.FDesignedColumns.AddOrSetValue(AKey, Result);
+end;
+
+function FMXApplyColumnOrder(const AComponent: TComponent;
+  const AKey: string; const AReversed: Boolean): Boolean;
+var
+  Grid: TCustomGrid;
+  Designed, Target, Identities: TArray<string>;
+  Columns: TArray<TColumn>;
+  Used: TArray<Boolean>;
+  Index, Scan: Integer;
+begin
+  Result := False;
+  if not FMXGridOf(AComponent, Grid) then
+    Exit;
+  Designed := FMXDesignedColumnOrder(AComponent, AKey);
+  if Length(Designed) <> Grid.ColumnCount then
+    { The grid was rebuilt behind us, so the designed order no longer
+      describes it. Leaving it alone is the only safe answer. }
+    Exit;
+
+  SetLength(Target, Length(Designed));
+  for Index := 0 to High(Designed) do
+    if AReversed then
+      Target[Index] := Designed[High(Designed) - Index]
+    else
+      Target[Index] := Designed[Index];
+
+  { Held by reference before anything moves: setting Index shifts every other
+    column, so a position noted a moment ago names a different one. }
+  SetLength(Columns, Grid.ColumnCount);
+  SetLength(Identities, Grid.ColumnCount);
+  SetLength(Used, Grid.ColumnCount);
+  for Index := 0 to Grid.ColumnCount - 1 do
+  begin
+    Columns[Index] := Grid.Columns[Index];
+    Identities[Index] := FMXColumnIdentity(Columns[Index]);
+  end;
+
+  for Index := 0 to High(Target) do
+    for Scan := 0 to High(Columns) do
+    begin
+      if Used[Scan] or (Identities[Scan] <> Target[Index]) then
+        Continue;
+      if Columns[Scan].Index <> Index then
+      begin
+        Columns[Scan].Index := Index;
+        Result := True;
+      end;
+      Used[Scan] := True;
+      Break;
+    end;
 end;
 
 function TrySetLayoutProperty(const AComponent: TComponent;
@@ -1763,6 +1986,14 @@ begin
     Spanish pack says nothing about Align because Spanish needs nothing said,
     and silence cannot put an edge back. }
   RestoreOriginalGeometry(AForm, FormIdentity);
+  { The menu bar, in the direction the language reads.
+
+    Both directions go through the one call, so a form returning to its
+    source language is put back rather than left wherever it happened to
+    be. The VCL side does the same thing for the same reason, by different
+    means - it has a framework flag to work around, and this does not. }
+  FMXApplyMenuOrder(AForm, FormIdentity,
+    SameText(Trim(APack.TextDirection), 'rtl'));
   if APreserveControlState then
     SavedFocusedControl := AForm.Focused;
 
@@ -1841,12 +2072,15 @@ const
     WordWrap follows, so the height that is applied afterwards describes
     wrapped text. Positions are applied last, once every control has its
     final size. }
-  OrderedLayoutProperties: array[0..9] of string = (
+  OrderedLayoutProperties: array[0..10] of string = (
     'AutoSize', 'FontSize', 'WordWrap',
     { Mirroring, before the geometry, for the same reason as under the VCL. }
     'TextSettings.HorzAlign', 'Align',
     'Width', 'Height', 'Position.X', 'Position.Y',
-    'Anchors');
+    'Anchors',
+    { Column order last of all, as under the VCL: every width above names a
+      column by the index it was designed at. }
+    'ColumnOrder');
 var
   CandidateRule: TRuntimeLayoutRule;
   Component: TComponent;
@@ -1913,7 +2147,16 @@ begin
       Value := Rule.TranslatedValue
     else
       Value := Rule.OriginalValue;
-    if TrySetLayoutProperty(Component, Rule.PropertyName, Value) then
+    if SameText(Rule.PropertyName, 'ColumnOrder') then
+    begin
+      { Both directions through one call: asking for the designed order is
+        as much an instruction as asking for the reverse of it. }
+      if FMXApplyColumnOrder(Component,
+        AFormIdentity + '.' + Component.Name,
+        SameText(Trim(Value), 'reversed')) then
+        Inc(Result);
+    end
+    else if TrySetLayoutProperty(Component, Rule.PropertyName, Value) then
       Inc(Result);
   end;
 end;
@@ -1921,10 +2164,18 @@ end;
 initialization
   TFMXTranslationApplicator.FOriginalGeometry :=
     TDictionary<string, TDATControlSnapshot>.Create;
+  TFMXTranslationApplicator.FDesignedColumns :=
+    TDictionary<string, TArray<string>>.Create;
+  TFMXTranslationApplicator.FDesignedMenus :=
+    TDictionary<string, TArray<string>>.Create;
 
 finalization
   TFMXTranslationApplicator.FOriginalGeometry.Free;
   TFMXTranslationApplicator.FOriginalGeometry := nil;
+  TFMXTranslationApplicator.FDesignedColumns.Free;
+  TFMXTranslationApplicator.FDesignedColumns := nil;
+  TFMXTranslationApplicator.FDesignedMenus.Free;
+  TFMXTranslationApplicator.FDesignedMenus := nil;
 
 end.
 
