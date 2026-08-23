@@ -47,7 +47,10 @@ const
     '"frmFMXSample.cmbDateRange.Items.Strings.3":"Letzte 90 Tage",' +
     '"frmFMXSample.cmbDateRange.Items.Strings.4":"Dieses Jahr",' +
     '"frmFMXSample.chkSendCopy.Text":"Kopie senden",' +
-    '"frmFMXSample.colCustomer.Header":"Kunde",' +
+    { The heading arrives with a break mark in it, the way a translation of a
+      long word does. A heading never wraps, so the offer is never taken and
+      the mark can only ever do harm. }
+    '"frmFMXSample.colCustomer.Header":"Kun' + #$00AD + 'de",' +
     '"frmFMXSample.memInstructions.Lines.Strings.0":"Erste Zeile",' +
     '"frmFMXSample.memInstructions.Lines.Strings.1":"Zweite Zeile"},' +
     '"sourceStrings":{"Close":"Schlie' + #$00DF + 'en","Event":"Evento"},' +
@@ -203,6 +206,9 @@ begin
         'A width rule was not applied to a check box.');
       Require(frmFMXSample.chkSendCopy.TextSettings.WordWrap,
         'A wrapping rule was not applied to a check box.');
+      Require(Pos(#$00AD, frmFMXSample.colCustomer.Header) = 0,
+        'A grid heading carries no break marks for the text engine to ' +
+        'break at.');
       Require(frmFMXSample.colCustomer.Header = 'Kunde',
         'The grid column heading was not translated.');
       Require(frmFMXSample.grdCustomers.Cells[0, 0] = 'Event',

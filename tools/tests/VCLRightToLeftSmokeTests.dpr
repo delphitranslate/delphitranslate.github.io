@@ -239,7 +239,11 @@ begin
       Grid.Columns[0].Width := 60;
       Grid.Columns.Add.Title.Caption := 'Second';
       Grid.Columns[1].FieldName := 'SECONDFIELD';
-      Grid.Columns.Add.Title.Caption := 'Third';
+      { Offered a break the way a hyphenated pack ships one. GDI draws a
+        soft hyphen instead of breaking at it, so anything left in a heading
+        is simply a hyphen on the screen - an Italian grid came back reading
+        "Data di ripro-du-zione". A heading never wraps, so the marks go. }
+      Grid.Columns.Add.Title.Caption := 'Thi' + #$00AD + 'rd';
       Grid.Columns[2].FieldName := 'THIRDFIELD';
 
       { A menu is not a TControl, which is why it was missed at first. The
@@ -404,6 +408,8 @@ begin
          Grid.Columns[2].Title.Caption, Grid.Columns[2].Width]));
       Check(Grid.Columns[0].Title.Caption = 'Third',
         'The grid reads right to left: the first column is now last.');
+      Check(Pos(#$00AD, Grid.Columns[0].Title.Caption) = 0,
+        'A grid heading carries no break marks for GDI to draw as hyphens.');
       Check(Grid.Columns[2].Title.Caption = 'First',
         'and the last is first.');
       Writeln(Format('        grid   fields:   %s, %s, %s',

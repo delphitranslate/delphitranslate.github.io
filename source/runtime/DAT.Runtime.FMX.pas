@@ -103,6 +103,10 @@ uses
   FMX.TextLayout,
   FMX.WebBrowser;
 
+const
+  { U+00AD, the break offered inside a word. }
+  SoftHyphenMark = #$00AD;
+
 type
   TBrowserTranslationRetry = class(TComponent)
   private
@@ -981,7 +985,17 @@ begin
       ;
     if (TranslatedText <> '') and (TranslatedText <> CurrentText) then
     begin
-      TStringGrid(AComponent).Columns[ColumnIndex].Header := TranslatedText;
+      { Break marks taken out on the way in.
+
+        A heading is offered soft hyphens so a long word can break, and a
+        heading never wraps, so the offer is never taken. DirectWrite
+        renders the mark as nothing, which is why this shows on the VCL
+        side and not here - but a mark that can only ever do harm is not
+        worth carrying on either framework, and a heading narrow enough
+        to break at one would break mid-word. }
+      TStringGrid(AComponent).Columns[ColumnIndex].Header :=
+        StringReplace(TranslatedText, SoftHyphenMark, '',
+          [rfReplaceAll]);
       Inc(Result);
     end;
     { The cells are deliberately left alone.
@@ -1569,6 +1583,25 @@ begin
     Result := AFormIdentity + '.' + AComponent.Name + '.' + APropertyName;
 end;
 
+{ A grid heading, whichever way it arrived, carries no break marks.
+
+  A translation of a long word is offered soft hyphens so it can break, and
+  prose is right to keep them. A heading is not prose: it never wraps, so the
+  offer is never taken, and what is left is a mark the text engine still has to
+  do something with. GDI draws it, which is how an Italian heading came to read
+  "Data di ripro-du-zione" on the screen.
+
+  Only headings are stripped. A wrapping paragraph still needs its break
+  points. }
+function HeadingWithoutBreakMarks(const APropertyName,
+  AText: string): string;
+begin
+  if SameText(APropertyName, 'Header') then
+    Result := StringReplace(AText, SoftHyphenMark, '', [rfReplaceAll])
+  else
+    Result := AText;
+end;
+
 function ApplyTextProperty(const AFormIdentity: string;
   const AForm, AComponent: TComponent;
   const APropertyName: string; const APack: TRuntimeLanguagePack;
@@ -1593,7 +1626,8 @@ begin
   begin
     if TranslatedText = CurrentText then
       Exit;
-    SetStrProp(AComponent, PropertyInfo, TranslatedText);
+    SetStrProp(AComponent, PropertyInfo,
+      HeadingWithoutBreakMarks(APropertyName, TranslatedText));
     Result := True;
   end;
   if Result then
@@ -1601,7 +1635,8 @@ begin
   if APack.TryTranslateDynamicText(CurrentText, TranslatedText) and
     (TranslatedText <> CurrentText) then
   begin
-    SetStrProp(AComponent, PropertyInfo, TranslatedText);
+    SetStrProp(AComponent, PropertyInfo,
+      HeadingWithoutBreakMarks(APropertyName, TranslatedText));
     Result := True;
   end;
 end;

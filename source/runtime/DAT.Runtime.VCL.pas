@@ -1097,6 +1097,37 @@ function ResolveSoftHyphensOnForm(const AForm: TCustomForm): Integer;
 var
   Measure: TBitmap;
 
+  { Break marks taken out of every column heading on a grid. }
+  procedure ResolveColumnHeadings(const AComponent: TComponent);
+  var
+    Collection: TCollection;
+    Index: Integer;
+    TitleObject: TObject;
+    PropertyInfo: PPropInfo;
+    Heading: string;
+  begin
+    if not ColumnCollectionOf(AComponent, Collection) then
+      Exit;
+    for Index := 0 to Collection.Count - 1 do
+    begin
+      PropertyInfo := GetPropInfo(Collection.Items[Index].ClassInfo, 'Title');
+      if PropertyInfo = nil then
+        Continue;
+      TitleObject := GetObjectProp(Collection.Items[Index], PropertyInfo);
+      if TitleObject = nil then
+        Continue;
+      if not ReadStringProperty(TitleObject, 'Caption', Heading) then
+        Continue;
+      if Pos(SoftHyphen, Heading) = 0 then
+        Continue;
+      PropertyInfo := GetPropInfo(TitleObject.ClassInfo, 'Caption');
+      if PropertyInfo = nil then
+        Continue;
+      SetStrProp(TitleObject, PropertyInfo, StripSoftHyphens(Heading));
+      Inc(Result);
+    end;
+  end;
+
   procedure Walk(const AComponent: TComponent);
   var
     Child: TComponent;
@@ -1133,6 +1164,19 @@ var
         end;
       end;
     end;
+
+    { A grid heading is not reached by any of the above.
+
+      The walk visits components and their Caption property. A column is
+      neither: it is an item in a collection hanging off the grid, carrying its
+      heading on a Title object of its own. So the soft hyphens offered for
+      breaking a long heading were left in the text, and GDI draws a soft
+      hyphen rather than breaking at it - which is why an Italian heading came
+      out reading "Data di ripro-du-zione" with the hyphens on the screen.
+
+      A grid heading never wraps, whatever is offered, so the break marks are
+      simply removed. }
+    ResolveColumnHeadings(AComponent);
 
     for Child in AComponent do
       Walk(Child);
