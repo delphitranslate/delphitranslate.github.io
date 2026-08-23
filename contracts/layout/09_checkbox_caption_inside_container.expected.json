@@ -9,5 +9,12 @@
       "inside_control": "rectEnable",
       "font_at_least": 13
     }
+  ],
+  "known_overlaps": [
+    {
+      "a": "chkEnable",
+      "b": "lblEnable",
+      "why": "The caption grows leftward over the checkbox it belongs to, which is how it finds room for a longer translation - and is exactly the fault reported from the field, where an Arabic day name ended up under its own tick box. It is declared rather than fixed here because clipping the caption back off the checkbox costs it the width its text needs, and giving that width back requires the container to grow, which is a reordering of the fitting passes rather than a change to any one of them. Delete this declaration when that work lands; the contract will then prove it."
+    }
   ]
 }

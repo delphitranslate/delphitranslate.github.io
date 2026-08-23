@@ -281,6 +281,132 @@ begin
   end;
 end;
 
+{ No control may be planned on top of a neighbour it was clear of.
+
+  Every layout complaint from five languages of field testing reduced to this
+  one sentence. A caption grows for a longer translation and lands on the
+  checkbox beside it; a button wraps to two lines and drops onto the grid
+  below; two buttons grow taller and cover the labels they sit against. Each
+  looked like a separate fault and each was the same one: something was made
+  bigger and nothing asked what was already there.
+
+  Contracts existed either side of all of it - a button keeping its place, a
+  caption stopping at the button beside it, padding above a grid - and every
+  one passed, because a fixture with one control and nothing beneath it cannot
+  catch a control growing onto its neighbour.
+
+  So this is not another fixture. It runs on every fixture there is, which is
+  what makes it worth having: sixty-nine forms are asked the question at once,
+  and any form added later is asked it for free.
+
+  Overlap that was drawn deliberately is left alone - designers do put a label
+  over an image - so the comparison is against the designed geometry rather
+  than against zero. Only overlap the plan introduced counts.
+
+  Four fixtures declare a collision they still have, with the reason, in their
+  own expected.json. That is deliberate: the guard is live everywhere else
+  while the planner work that resolves them is done separately, and deleting a
+  declaration is how that work proves itself. An undeclared collision fails. }
+function PlacedByAlignment(const AControl: TLayoutControl): Boolean;
+var
+  Value: string;
+begin
+  { A panel with Align set is put where its edge constant says, and its Left
+    and Width describe where it was drawn rather than where it will appear.
+    Mirroring changes the constant, not the numbers, so comparing the numbers
+    reports a collision that will not happen. }
+  Value := Trim(AControl.Align);
+  Result := (Value <> '') and not SameText(Value, 'alNone') and
+    not SameText(Value, 'None') and not SameText(Value, 'TAlignLayout.None');
+end;
+
+function RectanglesMeet(const ALeft, ATop, AWidth, AHeight,
+  BLeft, BTop, BWidth, BHeight: Double): Boolean;
+const
+  { A pixel of contact is a rounding artefact, not a collision. }
+  Tolerance = 1.0;
+begin
+  Result := (ALeft + AWidth - Tolerance > BLeft) and
+            (BLeft + BWidth - Tolerance > ALeft) and
+            (ATop + AHeight - Tolerance > BTop) and
+            (BTop + BHeight - Tolerance > ATop);
+end;
+
+{ A collision this fixture already knows about and has explained. }
+function OverlapIsDeclared(const ARoot: TJSONObject;
+  const AFirst, ASecond: string): Boolean;
+var
+  Declared: TJSONArray;
+  Item: TJSONValue;
+  Pair: TJSONObject;
+  A, B: string;
+begin
+  Result := False;
+  if ARoot = nil then
+    Exit;
+  Declared := ARoot.GetValue('known_overlaps') as TJSONArray;
+  if Declared = nil then
+    Exit;
+  for Item in Declared do
+  begin
+    if not (Item is TJSONObject) then
+      Continue;
+    Pair := TJSONObject(Item);
+    A := Pair.GetValue<string>('a', '');
+    B := Pair.GetValue<string>('b', '');
+    if (SameText(A, AFirst) and SameText(B, ASecond)) or
+       (SameText(A, ASecond) and SameText(B, AFirst)) then
+      Exit(True);
+  end;
+end;
+
+procedure CheckNoNewOverlap(const AReview: TLocalizationReview;
+  const ARoot: TJSONObject);
+var
+  First, Second: TLayoutControl;
+  IndexA, IndexB: Integer;
+begin
+  for IndexA := 0 to AReview.Controls.Count - 1 do
+  begin
+    First := AReview.Controls[IndexA];
+    if not First.HasPosition or not First.HasSize or
+      PlacedByAlignment(First) then
+      Continue;
+    for IndexB := IndexA + 1 to AReview.Controls.Count - 1 do
+    begin
+      Second := AReview.Controls[IndexB];
+      if not Second.HasPosition or not Second.HasSize or
+        PlacedByAlignment(Second) then
+        Continue;
+      { Siblings only. A child overlapping its own container is the normal
+        state of affairs and says nothing. }
+      if not SameText(First.FormName, Second.FormName) or
+        not SameText(First.ParentName, Second.ParentName) then
+        Continue;
+      if RectanglesMeet(First.Left, First.Top, First.Width, First.Height,
+        Second.Left, Second.Top, Second.Width, Second.Height) then
+        Continue;
+      if not RectanglesMeet(
+        First.PlannedLeft, First.PlannedTop, First.PlannedWidth,
+          First.PlannedHeight,
+        Second.PlannedLeft, Second.PlannedTop, Second.PlannedWidth,
+          Second.PlannedHeight) then
+        Continue;
+      if OverlapIsDeclared(ARoot, First.ComponentName,
+        Second.ComponentName) then
+        Continue;
+      Failures.Add(Format(
+        '%s: %s and %s were clear of each other and are planned on top of ' +
+        'one another - %s at (%.0f,%.0f %.0fx%.0f), %s at (%.0f,%.0f %.0fx%.0f)',
+        [First.FormName, First.ComponentName, Second.ComponentName,
+         First.ComponentName, First.PlannedLeft, First.PlannedTop,
+         First.PlannedWidth, First.PlannedHeight,
+         Second.ComponentName, Second.PlannedLeft, Second.PlannedTop,
+         Second.PlannedWidth, Second.PlannedHeight]));
+    end;
+  end;
+end;
+
 procedure CheckControlExpectation(const AReview: TLocalizationReview;
   const AExpectation: TJSONObject);
 var
@@ -629,6 +755,8 @@ begin
               FormName := 'ContractForm';
             CheckProposals(Review, Root, FormName);
             CheckGroups(Review, Root, FormName);
+            { Asked of every fixture, not only the ones written for it. }
+            CheckNoNewOverlap(Review, Root);
           finally
             Review.Free;
           end;
