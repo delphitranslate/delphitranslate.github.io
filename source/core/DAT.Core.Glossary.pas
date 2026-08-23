@@ -94,7 +94,8 @@ implementation
 uses
   System.IOUtils,
   System.JSON,
-  System.SysUtils;
+  System.SysUtils,
+  DAT.Scan.TextCodec;
 
 function JsonText(const AObject: TJSONObject; const AName,
   ADefault: string): string;
@@ -376,8 +377,14 @@ begin
         begin
           TermObject := TJSONObject(ArrayValue);
           Term := TProjectGlossaryTerm.Create;
-          Term.SourceText := JsonText(TermObject, 'sourceText', '');
-          Term.TargetText := JsonText(TermObject, 'targetText', '');
+          { Repaired on the way in. A term stored with mis-decoded text hands
+            that damage to every translation it touches, which is how one
+            glossary entry put a sharp s through three different forms as an
+            A-tilde followed by a Y-diaeresis. }
+          Term.SourceText :=
+            RepairMisdecodedText(JsonText(TermObject, 'sourceText', ''));
+          Term.TargetText :=
+            RepairMisdecodedText(JsonText(TermObject, 'targetText', ''));
           Term.SemanticConcept := JsonText(TermObject, 'semanticConcept', '');
           Term.ContextKind := JsonText(TermObject, 'contextKind', '');
           Term.DeveloperNote := JsonText(TermObject, 'developerNote', '');

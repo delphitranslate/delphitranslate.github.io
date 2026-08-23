@@ -30,6 +30,7 @@ uses
   System.Hash,
   System.IOUtils,
   System.JSON,
+  System.StrUtils,
   DAT.Core.Hyphenation,
   DAT.Runtime.LanguagePack,
   DAT.Validation.Catalog;
@@ -101,9 +102,46 @@ var
     written: its text goes on to be filled with data, may be compared or
     parsed, and a stray character inside it is a defect rather than a
     kindness. }
-  function ForDisplay(const AText: string): string;
+  { And only where a break could ever be taken.
+
+    A soft hyphen is invisible until the line breaks at it - on a control that
+    wraps. On one that does not, the mark is never used and never invisible:
+    GDI draws it as an ordinary hyphen. So a button read "Sch-lie-ssen", a
+    heading read "West-minster-Glockens-piel", and a column heading read "Data
+    di ripro-du-zione", none of which any translator wrote.
+
+    A button has one line by construction. So does a menu item, a window
+    title, and a grid column heading. A hint is sized by the tooltip around
+    it and never runs out of room. None of them can use a break mark, so none
+    of them are given one; what is left is the case the marks were added for,
+    which is a long compound inside a label or a memo that has to wrap. }
+  function AcceptsBreakMarks(const AEntry: TTranslationEntry): Boolean;
+  var
+    ClassName, PropertyName: string;
   begin
-    if Hyphenation = nil then
+    ClassName := AEntry.ComponentClassName;
+    PropertyName := AEntry.PropertyName;
+    Result := False;
+    { A tooltip grows to fit; it never needs to break a word. }
+    if SameText(PropertyName, 'Hint') then
+      Exit;
+    { A grid heading is one line whatever is offered. }
+    if ContainsText(PropertyName, 'Column') or
+      ContainsText(PropertyName, 'Title') or
+      ContainsText(PropertyName, 'Header') then
+      Exit;
+    if ContainsText(ClassName, 'Button') or
+      ContainsText(ClassName, 'MenuItem') or
+      ContainsText(ClassName, 'Column') or
+      ContainsText(ClassName, 'Form') then
+      Exit;
+    Result := True;
+  end;
+
+  function ForDisplay(const AText: string;
+    const AEntry: TTranslationEntry): string;
+  begin
+    if (Hyphenation = nil) or not AcceptsBreakMarks(AEntry) then
       Exit(AText);
     Result := Hyphenation.HyphenateText(AText);
   end;
@@ -174,7 +212,7 @@ begin
             rtrStaticText:
               begin
                 StringsObject.AddPair(Entry.Key,
-                  ForDisplay(Entry.TranslatedText));
+                  ForDisplay(Entry.TranslatedText, Entry));
                 if (Trim(SourceText) <> '') and
                   (Trim(Entry.TranslatedText) <> '') then
                 begin
@@ -183,7 +221,7 @@ begin
                     SourceStrings[SourceText] := ''
                   else if not SourceStrings.ContainsKey(SourceText) then
                     SourceStrings.Add(SourceText,
-                      ForDisplay(Entry.TranslatedText));
+                      ForDisplay(Entry.TranslatedText, Entry));
                 end;
               end;
             rtrDynamicValue, rtrRuntimeTemplate:

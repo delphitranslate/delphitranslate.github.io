@@ -1133,6 +1133,9 @@ var
   SettleFloor: Double;
   SettleSavedLeft, SettleSavedWidth: Double;
   SettleSavedHeight: Double;
+  GridNames: TStringList;
+  HeadingAt, HeadingIndex: Integer;
+  HeadingFont, HeadingRoom: Double;
   BalanceLines: Integer;
   BalanceWidth, BalanceStep: Double;
   MirrorWidth: Double;
@@ -4194,6 +4197,81 @@ begin
     end;
   end;
 
+  { Phase 3g - a grid heading that will not fit its column takes a smaller
+    size, and every heading on that grid takes the same one.
+
+    Widening the column is the first answer and the passes above have already
+    given it whatever room the grid had. Where that is not enough the heading
+    was simply left overflowing: a column is never wrapped - one line is all a
+    heading gets - and no pass had ever offered it the other lever. Readers of
+    German, Italian and Vietnamese all reported the same thing, which is what
+    makes it a rule about grids rather than about any one language.
+
+    The size is settled for the grid, not for the column. Headings sit in one
+    strip across the top and are read as a row; one of them a point smaller
+    than the rest looks like a mistake, so the grid takes the smallest size any
+    of its headings needs. And it is never raised - a heading that already fits
+    keeps the size it was drawn at. }
+  GridNames := TStringList.Create;
+  try
+    GridNames.Duplicates := dupIgnore;
+    GridNames.Sorted := True;
+    for Control in AReview.Controls do
+      if SameText(Control.ComponentClassName, 'TColumn') then
+      begin
+        HeadingAt := Pos('.Columns[', Control.ComponentName);
+        if HeadingAt > 1 then
+          GridNames.Add(Control.FormName + '|' +
+            Copy(Control.ComponentName, 1, HeadingAt - 1));
+      end;
+    for HeadingIndex := 0 to GridNames.Count - 1 do
+    begin
+      HeadingFont := 0;
+      for Control in AReview.Controls do
+      begin
+        if not SameText(Control.ComponentClassName, 'TColumn') then
+          Continue;
+        HeadingAt := Pos('.Columns[', Control.ComponentName);
+        if HeadingAt < 2 then
+          Continue;
+        if not SameText(Control.FormName + '|' +
+          Copy(Control.ComponentName, 1, HeadingAt - 1),
+          GridNames[HeadingIndex]) then
+          Continue;
+        if (Trim(Control.TranslatedText) = '') or
+          (Control.PlannedWidth <= 0) then
+          Continue;
+        { The heading sits inside the column with a little air either side,
+          the same as any other text in any other box. }
+        HeadingRoom := Control.PlannedWidth - 2 * PaddingHorizontal(Control);
+        if TextWidthEstimate(Control) <= HeadingRoom then
+          Continue;
+        SetFont := Max(FontFittingOneLine(Control, HeadingRoom),
+          MinimumReadableFontSize);
+        if (HeadingFont = 0) or (SetFont < HeadingFont) then
+          HeadingFont := SetFont;
+      end;
+      if HeadingFont <= 0 then
+        Continue;
+      for Control in AReview.Controls do
+      begin
+        if not SameText(Control.ComponentClassName, 'TColumn') then
+          Continue;
+        HeadingAt := Pos('.Columns[', Control.ComponentName);
+        if HeadingAt < 2 then
+          Continue;
+        if not SameText(Control.FormName + '|' +
+          Copy(Control.ComponentName, 1, HeadingAt - 1),
+          GridNames[HeadingIndex]) then
+          Continue;
+        if HeadingFont < Max(Control.FontSize, 9) then
+          Control.PlannedFontSize := HeadingFont;
+      end;
+    end;
+  finally
+    GridNames.Free;
+  end;
+
   { Phase 4 - emit proposals from the settled geometry. Because every value
     comes from the same resolved model, the exported rules agree with one
     another instead of describing conflicting placements. }
@@ -4247,7 +4325,11 @@ begin
           'Height for the measured wrapped line count at the planned width.');
       if (Control.PlannedFontSize > 0) and
         (Control.PlannedFontSize < Control.FontSize - 0.1) then
-        AddProposal(AReview, Control, 'FontSize',
+        { A column has no font of its own: its heading is drawn by the Title's
+          Font, so that is the path the rule has to name. }
+        AddProposal(AReview, Control,
+          IfThen(SameText(Control.ComponentClassName, 'TColumn'),
+            'Title.Font.Size', 'FontSize'),
           FormatFloat('0.##', Control.FontSize, TFormatSettings.Invariant),
           FormatFloat('0.##', Control.PlannedFontSize,
             TFormatSettings.Invariant),

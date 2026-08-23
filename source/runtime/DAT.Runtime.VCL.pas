@@ -70,7 +70,7 @@ type
     { Which forms currently have their menu bar reversed, so that leaving a
       right-to-left language reverses it back exactly once. Reversal is its
       own inverse; doing it twice or not at all are both wrong. }
-    class var FReversedMenus: TDictionary<string, Boolean>;
+    class var FDesignedMenuOrder: TDictionary<string, TArray<string>>;
     { What each form's menu had for AutoHotkeys before a translation was
       applied, so the source language gets it back. }
     class var FMenuAutoHotkeys: TDictionary<string, TMenuAutoFlag>;
@@ -840,9 +840,15 @@ begin
     Exit;
   Target := Collection.Items[ItemIndex];
 
-  { One level further in again, for a heading held on the column's Title. }
+  { And on in, for as many levels as the path names.
+
+    A heading lives on the column's Title, and the size of that heading lives
+    on the Title's Font - "Columns[0].Title.Font.Size", which is two steps in,
+    not one. Written for a single step this stopped at the Title and quietly
+    did nothing, which is why a grid heading could be widened but never made
+    smaller. }
   DotAt := Pos('.', ItemProperty);
-  if DotAt > 0 then
+  while DotAt > 0 do
   begin
     PropertyInfo := GetPropInfo(Target.ClassInfo,
       Copy(ItemProperty, 1, DotAt - 1));
@@ -852,6 +858,7 @@ begin
     if Target = nil then
       Exit;
     ItemProperty := Copy(ItemProperty, DotAt + 1, Length(ItemProperty));
+    DotAt := Pos('.', ItemProperty);
   end;
 
   ItemPropertyInfo := GetPropInfo(Target.ClassInfo, ItemProperty);
@@ -1367,24 +1374,89 @@ begin
   end;
 end;
 
+{ The bar is put into the order the language reads, absolutely.
+
+  This used to remember whether it had reversed a form's menu and toggle from
+  there. Remembering is only safe while the thing remembered about still
+  exists: a form closed and reopened comes back with its menu in the order the
+  designer drew, while the note still said "reversed". The next switch then
+  toggled from a baseline that was no longer true and left the bar backwards -
+  which is a menu still reading right to left after the user had gone back to
+  German.
+
+  So nothing is remembered about what was done. The designed order is captured
+  the first time a menu is seen and the wanted order is set from it every time,
+  which gives the same answer however many times it runs and whatever happened
+  to the form in between. The grid columns were changed to work this way for
+  the same reason. }
 procedure ApplyMenuReadingOrder(const AForm: TCustomForm;
   const AFormIdentity: string; const ARightToLeft: Boolean);
 var
-  AlreadyReversed: Boolean;
+  Designed: TList<TMenuItem>;
+  Item: TMenuItem;
+  Index: Integer;
+  Key: string;
+  Order: TArray<string>;
+  Wanted: TList<TMenuItem>;
 begin
-  if (AForm = nil) or (AForm.Menu = nil) then
+  if (AForm = nil) or (AForm.Menu = nil) or (AForm.Menu.Items = nil) then
     Exit;
   ApplyMenuCascadeDirection(AForm, ARightToLeft);
-  AlreadyReversed := TVCLTranslationApplicator.FReversedMenus.ContainsKey(
-    AFormIdentity);
-  if AlreadyReversed = ARightToLeft then
+  if AForm.Menu.Items.Count < 2 then
     Exit;
-  if not ReverseMenuBar(AForm.Menu) then
-    Exit;
-  if ARightToLeft then
-    TVCLTranslationApplicator.FReversedMenus.AddOrSetValue(AFormIdentity, True)
-  else
-    TVCLTranslationApplicator.FReversedMenus.Remove(AFormIdentity);
+
+  Key := AFormIdentity + '.' + AForm.Menu.Name;
+  { The designed order, named rather than positional so it survives the menu
+    being rebuilt. }
+  if not TVCLTranslationApplicator.FDesignedMenuOrder.TryGetValue(Key,
+    Order) then
+  begin
+    SetLength(Order, AForm.Menu.Items.Count);
+    for Index := 0 to AForm.Menu.Items.Count - 1 do
+      Order[Index] := AForm.Menu.Items[Index].Name;
+    TVCLTranslationApplicator.FDesignedMenuOrder.AddOrSetValue(Key, Order);
+  end;
+
+  Designed := TList<TMenuItem>.Create;
+  Wanted := TList<TMenuItem>.Create;
+  try
+    { Anything the note does not cover - an item the application added since -
+      keeps its place at the end rather than being dropped. }
+    for Index := 0 to High(Order) do
+      for Item in AForm.Menu.Items do
+        if SameText(Item.Name, Order[Index]) and (Designed.IndexOf(Item) < 0) then
+        begin
+          Designed.Add(Item);
+          Break;
+        end;
+    for Item in AForm.Menu.Items do
+      if Designed.IndexOf(Item) < 0 then
+        Designed.Add(Item);
+    if Designed.Count <> AForm.Menu.Items.Count then
+      Exit;
+
+    if ARightToLeft then
+      for Index := Designed.Count - 1 downto 0 do
+        Wanted.Add(Designed[Index])
+    else
+      for Item in Designed do
+        Wanted.Add(Item);
+
+    { Already in the wanted order, so nothing to do and nothing to redraw. }
+    Index := 0;
+    while (Index < Wanted.Count) and (AForm.Menu.Items[Index] = Wanted[Index]) do
+      Inc(Index);
+    if Index >= Wanted.Count then
+      Exit;
+
+    for Index := AForm.Menu.Items.Count - 1 downto 0 do
+      AForm.Menu.Items.Delete(Index);
+    for Item in Wanted do
+      AForm.Menu.Items.Add(Item);
+  finally
+    Wanted.Free;
+    Designed.Free;
+  end;
   if AForm.HandleAllocated then
     DrawMenuBar(AForm.Handle);
 end;
@@ -1796,8 +1868,8 @@ end;
 initialization
   TVCLTranslationApplicator.FDesignedColumns :=
     TDictionary<string, TArray<string>>.Create;
-  TVCLTranslationApplicator.FReversedMenus :=
-    TDictionary<string, Boolean>.Create;
+  TVCLTranslationApplicator.FDesignedMenuOrder :=
+    TDictionary<string, TArray<string>>.Create;
   TVCLTranslationApplicator.FMenuAutoHotkeys :=
     TDictionary<string, TMenuAutoFlag>.Create;
   TVCLTranslationApplicator.FOriginalGeometry :=
@@ -1808,8 +1880,8 @@ finalization
   TVCLTranslationApplicator.FOriginalGeometry := nil;
   TVCLTranslationApplicator.FDesignedColumns.Free;
   TVCLTranslationApplicator.FDesignedColumns := nil;
-  TVCLTranslationApplicator.FReversedMenus.Free;
-  TVCLTranslationApplicator.FReversedMenus := nil;
+  TVCLTranslationApplicator.FDesignedMenuOrder.Free;
+  TVCLTranslationApplicator.FDesignedMenuOrder := nil;
   TVCLTranslationApplicator.FMenuAutoHotkeys.Free;
   TVCLTranslationApplicator.FMenuAutoHotkeys := nil;
 

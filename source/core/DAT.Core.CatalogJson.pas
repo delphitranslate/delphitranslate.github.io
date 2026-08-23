@@ -78,7 +78,8 @@ implementation
 
 uses
   System.IOUtils,
-  System.StrUtils;
+  System.StrUtils,
+  DAT.Scan.TextCodec;
 
 constructor TCatalogCsvImportPlan.Create;
 begin
@@ -279,9 +280,16 @@ begin
             EntryObject := TJSONObject(ArrayValue);
             Entry := TTranslationEntry.Create;
             Entry.Key := JsonValueText(EntryObject, 'key', '');
-            Entry.SourceText := JsonValueText(EntryObject, 'sourceText', '');
-            Entry.TranslatedText :=
-              JsonValueText(EntryObject, 'translatedText', '');
+            { Repaired on the way in, so a catalog that already carries
+              the damage is healed by being opened rather than by being
+              translated again. A sharp s written as UTF-8 and read back
+              as Windows-1252 reached three forms as an A-tilde followed
+              by a Y-diaeresis, and no amount of re-planning the layout
+              could put it right. }
+            Entry.SourceText := RepairMisdecodedText(
+              JsonValueText(EntryObject, 'sourceText', ''));
+            Entry.TranslatedText := RepairMisdecodedText(
+              JsonValueText(EntryObject, 'translatedText', ''));
             Entry.FormName := JsonValueText(EntryObject, 'formName', '');
             Entry.ComponentName :=
               JsonValueText(EntryObject, 'componentName', '');
