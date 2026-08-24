@@ -1130,7 +1130,12 @@ var
   RowWasClean: Boolean;
   RowScanA, RowScanB: Integer;
   RowGrowLimit: Double;
+  GridNames2: TStringList;
+  GridControl: TLayoutControl;
+  GridColumnTotal, GridScale: Double;
   RowLines: Integer;
+  SettleAlignedRight: Double;
+  AlignedEdge: Double;
   ContainerParentWidth: Double;
   SettleRoom, SettleNeeded, SettleCentre: Double;
   RowMembers, RowSettled: TList<TLayoutControl>;
@@ -1350,6 +1355,59 @@ var
     Result := Current * Room / GlyphWidth;
   end;
 
+
+  { The nearest thing this control ends flush against, if anything does.
+
+    A button drawn to end exactly where a grid below it ends is aligned on
+    purpose - the two edges make one straight line down the page. Growing
+    the button rightwards for a longer caption, with nothing to say that
+    edge mattered, walked it past the grid's own right edge: still a valid
+    caption, still fitting on one line, and visibly hanging off the side of
+    the thing it was lined up with. }
+  function AlignedRightEdge(const AControl: TLayoutControl): Double;
+  var
+    Candidate: TLayoutControl;
+    OwnRight: Double;
+  begin
+    Result := 0;
+    OwnRight := AControl.Left + AControl.Width;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if Abs((Candidate.Left + Candidate.Width) - OwnRight) >
+        DesignedOverlapTolerance then
+        Continue;
+      { A grid specifically, not any control that happens to end at the same
+        x-coordinate. Two controls sharing a right margin is the ordinary
+        look of a form laid out on a grid of its own - most things on a page
+        end up flush with something by simple convention - and treating
+        every such coincidence as a deliberate line down the page stopped an
+        unrelated button and instructions box, sharing nothing but a
+        margin, from growing at all. A grid is different: it is wide,
+        structural, and reads as the edge of a region in a way a button or a
+        memo ending at the same number does not. }
+      if not ContainsText(Candidate.ComponentClassName, 'Grid') then
+        Continue;
+      { Below this control, not merely somewhere in the same parent. Two
+        controls can share a right edge by coincidence in a form with dozens
+        of them on it, and treating every such coincidence as a deliberate
+        line down the page capped a heading's width against a control it had
+        nothing to do with, forcing it into lines it did not need and down
+        onto whatever sat beneath it instead. The relationship this exists
+        for is a control ending flush with the top of something drawn below
+        it - the only shape where growing past that edge is visibly wrong. }
+      if Candidate.Top < AControl.Top + AControl.Height - DesignedOverlapTolerance then
+        Continue;
+      if (Result = 0) or (Candidate.PlannedLeft + Candidate.PlannedWidth <
+          Result) then
+        Result := Candidate.PlannedLeft + Candidate.PlannedWidth;
+    end;
+  end;
 
   function ParentWidthFor(const AControl: TLayoutControl): Double;
   var
@@ -2040,6 +2098,7 @@ var
   var
     GrowthCap: Double;
     HardCap: Double;
+    AlignedEdge: Double;
   begin
     if ContainsText(AControl.ComponentClassName, 'Column') then
     begin
@@ -2077,6 +2136,15 @@ var
     { Never propose a width that would cross the parent edge or the next
       control on the same row. Wrapping absorbs whatever will not fit. }
     Result := Min(Result, Ceil(AvailableWidth(AControl)));
+    { Nor one that would cross an edge this control was drawn flush against.
+      A button ending exactly where the grid below it ends has nothing
+      beside it in its own row - AvailableWidth sees an empty row and offers
+      the whole panel - but the grid's edge is still there, one row down,
+      and growing past it is exactly as visible as growing past a sibling
+      beside it would have been. }
+    AlignedEdge := AlignedRightEdge(AControl);
+    if AlignedEdge > 0 then
+      Result := Min(Result, Ceil(AlignedEdge - AControl.PlannedLeft));
     if Result < Ceil(AControl.Width) then
       Result := Ceil(AControl.Width);
   end;
@@ -2559,15 +2627,24 @@ begin
       Continue;
     FontSize := Max(Control.FontSize, 9);
     RequiredWidth := TextWidthEstimate(Control);
+    IsButton := ContainsText(Control.ComponentClassName, 'Button');
     { The headroom is only wanted where being wrong is expensive. A control with
       a fixed width that we measure slightly short simply sits a little tight;
       one that sizes itself will grow around the text at run time, to whatever
       width that takes, and walk into its neighbour. Give the second kind the
-      benefit of the doubt. }
-    if Control.AutoSize then
+      benefit of the doubt.
+
+      A button earns the same headroom for a different reason: the caption is
+      not the whole of what has to fit. A button's own border and the margin
+      Windows keeps around its text sit outside anything TextWidthEstimate
+      measures, so a width judged exactly enough for the letters still wraps
+      the real control - the caption fit the measurement and not the button.
+      Recalculate Dates for Upcoming Year measured as one line and wrapped to
+      two anyway, with the rest of a nine-hundred-pixel form standing empty
+      beside it. }
+    if Control.AutoSize or IsButton then
       RequiredWidth := RequiredWidth * MeasurementSafety;
     RequiredHeight := MeasuredLineHeight(Control);
-    IsButton := ContainsText(Control.ComponentClassName, 'Button');
     IsWrappingText := ShouldPreferWrap(Control);
     if (Control.Width > 0) and (RequiredWidth > Control.Width) then
     begin
@@ -3797,6 +3874,10 @@ begin
           SettleWanted := Min(SettleNeeded,
             Min(Max(Control.Width * 1.25, MinimumComfortableButtonWidth),
               SpaceToRight(Control)));
+          SettleAlignedRight := AlignedRightEdge(Control);
+          if SettleAlignedRight > 0 then
+            SettleWanted := Min(SettleWanted,
+              SettleAlignedRight - Control.PlannedLeft);
           { The gap beside a button is not the button's to take. Something was
             drawn in it or beside it, and whatever that is has the same claim
             on the space - usually a caption whose own translation has grown
@@ -3940,6 +4021,43 @@ begin
     RowSettled.Free;
   end;
 
+  { Phase 3g2 - wrapping never leaves a control narrower than it was drawn.
+
+    A caption too narrow for its translation is meant to wrap, and wrapping
+    is meant to buy height, not take width away. Somewhere upstream a
+    caption pushed aside to clear a collision can end up measured against
+    whatever little room is left at its new position and planned narrower
+    than the box the designer actually gave it - "Wiedergabezeiten:" ended
+    up in a box thirty pixels narrower than its own design width, which is
+    what turned an ordinary two-line wrap into "Wie-der-gabe-zeiten:", a
+    hyphen at nearly every syllable.
+
+    Restoring the design width is only done where it is free: exactly the
+    same test Phase 3f already uses for everything else it gives back. }
+  for Control in AReview.Controls do
+  begin
+    if not Control.HasPosition or not Control.HasSize then
+      Continue;
+    if IsVisualContainer(Control) or (Trim(Control.Align) <> '') then
+      Continue;
+    if not (Control.WordWrap or Control.PlannedWordWrap) then
+      Continue;
+    if Control.PlannedWidth >= Control.Width - 0.5 then
+      Continue;
+    SettleSavedWidth := Control.PlannedWidth;
+    Control.PlannedWidth := Control.Width;
+    if PlannedBoxIntrudes(Control) then
+      Control.PlannedWidth := SettleSavedWidth
+    else if Trim(Control.TranslatedText) <> '' then
+    begin
+      SettleLines := WrappedLineCount(Control, Control.PlannedWidth);
+      Control.PlannedHeight := Max(Control.Height,
+        Ceil(RequiredHeightFor(Control, Control.PlannedWidth)));
+      if SettleLines > 1 then
+        Control.PlannedWordWrap := True;
+    end;
+  end;
+
   { Text that wraps is given the width the wrap uses, and no more.
 
     A box wider than the text needs does not look generous, it looks ragged:
@@ -3979,6 +4097,19 @@ begin
     if (BalanceContainer <> nil) and
       (BalanceContainer.PlannedWidth > BalanceContainer.Width + 0.5) and
       AloneInContainer(Control, BalanceContainer) then
+      Continue;
+    { Nor a block the author already broke into lines. A caption that wraps
+      is one continuous run of words the framework flows to fit; text
+      carrying its own line breaks - a note written as three sentences, each
+      ended with a return - has already been laid out by whoever wrote it,
+      and narrowing the box folds those authored lines again on top of
+      themselves. The instructions on the random-directory page came out
+      three lines wide open on a nine-hundred-pixel form and one line and a
+      half narrower than the box it was drawn in, because nothing here knew
+      the difference between prose asking to be balanced and a block that
+      was never prose in the first place. }
+    if (Pos(#13, Control.TranslatedText) > 0) or
+      (Pos(#10, Control.TranslatedText) > 0) then
       Continue;
     if Control.PlannedWidth <= MinimumWrapWidth then
       Continue;
@@ -4462,6 +4593,142 @@ begin
     end;
   finally
     GridNames.Free;
+  end;
+
+  { Phase 3g2 - a grid's columns never claim more width between them than
+    the grid itself has.
+
+    Each column was widened to hold its own heading, one at a time, with
+    nothing adding up what the others had already taken. A grid drawn 537
+    wide held four columns that together wanted 599, and the difference came
+    out of whichever column happened to be last - cut off at the grid's own
+    edge, the way the field testing described it.
+
+    Scaled down together rather than trimming the one at the end: every
+    column gives up the same proportion of its width, which keeps them
+    reading as one table instead of leaving three generous columns and a
+    crushed fourth. A floor stops a column disappearing altogether. }
+  GridNames2 := TStringList.Create;
+  try
+    GridNames2.Duplicates := dupIgnore;
+    GridNames2.Sorted := True;
+    for Control in AReview.Controls do
+      if SameText(Control.ComponentClassName, 'TColumn') then
+      begin
+        HeadingAt := Pos('.Columns[', Control.ComponentName);
+        if HeadingAt > 1 then
+          GridNames2.Add(Control.FormName + '|' +
+            Copy(Control.ComponentName, 1, HeadingAt - 1));
+      end;
+    for HeadingIndex := 0 to GridNames2.Count - 1 do
+    begin
+      GridControl := nil;
+      GridColumnTotal := 0;
+      for Control in AReview.Controls do
+      begin
+        if SameText(Control.ComponentClassName, 'TColumn') then
+        begin
+          HeadingAt := Pos('.Columns[', Control.ComponentName);
+          if HeadingAt < 2 then
+            Continue;
+          if not SameText(Control.FormName + '|' +
+            Copy(Control.ComponentName, 1, HeadingAt - 1),
+            GridNames2[HeadingIndex]) then
+            Continue;
+          GridColumnTotal := GridColumnTotal + Control.PlannedWidth;
+        end
+        else if SameText(Control.FormName + '|' + Control.ComponentName,
+          GridNames2[HeadingIndex]) then
+          GridControl := Control;
+      end;
+      if (GridControl = nil) or not GridControl.HasSize or
+        (GridColumnTotal <= GridControl.PlannedWidth) or
+        (GridColumnTotal <= 0) then
+        Continue;
+      GridScale := GridControl.PlannedWidth / GridColumnTotal;
+      for Control in AReview.Controls do
+      begin
+        if not SameText(Control.ComponentClassName, 'TColumn') then
+          Continue;
+        HeadingAt := Pos('.Columns[', Control.ComponentName);
+        if HeadingAt < 2 then
+          Continue;
+        if not SameText(Control.FormName + '|' +
+          Copy(Control.ComponentName, 1, HeadingAt - 1),
+          GridNames2[HeadingIndex]) then
+          Continue;
+        Control.PlannedWidth := Max(30, Control.PlannedWidth * GridScale);
+        if Trim(Control.TranslatedText) = '' then
+          Continue;
+        HeadingRoom := Control.PlannedWidth - 2 * PaddingHorizontal(Control);
+        if TextWidthEstimate(Control) <= HeadingRoom then
+          Continue;
+        SetFont := Max(FontFittingOneLine(Control, HeadingRoom),
+          MinimumReadableFontSize);
+        if SetFont < Control.PlannedFontSize then
+          Control.PlannedFontSize := SetFont;
+      end;
+    end;
+  finally
+    GridNames2.Free;
+  end;
+
+  { Phase 3h - a control does not end past an edge it was drawn flush
+    against, whichever earlier pass is the one that grew it there.
+
+    A button ending exactly where the grid below it ends is aligned on
+    purpose. Several passes above are entitled to widen a lone control for
+    its own translated caption, each reasonably, and none of them was asked
+    to know about an edge one row down that happened to line up. Asked once
+    here, after everything else has already decided what it wanted, rather
+    than taught to every pass individually. Only ever narrows, and only back
+    to the aligned edge or the control's own drawn width, whichever leaves
+    more room - never below what the control was drawn at. }
+  for Control in AReview.Controls do
+  begin
+    if not Control.HasPosition or not Control.HasSize then
+      Continue;
+    if IsVisualContainer(Control) or (Trim(Control.Align) <> '') then
+      Continue;
+    AlignedEdge := AlignedRightEdge(Control);
+    if AlignedEdge <= 0 then
+      Continue;
+    if Control.PlannedLeft + Control.PlannedWidth <= AlignedEdge + 0.5 then
+      Continue;
+    Control.PlannedWidth := Max(Control.Width,
+      AlignedEdge - Control.PlannedLeft);
+    if Trim(Control.TranslatedText) = '' then
+      Continue;
+    SettleLines := WrappedLineCount(Control, Control.PlannedWidth);
+    if SettleLines > 1 then
+    begin
+      Control.PlannedWordWrap := True;
+      SettleSavedHeight := Control.PlannedHeight;
+      Control.PlannedHeight := Max(Control.PlannedHeight,
+        Ceil(RequiredHeightFor(Control, Control.PlannedWidth)));
+      { The width just taken back is exactly what put this control across a
+        neighbour below it in the first place - the funeral-page button did
+        this on the settings page, wrapped taller once its width was capped,
+        and landed on the grid the width cap had just protected it from
+        landing across. Giving the height back too, and shrinking the font
+        instead, is the same trade Phase 3f already makes for the same
+        reason. }
+      if PlannedBoxIntrudes(Control) then
+      begin
+        Control.PlannedHeight := SettleSavedHeight;
+        SettleFont := Max(SmallestFontFor(Control),
+          FontFittingOneLine(Control, Control.PlannedWidth));
+        if SettleFont < Control.PlannedFontSize then
+          Control.PlannedFontSize := SettleFont;
+      end;
+    end
+    else if TextWidthEstimate(Control) > Control.PlannedWidth then
+    begin
+      SettleFont := Max(SmallestFontFor(Control),
+        FontFittingOneLine(Control, Control.PlannedWidth));
+      if SettleFont < Control.PlannedFontSize then
+        Control.PlannedFontSize := SettleFont;
+    end;
   end;
 
   { Phase 4 - emit proposals from the settled geometry. Because every value
