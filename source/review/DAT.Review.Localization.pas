@@ -1130,6 +1130,7 @@ var
   RowWasClean: Boolean;
   RowScanA, RowScanB: Integer;
   RowGrowLimit: Double;
+  RowLines: Integer;
   ContainerParentWidth: Double;
   SettleRoom, SettleNeeded, SettleCentre: Double;
   RowMembers, RowSettled: TList<TLayoutControl>;
@@ -4186,7 +4187,16 @@ begin
           Continue;
         if IsVisualContainer(Other) or (Trim(Other.Align) <> '') then
           Continue;
-        if Abs(Other.Top - Control.Top) > 2 then
+        { Centres, not tops. A caption drawn taller than the slider it
+          labels - "System Volume:" wrapped over two lines beside a control
+          one line high - sits a few pixels higher at the top edge and level
+          with it at the middle, which is the only place a person reading the
+          row actually judges it as one. Comparing raw Top missed exactly
+          this: a volume label, its slider and the mute button beside it, at
+          tops 16, 19 and 22, never counted as the same row at all. }
+        if Abs((Other.Top + Other.Height / 2) -
+          (Control.Top + Control.Height / 2)) >
+          Max(8, Max(Other.Height, Control.Height) * 0.55) then
           Continue;
         RowBand.Add(Other);
       end;
@@ -4239,6 +4249,23 @@ begin
             RowGrowLimit - Other.PlannedLeft);
         if TextWidthEstimate(Other) <= Other.PlannedWidth then
           Continue;
+        { A caption drawn tall enough for two lines - "System Volume:" over a
+          slider one line high - is meant to wrap, not to be squeezed onto
+          one line by shrinking its font towards nothing. Reverting undid its
+          width along with everything else in the row; wrapping is what gets
+          it back, taken from the height it was already drawn with rather
+          than a font size nobody would choose. }
+        if Other.WordWrap or Other.PlannedWordWrap then
+        begin
+          RowLines := WrappedLineCount(Other, Other.PlannedWidth);
+          if RowLines > 1 then
+          begin
+            Other.PlannedWordWrap := True;
+            Other.PlannedHeight := Max(Other.PlannedHeight,
+              Ceil(RequiredHeightFor(Other, Other.PlannedWidth)));
+            Continue;
+          end;
+        end;
         SettleFont := Max(SmallestFontFor(Other),
           FontFittingOneLine(Other, Other.PlannedWidth));
         if SettleFont < Other.PlannedFontSize then
