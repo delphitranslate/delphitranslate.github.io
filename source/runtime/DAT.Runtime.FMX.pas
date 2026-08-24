@@ -51,6 +51,8 @@ type
   TFMXTranslationApplicator = class
   private
     class var FOriginalGeometry: TDictionary<string, TDATControlSnapshot>;
+    class procedure RecentreSelfPlacedText(const AForm: TCommonCustomForm;
+      const AFormIdentity: string); static;
     { The order each grid was designed in, remembered once, so the target
       order can be stated in terms of it rather than counted. }
     class var FDesignedColumns: TDictionary<string, TArray<string>>;
@@ -2000,6 +2002,61 @@ begin
   Inc(Result, RestoreOriginalGeometry(AForm, FormIdentity));
 end;
 
+{ A caption the application centred itself stays centred.
+
+  The FireMonkey counterpart of the VCL pass of the same name, and it exists
+  for the same reason: a heading positioned by the program rather than by the
+  designer must not be moved by the analyser, but the arithmetic that placed
+  it used the width the caption had before it was translated. Leaving the
+  position alone while the width changes underneath it leaves the heading as
+  far off centre as the translation is longer.
+
+  Nothing decides to centre anything here either. A control whose snapshot
+  sits centred in its parent was centred by somebody, and the same arithmetic
+  is redone with the width the caption now has. }
+class procedure TFMXTranslationApplicator.RecentreSelfPlacedText(
+  const AForm: TCommonCustomForm; const AFormIdentity: string);
+const
+  CentreTolerance = 3;
+var
+  Component: TComponent;
+  Control: TControl;
+  ParentWidth: Single;
+  Snapshot: TDATControlSnapshot;
+  WasCentre, Wanted: Single;
+begin
+  if (AForm = nil) or (FOriginalGeometry = nil) then
+    Exit;
+  for Component in AForm do
+  begin
+    if not (Component is TControl) or (Component.Name = '') then
+      Continue;
+    Control := TControl(Component);
+    if Control.ParentControl = nil then
+      Continue;
+    if not ContainsText(Control.ClassName, 'Label') then
+      Continue;
+    if not FOriginalGeometry.TryGetValue(
+      AFormIdentity + '.' + Component.Name, Snapshot) then
+      Continue;
+    if not Snapshot.HasPosition then
+      Continue;
+    ParentWidth := Control.ParentControl.Width;
+    if ParentWidth <= 0 then
+      Continue;
+    WasCentre := Snapshot.Position.X + Snapshot.Size.X / 2;
+    if Abs(WasCentre - ParentWidth / 2) > CentreTolerance then
+      Continue;
+    if Abs(Control.Width - Snapshot.Size.X) < 0.5 then
+      Continue;
+    Wanted := (ParentWidth - Control.Width) / 2;
+    if Wanted < 0 then
+      Wanted := 0;
+    Control.Position.X := Wanted;
+  end;
+end;
+
+
 class function TFMXTranslationApplicator.ApplyToForm(
   const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string;
@@ -2117,6 +2174,8 @@ begin
       little breathing room when the text already came from the language pack. }
     Inc(Result, ApplyConservativeTextFit(AForm, APack, FormIdentity));
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
+    { Last, because it reads the widths every pass above settled. }
+    RecentreSelfPlacedText(AForm, FormIdentity);
   finally
     VisitedComponents.Free;
     if APreserveControlState and (SavedFocusedControl <> nil) then

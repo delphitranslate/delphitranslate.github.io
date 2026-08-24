@@ -74,6 +74,8 @@ type
     { What each form's menu had for AutoHotkeys before a translation was
       applied, so the source language gets it back. }
     class var FMenuAutoHotkeys: TDictionary<string, TMenuAutoFlag>;
+    class procedure RecentreSelfPlacedText(const AForm: TCustomForm;
+      const AFormIdentity: string); static;
     class procedure SnapshotOriginalGeometry(const AForm: TCustomForm;
       const AFormIdentity: string); static;
     class function RestoreOriginalGeometry(const AForm: TCustomForm;
@@ -1584,6 +1586,68 @@ begin
   end;
 end;
 
+{ A caption the application centred itself stays centred.
+
+  Some headings are placed by the program rather than by the designer, and the
+  analyser is required to leave those alone - moving one overwrites a decision
+  the application makes once at start-up and never makes again. Carillon does
+  exactly this with its main heading: it sets Left to half the difference
+  between the screen and the label, in code, before any translation happens.
+
+  Leaving the position alone is right. Leaving it alone while the width changes
+  underneath it is not: the arithmetic that produced the position used the
+  English width, and the German caption is a different length, so the heading
+  ends up as far off centre as the translation is longer. Every language
+  reported it.
+
+  Nothing here decides to centre anything. It reads what the application
+  already did - a control whose snapshot sits centred in its parent was
+  centred by somebody - and redoes that same arithmetic with the width the
+  caption now has. A heading that was never centred is not touched. }
+class procedure TVCLTranslationApplicator.RecentreSelfPlacedText(
+  const AForm: TCustomForm; const AFormIdentity: string);
+const
+  { Half a character of slack, so a centring that was rounded still counts. }
+  CentreTolerance = 3;
+var
+  Component: TComponent;
+  Control: TControl;
+  ParentWidth: Integer;
+  Snapshot: TDATVCLControlSnapshot;
+  WasCentre, Wanted: Integer;
+begin
+  if (AForm = nil) or (FOriginalGeometry = nil) then
+    Exit;
+  for Component in AForm do
+  begin
+    if not (Component is TControl) or (Component.Name = '') then
+      Continue;
+    Control := TControl(Component);
+    if Control.Parent = nil then
+      Continue;
+    { Captions only. A panel that happens to sit centred was placed there
+      deliberately and does not move because its contents changed. }
+    if not ContainsText(Control.ClassName, 'Label') then
+      Continue;
+    if not FOriginalGeometry.TryGetValue(
+      AFormIdentity + '.' + Component.Name, Snapshot) then
+      Continue;
+    ParentWidth := Control.Parent.ClientWidth;
+    if ParentWidth <= 0 then
+      Continue;
+    WasCentre := Snapshot.Left + Snapshot.Width div 2;
+    if Abs(WasCentre - ParentWidth div 2) > CentreTolerance then
+      Continue;
+    if Control.Width = Snapshot.Width then
+      Continue;
+    Wanted := (ParentWidth - Control.Width) div 2;
+    if Wanted < 0 then
+      Wanted := 0;
+    Control.Left := Wanted;
+  end;
+end;
+
+
 class function TVCLTranslationApplicator.ApplyToForm(
   const AForm: TCustomForm; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string;
@@ -1705,6 +1769,8 @@ begin
       exit when nothing changed. }
     ApplyMenuReadingOrder(AForm, FormIdentity,
       SameText(Trim(APack.TextDirection), 'rtl'));
+    { Last, because it reads the widths every pass above settled. }
+    RecentreSelfPlacedText(AForm, FormIdentity);
   finally
     if APreserveControlState and SavedFocusedState and
       (SavedFocusedControl <> nil) and SavedFocusedControl.CanFocus then
