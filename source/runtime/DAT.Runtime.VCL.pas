@@ -122,7 +122,8 @@ uses
   System.TypInfo,
   Vcl.Graphics,
   Vcl.StdCtrls,
-  Vcl.ExtCtrls;
+  Vcl.ExtCtrls,
+  DAT.Runtime.TemplateRewrite;
 
 { Declared here because restoring a form needs it before it is defined: a
   grid is put back into its designed order the same way it was taken out of
@@ -814,6 +815,72 @@ begin
   end;
 end;
 
+{ The read side of the walk above: the current text at the end of a
+  collection path, for a caller that has to see it before it can decide
+  what belongs there. }
+function TryGetCollectionPropertyText(const AComponent: TComponent;
+  const APropertyName: string; out AValue: string): Boolean;
+var
+  Collection: TCollection;
+  CollectionName: string;
+  CollectionObject: TObject;
+  IndexText: string;
+  ItemIndex: Integer;
+  ItemProperty: string;
+  ItemPropertyInfo: PPropInfo;
+  OpenAt, CloseAt, DotAt: Integer;
+  PropertyInfo: PPropInfo;
+  Target: TObject;
+begin
+  Result := False;
+  AValue := '';
+  OpenAt := Pos('[', APropertyName);
+  CloseAt := Pos(']', APropertyName);
+  if (OpenAt < 2) or (CloseAt < OpenAt + 2) then
+    Exit;
+  DotAt := CloseAt + 1;
+  if (DotAt > Length(APropertyName)) or (APropertyName[DotAt] <> '.') then
+    Exit;
+  CollectionName := Copy(APropertyName, 1, OpenAt - 1);
+  IndexText := Copy(APropertyName, OpenAt + 1, CloseAt - OpenAt - 1);
+  ItemProperty := Copy(APropertyName, DotAt + 1, Length(APropertyName));
+  if not TryStrToInt(IndexText, ItemIndex) then
+    Exit;
+
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, CollectionName);
+  if (PropertyInfo = nil) or (PropertyInfo.PropType^.Kind <> tkClass) then
+    Exit;
+  CollectionObject := GetObjectProp(AComponent, PropertyInfo);
+  if not (CollectionObject is TCollection) then
+    Exit;
+  Collection := TCollection(CollectionObject);
+  if (ItemIndex < 0) or (ItemIndex >= Collection.Count) then
+    Exit;
+  Target := Collection.Items[ItemIndex];
+
+  DotAt := Pos('.', ItemProperty);
+  while DotAt > 0 do
+  begin
+    PropertyInfo := GetPropInfo(Target.ClassInfo,
+      Copy(ItemProperty, 1, DotAt - 1));
+    if (PropertyInfo = nil) or (PropertyInfo.PropType^.Kind <> tkClass) then
+      Exit;
+    Target := GetObjectProp(Target, PropertyInfo);
+    if Target = nil then
+      Exit;
+    ItemProperty := Copy(ItemProperty, DotAt + 1, Length(ItemProperty));
+    DotAt := Pos('.', ItemProperty);
+  end;
+
+  ItemPropertyInfo := GetPropInfo(Target.ClassInfo, ItemProperty);
+  if (ItemPropertyInfo = nil) or
+    not (ItemPropertyInfo.PropType^.Kind in
+      [tkString, tkLString, tkWString, tkUString]) then
+    Exit;
+  AValue := GetStrProp(Target, ItemPropertyInfo);
+  Result := True;
+end;
+
 function TrySetCollectionProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
 var
@@ -997,34 +1064,85 @@ var
   DotAt, BracketAt: Integer;
   ComponentName, PropertyPath: string;
   Target: TComponent;
+  CurrentText, RewrittenText, SourceTemplate: string;
+
+  { A path pulled apart once and shared by both kinds of rule below - a
+    plain translated string and a template that still has to recognise the
+    application's own text before it can replace part of it. }
+  function TrySplitPath(const AKey: string; out AComponentName,
+    APropertyPath: string): Boolean;
+  var
+    LocalRest: string;
+    LocalDotAt, LocalBracketAt: Integer;
+  begin
+    Result := False;
+    if not StartsText(Prefix, AKey) then
+      Exit;
+    LocalRest := Copy(AKey, Length(Prefix) + 1, Length(AKey));
+    LocalBracketAt := Pos('[', LocalRest);
+    if LocalBracketAt < 2 then
+      Exit;
+    LocalDotAt := Pos('.', LocalRest);
+    { The component name is whatever comes before the collection property
+      opens, not before the first dot - "Panels[0].Text" has its own dot
+      after the bracket, and cutting at the first one anywhere would cut
+      inside the path instead of before it. }
+    if (LocalDotAt = 0) or (LocalDotAt > LocalBracketAt) then
+      Exit;
+    AComponentName := Copy(LocalRest, 1, LocalDotAt - 1);
+    APropertyPath := Copy(LocalRest, LocalDotAt + 1, Length(LocalRest));
+    Result := Pos('[', APropertyPath) >= 1;
+  end;
+
 begin
   Result := 0;
   if (AForm = nil) or (APack = nil) then
     Exit;
   Prefix := AFormIdentity + '.';
+
+  { A collection property translated outright - nothing on it changes at
+    run time, so the pack's own text is simply written. }
   for Pair in APack.Strings do
   begin
-    if not StartsText(Prefix, Pair.Key) then
-      Continue;
-    Rest := Copy(Pair.Key, Length(Prefix) + 1, Length(Pair.Key));
-    BracketAt := Pos('[', Rest);
-    if BracketAt < 2 then
-      Continue;
-    DotAt := Pos('.', Rest);
-    { The component name is whatever comes before the collection property
-      opens, not before the first dot - "Panels[0].Text" has its own dot
-      after the bracket, and cutting at the first one anywhere in Rest would
-      cut inside the path instead of before it. }
-    if (DotAt = 0) or (DotAt > BracketAt) then
-      Continue;
-    ComponentName := Copy(Rest, 1, DotAt - 1);
-    PropertyPath := Copy(Rest, DotAt + 1, Length(Rest));
-    if Pos('[', PropertyPath) < 1 then
+    if not TrySplitPath(Pair.Key, ComponentName, PropertyPath) then
       Continue;
     Target := AForm.FindComponent(ComponentName);
     if Target = nil then
       Continue;
     if TrySetCollectionProperty(Target, PropertyPath, Pair.Value) then
+      Inc(Result);
+  end;
+
+  { A status panel built from a literal prefix and whatever the application
+    computed - "Last Song Played: " plus a filename - is scanned as a plain
+    concatenation, not a Format() call, so it carries no placeholder for
+    TDATTemplateRewriter to find and is exported into the pack's templates
+    as a bare prefix rather than a string ready to drop straight in.
+
+    The panel's own current text is read first, and only the matched prefix
+    is replaced - whatever the application appended after it, a filename or
+    a count, is carried across untouched. A prefix that no longer matches
+    (the application has since changed what it writes, or this run has not
+    reached that code yet) is left alone rather than guessed at; the next
+    tick tries again. }
+  for Pair in APack.Templates do
+  begin
+    if not TrySplitPath(Pair.Key, ComponentName, PropertyPath) then
+      Continue;
+    Target := AForm.FindComponent(ComponentName);
+    if Target = nil then
+      Continue;
+    if not TryGetCollectionPropertyText(Target, PropertyPath, CurrentText) then
+      Continue;
+    if not APack.Sources.TryGetValue(Pair.Key, SourceTemplate) then
+      Continue;
+    if (SourceTemplate = '') or not StartsText(SourceTemplate, CurrentText) then
+      Continue;
+    RewrittenText := Pair.Value +
+      Copy(CurrentText, Length(SourceTemplate) + 1, Length(CurrentText));
+    if RewrittenText = CurrentText then
+      Continue;
+    if TrySetCollectionProperty(Target, PropertyPath, RewrittenText) then
       Inc(Result);
   end;
 end;
