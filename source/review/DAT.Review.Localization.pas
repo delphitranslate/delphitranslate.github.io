@@ -211,6 +211,7 @@ function LocalizationFindingSeverityText(
 implementation
 
 uses
+  System.Generics.Defaults,
   System.Hash,
   System.IOUtils,
   System.JSON,
@@ -1124,6 +1125,12 @@ var
   SettleGuard, SettleLines: Integer;
   SettleFont, SettleHeight: Double;
   SettleSpanLeft, SettleSpanRight: Double;
+  ContainerWasCentred: Boolean;
+  RowRescued, RowBand: TList<TLayoutControl>;
+  RowWasClean: Boolean;
+  RowScanA, RowScanB: Integer;
+  RowGrowLimit: Double;
+  ContainerParentWidth: Double;
   SettleRoom, SettleNeeded, SettleCentre: Double;
   RowMembers, RowSettled: TList<TLayoutControl>;
   RowWidth, RowGap, RowRoom: Double;
@@ -1760,7 +1767,24 @@ var
   var
     Candidate: TLayoutControl;
 
+    { Tested against wherever the neighbour is now planned to be, not where
+      it was drawn. A neighbour that has itself already moved - a caption
+      slid left to find room for its own translation - is not standing where
+      its design-time numbers say, and a check against those stale numbers
+      answers a question about a form that no longer exists. }
     function Overlaps(const ALeft, ATop, AWidth, AHeight: Double;
+      const AOther: TLayoutControl): Boolean;
+    begin
+      Result := (ALeft < AOther.PlannedLeft + AOther.PlannedWidth) and
+        (ALeft + AWidth > AOther.PlannedLeft) and
+        (ATop < AOther.PlannedTop + AOther.PlannedHeight) and
+        (ATop + AHeight > AOther.PlannedTop);
+    end;
+
+    { The one place the design-time box is still wanted: proving two controls
+      already overlapped before any of this ran, which is a decision someone
+      made on purpose and not this planner's to undo. }
+    function DesignOverlaps(const ALeft, ATop, AWidth, AHeight: Double;
       const AOther: TLayoutControl): Boolean;
     begin
       Result := (ALeft < AOther.Left + AOther.Width) and
@@ -1808,7 +1832,7 @@ var
         AControl.PlannedWidth, AControl.PlannedHeight, Candidate) then
         Continue;
       { Drawn overlapping already, so not this planning's doing. }
-      if Overlaps(AControl.Left, AControl.Top, AControl.Width,
+      if DesignOverlaps(AControl.Left, AControl.Top, AControl.Width,
         AControl.Height, Candidate) then
         Continue;
       Exit(True);
@@ -3458,6 +3482,11 @@ begin
     end;
     { Never past the edge of what holds the frame itself. A frame pushed off
       the form takes its children with it. }
+    ContainerWasCentred := False;
+    ContainerParentWidth := ParentWidthFor(Control);
+    if ContainerParentWidth > 0 then
+      ContainerWasCentred := Abs((Control.Left + Control.Width / 2) -
+        ContainerParentWidth / 2) <= CentredRowTolerance;
     if NeededWidth > Control.PlannedWidth then
     begin
       NeededWidth := Min(NeededWidth, Control.Width * MaximumContainerGrowth);
@@ -3465,6 +3494,17 @@ begin
         NeededWidth := Min(NeededWidth,
           ContentRightBound(Control) - Control.PlannedLeft);
       Control.PlannedWidth := Max(Control.PlannedWidth, NeededWidth);
+      { A container that was centred in its parent at design time - a note
+        panel in the middle of a settings page, a status area at the bottom
+        of the form - grew rightward only, because nothing above touches
+        PlannedLeft. Width alone moves the centre exactly as far as the growth,
+        which is a panel of German text sitting visibly off to one side of
+        where it was drawn. Recentring only where it was centred to begin
+        with leaves a container the designer placed deliberately off-centre
+        exactly where it was placed. }
+      if ContainerWasCentred and (ContainerParentWidth > 0) then
+        Control.PlannedLeft := Max(0,
+          (ContainerParentWidth - Control.PlannedWidth) / 2);
     end;
     if NeededHeight > Control.PlannedHeight then
     begin
@@ -4098,6 +4138,116 @@ begin
       if SettleFont < Control.PlannedFontSize then
         Control.PlannedFontSize := SettleFont;
     end;
+  end;
+
+  { Phase 3f2 - a row that was clear at design time and is not clear now is
+    given back as one row, not one control at a time.
+
+    Phase 3f above gives a single control back its own drawn position, and
+    that is enough when the control drifted on its own. It is not enough for
+    a row of day-of-week checkboxes each nudged a little further right than
+    the one before it: undoing the last one's nudge does nothing while the
+    checkbox beside it still occupies the space it would revert into, and
+    undoing one control at a time never catches up with a chain seven long.
+    That was the Arabic day name still landing on its own tick box after
+    every other pass had run - a checkbox pushed by its neighbour to the
+    left, colliding with the label that was always meant to sit at its
+    right.
+
+    So where a control still intrudes after Phase 3f, the whole row it
+    belongs to - everything at the same designed height, in the same parent
+    - is asked whether the row was ever a problem to begin with. A row that
+    did not overlap itself at design time does not need redesigning; it
+    needs to be put back, all at once, the way it was drawn. Each member is
+    then re-fitted to whatever its own reverted cell holds, exactly as a grid
+    heading is - reduced to the smallest legible size before anything is left
+    overflowing a box that is not going to grow. }
+  RowRescued := TList<TLayoutControl>.Create;
+  RowBand := TList<TLayoutControl>.Create;
+  try
+    for Control in AReview.Controls do
+    begin
+      if not Control.HasPosition or not Control.HasSize then
+        Continue;
+      if IsVisualContainer(Control) or (Trim(Control.Align) <> '') then
+        Continue;
+      if RowRescued.IndexOf(Control) >= 0 then
+        Continue;
+      if not PlannedBoxIntrudes(Control) then
+        Continue;
+
+      RowBand.Clear;
+      for Other in AReview.Controls do
+      begin
+        if not Other.HasPosition or not Other.HasSize then
+          Continue;
+        if not SameText(Other.FormName, Control.FormName) or
+          not SameText(Other.ParentName, Control.ParentName) then
+          Continue;
+        if IsVisualContainer(Other) or (Trim(Other.Align) <> '') then
+          Continue;
+        if Abs(Other.Top - Control.Top) > 2 then
+          Continue;
+        RowBand.Add(Other);
+      end;
+      { Three or more, or this is not a row - it is two controls that
+        happen to share a height, which Phase 3f above already tried and is
+        better placed to judge on its own terms. }
+      if RowBand.Count < 3 then
+        Continue;
+
+      { Whether a pair in the row already touched at design time is not the
+        question. Phase 3f above already answered it, for every control on
+        the form: a collision the designer drew is left exactly as drawn,
+        not undone and not treated as license to allow more of it. A
+        checkbox's click area drawn a little wide, overlapping the caption
+        beside it by design, is precisely such a case - and re-checking it
+        here, pair by pair, only found reasons to refuse reverting the rest
+        of the row along with it. Reverting the whole row to where it was
+        drawn cannot make anything worse than the design already was; it can
+        only undo growth this planning added. }
+      for Other in RowBand do
+      begin
+        Other.PlannedLeft := Other.Left;
+        Other.PlannedWidth := Other.Width;
+        RowRescued.Add(Other);
+      end;
+      { Sorted so each member knows what the next one is, and can grow up to
+        it rather than being confined to exactly the box it was drawn with.
+        Reverting undid a collision; it did not undo the reason a translation
+        needed more room in the first place, and a label denied every pixel
+        of slack the row actually has left is clipped for no reason. }
+      RowBand.Sort(TComparer<TLayoutControl>.Construct(
+        function(const A, B: TLayoutControl): Integer
+        begin
+          Result := Sign(A.Left - B.Left);
+        end));
+      for RowScanA := 0 to RowBand.Count - 1 do
+      begin
+        Other := RowBand[RowScanA];
+        if Trim(Other.TranslatedText) = '' then
+          Continue;
+        if TextWidthEstimate(Other) <= Other.PlannedWidth then
+          Continue;
+        if RowScanA < RowBand.Count - 1 then
+          RowGrowLimit := RowBand[RowScanA + 1].Left - ControlGap
+        else
+          RowGrowLimit := ContentRightBound(Other);
+        if RowGrowLimit > Other.PlannedLeft + Other.PlannedWidth then
+          Other.PlannedWidth := Min(TextWidthEstimate(Other) +
+            2 * PaddingHorizontal(Other),
+            RowGrowLimit - Other.PlannedLeft);
+        if TextWidthEstimate(Other) <= Other.PlannedWidth then
+          Continue;
+        SettleFont := Max(SmallestFontFor(Other),
+          FontFittingOneLine(Other, Other.PlannedWidth));
+        if SettleFont < Other.PlannedFontSize then
+          Other.PlannedFontSize := SettleFont;
+      end;
+    end;
+  finally
+    RowBand.Free;
+    RowRescued.Free;
   end;
 
   { Phase 3e - reflect the whole form for a right-to-left language.

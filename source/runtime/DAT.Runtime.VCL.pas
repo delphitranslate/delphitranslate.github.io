@@ -84,6 +84,17 @@ type
   public
     class function ApplyToForm(const AForm: TCustomForm;
       const APack: TRuntimeLanguagePack): Integer; overload; static;
+    { A collection item has no window of its own and sends no
+      WM_SETTEXT, so a status bar panel set by the application after
+      this runs is never caught by the caption interceptor. This walks
+      the pack for any rule shaped like a path into a collection -
+      "Panels[0].Text" - and writes it directly. Called once by
+      ApplyToForm and then repeatedly by a small timer that keeps
+      re-asserting it, which is what wins the race against the
+      application setting its own text back on a timer of its own. }
+    class function ApplyCollectionTextRules(const AForm: TCustomForm;
+      const AFormIdentity: string;
+      const APack: TRuntimeLanguagePack): Integer; static;
     class function ApplyToForm(const AForm: TCustomForm;
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const APreserveControlState: Boolean = True): Integer; overload; static;
@@ -110,7 +121,8 @@ uses
   System.StrUtils,
   System.TypInfo,
   Vcl.Graphics,
-  Vcl.StdCtrls;
+  Vcl.StdCtrls,
+  Vcl.ExtCtrls;
 
 { Declared here because restoring a form needs it before it is defined: a
   grid is put back into its designed order the same way it was taken out of
@@ -884,6 +896,139 @@ begin
       end;
   end;
 end;
+{ Keeps a status panel translated after the application sets its own text
+  back.
+
+  A window catches its caption in transit because everything routed through
+  it passes as WM_SETTEXT; a collection item such as a TStatusPanel is not a
+  window and sends no message, so there is nothing to intercept there. What
+  Carillon does with its status bar is set the panel text once when the form
+  is created and again after each song, always in English, always after this
+  product has already run.
+
+  So this does not intercept anything. It re-asserts. A short timer owned by
+  the form re-applies the same collection-text rules ApplyToForm already
+  knows, which costs nothing where nothing has changed and wins the only race
+  that matters: whichever of the two writes last is what the user sees, and
+  this writes last far more often than the application's own occasional
+  updates do. }
+type
+  TDATVCLCollectionTextIntercept = class(TComponent)
+  private
+    FForm: TCustomForm;
+    FFormIdentity: string;
+    FPack: TRuntimeLanguagePack;
+    FTimer: TTimer;
+    procedure OnTick(Sender: TObject);
+  public
+    constructor CreateFor(const AForm: TCustomForm;
+      const AFormIdentity: string; const APack: TRuntimeLanguagePack);
+    destructor Destroy; override;
+    class procedure Install(const AForm: TCustomForm;
+      const AFormIdentity: string;
+      const APack: TRuntimeLanguagePack); static;
+  end;
+
+const
+  CollectionInterceptorName = 'DATCollectionTextIntercept';
+  CollectionInterceptorInterval = 400;
+
+constructor TDATVCLCollectionTextIntercept.CreateFor(const AForm: TCustomForm;
+  const AFormIdentity: string; const APack: TRuntimeLanguagePack);
+begin
+  inherited Create(AForm);
+  Name := CollectionInterceptorName;
+  FForm := AForm;
+  FFormIdentity := AFormIdentity;
+  FPack := APack;
+  FTimer := TTimer.Create(Self);
+  FTimer.Interval := CollectionInterceptorInterval;
+  FTimer.OnTimer := OnTick;
+  FTimer.Enabled := True;
+end;
+
+destructor TDATVCLCollectionTextIntercept.Destroy;
+begin
+  if FTimer <> nil then
+    FTimer.Enabled := False;
+  inherited Destroy;
+end;
+
+procedure TDATVCLCollectionTextIntercept.OnTick(Sender: TObject);
+begin
+  if (FForm = nil) or (FPack = nil) then
+    Exit;
+  try
+    TVCLTranslationApplicator.ApplyCollectionTextRules(FForm, FFormIdentity,
+      FPack);
+  except
+    { A missed refresh is invisible; an exception escaping a timer callback
+      is not. }
+  end;
+end;
+
+class procedure TDATVCLCollectionTextIntercept.Install(
+  const AForm: TCustomForm; const AFormIdentity: string;
+  const APack: TRuntimeLanguagePack);
+var
+  Existing: TComponent;
+begin
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  Existing := AForm.FindComponent(CollectionInterceptorName);
+  if Existing is TDATVCLCollectionTextIntercept then
+  begin
+    TDATVCLCollectionTextIntercept(Existing).FPack := APack;
+    TDATVCLCollectionTextIntercept(Existing).FFormIdentity := AFormIdentity;
+    Exit;
+  end;
+  if Existing <> nil then
+    Exit;
+  TDATVCLCollectionTextIntercept.CreateFor(AForm, AFormIdentity, APack);
+end;
+
+class function TVCLTranslationApplicator.ApplyCollectionTextRules(
+  const AForm: TCustomForm; const AFormIdentity: string;
+  const APack: TRuntimeLanguagePack): Integer;
+var
+  Prefix: string;
+  Pair: TPair<string, string>;
+  Rest: string;
+  DotAt, BracketAt: Integer;
+  ComponentName, PropertyPath: string;
+  Target: TComponent;
+begin
+  Result := 0;
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  Prefix := AFormIdentity + '.';
+  for Pair in APack.Strings do
+  begin
+    if not StartsText(Prefix, Pair.Key) then
+      Continue;
+    Rest := Copy(Pair.Key, Length(Prefix) + 1, Length(Pair.Key));
+    BracketAt := Pos('[', Rest);
+    if BracketAt < 2 then
+      Continue;
+    DotAt := Pos('.', Rest);
+    { The component name is whatever comes before the collection property
+      opens, not before the first dot - "Panels[0].Text" has its own dot
+      after the bracket, and cutting at the first one anywhere in Rest would
+      cut inside the path instead of before it. }
+    if (DotAt = 0) or (DotAt > BracketAt) then
+      Continue;
+    ComponentName := Copy(Rest, 1, DotAt - 1);
+    PropertyPath := Copy(Rest, DotAt + 1, Length(Rest));
+    if Pos('[', PropertyPath) < 1 then
+      Continue;
+    Target := AForm.FindComponent(ComponentName);
+    if Target = nil then
+      Continue;
+    if TrySetCollectionProperty(Target, PropertyPath, Pair.Value) then
+      Inc(Result);
+  end;
+end;
+
 
 { Text that lives in a design-time collection rather than in a property of the
   control itself.
@@ -1771,6 +1916,8 @@ begin
       SameText(Trim(APack.TextDirection), 'rtl'));
     { Last, because it reads the widths every pass above settled. }
     RecentreSelfPlacedText(AForm, FormIdentity);
+    ApplyCollectionTextRules(AForm, FormIdentity, APack);
+    TDATVCLCollectionTextIntercept.Install(AForm, FormIdentity, APack);
   finally
     if APreserveControlState and SavedFocusedState and
       (SavedFocusedControl <> nil) and SavedFocusedControl.CanFocus then

@@ -1,0 +1,12 @@
+{
+  "description": "A status panel centred on its form at design time - Left 175, Width 250, against a form 600 wide - has to stay centred when the translation inside it needs more room. Growing the panel's width without moving its left edge leaves it visibly off to one side, which is the container the field testing described as no longer centred once the wrapped text underneath it was longer.",
+  "catalog_file": "vcl_39_a_centred_container_stays_centred.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "pnlStatus",
+      "text_fits": true,
+      "planned_left_equals": 114
+    }
+  ]
+}

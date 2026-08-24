@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "de-DE",
+    "nativeLanguageName": "Deutsch",
+    "textDirection": "ltr",
+    "shortDateFormat": "dd.mm.yyyy",
+    "longDateFormat": "dddd, d. mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "EUR"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblNote.Caption",
+      "sourceText": "Schedule disabled",
+      "translatedText": "Der Zeitplan ist zur Zeit deaktiviert und wird nicht ausgefuehrt",
+      "formName": "ContractForm",
+      "componentName": "lblNote",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_39_a_centred_container_stays_centred.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

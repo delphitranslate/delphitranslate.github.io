@@ -1,0 +1,16 @@
+{
+  "description": "A row of checkbox-and-label day cells, seven in the real form and three here. chkSat is drawn 49 wide against lblSat at 144 - a pre-existing 17-pixel overlap the designer accepted, the way a checkbox's click area is often drawn a little wide. That overlap must not block the row from being rescued as a whole: lblSun's translation, growing past its own box, should still be given back to chkSun's drawn position rather than left standing on it, even though a different pair in the same row already touched at design time.",
+  "catalog_file": "vcl_40_a_pushed_row_gives_back_together.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "chkSun",
+      "text_fits": true
+    },
+    {
+      "form": "ContractForm",
+      "name": "lblSun",
+      "text_fits": true
+    }
+  ]
+}

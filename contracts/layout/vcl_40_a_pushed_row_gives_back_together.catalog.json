@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "de-DE",
+    "nativeLanguageName": "Deutsch",
+    "textDirection": "ltr",
+    "shortDateFormat": "dd.mm.yyyy",
+    "longDateFormat": "dddd, d. mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "EUR"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblFri.Caption",
+      "sourceText": "Fri",
+      "translatedText": "Freitag",
+      "formName": "ContractForm",
+      "componentName": "lblFri",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_40_a_pushed_row_gives_back_together.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.lblSat.Caption",
+      "sourceText": "Sat",
+      "translatedText": "Samstag",
+      "formName": "ContractForm",
+      "componentName": "lblSat",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_40_a_pushed_row_gives_back_together.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    },
+    {
+      "key": "ContractForm.lblSun.Caption",
+      "sourceText": "Sun",
+      "translatedText": "Sonntag",
+      "formName": "ContractForm",
+      "componentName": "lblSun",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_40_a_pushed_row_gives_back_together.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}
