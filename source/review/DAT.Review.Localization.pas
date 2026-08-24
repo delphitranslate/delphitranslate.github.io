@@ -1145,6 +1145,7 @@ var
   HeadingAt, HeadingIndex: Integer;
   HeadingFont, HeadingRoom: Double;
   BalanceLines: Integer;
+  BalanceContainer: TLayoutControl;
   BalanceWidth, BalanceStep: Double;
   MirrorWidth: Double;
   AlignSource: string;
@@ -3964,6 +3965,20 @@ begin
     { A right-aligned caption is anchored by its right edge and was widened
       leftwards on purpose; narrowing it would walk it straight back again. }
     if IsRightAligned(Control) then
+      Continue;
+    { Not where the container itself was grown to fit this exact control.
+      Balancing a caption's lines removes a ragged edge from a box that was
+      already the size it needed to be; doing the same after a panel was
+      specifically widened to hold this text undoes the reason it was
+      widened, narrowing the panel's whole reason for being that size down
+      to a thin strip of text with empty room visibly left beside it - which
+      is the "wrapped unnecessarily, box not centred" the email note was
+      seen as. A box the design already made generous is fair game; one
+      this planning just finished growing is not. }
+    BalanceContainer := ParentContainerOf(Control);
+    if (BalanceContainer <> nil) and
+      (BalanceContainer.PlannedWidth > BalanceContainer.Width + 0.5) and
+      AloneInContainer(Control, BalanceContainer) then
       Continue;
     if Control.PlannedWidth <= MinimumWrapWidth then
       Continue;

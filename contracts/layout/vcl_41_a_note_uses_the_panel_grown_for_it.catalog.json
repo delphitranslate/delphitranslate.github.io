@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "applicationVersion": "",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "de-DE",
+    "nativeLanguageName": "Deutsch",
+    "textDirection": "ltr",
+    "shortDateFormat": "dd.mm.yyyy",
+    "longDateFormat": "dddd, d. mmmm yyyy",
+    "shortTimeFormat": "h:nn",
+    "longTimeFormat": "h:nn:ss",
+    "decimalSeparator": ",",
+    "thousandSeparator": ".",
+    "currencySymbol": "EUR"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblNote.Caption",
+      "sourceText": "Note: for email to work the required recipients and email parameters must be filled in and Enable Email must be checked",
+      "translatedText": "Hinweis: Damit die E-Mail-Funktion ordnungsgemaess funktioniert, muessen die erforderlichen Empfaenger und E-Mail-Parameter eingegeben und das Kontrollkaestchen Email aktivieren aktiviert werden",
+      "formName": "ContractForm",
+      "componentName": "lblNote",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_41_a_note_uses_the_panel_grown_for_it.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "description": "The email note, reduced to one control. lblNote's German translation is long enough that its panel has to grow to hold it, and that growth is the point of the fixture: the panel widens from 740 to something bigger, and lblNote, alone inside it, should use the width the panel was widened to rather than being narrowed back down afterwards for the sake of a tidier wrap. A wide note narrowed to a thin strip in a wide box is what the field testing called text wrapped unnecessarily, in a box that no longer read as centred.",
+  "catalog_file": "vcl_41_a_note_uses_the_panel_grown_for_it.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblNote",
+      "text_fits": true,
+      "planned_width_at_least": 700
+    }
+  ]
+}
