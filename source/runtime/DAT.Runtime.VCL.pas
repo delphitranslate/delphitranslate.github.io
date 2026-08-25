@@ -99,6 +99,9 @@ type
       applied. The pack's placeholder templates preserve each live value. }
     class function RefreshDynamicText(const AForm: TCustomForm;
       const APack: TRuntimeLanguagePack): Integer; static;
+    { Stops the old pack's periodic refresh before a language transition.
+      ApplyToForm installs it again with the new pack. }
+    class procedure StopDynamicRefresh(const AForm: TCustomForm); static;
     class function ApplyToForm(const AForm: TCustomForm;
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const APreserveControlState: Boolean = True): Integer; overload; static;
@@ -379,31 +382,65 @@ function RestoreSourceStringCollection(const AFormIdentity: string;
   const AForm, AComponent: TComponent; const APropertyName,
   AKeyPropertyName: string; const APack: TRuntimeLanguagePack): Integer;
 var
+  ChangeEventInfo: PPropInfo;
+  EmptyChangeEvent: TMethod;
   Index: Integer;
+  ItemIndexInfo: PPropInfo;
   Key: string;
   Prefix: string;
   PropertyInfo: PPropInfo;
+  SavedChangeEvent: TMethod;
+  SavedItemIndex: NativeInt;
   StringObject: TObject;
   SourceText: string;
 begin
   Result := 0;
+  if SameText(APropertyName, 'Lines') and EditableLinesComponent(AComponent) then
+    Exit;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName, [tkClass]);
   if PropertyInfo = nil then
     Exit;
   StringObject := GetObjectProp(AComponent, PropertyInfo);
   if not (StringObject is TStrings) then
     Exit;
+  ItemIndexInfo := GetPropInfo(AComponent.ClassInfo, 'ItemIndex',
+    [tkInteger, tkInt64]);
+  if ItemIndexInfo <> nil then
+    SavedItemIndex := GetOrdProp(AComponent, ItemIndexInfo)
+  else
+    SavedItemIndex := -1;
+  ChangeEventInfo := GetPropInfo(AComponent.ClassInfo, 'OnChange', [tkMethod]);
+  if ChangeEventInfo <> nil then
+  begin
+    SavedChangeEvent := GetMethodProp(AComponent, ChangeEventInfo);
+    EmptyChangeEvent.Code := nil;
+    EmptyChangeEvent.Data := nil;
+    SetMethodProp(AComponent, ChangeEventInfo, EmptyChangeEvent);
+  end;
   Prefix := ComponentKey(AFormIdentity, AForm, AComponent,
     AKeyPropertyName) + '.';
-  for Index := 0 to TStrings(StringObject).Count - 1 do
-  begin
-    Key := Prefix + Index.ToString;
-    if APack.TryGetSource(Key, SourceText) and
-      (TStrings(StringObject)[Index] <> SourceText) then
-    begin
-      TStrings(StringObject)[Index] := SourceText;
-      Inc(Result);
+  try
+    TStrings(StringObject).BeginUpdate;
+    try
+      for Index := 0 to TStrings(StringObject).Count - 1 do
+      begin
+        Key := Prefix + Index.ToString;
+        if APack.TryGetSource(Key, SourceText) and
+          (TStrings(StringObject)[Index] <> SourceText) then
+        begin
+          TStrings(StringObject)[Index] := SourceText;
+          Inc(Result);
+        end;
+      end;
+    finally
+      TStrings(StringObject).EndUpdate;
     end;
+    if (ItemIndexInfo <> nil) and (SavedItemIndex >= -1) and
+      (SavedItemIndex < TStrings(StringObject).Count) then
+      SetOrdProp(AComponent, ItemIndexInfo, SavedItemIndex);
+  finally
+    if ChangeEventInfo <> nil then
+      SetMethodProp(AComponent, ChangeEventInfo, SavedChangeEvent);
   end;
 end;
 
@@ -1114,6 +1151,7 @@ type
     class procedure Install(const AForm: TCustomForm;
       const AFormIdentity: string;
       const APack: TRuntimeLanguagePack); static;
+    class procedure Remove(const AForm: TCustomForm); static;
   end;
 
 const
@@ -1228,6 +1266,24 @@ begin
   if Existing <> nil then
     Exit;
   TDATVCLCollectionTextIntercept.CreateFor(AForm, AFormIdentity, APack);
+end;
+
+class procedure TDATVCLCollectionTextIntercept.Remove(
+  const AForm: TCustomForm);
+var
+  Existing: TComponent;
+begin
+  if AForm = nil then
+    Exit;
+  Existing := AForm.FindComponent(CollectionInterceptorName);
+  if Existing is TDATVCLCollectionTextIntercept then
+    Existing.Free;
+end;
+
+class procedure TVCLTranslationApplicator.StopDynamicRefresh(
+  const AForm: TCustomForm);
+begin
+  TDATVCLCollectionTextIntercept.Remove(AForm);
 end;
 
 class function TVCLTranslationApplicator.ApplyCollectionTextRules(

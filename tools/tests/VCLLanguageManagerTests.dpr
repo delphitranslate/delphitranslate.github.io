@@ -80,7 +80,24 @@ begin
     ADateItem4 + '","frmVCLSample.memInstructions.Lines.Strings.0":' +
     '"Translated memo line 1",' +
     '"frmVCLSample.memInstructions.Lines.Strings.1":' +
-    '"Translated memo line 2"}}';
+    '"Translated memo line 2"},' +
+    '"sourceStrings":{"VCL Lifecycle Source":"' + ACaption + '",' +
+    '"VCL source text":"' + AProbeText + '"},' +
+    '"sources":{"frmVCLLifecycle.Caption":"VCL Lifecycle Source",' +
+    '"frmVCLLifecycle.lblProbe.Caption":"VCL source text",' +
+    '"frmVCLInheritedLifecycle.Caption":"VCL Inherited Source",' +
+    '"frmVCLInheritedLifecycle.lblProbe.Caption":' +
+    '"VCL source text",' +
+    '"frmVCLSample.Caption":"Customer Manager",' +
+    '"frmVCLSample.cmbDateRange.Items.Strings.0":"Today",' +
+    '"frmVCLSample.cmbDateRange.Items.Strings.1":"Last 7 days",' +
+    '"frmVCLSample.cmbDateRange.Items.Strings.2":"Last 28 days",' +
+    '"frmVCLSample.cmbDateRange.Items.Strings.3":"Last 90 days",' +
+    '"frmVCLSample.cmbDateRange.Items.Strings.4":"This year",' +
+    '"frmVCLSample.memInstructions.Lines.Strings.0":' +
+    '"Enter the customer information, then choose Save Customer.",' +
+    '"frmVCLSample.memInstructions.Lines.Strings.1":' +
+    '"Fields marked as required must be completed."}}';
   TFile.WriteAllText(AFileName, JsonText, TEncoding.UTF8);
 end;
 
@@ -252,7 +269,9 @@ begin
       'Visible VCL duplicate after instant selection');
     Require((StateForm.cmbDateRange.ItemIndex = 2) and
       (StateForm.cmbDateRange.Items[2] = 'Last 28 days'),
-      'VCL instant selection did not preserve combo-box state.');
+      Format('VCL instant selection did not preserve combo-box state: ' +
+        'ItemIndex=%d, Item[2]=%s.', [StateForm.cmbDateRange.ItemIndex,
+        StateForm.cmbDateRange.Items[2]]));
     Require((StateForm.edtCustomerName.Text = 'Alice Martin') and
       (StateForm.edtCustomerName.SelStart = 1) and
       (StateForm.edtCustomerName.SelLength = 4) and
@@ -269,8 +288,10 @@ begin
     DuplicateForm.Hide;
     Require(Manager.SelectLanguage('de-DE'),
       'VCL German reselection failed.');
-    RequireEnglish(DuplicateForm,
-      'Hidden VCL form should remain in its prior generation.');
+    Require(SameText(DuplicateForm.Caption, 'VCL Lifecycle Source') and
+      SameText(DuplicateForm.lblProbe.Caption, 'VCL source text'),
+      'Hidden VCL form did not return to its source baseline during the ' +
+      'language transition.');
     DuplicateForm.Show;
     PumpToIdle;
     RequireGerman(DuplicateForm,

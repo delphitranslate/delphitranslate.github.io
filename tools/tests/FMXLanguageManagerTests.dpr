@@ -87,7 +87,24 @@ begin
     '"frmFMXSample.memInstructions.Lines.Strings.0":' +
     '"Translated memo line 1",' +
     '"frmFMXSample.memInstructions.Lines.Strings.1":' +
-    '"Translated memo line 2"}}';
+    '"Translated memo line 2"},' +
+    '"sourceStrings":{"FMX Lifecycle Source":"' + ACaption + '",' +
+    '"FMX source text":"' + AProbeText + '"},' +
+    '"sources":{"frmFMXLifecycle.Caption":"FMX Lifecycle Source",' +
+    '"frmFMXLifecycle.lblProbe.Text":"FMX source text",' +
+    '"frmFMXInheritedLifecycle.Caption":"FMX Inherited Source",' +
+    '"frmFMXInheritedLifecycle.lblProbe.Text":' +
+    '"FMX source text",' +
+    '"frmFMXSample.Caption":"Customer Manager",' +
+    '"frmFMXSample.cmbDateRange.Items.Strings.0":"Today",' +
+    '"frmFMXSample.cmbDateRange.Items.Strings.1":"Last 7 days",' +
+    '"frmFMXSample.cmbDateRange.Items.Strings.2":"Last 28 days",' +
+    '"frmFMXSample.cmbDateRange.Items.Strings.3":"Last 90 days",' +
+    '"frmFMXSample.cmbDateRange.Items.Strings.4":"This year",' +
+    '"frmFMXSample.memInstructions.Lines.Strings.0":' +
+    '"Enter the customer information, then choose Save Customer.",' +
+    '"frmFMXSample.memInstructions.Lines.Strings.1":' +
+    '"Fields marked as required must be completed."}}';
   TFile.WriteAllText(AFileName, JsonText, TEncoding.UTF8);
 end;
 
@@ -131,8 +148,8 @@ begin
     DuplicateForm := TfrmFMXLifecycle.Create(nil);
     Require(FManager.ApplyToForm(DuplicateForm) > 0,
       'Pre-show FMX application reported no translated properties.');
-    DuplicateForm.Caption := 'Late startup caption';
-    DuplicateForm.lblProbe.Text := 'Late startup text';
+    DuplicateForm.Caption := 'FMX Lifecycle Source';
+    DuplicateForm.lblProbe.Text := 'FMX source text';
     DuplicateForm.Show;
     PumpMessages;
     Require(Pos('_', DuplicateForm.Name) > 0,
@@ -201,8 +218,10 @@ begin
     Require(FManager.SelectLanguage('de-DE'),
       'Second German selection failed.');
     RequireGerman(FMainForm, 'Visible main form after German reselection');
-    RequireEnglish(DuplicateForm,
-      'Hidden form should remain in its prior generation');
+    Require(SameText(DuplicateForm.Caption, 'FMX Lifecycle Source') and
+      SameText(DuplicateForm.lblProbe.Text, 'FMX source text'),
+      'Hidden FMX form did not return to its source baseline during the ' +
+      'language transition.');
     DuplicateForm.Show;
     PumpMessages;
     RequireGerman(DuplicateForm,

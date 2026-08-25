@@ -140,9 +140,20 @@ end;
 function TDATVCLLanguageManager.RestoreSourceLanguage(
   const AManagedObject: TObject; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string): Integer;
+var
+  Form: TCustomForm;
 begin
+  Form := TCustomForm(AManagedObject);
+  { The interceptors deliberately turn source-language text back into the
+    active translation. They must not remain attached while that translation
+    is being retired: otherwise restoring an English caption from Arabic can
+    be intercepted and changed straight back to Arabic, and the next pack
+    correctly preserves it as apparent live application data. ApplyLanguagePack
+    installs both interceptors again with the newly selected pack. }
+  TDATVCLTemplateIntercept.Remove(Form);
+  TVCLTranslationApplicator.StopDynamicRefresh(Form);
   Result := TVCLTranslationApplicator.RestoreSourceLanguage(
-    TCustomForm(AManagedObject), APack, AFormIdentity);
+    Form, APack, AFormIdentity);
 end;
 
 function TDATVCLLanguageManager.ApplyToForm(

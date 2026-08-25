@@ -770,6 +770,16 @@ begin
       begin
         ManagedObjects := TList<TObject>.Create;
         CollectManagedObjects(ManagedObjects);
+        { A hidden form may have been translated in an earlier generation and
+          then omitted from the normal open-form collection. It still has to
+          leave that old pack through source text now; otherwise, when it is
+          shown later, the new pack sees another language instead of its keyed
+          source and correctly refuses to overwrite it. Tracked objects carry
+          FreeNotification, so every object added here is still alive. This is
+          framework-neutral and covers both VCL and FireMonkey. }
+        for ManagedObject in FAppliedGenerations.Keys do
+          if ManagedObjects.IndexOf(ManagedObject) < 0 then
+            ManagedObjects.Add(ManagedObject);
         for ManagedObject in ManagedObjects do
         begin
           InstanceName := ManagedObjectInstanceName(ManagedObject);

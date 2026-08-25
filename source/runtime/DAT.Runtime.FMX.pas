@@ -1805,31 +1805,65 @@ function RestoreSourceStringCollection(const AFormIdentity: string;
   const AForm, AComponent: TComponent; const APropertyName,
   AKeyPropertyName: string; const APack: TRuntimeLanguagePack): Integer;
 var
+  ChangeEventInfo: PPropInfo;
+  EmptyChangeEvent: TMethod;
   Index: Integer;
+  ItemIndexInfo: PPropInfo;
   Key: string;
   Prefix: string;
   PropertyInfo: PPropInfo;
+  SavedChangeEvent: TMethod;
+  SavedItemIndex: NativeInt;
   StringObject: TObject;
   SourceText: string;
 begin
   Result := 0;
+  if SameText(APropertyName, 'Lines') and EditableTextComponent(AComponent) then
+    Exit;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName, [tkClass]);
   if PropertyInfo = nil then
     Exit;
   StringObject := GetObjectProp(AComponent, PropertyInfo);
   if not (StringObject is TStrings) then
     Exit;
+  ItemIndexInfo := GetPropInfo(AComponent.ClassInfo, 'ItemIndex',
+    [tkInteger, tkInt64]);
+  if ItemIndexInfo <> nil then
+    SavedItemIndex := GetOrdProp(AComponent, ItemIndexInfo)
+  else
+    SavedItemIndex := -1;
+  ChangeEventInfo := GetPropInfo(AComponent.ClassInfo, 'OnChange', [tkMethod]);
+  if ChangeEventInfo <> nil then
+  begin
+    SavedChangeEvent := GetMethodProp(AComponent, ChangeEventInfo);
+    EmptyChangeEvent.Code := nil;
+    EmptyChangeEvent.Data := nil;
+    SetMethodProp(AComponent, ChangeEventInfo, EmptyChangeEvent);
+  end;
   Prefix := ComponentKey(AFormIdentity, AForm, AComponent,
     AKeyPropertyName) + '.';
-  for Index := 0 to TStrings(StringObject).Count - 1 do
-  begin
-    Key := Prefix + Index.ToString;
-    if APack.TryGetSource(Key, SourceText) and
-      (TStrings(StringObject)[Index] <> SourceText) then
-    begin
-      TStrings(StringObject)[Index] := SourceText;
-      Inc(Result);
+  try
+    TStrings(StringObject).BeginUpdate;
+    try
+      for Index := 0 to TStrings(StringObject).Count - 1 do
+      begin
+        Key := Prefix + Index.ToString;
+        if APack.TryGetSource(Key, SourceText) and
+          (TStrings(StringObject)[Index] <> SourceText) then
+        begin
+          TStrings(StringObject)[Index] := SourceText;
+          Inc(Result);
+        end;
+      end;
+    finally
+      TStrings(StringObject).EndUpdate;
     end;
+    if (ItemIndexInfo <> nil) and (SavedItemIndex >= -1) and
+      (SavedItemIndex < TStrings(StringObject).Count) then
+      SetOrdProp(AComponent, ItemIndexInfo, SavedItemIndex);
+  finally
+    if ChangeEventInfo <> nil then
+      SetMethodProp(AComponent, ChangeEventInfo, SavedChangeEvent);
   end;
 end;
 
