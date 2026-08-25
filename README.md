@@ -1,43 +1,19 @@
 # Delphi App Translation Studio
 
-![ALPHA RELEASE - controlled technical evaluation](images%20and%20icons/README-Caution-Banner.svg)
+![ALPHA TEST - testing and feedback welcome](images%20and%20icons/README-Alpha-Test-Banner.svg)
 
-> [!CAUTION]
-> **Alpha release - for controlled technical evaluation only.**
+> [!IMPORTANT]
+> **Alpha testing is open.** You may download, build, use, evaluate, and fork
+> Delphi App Translation Studio. Active development is still underway, so a
+> feature may be incomplete, may change without notice, or may not behave as
+> an alpha tester expects. Use test copies of Delphi projects, keep them under
+> version control, and verify every generated catalog, language pack, component
+> setting, and translated screen before relying on the result.
 >
-> Update 08-16-2026
->
-> We have made substantial process on the translation and the problems with long translations for
-> tight spaces.  However, this product remains Alpha and for just looking at it for now.  It does
-> translate a form, but the alignments are still not fixed. We are currently designing rules
-> to handle the form and component alignment.
->
-> If we can get this to work correctly, it will be of great use to developers everywhere.
-> Stay tuned.
-> 
-> 
-> Update 08-14-2026
->
-> We have hit a major snag with the translator and it is giving unreliable translations and
-> runtime properties.  As an example, due to the length of the translated text, buttons are
-> too short for the translation and their size, wrap, etc., must be manipulated.  For now,
-> if you want to just look at it, continue, otherwise wait for the all clear.
-> 
-> Due to the ongoing development, there is no guarantee that this software always function
-> or provide any usable results at ths time. Therefore, users who download this software will be
-> using it at their own risk.
->
-> When this software finally provides consistent results, it will be upgraded to a
-> Beta testing status.
->
-> This is actively changing pre-release software. There is no supported
-> installer, stable binary distribution, or 1.0 release. Use a disposable,
-> version-controlled or independently backed-up copy of every Delphi project.
-> Verify every generated catalog, language pack, component setting, and
-> translated runtime screen before wider use.
->
-> Comments about this alpha software are welcome and should be sent to:
-> churchesite@gmail.com  
+> Alpha feedback is welcome at **churchesite@gmail.com**. Reports are most
+> useful when they include the Delphi version, framework, platform, exact steps,
+> expected result, actual result, and screenshots. Do not send API keys,
+> credentials, customer data, or proprietary source code.
 
 ## What it is
 
@@ -73,6 +49,51 @@ Internet access or an API key at runtime.
 macOS, iOS, Android, Linux, C++Builder, and runtime cloud translation are not
 part of the current alpha scope. Delphi 12.x and clean-machine installation
 remain compatibility items to be tested.
+
+## Downloading the alpha source
+
+### Download a ZIP archive
+
+1. On the repository's GitHub page, choose **Code**.
+2. Choose **Download ZIP**.
+3. Extract the entire archive to a normal development folder. Do not build
+   directly inside the ZIP archive or a temporary preview folder.
+4. Keep the extracted repository structure intact so package, source,
+   documentation, and localization paths continue to resolve correctly.
+
+### Clone or fork with Git
+
+Clone the repository when you want to receive later alpha updates:
+
+```text
+git clone https://github.com/tmartindub/DelphiAppTranslationStudio.git
+```
+
+You are also welcome to fork the repository through GitHub and develop or test
+against your own fork. Keep local work on a separate branch so upstream alpha
+changes can be reviewed before they are merged.
+
+## Installing and starting the alpha
+
+There is no supported binary installer yet. Build the Studio and its design
+packages from source with RAD Studio 13 Florence:
+
+1. Open `DelphiAppTranslationStudio.dproj` in RAD Studio.
+2. Select Win32 or Win64 and Debug or Release, then build the project.
+3. Run the generated Studio executable from
+   `bin\<Platform>\<Configuration>`.
+4. Build the VCL or FMX DAT Language Manager runtime and design packages needed
+   by the target application.
+5. In RAD Studio, choose **Component > Install Packages > Add** and select the
+   matching Win32 Release design BPL from `bin\packages\Win32\Release`.
+   Do not use **Install Component** and do not select a `.dpk` file there.
+6. Open a disposable copy of the target Delphi project, place the appropriate
+   DAT language manager and connected language selector on its primary form,
+   save the project, and follow the Setup Wizard.
+
+The installed design package must match the RAD Studio version used to build
+it. If package loading fails, remove the older package entry, rebuild the
+packages with the active toolchain, and add the newly built BPL.
 
 ## Recommended first-time workflow
 
@@ -158,6 +179,10 @@ tools/tests/         Automated validation and smoke tests
 ```
 
 ## Documentation
+
+Documentation was reviewed and regenerated with LibreOffice on
+**August 25, 2026**. The DOCX guides contain real generated tables of contents;
+matching PDFs are provided for convenient reading.
 
 - [Setup Wizard Guide](docs/guides/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.docx)
 - [User Guide](docs/guides/Delphi%20App%20Translation%20Studio%20User%20Guide.docx)
