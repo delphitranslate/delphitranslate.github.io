@@ -5210,10 +5210,34 @@ begin
       end;
       if Leader = nil then
         Continue;
+      { The caption is a separate label whose designed Left begins after the
+        bare check box. Earlier width fitting may have grown it leftward over
+        the box; restore that shared boundary before stating its alignment. }
+      Control.PlannedLeft := Max(Control.Left,
+        Leader.PlannedLeft + Leader.PlannedWidth + ControlGap);
       if SameText(TextAlignPropertyName(Control), 'Alignment') then
         Control.PlannedHorzAlign := 'taLeftJustify'
       else
         Control.PlannedHorzAlign := 'Leading';
+    end;
+
+  { A side caption must finish before the input it was designed to name.
+    Late row balancing can otherwise carry the first members of a repeated
+    form row to the far side of their edit while leaving the final row in the
+    designed position. Restore only captions that actually crossed their own
+    field; ordinary leftward growth and wrapping remain untouched. }
+  if not IsRightToLeft(AReview) then
+    for Control in AReview.Controls do
+    begin
+      if (Trim(Control.TranslatedText) = '') or not Control.HasPosition or
+        not Control.HasSize then
+        Continue;
+      Follower := FieldImmediatelyToRight(Control);
+      if (Follower = nil) or
+        (Control.PlannedLeft < Follower.Left - DesignedOverlapTolerance) then
+        Continue;
+      Control.PlannedLeft := Control.Left + Control.Width -
+        Control.PlannedWidth;
     end;
 
   { Phase 4 - emit proposals from the settled geometry. Because every value

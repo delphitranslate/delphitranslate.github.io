@@ -2076,7 +2076,10 @@ procedure ApplyReadingOrder(const AForm: TCustomForm;
   const AFormIdentity: string; const APack: TRuntimeLanguagePack);
 var
   Component: TComponent;
+  Index: Integer;
+  Key: string;
   Mode: TBiDiMode;
+  Order: TArray<string>;
   RightToLeft: Boolean;
 
   procedure SetTree(const AComponent: TComponent);
@@ -2115,6 +2118,23 @@ begin
     Mode := bdRightToLeftNoAlign
   else
     Mode := bdLeftToRight;
+  { Capture the menu exactly as the designer supplied it before changing the
+    form's BiDiMode. VCL may immediately mirror an inheriting menu when the
+    form becomes RTL; capturing after that point mistakes the automatic
+    mirror for the designed order and reverses Arabic back to LTR on its very
+    first apply. ApplyMenuReadingOrder will reuse this absolute baseline. }
+  if (AForm.Menu <> nil) and (AForm.Menu.Items <> nil) and
+    (AForm.Menu.Items.Count > 0) then
+  begin
+    Key := AFormIdentity + '.' + AForm.Menu.Name;
+    if not TVCLTranslationApplicator.FDesignedMenuOrder.ContainsKey(Key) then
+    begin
+      SetLength(Order, AForm.Menu.Items.Count);
+      for Index := 0 to AForm.Menu.Items.Count - 1 do
+        Order[Index] := AForm.Menu.Items[Index].Name;
+      TVCLTranslationApplicator.FDesignedMenuOrder.AddOrSetValue(Key, Order);
+    end;
+  end;
   AForm.BiDiMode := Mode;
   for Component in AForm do
     SetTree(Component);
