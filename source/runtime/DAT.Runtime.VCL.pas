@@ -262,10 +262,24 @@ begin
     the application before a splash or demand-created form is discovered.
     Only replace the keyed source text. A different current value belongs to
     the application, not to the language pack. }
-  if APack.TryGetSource(Key, SourceText) and
-    (StringReplace(CurrentText, #$00AD, '', [rfReplaceAll]) <>
-     StringReplace(SourceText, #$00AD, '', [rfReplaceAll])) then
-    Exit;
+  if APack.TryGetSource(Key, SourceText) then
+  begin
+    { VCL's automatic menu-hotkey pass can change a designed caption such as
+      "Settings" to "&Settings" before the language manager sees it. The
+      ampersand is not visible on the menu, but the source guard above sees a
+      different string and preserves the English caption as though the
+      application had supplied live data. Compare what a menu actually
+      displays; keep the stricter comparison for every other component. }
+    if AComponent is TMenuItem then
+    begin
+      if StripHotkey(StringReplace(CurrentText, #$00AD, '', [rfReplaceAll])) <>
+         StripHotkey(StringReplace(SourceText, #$00AD, '', [rfReplaceAll])) then
+        Exit;
+    end
+    else if StringReplace(CurrentText, #$00AD, '', [rfReplaceAll]) <>
+            StringReplace(SourceText, #$00AD, '', [rfReplaceAll]) then
+      Exit;
+  end;
   SetStrProp(AComponent, PropertyInfo, TranslatedText);
   Result := True;
 end;

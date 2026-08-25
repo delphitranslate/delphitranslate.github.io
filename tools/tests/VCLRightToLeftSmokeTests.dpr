@@ -72,7 +72,8 @@ const
     '"frmRtl.grdData.Columns[0].Title.Caption":"Translated first",' +
     '"frmRtl.grdData.Columns[1].Title.Caption":"Translated second",' +
     '"frmRtl.grdData.Columns[2].Title.Caption":"Translated third"},' +
-    '"sources":{"frmRtl.grdData.Columns[0].Title.Caption":"First",' +
+    '"sources":{"frmRtl.mnuFile.Caption":"File",' +
+    '"frmRtl.grdData.Columns[0].Title.Caption":"First",' +
     '"frmRtl.grdData.Columns[1].Title.Caption":"Second",' +
     '"frmRtl.grdData.Columns[2].Title.Caption":"Third"},' +
     '"layout":[' +
@@ -276,7 +277,10 @@ begin
       Menu.Name := 'MainMenu1';
       FileItem := TMenuItem.Create(Form);
       FileItem.Name := 'mnuFile';
-      FileItem.Caption := 'File';
+      { maAutomatic may insert this mnemonic before translation. It is not
+        visible, but it must not make the source guard mistake a designed menu
+        caption for application-owned live text. }
+      FileItem.Caption := '&File';
       Menu.Items.Add(FileItem);
       Form.Menu := Menu;
       { A menu built in the designer, not at run time. Setting BiDiMode on a
@@ -423,6 +427,8 @@ begin
         translation; VCL decorated it afterwards. }
       Check(Pos('(', Menu.Items[0].Caption) = 0,
         'No Roman keyboard shortcut is bolted onto a translated menu caption.');
+      Check(FileItem.Caption = #$05E7#$05D5#$05D1#$05E5,
+        'An automatically inserted source mnemonic does not leave a menu caption untranslated.');
       Writeln(Format('        window ExStyle RTLREADING=%s LEFTSCROLLBAR=%s LAYOUTRTL=%s',
         [BoolToStr((ExStyleUnderArabic and WS_EX_RTLREADING) <> 0, True),
          BoolToStr((ExStyleUnderArabic and WS_EX_LEFTSCROLLBAR) <> 0, True),
