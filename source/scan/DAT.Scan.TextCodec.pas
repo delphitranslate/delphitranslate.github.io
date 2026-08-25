@@ -187,7 +187,17 @@ begin
   finally
     Encoding1252.Free;
   end;
-  Decoded := TEncoding.UTF8.GetString(Bytes);
+  try
+    Decoded := TEncoding.UTF8.GetString(Bytes);
+  except
+    { Correct Windows-1252 text can contain the same characters that begin a
+      mis-decoded UTF-8 sequence. Its byte representation is not necessarily
+      valid UTF-8, and Delphi's strict UTF-8 decoder raises instead of
+      returning replacement characters. That means the text was not mojibake
+      and must be preserved unchanged. }
+    on EEncodingError do
+      Exit;
+  end;
   if (Decoded = '') or (Decoded = AText) then
     Exit;
   { Invalid UTF-8 decodes to replacement characters, and ordinary text read

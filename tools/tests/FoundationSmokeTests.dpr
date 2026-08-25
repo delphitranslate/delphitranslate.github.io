@@ -71,6 +71,27 @@ end;
 
 procedure Require(const ACondition: Boolean; const AMessage: string); forward;
 
+procedure TestUnicodeTextRepairContract;
+var
+  CorrectGerman: string;
+  MisdecodedGerman: string;
+begin
+  CorrectGerman := #$00DC + 'berpr' + #$00FC +
+    'fen Sie das FMX-' + #$00C4 + 'quivalent';
+  Require(RepairMisdecodedText(CorrectGerman) = CorrectGerman,
+    'Correct non-ASCII text was rejected by the mojibake repair boundary.');
+
+  MisdecodedGerman := 'Zur' + #$00C3 + #$00BC + 'cksetzen';
+  Require(RepairMisdecodedText(MisdecodedGerman) =
+    'Zur' + #$00FC + 'cksetzen',
+    'A genuine UTF-8-as-Windows-1252 sequence was not repaired.');
+
+  Require(RepairMisdecodedText(#$0627 + #$0644 + #$0639 + #$0631 +
+    #$0628 + #$064A + #$0629) = #$0627 + #$0644 + #$0639 + #$0631 +
+    #$0628 + #$064A + #$0629,
+    'Unicode text outside Windows-1252 was changed by text repair.');
+end;
+
 procedure TestLocalizationIntelligence;
 var
   Catalog: TTranslationCatalog;
@@ -169,8 +190,11 @@ begin
     EnvelopeEntry.ComponentName := 'btnClose';
     EnvelopeEntry.PropertyName := 'TextPrompt';
     EnvelopeEntry.SourceText := 'Close the current window';
-    EnvelopeEntry.TranslatedText :=
-      'Cerrar la ventana de la aplicacion que se encuentra actualmente abierta';
+    { Loading every development catalog while building the multilingual
+      envelope invokes the shared text-repair boundary. Correct German text
+      with umlauts must survive that reload without a code-page exception. }
+    EnvelopeEntry.TranslatedText := #$00DC + 'berpr' + #$00FC +
+      'fen Sie das FMX-' + #$00C4 + 'quivalent';
     EnvelopeEntry.Status := tsMachineTranslated;
     Catalog.Entries.Add(EnvelopeEntry);
     TCatalogJson.SaveToFile(Catalog, CatalogFileName);
@@ -1740,6 +1764,7 @@ end;
 
 begin
   try
+    TestUnicodeTextRepairContract;
     TestProjectDetection;
     TestProviderProtocolFixtures;
     TestCatalogRoundTrip;
