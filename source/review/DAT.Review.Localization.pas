@@ -4653,10 +4653,11 @@ begin
     RowRescued.Free;
   end;
 
-  { Restore the relationship for a short caption designed immediately to the
-    left of an input. Earlier general fitting may have mistaken it for an
-    above-field caption and moved it away. Keep its designed right edge, take
-    any needed width from the empty margin on its left, and keep one line. }
+  { Preserve the relationship for a short caption designed immediately to the
+    left of an input. Keep its designed right edge, take any needed width from
+    the empty margin on its left, and keep one line. This applies whether an
+    earlier pass displaced the caption or merely left a longer translation in
+    its original narrow box. }
   for Control in AReview.Controls do
   begin
     if (Trim(Control.TranslatedText) = '') or not Control.HasPosition or
@@ -4665,14 +4666,14 @@ begin
     Follower := FieldImmediatelyToRight(Control);
     if Follower = nil then
       Continue;
-    { This is a repair for a caption displaced onto or beyond its own field,
-      not a replacement for the ordinary side-caption fitter. }
-    if Control.PlannedLeft < Follower.Left - DesignedOverlapTolerance then
-      Continue;
     SettleSpanRight := Control.Left + Control.Width;
     SettleNeeded := TextWidthEstimate(Control) * MeasurementSafety +
       2 * PaddingHorizontal(Control);
-    SettleNeeded := Min(SettleNeeded, Control.Width + SpaceToLeft(Control));
+    { Keeping one line is valid only when the whole measured caption fits in
+      the available left margin. If it does not, leave the established wrap
+      and font-fitting passes in charge instead of forcing a clipped line. }
+    if SettleNeeded > Control.Width + SpaceToLeft(Control) then
+      Continue;
     Control.PlannedWidth := Max(Control.Width, SettleNeeded);
     Control.PlannedLeft := SettleSpanRight - Control.PlannedWidth;
     Control.PlannedHeight := Control.Height;
@@ -5172,6 +5173,47 @@ begin
         Control.PlannedHorzAlign := 'taRightJustify'
       else
         Control.PlannedHorzAlign := 'Trailing';
+    end;
+
+  { A bare check box followed by a separate caption is one visual control.
+    When translation widens that caption, retaining a centred alignment lets
+    its text grow back across the check box even though the label's own Left
+    remains correct. In an LTR form the caption begins at its designed Left;
+    the RTL mirror is handled separately by the direction-aware passes. }
+  if not IsRightToLeft(AReview) then
+    for Control in AReview.Controls do
+    begin
+      if (Trim(Control.TranslatedText) = '') or not Control.HasPosition or
+        not Control.HasSize or IsInputControl(Control) or
+        IsButtonLike(Control) or IsParagraphLike(Control) then
+        Continue;
+      Leader := nil;
+      for Other in AReview.Controls do
+      begin
+        if (Other = Control) or not Other.HasPosition or not Other.HasSize or
+          not ContainsText(Other.ComponentClassName, 'CheckBox') then
+          Continue;
+        if not SameText(Other.FormName, Control.FormName) or
+          not SameText(Other.ParentName, Control.ParentName) then
+          Continue;
+        if Abs((Other.Top + Other.Height / 2) -
+          (Control.Top + Control.Height / 2)) >
+          Max(8, Max(Other.Height, Control.Height) * 0.55) then
+          Continue;
+        if (Control.Left - (Other.Left + Other.Width) <
+          -DesignedOverlapTolerance) or
+          (Control.Left - (Other.Left + Other.Width) > CaptionFieldGap) then
+          Continue;
+        if (Leader = nil) or
+          (Other.Left + Other.Width > Leader.Left + Leader.Width) then
+          Leader := Other;
+      end;
+      if Leader = nil then
+        Continue;
+      if SameText(TextAlignPropertyName(Control), 'Alignment') then
+        Control.PlannedHorzAlign := 'taLeftJustify'
+      else
+        Control.PlannedHorzAlign := 'Leading';
     end;
 
   { Phase 4 - emit proposals from the settled geometry. Because every value
