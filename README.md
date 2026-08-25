@@ -19,8 +19,11 @@
 
 I speak two fluent languages, English and Spanish and some German and Portuguese. 
 Because of that, I am asking for help on non-roman alphabet languages like Arabic, 
-Pashto, Urdu, etc. If you translate an app and the translation is off, let me know
-and I will investigate the problem.
+Pashto, Urdu, etc. 
+
+Since I do not know these languages, I have to trust the translation I am given
+and vet it the best way possible. If you translate an app and the translation 
+is off, let me know at the email above and I will investigate the problem.
 
 DeepL is the recommended translator and is used by this Alpha test app.  With each
 translation sent to DeepL, context is sent with it to get the best translation.
