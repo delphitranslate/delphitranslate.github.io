@@ -280,31 +280,59 @@ end;
 class function TDATTemplateRewriter.Rewrite(const AText: string;
   const APack: TRuntimeLanguagePack; out ARewritten: string): Boolean;
 var
+  AppliedTemplates: TDictionary<string, Boolean>;
+  Changed: Boolean;
+  NextText: string;
   Pair: TPair<string, string>;
+  Pass: Integer;
   SourceTemplate: string;
   Translated: string;
+  WorkingText: string;
 begin
   Result := False;
   if (APack = nil) or (Trim(AText) = '') then
     Exit;
-  for Pair in APack.SourceTemplates do
-  begin
-    { Current packs store sourceTemplates as source text -> translated text.
-      Early integration packs stored stable key -> source text and kept the
-      translation under that key in templates. Accept both forms so a pack
-      already deployed by a developer remains usable while newly exported
-      packs follow the canonical runtime-pack contract. }
-    if APack.Templates.TryGetValue(Pair.Key, Translated) then
-      SourceTemplate := Pair.Value
-    else
+  WorkingText := AText;
+  AppliedTemplates := TDictionary<string, Boolean>.Create;
+  try
+    { One caption can contain another runtime template: Carillon's window
+      title contains its uptime string. Apply every matching template once so
+      the outer title and inner live status are both translated, regardless
+      of dictionary enumeration order. Once-only also prevents a translation
+      that happens to contain its source phrase from growing indefinitely. }
+    for Pass := 1 to APack.SourceTemplates.Count do
     begin
-      SourceTemplate := Pair.Key;
-      Translated := Pair.Value;
+      Changed := False;
+      for Pair in APack.SourceTemplates do
+      begin
+        if AppliedTemplates.ContainsKey(Pair.Key) then
+          Continue;
+        { Current packs store sourceTemplates as source text -> translated
+          text. Early integration packs stored stable key -> source text and
+          kept the translation under that key in templates. }
+        if APack.Templates.TryGetValue(Pair.Key, Translated) then
+          SourceTemplate := Pair.Value
+        else
+        begin
+          SourceTemplate := Pair.Key;
+          Translated := Pair.Value;
+        end;
+        if (Translated = SourceTemplate) or not RewriteWith(WorkingText,
+          SourceTemplate, Translated, NextText) then
+          Continue;
+        AppliedTemplates.Add(Pair.Key, True);
+        WorkingText := NextText;
+        Changed := True;
+        Result := True;
+        Break;
+      end;
+      if not Changed then
+        Break;
     end;
-    if Translated = SourceTemplate then
-      Continue;
-    if RewriteWith(AText, SourceTemplate, Translated, ARewritten) then
-      Exit(True);
+    if Result then
+      ARewritten := WorkingText;
+  finally
+    AppliedTemplates.Free;
   end;
 end;
 

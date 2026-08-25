@@ -40,9 +40,11 @@ const
     '"language":{"code":"de-DE","nativeName":"Deutsch","direction":"ltr"},' +
     '"locale":{},"strings":{},' +
     '"sourceTemplates":{"Uptime: %d years %d months":' +
-    '"Betriebszeit: %d Jahre %d Monate"},' +
+    '"Betriebszeit: %d Jahre %d Monate",' +
+    '"Carillon Bells Schedule   %s":"Glockenplan   %s"},' +
     '"templates":{"App.Runtime.Uptime.1":' +
-    '"Betriebszeit: %d Jahre %d Monate"},' +
+    '"Betriebszeit: %d Jahre %d Monate",' +
+    '"App.Runtime.Caption.1":"Glockenplan   %s"},' +
     '"sources":{},"layout":[]}';
 
 var
@@ -97,8 +99,10 @@ begin
           'The template was recognised and translated on its way to the window.');
         Check(Pos('0 Jahre 3 Monate', Shown) > 0,
           'and the application''s own numbers came across intact.');
-        Check(Pos('Carillon Bells Schedule', Shown) > 0,
-          'while the text around it, which is the application''s, is untouched.');
+        Check(Pos('Glockenplan', Shown) = 1,
+          'The enclosing application-title template is translated too.');
+        Check(Pos('Carillon Bells Schedule', Shown) = 0,
+          'No source-language title is left around the translated uptime.');
         Check(Pos('Uptime', Shown) = 0,
           'No English is left in the caption for the user to see.');
 
