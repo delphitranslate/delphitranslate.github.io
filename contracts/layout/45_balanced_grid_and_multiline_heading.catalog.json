@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {"languageCode":"de-DE","nativeLanguageName":"Deutsch","textDirection":"ltr"},
+  "entries": [
+    {"key":"ContractForm.lblSplashTitle.Text","sourceText":"Westminster Chimes\r\nand Carillon Bells","translatedText":"Westminster-Glockenspiel\r\nund Carillon-Glocken","formName":"ContractForm","componentName":"lblSplashTitle","componentClassName":"TLabel","propertyName":"Text","sourceFileName":"{FIXTUREDIR}\\45_balanced_grid_and_multiline_heading.fmx","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"},
+    {"key":"ContractForm.colGroup.Header","sourceText":"Group","translatedText":"Gruppe","formName":"ContractForm","componentName":"colGroup","componentClassName":"TStringColumn","propertyName":"Header","sourceFileName":"{FIXTUREDIR}\\45_balanced_grid_and_multiline_heading.fmx","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"},
+    {"key":"ContractForm.colFrom.Header","sourceText":"Play Date From","translatedText":"Wiedergabedatum ab","formName":"ContractForm","componentName":"colFrom","componentClassName":"TStringColumn","propertyName":"Header","sourceFileName":"{FIXTUREDIR}\\45_balanced_grid_and_multiline_heading.fmx","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"},
+    {"key":"ContractForm.colTo.Header","sourceText":"Play Date To","translatedText":"Wiedergabe bis","formName":"ContractForm","componentName":"colTo","componentClassName":"TStringColumn","propertyName":"Header","sourceFileName":"{FIXTUREDIR}\\45_balanced_grid_and_multiline_heading.fmx","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"},
+    {"key":"ContractForm.colTime.Header","sourceText":"Play Time","translatedText":"Wiedergabezeit","formName":"ContractForm","componentName":"colTime","componentClassName":"TStringColumn","propertyName":"Header","sourceFileName":"{FIXTUREDIR}\\45_balanced_grid_and_multiline_heading.fmx","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"}
+  ]
+}

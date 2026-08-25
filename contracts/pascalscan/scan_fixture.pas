@@ -67,4 +67,28 @@ begin
   ALines.Add('Remaining events for Today:' + sLineBreak);
 end;
 
+{ A list made specifically for a message dialog. The formatted row is UI
+  structure while its time and song values are data and must stay placeholders. }
+procedure ShowRemainingSchedule(const ATime, ASong: string);
+var
+  ScheduleText: TStringList;
+begin
+  ScheduleText := TStringList.Create;
+  try
+    ScheduleText.Add('Remaining events for Today:' + sLineBreak);
+    ScheduleText.Add(Format('Time: %s, Song: %s', [ATime, ASong]));
+    ShowMessage(ScheduleText.Text);
+  finally
+    ScheduleText.Free;
+  end;
+end;
+
+procedure UpdatePlayingCaption(const ASongName, ARemaining: string);
+var
+  FNowPlayingBase: string;
+begin
+  FNowPlayingBase := 'Now Playing: ' + ASongName;
+  lblPlaying.Caption := FNowPlayingBase + '  (' + ARemaining + ' remaining )';
+end;
+
 end.

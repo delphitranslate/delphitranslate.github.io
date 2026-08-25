@@ -88,16 +88,21 @@ const
     { placed by the framework, so only its edge changes }
     '{"formName":"frmRtl","componentName":"lytNav",' +
     '"propertyName":"Align","originalValue":"Left",' +
-    '"translatedValue":"Right","sourceChecksum":"t"}]}';
+    '"translatedValue":"Right","sourceChecksum":"t"},' +
+    '{"formName":"frmRtl","componentName":"lytCentered",' +
+    '"propertyName":"Position.X","originalValue":"150",' +
+    '"translatedValue":"20","sourceChecksum":"t"}]}';
 begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
 
 var
   Form: TForm;
+  EmailBox: TEdit;
   Name_: TLabel;
   Box: TEdit;
   Nav: TLayout;
+  CenteredLayout: TLayout;
   Pack: TRuntimeLanguagePack;
 begin
   try
@@ -126,6 +131,17 @@ begin
       Box.Name := 'edtName';
       Box.SetBounds(104, 16, 200, 28);
 
+      EmailBox := TEdit.Create(Form);
+      EmailBox.Parent := Form;
+      EmailBox.Name := 'edtEmailAddress';
+      EmailBox.SetBounds(104, 52, 200, 28);
+      EmailBox.Text := 'user@example.com';
+
+      CenteredLayout := TLayout.Create(Form);
+      CenteredLayout.Parent := Form;
+      CenteredLayout.Name := 'lytCentered';
+      CenteredLayout.SetBounds(150, 84, 100, 28);
+
       Pack := HebrewPack;
       try
         TFMXTranslationApplicator.ApplyToForm(Form, Pack, 'frmRtl', True);
@@ -149,8 +165,12 @@ begin
           [Box.Position.X]));
       Check(Nav.Align = TAlignLayout.Right,
         'A framework-placed layout is mirrored by its edge.');
+      Check(Abs(CenteredLayout.Position.X - 150) < 1,
+        'A container centred by the application remains centred after RTL layout.');
       Check(Name_.TextSettings.HorzAlign = TTextAlign.Trailing,
         'The text sits against the opposite edge.');
+      Check(EmailBox.TextSettings.HorzAlign = TTextAlign.Leading,
+        'An email address keeps its technical left-to-right ordering inside the RTL form.');
       Check(not (TStyledSetting.Other in Name_.StyledSettings),
         'and the style has given up its claim on it, so it survives a repaint.');
 

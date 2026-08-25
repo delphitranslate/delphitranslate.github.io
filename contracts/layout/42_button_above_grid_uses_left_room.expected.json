@@ -1,0 +1,17 @@
+{
+  "description": "A translated FireMonkey button above a grid uses otherwise empty room on its left, preserves the grid-aligned right edge, and remains one line at its designed height.",
+  "catalog_file": "42_button_above_grid_uses_left_room.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "btnAssignSeasonalGroup",
+      "text_fits": true,
+      "right_edge_unchanged": true,
+      "planned_left_at_most": 663,
+      "planned_width_at_least": 250,
+      "planned_height_equals": 30,
+      "planned_bottom_at_most": 185,
+      "font_at_least": 9
+    }
+  ]
+}

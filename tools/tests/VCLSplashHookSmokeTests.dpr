@@ -47,11 +47,18 @@ const
     '"sourceLanguage":"en-US","sourceCatalogChecksum":"t",' +
     '"language":{"code":"de-DE","nativeName":"Deutsch","direction":"ltr"},' +
     '"locale":{},' +
-    '"strings":{"Form1.lblTitle.Caption":"Wird geladen"},' +
-    '"sources":{},"layout":[]}';
+    '"strings":{"Form1.lblTitle.Caption":"Wird geladen",' +
+    '"Form1.lblOrgName.Caption":"Beliebiger Name"},' +
+    '"sources":{"Form1.lblTitle.Caption":"Loading",' +
+    '"Form1.lblOrgName.Caption":"Any Organization Name"},' +
+    '"layout":[{"formName":"Form1","componentName":"lblOrgName",' +
+    '"propertyName":"Width","originalValue":"220",' +
+    '"translatedValue":"80","sourceChecksum":"t"}]}';
 
 var
   Failures: Integer = 0;
+  OrganizationAfterShowing: string = '';
+  OrganizationWidthAfterShowing: Integer = 0;
 
 procedure Check(const ACondition: Boolean; const AMessage: string);
 begin
@@ -105,6 +112,7 @@ end;
 function ShowSplashAndReadTitle: string;
 var
   Splash: TForm;
+  Organization: TLabel;
   Title: TLabel;
 begin
   Splash := TForm.CreateNew(nil);
@@ -114,10 +122,19 @@ begin
     Title.Parent := Splash;
     Title.Name := 'lblTitle';
     Title.Caption := 'Loading';
+    Organization := TLabel.Create(Splash);
+    Organization.Parent := Splash;
+    Organization.Name := 'lblOrgName';
+    Organization.AutoSize := False;
+    Organization.Width := 220;
+    { Live data has replaced the designer placeholder before localization. }
+    Organization.Caption := 'Saint Mark Church';
     Splash.Show;
     Splash.Update;
     Application.ProcessMessages;
     Result := Title.Caption;
+    OrganizationAfterShowing := Organization.Caption;
+    OrganizationWidthAfterShowing := Organization.Width;
   finally
     Splash.Free;
   end;
@@ -137,6 +154,11 @@ begin
       Writeln('        splash title after showing: ', TitleAfterShowing);
       Check(TitleAfterShowing = 'Wird geladen',
         'A splash shown before any manager exists is translated.');
+      Check(OrganizationAfterShowing = 'Saint Mark Church',
+        'Live splash data is preserved instead of replacing it with a ' +
+        'translated designer placeholder.');
+      Check(OrganizationWidthAfterShowing = 220,
+        'Layout planned for a placeholder does not resize live splash data.');
 
       { Rule 3: once a manager is doing the work, the hook stops guessing. }
       TDATSplashTranslation.StandDown;

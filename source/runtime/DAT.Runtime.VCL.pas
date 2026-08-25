@@ -95,6 +95,10 @@ type
     class function ApplyCollectionTextRules(const AForm: TCustomForm;
       const AFormIdentity: string;
       const APack: TRuntimeLanguagePack): Integer; static;
+    { Rewrites captions that the application changes after the language was
+      applied. The pack's placeholder templates preserve each live value. }
+    class function RefreshDynamicText(const AForm: TCustomForm;
+      const APack: TRuntimeLanguagePack): Integer; static;
     class function ApplyToForm(const AForm: TCustomForm;
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const APreserveControlState: Boolean = True): Integer; overload; static;
@@ -130,6 +134,10 @@ uses
   it, by stating the order rather than counting flips. }
 function ApplyColumnOrder(const AComponent: TComponent;
   const AKey: string; const AReversed: Boolean): Boolean; forward;
+function TryGetCollectionPropertyText(const AComponent: TComponent;
+  const APropertyName: string; out AValue: string): Boolean; forward;
+function TrySetCollectionProperty(const AComponent: TComponent;
+  const APropertyName, AValue: string): Boolean; forward;
 
 function TrySetLayoutProperty(const AComponent: TComponent;
   const APropertyName, AValue: string): Boolean;
@@ -233,19 +241,33 @@ function ApplyTextProperty(const AFormIdentity: string;
   const AForm, AComponent: TComponent;
   const APropertyName: string; const APack: TRuntimeLanguagePack): Boolean;
 var
+  CurrentText: string;
+  Key: string;
   PropertyInfo: PPropInfo;
+  SourceText: string;
   TranslatedText: string;
 begin
   Result := False;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName,
     [tkString, tkLString, tkWString, tkUString]);
-  if (PropertyInfo <> nil) and APack.TryGetText(
-    ComponentKey(AFormIdentity, AForm, AComponent, APropertyName),
-    TranslatedText) then
-  begin
-    SetStrProp(AComponent, PropertyInfo, TranslatedText);
-    Result := True;
-  end;
+  if PropertyInfo = nil then
+    Exit;
+  Key := ComponentKey(AFormIdentity, AForm, AComponent, APropertyName);
+  if not APack.TryGetText(Key, TranslatedText) then
+    Exit;
+  CurrentText := GetStrProp(AComponent, PropertyInfo);
+  if CurrentText = TranslatedText then
+    Exit;
+  { A designer placeholder may already have been replaced with live data by
+    the application before a splash or demand-created form is discovered.
+    Only replace the keyed source text. A different current value belongs to
+    the application, not to the language pack. }
+  if APack.TryGetSource(Key, SourceText) and
+    (StringReplace(CurrentText, #$00AD, '', [rfReplaceAll]) <>
+     StringReplace(SourceText, #$00AD, '', [rfReplaceAll])) then
+    Exit;
+  SetStrProp(AComponent, PropertyInfo, TranslatedText);
+  Result := True;
 end;
 
 function ApplyStringCollection(const AFormIdentity: string;
@@ -307,18 +329,34 @@ function RestoreSourceTextProperty(const AFormIdentity: string;
   const AForm, AComponent: TComponent; const APropertyName: string;
   const APack: TRuntimeLanguagePack): Boolean;
 var
+  CurrentText: string;
+  Key: string;
   PropertyInfo: PPropInfo;
+  RestoredText: string;
   SourceText: string;
+  TranslatedText: string;
 begin
   Result := False;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName,
     [tkString, tkLString, tkWString, tkUString]);
-  if (PropertyInfo = nil) or not APack.TryGetSource(
-    ComponentKey(AFormIdentity, AForm, AComponent, APropertyName), SourceText) then
+  if PropertyInfo = nil then
     Exit;
-  if GetStrProp(AComponent, PropertyInfo) = SourceText then
+  Key := ComponentKey(AFormIdentity, AForm, AComponent, APropertyName);
+  if not APack.TryGetSource(Key, SourceText) then
     Exit;
-  SetStrProp(AComponent, PropertyInfo, SourceText);
+  CurrentText := GetStrProp(AComponent, PropertyInfo);
+  if CurrentText = SourceText then
+    Exit;
+  { Restore only text the current pack can identify as its own translation.
+    This preserves user data that replaced a designer placeholder before the
+    language was applied. }
+  if APack.TryGetText(Key, TranslatedText) and
+    (StringReplace(CurrentText, #$00AD, '', [rfReplaceAll]) =
+     StringReplace(TranslatedText, #$00AD, '', [rfReplaceAll])) then
+    RestoredText := SourceText
+  else if not APack.TryRestoreDynamicText(CurrentText, RestoredText) then
+    Exit;
+  SetStrProp(AComponent, PropertyInfo, RestoredText);
   Result := True;
 end;
 
@@ -595,9 +633,21 @@ const
   TextProperties: array[0..2] of string = ('Caption', 'Hint', 'TextHint');
   StringProperties: array[0..1] of string = ('Items', 'Lines');
 var
+  BracketAt: Integer;
+  ComponentName: string;
   ComponentIndex: Integer;
+  CurrentText: string;
+  DotAt: Integer;
   FormIdentity: string;
+  Pair: TPair<string, string>;
+  Prefix: string;
   PropertyName: string;
+  PropertyPath: string;
+  Rest: string;
+  RestoredText: string;
+  StringPair: TPair<string, string>;
+  Target: TComponent;
+  TranslatedTemplate: string;
 
   procedure RestoreComponentTree(const AComponent: TComponent);
   var
@@ -630,6 +680,44 @@ begin
       Inc(Result);
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
     RestoreComponentTree(AForm.Components[ComponentIndex]);
+  { Collection items are not components, so restore status panels, grid
+    headings and similar nested text by their source paths. Dynamic templates
+    are restored with their live filename/count suffix intact. }
+  Prefix := FormIdentity + '.';
+  for Pair in APack.Sources do
+  begin
+    if not StartsText(Prefix, Pair.Key) then
+      Continue;
+    Rest := Copy(Pair.Key, Length(Prefix) + 1, MaxInt);
+    BracketAt := Pos('[', Rest);
+    DotAt := Pos('.', Rest);
+    if (BracketAt < 2) or (DotAt < 1) or (DotAt > BracketAt) then
+      Continue;
+    ComponentName := Copy(Rest, 1, DotAt - 1);
+    PropertyPath := Copy(Rest, DotAt + 1, MaxInt);
+    Target := AForm.FindComponent(ComponentName);
+    if (Target = nil) or
+      not TryGetCollectionPropertyText(Target, PropertyPath, CurrentText) then
+      Continue;
+    RestoredText := CurrentText;
+    for StringPair in APack.Strings do
+      if (StringPair.Value = CurrentText) and
+        APack.Sources.TryGetValue(StringPair.Key, RestoredText) then
+        Break;
+    if RestoredText <> CurrentText then
+      { An exact keyed collection translation, found independently of the
+        column's current numeric position. }
+    else if APack.Templates.TryGetValue(Pair.Key, TranslatedTemplate) and
+      StartsText(TranslatedTemplate, CurrentText) then
+      RestoredText := Pair.Value +
+        Copy(CurrentText, Length(TranslatedTemplate) + 1, MaxInt)
+    else if not APack.TryRestoreDynamicText(CurrentText, RestoredText) then
+      Continue;
+    if RestoredText = CurrentText then
+      Continue;
+    if TrySetCollectionProperty(Target, PropertyPath, RestoredText) then
+      Inc(Result);
+  end;
   Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, False));
   { Last, and after the text. The snapshot holds the form as it was before any
     translation touched it, so it settles anything the rules restored only
@@ -1028,10 +1116,66 @@ begin
   try
     TVCLTranslationApplicator.ApplyCollectionTextRules(FForm, FFormIdentity,
       FPack);
+    TVCLTranslationApplicator.RefreshDynamicText(FForm, FPack);
   except
     { A missed refresh is invisible; an exception escaping a timer callback
       is not. }
   end;
+end;
+
+class function TVCLTranslationApplicator.RefreshDynamicText(
+  const AForm: TCustomForm; const APack: TRuntimeLanguagePack): Integer;
+const
+  TextProperties: array[0..2] of string = ('Caption', 'Hint', 'TextHint');
+var
+  ComponentIndex: Integer;
+
+  procedure RefreshTree(const AComponent: TComponent);
+  var
+    ChildIndex: Integer;
+    CurrentText: string;
+    NextText: string;
+    Pass: Integer;
+    PropertyInfo: PPropInfo;
+    PropertyName: string;
+    TranslatedText: string;
+  begin
+    if AComponent = nil then
+      Exit;
+    for PropertyName in TextProperties do
+    begin
+      PropertyInfo := GetPropInfo(AComponent.ClassInfo, PropertyName,
+        [tkString, tkLString, tkWString, tkUString]);
+      if PropertyInfo = nil then
+        Continue;
+      CurrentText := GetStrProp(AComponent, PropertyInfo);
+      TranslatedText := CurrentText;
+      { A generated dialog can contain a heading and many formatted rows in
+        one Caption. Resolve every recognised template before the next paint,
+        rather than changing one row on each timer tick. }
+      for Pass := 1 to 64 do
+      begin
+        if not APack.TryTranslateDynamicText(TranslatedText, NextText) or
+          (NextText = TranslatedText) then
+          Break;
+        TranslatedText := NextText;
+      end;
+      if (CurrentText <> '') and (TranslatedText <> CurrentText) then
+      begin
+        SetStrProp(AComponent, PropertyInfo, TranslatedText);
+        Inc(Result);
+      end;
+    end;
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      RefreshTree(AComponent.Components[ChildIndex]);
+  end;
+
+begin
+  Result := 0;
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+    RefreshTree(AForm.Components[ComponentIndex]);
 end;
 
 class procedure TDATVCLCollectionTextIntercept.Install(
@@ -1105,6 +1249,11 @@ begin
   for Pair in APack.Strings do
   begin
     if not TrySplitPath(Pair.Key, ComponentName, PropertyPath) then
+      Continue;
+    { Grid headings were written while the columns were in designed order and
+      then moved together with their columns. Rewriting them by numeric index
+      after the move detaches each caption from its data field. }
+    if StartsText('Columns[', PropertyPath) then
       Continue;
     Target := AForm.FindComponent(ComponentName);
     if Target = nil then
@@ -1779,6 +1928,31 @@ begin
     (AControl is TCustomListBox);
 end;
 
+function InputRequiresLeftToRight(const AControl: TControl): Boolean;
+const
+  TechnicalNameParts: array[0..13] of string = (
+    'email', 'mail', 'url', 'uri', 'path', 'file', 'folder', 'directory',
+    'host', 'port', 'server', 'user', 'password', 'ip');
+var
+  NamePart: string;
+  NameText: string;
+  ValueText: string;
+begin
+  Result := False;
+  if AControl = nil then
+    Exit;
+  NameText := LowerCase(AControl.Name);
+  for NamePart in TechnicalNameParts do
+    if ContainsText(NameText, NamePart) then
+      Exit(True);
+  ValueText := '';
+  ReadStringProperty(AControl, 'Text', ValueText);
+  ValueText := Trim(ValueText);
+  Result := ContainsText(ValueText, '@') or ContainsText(ValueText, '://') or
+    ContainsText(ValueText, ':\') or ContainsText(ValueText, '\\') or
+    StartsText('.\', ValueText) or StartsText('www.', ValueText);
+end;
+
 procedure ApplyReadingOrder(const AForm: TCustomForm;
   const AFormIdentity: string; const APack: TRuntimeLanguagePack);
 var
@@ -1801,7 +1975,12 @@ var
       else if HoldsOnlyNeutralText(Control) then
         Control.BiDiMode := bdLeftToRight
       else if IsInputControl(Control) then
-        Control.BiDiMode := bdRightToLeft
+      begin
+        if InputRequiresLeftToRight(Control) then
+          Control.BiDiMode := bdLeftToRight
+        else
+          Control.BiDiMode := bdRightToLeft;
+      end
       else
         Control.BiDiMode := Mode;
     end;
@@ -1870,8 +2049,10 @@ end;
 class procedure TVCLTranslationApplicator.RecentreSelfPlacedText(
   const AForm: TCustomForm; const AFormIdentity: string);
 const
-  { Half a character of slack, so a centring that was rounded still counts. }
-  CentreTolerance = 3;
+  { Runtime centring is often rounded against screen rather than client width;
+    allow that small discrepancy while still requiring an unmistakably centred
+    snapshot. }
+  CentreTolerance = 12;
 var
   Component: TComponent;
   Control: TControl;
@@ -1883,14 +2064,10 @@ begin
     Exit;
   for Component in AForm do
   begin
-    if not (Component is TControl) or (Component.Name = '') then
+    if not (Component is TCustomPanel) or (Component.Name = '') then
       Continue;
     Control := TControl(Component);
     if Control.Parent = nil then
-      Continue;
-    { Captions only. A panel that happens to sit centred was placed there
-      deliberately and does not move because its contents changed. }
-    if not ContainsText(Control.ClassName, 'Label') then
       Continue;
     if not FOriginalGeometry.TryGetValue(
       AFormIdentity + '.' + Component.Name, Snapshot) then
@@ -1901,7 +2078,7 @@ begin
     WasCentre := Snapshot.Left + Snapshot.Width div 2;
     if Abs(WasCentre - ParentWidth div 2) > CentreTolerance then
       Continue;
-    if Control.Width = Snapshot.Width then
+    if (Control.Width = Snapshot.Width) and (Control.Left = Snapshot.Left) then
       Continue;
     Wanted := (ParentWidth - Control.Width) div 2;
     if Wanted < 0 then
@@ -1923,6 +2100,8 @@ var
   ComponentIndex: Integer;
   FormIdentity: string;
   PropertyName: string;
+  LayoutRule: TRuntimeLayoutRule;
+  LayoutComponent: TComponent;
   SavedFocusedControl: TWinControl;
   SavedFocusedState: Boolean;
   SavedSelLength: Integer;
@@ -1947,6 +2126,22 @@ begin
     little more behind. Starting from the snapshot costs one pass over the
     controls and makes applying a language mean the same thing every time. }
   RestoreOriginalGeometry(AForm, APack, FormIdentity);
+  { Collection headings are keyed by their designed index. Put every grid back
+    into that order before writing those keys; otherwise a second apply writes
+    column zero's heading onto whichever field currently occupies position
+    zero and leaves captions detached from their data. }
+  { Only collection order has to be restored before keyed headings are
+    written. Reapplying every source geometry rule here makes VCL's automatic
+    BiDi mirroring fight the later translated position rule. }
+  for LayoutRule in APack.LayoutRules do
+    if SameText(LayoutRule.FormName, FormIdentity) and
+      SameText(LayoutRule.PropertyName, 'ColumnOrder') then
+    begin
+      LayoutComponent := AForm.FindComponent(LayoutRule.ComponentName);
+      if LayoutComponent <> nil then
+        ApplyColumnOrder(LayoutComponent,
+          FormIdentity + '.' + LayoutRule.ComponentName, False);
+    end;
 
   { Reading order before anything else that touches a control.
 
@@ -2035,6 +2230,7 @@ begin
     { Last, because it reads the widths every pass above settled. }
     RecentreSelfPlacedText(AForm, FormIdentity);
     ApplyCollectionTextRules(AForm, FormIdentity, APack);
+    Inc(Result, RefreshDynamicText(AForm, APack));
     TDATVCLCollectionTextIntercept.Install(AForm, FormIdentity, APack);
   finally
     if APreserveControlState and SavedFocusedState and
@@ -2121,11 +2317,16 @@ const
 var
   CandidateRule: TRuntimeLayoutRule;
   Component: TComponent;
+  CurrentText: string;
   CurrentNumber: Extended;
   OrderedProperty: string;
   Rule: TRuntimeLayoutRule;
   CandidateNumber: Extended;
   Superseded: Boolean;
+  SourceText: string;
+  TextKey: string;
+  TextPropertyInfo: PPropInfo;
+  TranslatedText: string;
   Value: string;
 begin
   Result := 0;
@@ -2174,6 +2375,23 @@ begin
       Component := AForm.FindComponent(Rule.ComponentName);
     if Component = nil then
       Continue;
+    { A splash or other demand-created form may replace its designer
+      placeholder before localization runs. Its text and the size computed
+      for that live value belong to the application; layout planned for the
+      placeholder must not freeze it back to the placeholder's dimensions. }
+    if AUseTranslatedValues and (Component <> AForm) then
+    begin
+      TextKey := AFormIdentity + '.' + Component.Name + '.Caption';
+      TextPropertyInfo := GetPropInfo(Component.ClassInfo, 'Caption',
+        [tkString, tkLString, tkWString, tkUString]);
+      if (TextPropertyInfo <> nil) and APack.TryGetSource(TextKey, SourceText)
+        and APack.TryGetText(TextKey, TranslatedText) then
+      begin
+        CurrentText := GetStrProp(Component, TextPropertyInfo);
+        if (CurrentText <> SourceText) and (CurrentText <> TranslatedText) then
+          Continue;
+      end;
+    end;
     if AUseTranslatedValues then
       Value := Rule.TranslatedValue
     else

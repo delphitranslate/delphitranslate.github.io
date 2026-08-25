@@ -19,6 +19,8 @@ $PilotPreferenceBackupDirectory = Join-Path `
     ([System.IO.Path]::GetTempPath()) `
     ('DAT-PilotPreferences-' + [Guid]::NewGuid().ToString('N'))
 $PilotPreferences = @()
+$SourceSearchPath = ((Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'source') `
+    -Directory | Select-Object -ExpandProperty FullName) -join ';')
 
 function Invoke-Compiler {
     param(
@@ -38,7 +40,8 @@ function Invoke-Compiler {
     Push-Location $PSScriptRoot
     try {
         $Command = 'call "' + $RsVars + '" && ' + $Compiler +
-            ' -B -Q -E"' + $OutputDirectory + '" -N0"' +
+            ' -B -Q -U"' + $SourceSearchPath + '" -E"' +
+            $OutputDirectory + '" -N0"' +
             $DcuDirectory + '" "' + $SourceFile + '"'
         & cmd.exe /d /c $Command
         if ($LASTEXITCODE -ne 0) {

@@ -1,0 +1,18 @@
+{
+  "description": "The FireMonkey twin of the balanced overflowing grid and safe two-line splash-heading contract.",
+  "catalog_file": "45_balanced_grid_and_multiline_heading.catalog.json",
+  "proposals": [
+    {"name":"colGroup","property":"Width","value":"125","decision":"accepted"},
+    {"name":"colFrom","property":"Width","value":"125","decision":"accepted"},
+    {"name":"colTo","property":"Width","value":"125","decision":"accepted"},
+    {"name":"colTime","property":"Width","value":"125","decision":"accepted"}
+  ],
+  "uniform_width_group": ["colGroup","colFrom","colTo","colTime"],
+  "controls": [
+    {"form":"ContractForm","name":"lblSplashTitle","planned_width_at_least":600,"text_fits":true},
+    {"form":"ContractForm","name":"colGroup","text_fits":true,"font_at_least":9},
+    {"form":"ContractForm","name":"colFrom","text_fits":true,"font_at_least":9},
+    {"form":"ContractForm","name":"colTo","text_fits":true,"font_at_least":9},
+    {"form":"ContractForm","name":"colTime","text_fits":true,"font_at_least":9}
+  ]
+}

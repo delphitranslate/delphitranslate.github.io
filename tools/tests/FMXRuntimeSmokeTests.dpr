@@ -58,8 +58,8 @@ const
     { The source text for each key, which is what returning to the original
       language reads. Left empty, the words stay translated however well the
       geometry is put back. }
-    '"sources":{"frmFMXSample.Caption":"FMX Sample",' +
-    '"frmFMXSample.lblHeading.Text":"Customer details",' +
+    '"sources":{"frmFMXSample.Caption":"Customer Manager",' +
+    '"frmFMXSample.lblHeading.Text":"Customer Account Details",' +
     '"frmFMXSample.lblCustomerName.Text":"Customer name",' +
     '"frmFMXSample.btnSave.Text":"&Save Customer"},' +
     '"layout":[{"formName":"frmFMXSample",' +
@@ -155,7 +155,8 @@ begin
     try
       AppliedCount := TFMXTranslationApplicator.ApplyToForm(
         frmFMXSample, Pack);
-      Require(AppliedCount = 32, 'Unexpected FMX applied-property count.');
+      Require(AppliedCount = 32, 'Unexpected FMX applied-property count: ' +
+        IntToStr(AppliedCount));
       Require(frmFMXSample.Caption = 'FMX Beispiel',
         'The FMX form caption was not translated.');
       Require(frmFMXSample.lblHeading.Text = 'Kundendaten',

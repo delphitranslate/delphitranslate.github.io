@@ -1,0 +1,181 @@
+object ContractForm: TContractForm
+  Caption = 'Contract Form'
+  ClientHeight = 1000
+  ClientWidth = 1100
+  object gbCaptions: TGroupBox
+    Position.X = 20.000000000000000000
+    Position.Y = 20.000000000000000000
+    Size.Width = 600.000000000000000000
+    Size.Height = 220.000000000000000000
+    Size.PlatformDefault = False
+    object lblTo: TLabel
+      Position.X = 145.000000000000000000
+      Position.Y = 20.000000000000000000
+      Size.Width = 16.000000000000000000
+      Size.Height = 20.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 11.000000000000000000
+      Text = 'To'
+    end
+    object edtTo: TEdit
+      Position.X = 100.000000000000000000
+      Position.Y = 47.000000000000000000
+      Size.Width = 107.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object lblStart: TLabel
+      Position.X = 339.000000000000000000
+      Position.Y = 20.000000000000000000
+      Size.Width = 27.000000000000000000
+      Size.Height = 20.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 10.000000000000000000
+      Text = 'Start'
+    end
+    object edtStart: TEdit
+      Position.X = 300.000000000000000000
+      Position.Y = 47.000000000000000000
+      Size.Width = 105.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object lblRecipient: TLabel
+      Position.X = 100.000000000000000000
+      Position.Y = 110.000000000000000000
+      Size.Width = 197.000000000000000000
+      Size.Height = 20.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 11.000000000000000000
+      TextSettings.HorzAlign = Trailing
+      TextSettings.WordWrap = True
+      Text = 'Test Recipient Email Address:'
+    end
+    object edtRecipient: TEdit
+      Position.X = 100.000000000000000000
+      Position.Y = 137.000000000000000000
+      Size.Width = 286.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+    end
+  end
+  object gbMute: TGroupBox
+    Position.X = 20.000000000000000000
+    Position.Y = 260.000000000000000000
+    Size.Width = 473.000000000000000000
+    Size.Height = 77.000000000000000000
+    Size.PlatformDefault = False
+    object lblVolume: TLabel
+      Position.X = 21.000000000000000000
+      Position.Y = 16.000000000000000000
+      Size.Width = 46.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 10.000000000000000000
+      TextSettings.WordWrap = True
+      Text = 'System Volume:'
+    end
+    object trkVolume: TTrackBar
+      Position.X = 85.000000000000000000
+      Position.Y = 19.000000000000000000
+      Size.Width = 301.000000000000000000
+      Size.Height = 26.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object btnMute: TButton
+      Position.X = 392.000000000000000000
+      Position.Y = 22.000000000000000000
+      Size.Width = 65.000000000000000000
+      Size.Height = 25.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 10.000000000000000000
+      Text = 'Mute'
+    end
+  end
+  object gbEmailButtons: TGroupBox
+    Position.X = 20.000000000000000000
+    Position.Y = 360.000000000000000000
+    Size.Width = 989.000000000000000000
+    Size.Height = 90.000000000000000000
+    Size.PlatformDefault = False
+    object btnSave: TButton
+      Position.X = 648.000000000000000000
+      Position.Y = 30.000000000000000000
+      Size.Width = 97.000000000000000000
+      Size.Height = 25.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 11.000000000000000000
+      Text = 'Save Settings'
+    end
+    object btnClose: TButton
+      Position.X = 772.000000000000000000
+      Position.Y = 30.000000000000000000
+      Size.Width = 75.000000000000000000
+      Size.Height = 25.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 11.000000000000000000
+      Text = 'Close'
+    end
+  end
+  object gbResetButtons: TGroupBox
+    Position.X = 20.000000000000000000
+    Position.Y = 470.000000000000000000
+    Size.Width = 400.000000000000000000
+    Size.Height = 230.000000000000000000
+    Size.PlatformDefault = False
+    object btnRecalculate: TButton
+      Position.X = 134.000000000000000000
+      Position.Y = 30.000000000000000000
+      Size.Width = 129.000000000000000000
+      Size.Height = 41.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.WordWrap = True
+      Text = 'Recalculate Easter and All Souls Dates'
+    end
+    object btnReset: TButton
+      Position.X = 182.000000000000000000
+      Position.Y = 119.000000000000000000
+      Size.Width = 81.000000000000000000
+      Size.Height = 42.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 9.000000000000000000
+      TextSettings.WordWrap = True
+      Text = 'Reset Funeral Date Fields'
+    end
+  end
+  object gbParagraphs: TGroupBox
+    Position.X = 20.000000000000000000
+    Position.Y = 720.000000000000000000
+    Size.Width = 900.000000000000000000
+    Size.Height = 240.000000000000000000
+    Size.PlatformDefault = False
+    object lblInstructions: TLabel
+      Position.X = 20.000000000000000000
+      Position.Y = 20.000000000000000000
+      Size.Width = 577.000000000000000000
+      Size.Height = 60.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 11.000000000000000000
+      Text = 'Click on the Select Random Directory button for any directory box, select a directory'#13#10'and add dates to put it into the rotation. Dates should be in the format of month/date'#13#10'only (example: 04/27), with no year.'
+    end
+    object lblDefaultInstructions: TLabel
+      Position.X = 20.000000000000000000
+      Position.Y = 100.000000000000000000
+      Size.Width = 571.000000000000000000
+      Size.Height = 60.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 11.000000000000000000
+      Text = 'The default directory must be set to have random music played. If not set, no random'#13#10'music will play. If the other directories are not usable, any random music play will fall'#13#10'back to the directory in this field.'
+    end
+  end
+end

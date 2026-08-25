@@ -1,0 +1,40 @@
+object ContractForm: TContractForm
+  Caption = 'Contract Form'
+  ClientHeight = 700
+  ClientWidth = 1604
+  object lblSplashTitle: TLabel
+    Position.X = 608.000000000000000000
+    Position.Y = 80.000000000000000000
+    Size.Width = 478.000000000000000000
+    Size.Height = 142.000000000000000000
+    Size.PlatformDefault = False
+    StyledSettings = []
+    TextSettings.Font.Size = 40.000000000000000000
+    TextSettings.HorzAlign = Center
+    TextSettings.WordWrap = True
+    Text = 'Westminster Chimes'#13#10'and Carillon Bells'
+  end
+  object grdGroups: TGrid
+    Position.X = 176.000000000000000000
+    Position.Y = 300.000000000000000000
+    Size.Width = 510.000000000000000000
+    Size.Height = 289.000000000000000000
+    Size.PlatformDefault = False
+    object colGroup: TStringColumn
+      Header = 'Group'
+      Width = 155.000000000000000000
+    end
+    object colFrom: TStringColumn
+      Header = 'Play Date From'
+      Width = 115.000000000000000000
+    end
+    object colTo: TStringColumn
+      Header = 'Play Date To'
+      Width = 115.000000000000000000
+    end
+    object colTime: TStringColumn
+      Header = 'Play Time'
+      Width = 115.000000000000000000
+    end
+  end
+end

@@ -1,0 +1,32 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 400
+  ClientWidth = 640
+  object gbSchedule: TGroupBox
+    Position.X = 20.000000000000000000
+    Position.Y = 20.000000000000000000
+    Size.Width = 579.000000000000000000
+    Size.Height = 300.000000000000000000
+    Size.PlatformDefault = False
+    object lblTimesToPlay: TLabel
+      Position.X = 462.000000000000000000
+      Position.Y = 150.000000000000000000
+      Size.Width = 61.000000000000000000
+      Size.Height = 40.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 11.000000000000000000
+      TextSettings.WordWrap = True
+      Text = 'Times to Play:'
+    end
+    object edtTimesToPlay: TEdit
+      Position.X = 461.000000000000000000
+      Position.Y = 197.000000000000000000
+      Size.Width = 42.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+    end
+  end
+end

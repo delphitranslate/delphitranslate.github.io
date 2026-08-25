@@ -39,8 +39,8 @@ const
     { The source text for each key, which is what a return to the original
       language reads. Left empty, the words stay translated however well the
       geometry is put back. }
-    '"sources":{"frmVCLSample.Caption":"VCL Sample",' +
-    '"frmVCLSample.lblHeading.Caption":"Customer details"},' +
+    '"sources":{"frmVCLSample.Caption":"Customer Manager",' +
+    '"frmVCLSample.lblHeading.Caption":"Customer Account Details"},' +
     '"layout":[{"formName":"frmVCLSample",' +
     '"componentName":"lblHeading","propertyName":"Width",' +
     '"originalValue":"227","translatedValue":"327",' +
@@ -60,7 +60,8 @@ begin
     try
       AppliedCount := TVCLTranslationApplicator.ApplyToForm(
         frmVCLSample, Pack);
-      Require(AppliedCount = 11, 'Unexpected VCL applied-property count.');
+      Require(AppliedCount = 11, 'Unexpected VCL applied-property count: ' +
+        IntToStr(AppliedCount));
       Require(frmVCLSample.Caption = 'VCL Beispiel',
         'The VCL form caption was not translated.');
       Require(frmVCLSample.lblHeading.Caption = 'Kundendaten',
@@ -93,7 +94,7 @@ begin
       frmVCLSample.lblHeading.Left := 99;
       TVCLTranslationApplicator.RestoreSourceLanguage(frmVCLSample, Pack,
         frmVCLSample.Name);
-      Require(frmVCLSample.lblHeading.Caption = 'Customer details',
+      Require(frmVCLSample.lblHeading.Caption = 'Customer Account Details',
         'Returning to the source language did not restore the text.');
       Require(frmVCLSample.edtCustomerName.Width = 360,
         'A control with no layout rule was not restored from the snapshot.');

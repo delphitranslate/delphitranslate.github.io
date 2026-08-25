@@ -52,7 +52,10 @@ type
     FTabOrder: Integer;
     FHasTabOrder: Boolean;
     FMirrorHandled: Boolean;
-    FGeometryOwnedByCode: Boolean;
+    FLeftOwnedByCode: Boolean;
+    FTopOwnedByCode: Boolean;
+    FWidthOwnedByCode: Boolean;
+    FHeightOwnedByCode: Boolean;
     FHorzAlign: string;
     FWordWrap: Boolean;
     FAutoSize: Boolean;
@@ -65,6 +68,7 @@ type
     FPlannedHeight: Double;
     FPlannedWordWrap: Boolean;
     FPlannedFontSize: Double;
+    FPlannedHorzAlign: string;
   public
     property FormName: string read FFormName write FFormName;
     property ParentName: string read FParentName write FParentName;
@@ -92,12 +96,15 @@ type
     { Set when the right-to-left pass has already placed this control, so the
       general reflection leaves it alone. }
     property MirrorHandled: Boolean read FMirrorHandled write FMirrorHandled;
-    { The application assigns this control's position or size in its own
-      source. Its text is translated; its geometry is not touched, because a
-      rule computed from the designer values would overwrite a decision the
-      application has already made and will not make again. }
-    property GeometryOwnedByCode: Boolean read FGeometryOwnedByCode
-      write FGeometryOwnedByCode;
+    { Preserve only the coordinates the application actually owns. }
+    property LeftOwnedByCode: Boolean read FLeftOwnedByCode
+      write FLeftOwnedByCode;
+    property TopOwnedByCode: Boolean read FTopOwnedByCode
+      write FTopOwnedByCode;
+    property WidthOwnedByCode: Boolean read FWidthOwnedByCode
+      write FWidthOwnedByCode;
+    property HeightOwnedByCode: Boolean read FHeightOwnedByCode
+      write FHeightOwnedByCode;
     { How the text sits inside the control. This decides which way the control
       has to grow: a right-aligned caption must keep its right edge and extend
       leftwards, or its text walks into whatever sits beside it. }
@@ -115,6 +122,8 @@ type
     property PlannedHeight: Double read FPlannedHeight write FPlannedHeight;
     property PlannedWordWrap: Boolean read FPlannedWordWrap write FPlannedWordWrap;
     property PlannedFontSize: Double read FPlannedFontSize write FPlannedFontSize;
+    property PlannedHorzAlign: string read FPlannedHorzAlign
+      write FPlannedHorzAlign;
   end;
 
   TLayoutProposal = class
@@ -680,7 +689,7 @@ const
 class procedure TLocalizationReviewer.ScanLayout(
   const ACatalog: TTranslationCatalog; const AReview: TLocalizationReview);
 var
-  CodePositioned: TStringList;
+  CodeAssigned: TStringList;
   Entry: TTranslationEntry;
   Files: TStringList;
   Lines: TStringList;
@@ -708,7 +717,7 @@ begin
          MatchText(LowerCase(TPath.GetExtension(Entry.SourceFileName)),
            ['.fmx', '.dfm']) then
         Files.Add(Entry.SourceFileName);
-    CodePositioned := nil;
+    CodeAssigned := nil;
     for FileName in Files do
     begin
       Stack.Clear;
@@ -721,8 +730,8 @@ begin
       { Which controls this form's own unit positions or sizes for itself.
         Read once per form; empty for the ordinary form nobody lays out by
         hand. }
-      FreeAndNil(CodePositioned);
-      CodePositioned := TCodeGeometry.ControlsPositionedInCode(FileName);
+      FreeAndNil(CodeAssigned);
+      CodeAssigned := TCodeGeometry.PropertiesAssignedInCode(FileName);
       LoadDelphiTextFile(FileName, Lines);
       FormName := '';
       for I := 0 to Lines.Count - 1 do
@@ -804,8 +813,14 @@ begin
           Frame.Control.ComponentName := Name;
           Frame.Control.ComponentClassName := ClassName;
           Frame.Control.SourceFileName := FileName;
-          Frame.Control.GeometryOwnedByCode :=
-            CodePositioned.IndexOf(Name) >= 0;
+          Frame.Control.LeftOwnedByCode :=
+            CodeAssigned.IndexOf(Name + '.Left') >= 0;
+          Frame.Control.TopOwnedByCode :=
+            CodeAssigned.IndexOf(Name + '.Top') >= 0;
+          Frame.Control.WidthOwnedByCode :=
+            CodeAssigned.IndexOf(Name + '.Width') >= 0;
+          Frame.Control.HeightOwnedByCode :=
+            CodeAssigned.IndexOf(Name + '.Height') >= 0;
 
           { A property absent from a form file is not a property set to False:
             it is the framework's default, and the two frameworks disagree. A
@@ -978,7 +993,7 @@ begin
       end;
     end;
   finally
-    CodePositioned.Free;
+    CodeAssigned.Free;
     Stack.Free;
     Lines.Free;
     Files.Free;
@@ -1068,6 +1083,10 @@ const
     label, and is where shrinking the text becomes the better trade. }
   { Never shrink text past the point where it stops being comfortable to read. }
   MinimumReadableFontSize = 9;
+  { Complex right-to-left scripts need a little more vertical and horizontal
+    detail than Latin text at the same nominal point size. This is a direction
+    rule, not a language list, so future RTL packs receive the same floor. }
+  RtlMinimumReadableFontSize = 10;
   { Buttons further apart than this were never laid out as one row. }
   MaximumClusterGap = 40;
   { Controls touching by less than this were placed side by side, not stacked
@@ -1104,6 +1123,7 @@ const
     translation fits, since concluding wrongly leaves an auto-sizing control to
     resize itself at run time and walk into its neighbour. }
   MeasurementSafety = 1.08;
+  MultilineHeadingSafety = 1.30;
   CaptionFieldGap = 28;
   CentredRowTolerance = 12;
   { A reduction no deeper than this is preferable to wrapping a caption onto a
@@ -1132,7 +1152,9 @@ var
   RowGrowLimit: Double;
   GridNames2: TStringList;
   GridControl: TLayoutControl;
-  GridColumnTotal, GridScale: Double;
+  GridColumnTotal, GridOriginalTotal, GridOriginalMin, GridOriginalMax,
+    GridScale, GridEqualWidth: Double;
+  GridColumnCount: Integer;
   RowLines: Integer;
   SettleAlignedRight: Double;
   AlignedEdge: Double;
@@ -1182,6 +1204,28 @@ var
   SetFitsOneLine, RowCanWrap: Boolean;
   CaptionRow: TList<TLayoutControl>;
   PitchedCaptions: TList<TLayoutControl>;
+  ParagraphRight, ParagraphFloor, ParagraphWidth, ParagraphSharedWidth: Double;
+
+  function GridKeyForColumn(const AControl: TLayoutControl): string;
+  var
+    ColumnAt: Integer;
+  begin
+    Result := '';
+    if SameText(AControl.ComponentClassName, 'TColumn') then
+    begin
+      ColumnAt := Pos('.Columns[', AControl.ComponentName);
+      if ColumnAt > 1 then
+        Result := AControl.FormName + '|' +
+          Copy(AControl.ComponentName, 1, ColumnAt - 1);
+      Exit;
+    end;
+    { FireMonkey columns are real child controls rather than VCL collection
+      items. Their parent is the grid, so the same grid key can be recovered
+      without inventing a framework-specific layout rule. }
+    if ContainsText(AControl.ComponentClassName, 'Column') and
+      (Trim(AControl.ParentName) <> '') then
+      Result := AControl.FormName + '|' + AControl.ParentName;
+  end;
 
   { Measure the translated text with the same engine that renders it at
     runtime. Character-count arithmetic cannot predict real glyph widths, so
@@ -1284,8 +1328,12 @@ var
     point at which text stops being legible on its own. }
   function SmallestFontFor(const AControl: TLayoutControl): Double;
   begin
-    Result := Max(MinimumReadableFontSize,
-      Max(AControl.FontSize, 9) * ModestFontReduction);
+    if IsRightToLeft(AReview) then
+      Result := Max(RtlMinimumReadableFontSize,
+        Max(AControl.FontSize, 9) * ModestFontReduction)
+    else
+      Result := Max(MinimumReadableFontSize,
+        Max(AControl.FontSize, 9) * ModestFontReduction);
   end;
 
   { Lines the translated text breaks into inside a control of the given width.
@@ -2110,6 +2158,14 @@ var
       GrowthCap := Max(AControl.Width * 1.20, 120);
       HardCap := 220;
     end
+    else if IsParagraphLike(AControl) then
+    begin
+      { Explanatory prose is meant to use the open row before becoming a
+        narrow, tall strip. The real neighbour and parent bounds below still
+        limit it. }
+      GrowthCap := Max(AControl.Width * 2.25, 420);
+      HardCap := 720;
+    end
     else
     begin
       GrowthCap := Max(AControl.Width * 1.35, 180);
@@ -2408,6 +2464,83 @@ var
     end;
   end;
 
+  function FieldImmediatelyToRight(
+    const AControl: TLayoutControl): TLayoutControl;
+  var
+    Candidate: TLayoutControl;
+    Gap: Double;
+    NearestGap: Double;
+  begin
+    Result := nil;
+    NearestGap := MaxDouble;
+    if IsInputControl(AControl) or IsButtonLike(AControl) or
+      IsParagraphLike(AControl) then
+      Exit;
+    for Candidate in AReview.Controls do
+    begin
+      if (Candidate = AControl) or not Candidate.HasPosition or
+        not Candidate.HasSize or not IsInputControl(Candidate) then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if Abs((Candidate.Top + Candidate.Height / 2) -
+        (AControl.Top + AControl.Height / 2)) >
+        Max(8, Max(Candidate.Height, AControl.Height) * 0.55) then
+        Continue;
+      Gap := Candidate.Left - (AControl.Left + AControl.Width);
+      if (Gap < -DesignedOverlapTolerance) or (Gap > CaptionFieldGap) then
+        Continue;
+      if Gap < NearestGap then
+      begin
+        NearestGap := Gap;
+        Result := Candidate;
+      end;
+    end;
+  end;
+
+  { Right edge of a genuine button column below an instruction paragraph.
+    Repetition distinguishes a layout boundary from an unrelated single
+    button. The translated/planned button width is used because that is the
+    edge the user actually sees. }
+  function ButtonColumnRightBelow(const AControl: TLayoutControl): Double;
+  var
+    Candidate, Peer: TLayoutControl;
+    ColumnCount: Integer;
+    Edge: Double;
+  begin
+    Result := 0;
+    for Candidate in AReview.Controls do
+    begin
+      if not IsButtonLike(Candidate) or not Candidate.HasPosition or
+        not Candidate.HasSize then
+        Continue;
+      if not SameText(Candidate.FormName, AControl.FormName) or
+        not SameText(Candidate.ParentName, AControl.ParentName) then
+        Continue;
+      if (Candidate.Top < AControl.Top + AControl.Height) or
+        (Candidate.Left <= AControl.Left + AControl.Width * 0.40) then
+        Continue;
+      ColumnCount := 0;
+      for Peer in AReview.Controls do
+        if IsButtonLike(Peer) and
+          SameText(Peer.FormName, Candidate.FormName) and
+          SameText(Peer.ParentName, Candidate.ParentName) and
+          (Peer.Top >= AControl.Top + AControl.Height) and
+          (Abs(Peer.Left - Candidate.Left) <= DesignedOverlapTolerance) then
+          Inc(ColumnCount);
+      if ColumnCount < 2 then
+        Continue;
+      Edge := Candidate.PlannedLeft + Candidate.PlannedWidth;
+      if (Edge <= AControl.PlannedLeft) or
+        (Edge >= AControl.PlannedLeft + AControl.PlannedWidth -
+          DesignedOverlapTolerance) then
+        Continue;
+      if (Result = 0) or (Edge > Result) then
+        Result := Edge;
+    end;
+  end;
+
   function CollectPitchedCaptionRow(const AControl: TLayoutControl;
     out APitch: Double): TList<TLayoutControl>;
   var
@@ -2564,6 +2697,7 @@ begin
       written. }
     Control.PlannedWordWrap := False;
     Control.PlannedFontSize := Control.FontSize;
+    Control.PlannedHorzAlign := '';
   end;
 
   { Phase 1b - a caption takes the free margin beside it while the form is
@@ -2917,7 +3051,15 @@ begin
         if (Available > 0) and
           (Abs(Cluster[0].Left - (Available - DesignedPitch)) <=
             CentredRowTolerance) then
-          ClusterLeft := Max(0, (Available - Total) / 2);
+          ClusterLeft := Max(0, (Available - Total) / 2)
+        else if (Available > 0) and (Cluster[0].Left > Available / 2) and
+          (Available - DesignedPitch > CentredRowTolerance) and
+          (DesignedPitch >= Total) then
+          { A dialog row placed in the right half of a form is anchored by its
+            designed right edge. Longer captions take the empty room on the
+            left; consuming the right margin puts the last button against the
+            window frame. }
+          ClusterLeft := DesignedPitch - Total;
 
         ClusterOffset := ClusterLeft;
         for Other in Cluster do
@@ -3041,6 +3183,21 @@ begin
     Follower := FieldDirectlyBelow(Control);
     if Follower = nil then
       Continue;
+    { A short caption drawn wholly over its field is centred on that field by
+      position while AutoSize is on. Translation turns AutoSize off, so the
+      same visual relationship must become explicit geometry and alignment. }
+    if (Control.AutoSize or not IsCentreAligned(Control)) and
+      (Control.Left >= Follower.Left - DesignedOverlapTolerance) and
+      (Control.Left + Control.Width <= Follower.Left + Follower.Width +
+        DesignedOverlapTolerance) then
+    begin
+      Control.PlannedLeft := Follower.Left;
+      Control.PlannedWidth := Follower.Width;
+      if SameText(TPath.GetExtension(Control.SourceFileName), '.dfm') then
+        Control.PlannedHorzAlign := 'taCenter'
+      else
+        Control.PlannedHorzAlign := 'Center';
+    end;
     SavedFontSize := Control.PlannedFontSize;
     { Judged against the box the caption was drawn in, not the one an earlier
       pass has already stretched it into. By this point a caption that would
@@ -3076,7 +3233,17 @@ begin
       ClampTop := Max(ClampTop, Other.Top + Other.Height + ControlGap);
     end;
 
-    NeededHeight := Ceil(RequiredHeightFor(Control, Follower.Width));
+    { A narrow numeric field does not make every caption above it a narrow
+      column. When the rest of that row is empty, use it before breaking a
+      short caption into several pieces. The field's left edge still anchors
+      the relationship; only the free room to the right is added. }
+    ClampRight := ContentRightBound(Control);
+    if SpaceToRight(Control) < UnboundedWidthAllowance then
+      ClampRight := Min(ClampRight,
+        Control.PlannedLeft + SpaceToRight(Control));
+    NeededWidth := Max(Follower.Width,
+      Min(TextWidthEstimate(Control), ClampRight - Follower.Left));
+    NeededHeight := Ceil(RequiredHeightFor(Control, NeededWidth));
     { Where the band cannot hold the lines, reduce the size until it can, and
       only then. A floor applies: past a point a caption nobody can read is
       worse than one that sits tight. }
@@ -3085,7 +3252,7 @@ begin
     begin
       Control.PlannedFontSize := Max(SmallestFontFor(Control),
         EffectiveFontOf(Control) - 0.5);
-      NeededHeight := Ceil(RequiredHeightFor(Control, Follower.Width));
+      NeededHeight := Ceil(RequiredHeightFor(Control, NeededWidth));
     end;
     { Where even a modest reduction will not fit the lines into the band, this
       treatment is declined rather than forced. Squeezing the caption over its
@@ -3100,7 +3267,7 @@ begin
     end;
 
     Control.PlannedLeft := Follower.Left;
-    Control.PlannedWidth := Follower.Width;
+    Control.PlannedWidth := NeededWidth;
     Control.PlannedWordWrap := True;
     Control.PlannedHeight := Max(Control.PlannedHeight, NeededHeight);
     { Bottom against the box it names, so the pairing reads down the column. }
@@ -3796,6 +3963,16 @@ begin
         so a centred heading stays centred. }
       SettleRoom := AvailableWidth(Control);
       SettleNeeded := TextWidthEstimate(Control);
+      { A translated heading with authored line breaks must have a little more
+        than the exact measured width of its longest line. At the exact width,
+        a different DPI or text rasterizer can wrap that line once more at a
+        discretionary hyphen. The splash title then becomes three lines and
+        runs into the version label even though the form has ample room. }
+      if IsCentreAligned(Control) and
+        (Max(Control.PlannedFontSize, Control.FontSize) >= HeadingFontSize) and
+        ((Pos(#13, Control.TranslatedText) > 0) or
+         (Pos(#10, Control.TranslatedText) > 0)) then
+        SettleNeeded := SettleNeeded * MultilineHeadingSafety;
       { A button standing on its own may be given room; one belonging to a row
         may not, because the row was levelled above and a single member
         growing would break the pitch it is supposed to keep. }
@@ -3852,7 +4029,9 @@ begin
         left, so growing only rightwards left them exactly as cramped as they
         started. A button belonging to a row is left alone - the row was
         levelled just above and one member growing would break it. }
-      if IsButtonLike(Control) and (not SettleFits) and
+      if IsButtonLike(Control) and
+        ((not SettleFits) or
+          ((SettleLines > 1) and (AlignedRightEdge(Control) > 0))) and
         (SettleNeeded > Control.PlannedWidth + 1) then
       begin
         if SettleAlone then
@@ -3871,13 +4050,31 @@ begin
             the settings page came to be drawn straight through the captions
             beside them. The width is set outright here, and only ever to
             something that fits. }
-          SettleWanted := Min(SettleNeeded,
-            Min(Max(Control.Width * 1.25, MinimumComfortableButtonWidth),
-              SpaceToRight(Control)));
           SettleAlignedRight := AlignedRightEdge(Control);
           if SettleAlignedRight > 0 then
-            SettleWanted := Min(SettleWanted,
-              SettleAlignedRight - Control.PlannedLeft);
+          begin
+            { A structural grid immediately below changes which place the
+              button must keep: its right edge, rather than its left edge.
+              Use only genuinely empty room on the left, and keep the shared
+              edge exact. This lets a translated caption remain one line
+              without dropping the button into the grid. }
+            SettleWanted := Min(SettleNeeded,
+              Min(Max(Control.Width * 1.25,
+                MinimumComfortableButtonWidth),
+                SettleAlignedRight -
+                  (Control.PlannedLeft - SpaceToLeft(Control))));
+            if SettleWanted > Control.PlannedWidth + 1 then
+            begin
+              Control.PlannedLeft := SettleAlignedRight - SettleWanted;
+              Control.PlannedWidth := SettleWanted;
+              Continue;
+            end;
+          end
+          else
+          begin
+            SettleWanted := Min(SettleNeeded,
+              Min(Max(Control.Width * 1.25,
+                MinimumComfortableButtonWidth), SpaceToRight(Control)));
           { The gap beside a button is not the button's to take. Something was
             drawn in it or beside it, and whatever that is has the same claim
             on the space - usually a caption whose own translation has grown
@@ -3898,6 +4095,7 @@ begin
           begin
             Control.PlannedWidth := SettleWanted;
             Continue;
+          end;
           end;
         end;
       end;
@@ -4151,6 +4349,7 @@ begin
     if not IsParagraphLike(Control) or (Trim(Control.TranslatedText) = '') then
       Continue;
     SettleFont := Control.PlannedFontSize;
+    ParagraphSharedWidth := Control.PlannedWidth;
     if SettleFont <= 0 then
       SettleFont := Max(Control.FontSize, 9);
     for Other in AReview.Controls do
@@ -4165,12 +4364,97 @@ begin
       { Drawn at the same size to begin with, or they were never a pair. }
       if Abs(Other.FontSize - Control.FontSize) > 0.01 then
         Continue;
+      { Stacked prose beginning on the same reading edge is one instruction
+        block. Give every member the widest safe width already established
+        for that block, so one paragraph does not acquire an extra accidental
+        wrap while the paragraph above uses the empty row correctly. }
+      if Abs(Other.Left - Control.Left) <= DesignedOverlapTolerance then
+        ParagraphSharedWidth := Max(ParagraphSharedWidth,
+          Other.PlannedWidth);
       SettleHeight := Other.PlannedFontSize;
       if SettleHeight <= 0 then
         SettleHeight := Max(Other.FontSize, 9);
       SettleFont := Min(SettleFont, SettleHeight);
     end;
     Control.PlannedFontSize := SettleFont;
+    Control.PlannedWidth := ParagraphSharedWidth;
+  end;
+
+  { Authored multiline instructions need a conservative rendering allowance.
+    Each authored line may wrap again, and a width that measures as an exact
+    fit is the width that loses its last line on another rasterizer or DPI.
+    Use genuinely empty room to the right until that conservative line count
+    fits above the next block, then grant the corresponding height. }
+  for Control in AReview.Controls do
+  begin
+    if not IsParagraphLike(Control) or not Control.HasPosition or
+      not Control.HasSize then
+      Continue;
+    if (Pos(#13, Control.TranslatedText) = 0) and
+      (Pos(#10, Control.TranslatedText) = 0) then
+      Continue;
+    ParagraphFloor := ContentBottomBound(Control);
+    if ParagraphFloor <= 0 then
+      ParagraphFloor := Control.PlannedTop + Control.PlannedHeight;
+    for Other in AReview.Controls do
+    begin
+      if (Other = Control) or not Other.HasPosition or not Other.HasSize then
+        Continue;
+      if not SameText(Other.FormName, Control.FormName) or
+        not SameText(Other.ParentName, Control.ParentName) then
+        Continue;
+      if Other.Top < Control.Top + Control.Height then
+        Continue;
+      if (Other.Left >= Control.Left + Control.Width) or
+        (Other.Left + Other.Width <= Control.Left) then
+        Continue;
+      ParagraphFloor := Min(ParagraphFloor, Other.Top - ControlGap);
+    end;
+    ParagraphRight := ContentRightBound(Control);
+    ParagraphWidth := Control.PlannedWidth;
+    while (WrappedLineCount(Control,
+        ParagraphWidth / MeasurementSafety) * MeasuredLineHeight(Control) +
+        2 * PaddingVertical(Control) > ParagraphFloor - Control.PlannedTop) and
+      (Control.PlannedLeft + ParagraphWidth + 8 <= ParagraphRight) do
+      ParagraphWidth := ParagraphWidth + 8;
+    if ParagraphWidth > Control.PlannedWidth then
+      Control.PlannedWidth := ParagraphWidth;
+    Control.PlannedWordWrap := True;
+    Control.PlannedHeight := Max(Control.PlannedHeight,
+      Ceil(WrappedLineCount(Control,
+        Control.PlannedWidth / MeasurementSafety) *
+        MeasuredLineHeight(Control) + 2 * PaddingVertical(Control)));
+  end;
+
+  { The authored-line pass above may widen members of a stacked instruction
+    block by different amounts. Equalise the settled widths once more here,
+    after those measurements, so the shared reading edge and shared right
+    edge are properties of the exported layout rather than an intermediate
+    state. }
+  for Control in AReview.Controls do
+  begin
+    if not IsParagraphLike(Control) or (Trim(Control.TranslatedText) = '') then
+      Continue;
+    ParagraphSharedWidth := Control.PlannedWidth;
+    for Other in AReview.Controls do
+    begin
+      if (Other = Control) or not IsParagraphLike(Other) or
+        (Trim(Other.TranslatedText) = '') then
+        Continue;
+      if not SameText(Other.FormName, Control.FormName) or
+        not SameText(Other.ParentName, Control.ParentName) then
+        Continue;
+      if (Abs(Other.FontSize - Control.FontSize) > 0.01) or
+        (Abs(Other.Left - Control.Left) > DesignedOverlapTolerance) then
+        Continue;
+      ParagraphSharedWidth := Max(ParagraphSharedWidth,
+        Other.PlannedWidth);
+    end;
+    SettleSpanRight := ButtonColumnRightBelow(Control);
+    if SettleSpanRight > 0 then
+      ParagraphSharedWidth := Min(ParagraphSharedWidth,
+        SettleSpanRight - Control.PlannedLeft);
+    Control.PlannedWidth := ParagraphSharedWidth;
   end;
 
   { Phase 3f - nothing keeps growth that lands on a neighbour.
@@ -4423,6 +4707,62 @@ begin
     RowRescued.Free;
   end;
 
+  { Restore the relationship for a short caption designed immediately to the
+    left of an input. Earlier general fitting may have mistaken it for an
+    above-field caption and moved it away. Keep its designed right edge, take
+    any needed width from the empty margin on its left, and keep one line. }
+  for Control in AReview.Controls do
+  begin
+    if (Trim(Control.TranslatedText) = '') or not Control.HasPosition or
+      not Control.HasSize then
+      Continue;
+    Follower := FieldImmediatelyToRight(Control);
+    if Follower = nil then
+      Continue;
+    { This is a repair for a caption displaced onto or beyond its own field,
+      not a replacement for the ordinary side-caption fitter. }
+    if Control.PlannedLeft < Follower.Left - DesignedOverlapTolerance then
+      Continue;
+    SettleSpanRight := Control.Left + Control.Width;
+    SettleNeeded := TextWidthEstimate(Control) * MeasurementSafety +
+      2 * PaddingHorizontal(Control);
+    SettleNeeded := Min(SettleNeeded, Control.Width + SpaceToLeft(Control));
+    Control.PlannedWidth := Max(Control.Width, SettleNeeded);
+    Control.PlannedLeft := SettleSpanRight - Control.PlannedWidth;
+    Control.PlannedHeight := Control.Height;
+    Control.PlannedWordWrap := False;
+    SettleFont := Max(SmallestFontFor(Control),
+      FontFittingOneLine(Control, Control.PlannedWidth));
+    Control.PlannedFontSize := Min(Max(Control.FontSize, 9), SettleFont);
+  end;
+
+  { A caption which is the only text child of a visual panel is the panel's
+    label. Once translation gives it a fixed multiline box, the designer's
+    former AutoSize positioning no longer centres the words, so state that
+    alignment explicitly for both frameworks. }
+  for Control in AReview.Controls do
+  begin
+    if (Trim(Control.TranslatedText) = '') or
+      (WrappedLineCount(Control, Control.PlannedWidth) <= 1) then
+      Continue;
+    ClampContainer := ParentContainerOf(Control);
+    if (ClampContainer = nil) or not IsVisualContainer(ClampContainer) then
+      Continue;
+    LineCount := 0;
+    for Other in AReview.Controls do
+      if (Other <> Control) and
+        SameText(Other.FormName, Control.FormName) and
+        SameText(Other.ParentName, Control.ParentName) and
+        (Trim(Other.TranslatedText) <> '') then
+        Inc(LineCount);
+    if LineCount <> 0 then
+      Continue;
+    if SameText(TPath.GetExtension(Control.SourceFileName), '.dfm') then
+      Control.PlannedHorzAlign := 'taCenter'
+    else
+      Control.PlannedHorzAlign := 'Center';
+  end;
+
   { Phase 3e - reflect the whole form for a right-to-left language.
 
     An Arabic or Hebrew interface is not a left-to-right interface with
@@ -4540,26 +4880,18 @@ begin
     GridNames.Duplicates := dupIgnore;
     GridNames.Sorted := True;
     for Control in AReview.Controls do
-      if SameText(Control.ComponentClassName, 'TColumn') then
+      if GridKeyForColumn(Control) <> '' then
       begin
-        HeadingAt := Pos('.Columns[', Control.ComponentName);
-        if HeadingAt > 1 then
-          GridNames.Add(Control.FormName + '|' +
-            Copy(Control.ComponentName, 1, HeadingAt - 1));
+        GridNames.Add(GridKeyForColumn(Control));
       end;
     for HeadingIndex := 0 to GridNames.Count - 1 do
     begin
       HeadingFont := 0;
       for Control in AReview.Controls do
       begin
-        if not SameText(Control.ComponentClassName, 'TColumn') then
+        if GridKeyForColumn(Control) = '' then
           Continue;
-        HeadingAt := Pos('.Columns[', Control.ComponentName);
-        if HeadingAt < 2 then
-          Continue;
-        if not SameText(Control.FormName + '|' +
-          Copy(Control.ComponentName, 1, HeadingAt - 1),
-          GridNames[HeadingIndex]) then
+        if not SameText(GridKeyForColumn(Control), GridNames[HeadingIndex]) then
           Continue;
         if (Trim(Control.TranslatedText) = '') or
           (Control.PlannedWidth <= 0) then
@@ -4578,14 +4910,9 @@ begin
         Continue;
       for Control in AReview.Controls do
       begin
-        if not SameText(Control.ComponentClassName, 'TColumn') then
+        if GridKeyForColumn(Control) = '' then
           Continue;
-        HeadingAt := Pos('.Columns[', Control.ComponentName);
-        if HeadingAt < 2 then
-          Continue;
-        if not SameText(Control.FormName + '|' +
-          Copy(Control.ComponentName, 1, HeadingAt - 1),
-          GridNames[HeadingIndex]) then
+        if not SameText(GridKeyForColumn(Control), GridNames[HeadingIndex]) then
           Continue;
         if HeadingFont < Max(Control.FontSize, 9) then
           Control.PlannedFontSize := HeadingFont;
@@ -4613,51 +4940,71 @@ begin
     GridNames2.Duplicates := dupIgnore;
     GridNames2.Sorted := True;
     for Control in AReview.Controls do
-      if SameText(Control.ComponentClassName, 'TColumn') then
+      if GridKeyForColumn(Control) <> '' then
       begin
-        HeadingAt := Pos('.Columns[', Control.ComponentName);
-        if HeadingAt > 1 then
-          GridNames2.Add(Control.FormName + '|' +
-            Copy(Control.ComponentName, 1, HeadingAt - 1));
+        GridNames2.Add(GridKeyForColumn(Control));
       end;
     for HeadingIndex := 0 to GridNames2.Count - 1 do
     begin
       GridControl := nil;
       GridColumnTotal := 0;
+      GridOriginalTotal := 0;
+      GridOriginalMin := 1.0E30;
+      GridOriginalMax := 0;
+      GridColumnCount := 0;
       for Control in AReview.Controls do
       begin
-        if SameText(Control.ComponentClassName, 'TColumn') then
+        if GridKeyForColumn(Control) <> '' then
         begin
-          HeadingAt := Pos('.Columns[', Control.ComponentName);
-          if HeadingAt < 2 then
-            Continue;
-          if not SameText(Control.FormName + '|' +
-            Copy(Control.ComponentName, 1, HeadingAt - 1),
-            GridNames2[HeadingIndex]) then
+          if not SameText(GridKeyForColumn(Control), GridNames2[HeadingIndex]) then
             Continue;
           GridColumnTotal := GridColumnTotal + Control.PlannedWidth;
+          GridOriginalTotal := GridOriginalTotal + Control.Width;
+          GridOriginalMin := Min(GridOriginalMin, Control.Width);
+          GridOriginalMax := Max(GridOriginalMax, Control.Width);
+          Inc(GridColumnCount);
         end
         else if SameText(Control.FormName + '|' + Control.ComponentName,
           GridNames2[HeadingIndex]) then
           GridControl := Control;
       end;
       if (GridControl = nil) or not GridControl.HasSize or
-        (GridColumnTotal <= GridControl.PlannedWidth) or
         (GridColumnTotal <= 0) then
+        Continue;
+      { When translation growth has made a table of three or more columns
+        overflow, proportional scaling preserves the imbalance and leaves the
+        final heading visibly crushed. Use the designer's total column budget
+        and share it evenly instead. This removes the overflow without changing
+        the grid itself, and the common heading-font pass above still guarantees
+        that every translated title fits. Two-column grids retain their authored
+        proportions because those commonly express a deliberate master/detail
+        relationship. }
+      { A table already drawn with near-equal columns expresses a balanced
+        table even when one field was given a little more room in English.
+        Normalize that relationship for every language, not only for locales
+        whose headings happen to overflow. Strongly asymmetric tables (for
+        example a short group field beside a wide file-path field) retain their
+        authored proportions. }
+      if (GridColumnCount >= 3) and (GridOriginalTotal > 0) and
+        (GridOriginalMin > 0) and
+        (GridOriginalMax / GridOriginalMin <= 1.50) then
+        GridEqualWidth := GridOriginalTotal / GridColumnCount
+      else
+        GridEqualWidth := 0;
+      if (GridEqualWidth <= 0) and
+        (GridColumnTotal <= GridControl.PlannedWidth) then
         Continue;
       GridScale := GridControl.PlannedWidth / GridColumnTotal;
       for Control in AReview.Controls do
       begin
-        if not SameText(Control.ComponentClassName, 'TColumn') then
+        if GridKeyForColumn(Control) = '' then
           Continue;
-        HeadingAt := Pos('.Columns[', Control.ComponentName);
-        if HeadingAt < 2 then
+        if not SameText(GridKeyForColumn(Control), GridNames2[HeadingIndex]) then
           Continue;
-        if not SameText(Control.FormName + '|' +
-          Copy(Control.ComponentName, 1, HeadingAt - 1),
-          GridNames2[HeadingIndex]) then
-          Continue;
-        Control.PlannedWidth := Max(30, Control.PlannedWidth * GridScale);
+        if GridEqualWidth > 0 then
+          Control.PlannedWidth := Max(30, GridEqualWidth)
+        else
+          Control.PlannedWidth := Max(30, Control.PlannedWidth * GridScale);
         if Trim(Control.TranslatedText) = '' then
           Continue;
         HeadingRoom := Control.PlannedWidth - 2 * PaddingHorizontal(Control);
@@ -4731,21 +5078,127 @@ begin
     end;
   end;
 
+  { A vertical pair drawn to the same right edge shares that edge even when
+    the lower button began narrower. Give the narrower member the wider
+    designed box and recalculate only the height its own caption needs. }
+  for Control in AReview.Controls do
+  begin
+    if not IsButtonLike(Control) or not Control.HasPosition or
+      not Control.HasSize then
+      Continue;
+    for Other in AReview.Controls do
+    begin
+      if (Other = Control) or not IsButtonLike(Other) or
+        not Other.HasPosition or not Other.HasSize then
+        Continue;
+      if not SameText(Other.FormName, Control.FormName) or
+        not SameText(Other.ParentName, Control.ParentName) then
+        Continue;
+      if Abs((Other.Left + Other.Width) - (Control.Left + Control.Width)) >
+        DesignedOverlapTolerance then
+        Continue;
+      if Other.Width <= Control.Width + 0.5 then
+        Continue;
+      if (Control.Top - (Other.Top + Other.Height) < 0) or
+        (Control.Top - (Other.Top + Other.Height) >
+          MaximumClusterGap + ControlGap) then
+        Continue;
+      SettleSavedLeft := Control.PlannedLeft;
+      SettleSavedWidth := Control.PlannedWidth;
+      SettleSavedHeight := Control.PlannedHeight;
+      Control.PlannedWidth := Other.Width;
+      Control.PlannedLeft := Control.Left + Control.Width - Other.Width;
+      Control.PlannedHeight := Max(Control.Height,
+        Ceil(RequiredHeightFor(Control, Control.PlannedWidth)));
+      Control.PlannedWordWrap :=
+        WrappedLineCount(Control, Control.PlannedWidth) > 1;
+      if PlannedBoxIntrudes(Control) then
+      begin
+        Control.PlannedLeft := SettleSavedLeft;
+        Control.PlannedWidth := SettleSavedWidth;
+        Control.PlannedHeight := SettleSavedHeight;
+      end;
+      Break;
+    end;
+  end;
+
+  { A single lexical word on a button is not prose and must not be split into
+    a tall stack of fragments. Where a flexible field or slider immediately
+    precedes it, transfer only the width the word needs from that neighbour,
+    preserving the button's right edge and the designed gap between them. }
+  for Control in AReview.Controls do
+  begin
+    if not IsButtonLike(Control) or not Control.HasPosition or
+      not Control.HasSize or (Trim(Control.TranslatedText) = '') then
+      Continue;
+    if (Pos(' ', Trim(Control.TranslatedText)) > 0) or
+      (Pos(#13, Control.TranslatedText) > 0) or
+      (Pos(#10, Control.TranslatedText) > 0) then
+      Continue;
+    if WrappedLineCount(Control, Control.PlannedWidth) <= 1 then
+      Continue;
+    Leader := nil;
+    for Other in AReview.Controls do
+    begin
+      if (Other = Control) or not Other.HasPosition or not Other.HasSize then
+        Continue;
+      if not SameText(Other.FormName, Control.FormName) or
+        not SameText(Other.ParentName, Control.ParentName) then
+        Continue;
+      if not (ContainsText(Other.ComponentClassName, 'TrackBar') or
+        IsInputControl(Other)) then
+        Continue;
+      if not SamePlannedRow(Other, Control) then
+        Continue;
+      if Other.Left + Other.Width > Control.Left + DesignedOverlapTolerance then
+        Continue;
+      if (Leader = nil) or
+        (Other.Left + Other.Width > Leader.Left + Leader.Width) then
+        Leader := Other;
+    end;
+    if Leader = nil then
+      Continue;
+    ClusterGap := Max(0, Control.Left - (Leader.Left + Leader.Width));
+    SettleSpanRight := Min(ContentRightBound(Control),
+      Control.PlannedLeft + Control.PlannedWidth);
+    SettleNeeded := Min(TextWidthEstimate(Control) * MeasurementSafety,
+      SettleSpanRight - (Leader.PlannedLeft + 24 + ClusterGap));
+    if SettleNeeded <= Control.PlannedWidth + 1 then
+      Continue;
+    Control.PlannedLeft := SettleSpanRight - SettleNeeded;
+    Control.PlannedWidth := SettleNeeded;
+    Leader.PlannedWidth := Max(24,
+      Control.PlannedLeft - ClusterGap - Leader.PlannedLeft);
+    Control.PlannedHeight := Control.Height;
+    Control.PlannedWordWrap := False;
+    SettleFont := Max(SmallestFontFor(Control),
+      FontFittingOneLine(Control, Control.PlannedWidth));
+    if SettleFont < Control.PlannedFontSize then
+      Control.PlannedFontSize := SettleFont;
+  end;
+
+  { A repeated button column is a final visual boundary for instruction prose
+    above it. State this after every fitting and settling pass so no later
+    safety widening can carry one member of the paragraph block past the edge
+    the other member already respects. }
+  for Control in AReview.Controls do
+  begin
+    if not IsParagraphLike(Control) or not Control.HasPosition or
+      not Control.HasSize then
+      Continue;
+    SettleSpanRight := ButtonColumnRightBelow(Control);
+    if (SettleSpanRight > 0) and
+      (Control.PlannedLeft + Control.PlannedWidth > SettleSpanRight) then
+      Control.PlannedWidth := Max(Control.Width,
+        SettleSpanRight - Control.PlannedLeft);
+  end;
+
   { Phase 4 - emit proposals from the settled geometry. Because every value
     comes from the same resolved model, the exported rules agree with one
     another instead of describing conflicting placements. }
   for Control in AReview.Controls do
   begin
     if not Control.HasSize then
-      Continue;
-    { A control the application positions or sizes for itself is translated
-      and otherwise left alone. Every number here is computed from the
-      designer geometry, and the application has already decided differently
-      at run time - Carillon centres its main heading against the screen in
-      FormShow, which no reading of the form file can know. Proposing anything
-      would overwrite that decision, and restoring the designed value later
-      would not put it back, because the line that made it never runs again. }
-    if Control.GeometryOwnedByCode then
       Continue;
     { Sizing and wrapping only mean something for a control whose text was
       translated. }
@@ -4757,8 +5210,11 @@ begin
         translation by then; switching the sizing off at that point freezes it
         at that stretched width, and without a width of its own it keeps it and
         sits across whatever is beside it. }
-      if (Ceil(Control.PlannedWidth) > Ceil(Control.Width)) or
-        (Control.AutoSize and (Control.SourceText <> Control.TranslatedText)) then
+      if not Control.WidthOwnedByCode and
+        ((ContainsText(Control.ComponentClassName, 'Column') and
+          (Abs(Control.PlannedWidth - Control.Width) > 0.5)) or
+        (Ceil(Control.PlannedWidth) > Ceil(Control.Width)) or
+        (Control.AutoSize and (Control.SourceText <> Control.TranslatedText))) then
         AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
           IntToStr(Ceil(Control.PlannedWidth)),
           'Width measured from the translated text and clamped to the space actually available.');
@@ -4803,15 +5259,31 @@ begin
       room to spare everywhere except in the pack. }
     if Control.TranslatedText = '' then
     begin
-      if Ceil(Control.PlannedWidth) > Ceil(Control.Width) then
+      if not Control.WidthOwnedByCode and
+        (Ceil(Control.PlannedWidth) > Ceil(Control.Width)) then
         AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
           IntToStr(Ceil(Control.PlannedWidth)),
-          'Widened to hold the controls inside it.');
-      if Ceil(Control.PlannedHeight) > Ceil(Control.Height) then
+          'Widened to hold the controls inside it.')
+      else if not Control.WidthOwnedByCode and
+        (Floor(Control.PlannedWidth) < Floor(Control.Width)) then
+        { A non-text control may yield room to the translated control beside
+          it. The position and translated control were already exported; the
+          matching shrink must be stated too or the runtime receives only half
+          of the resolved row and draws the two on top of one another. }
+        AddProposal(AReview, Control, 'Width', FloatToStr(Control.Width),
+          IntToStr(Floor(Control.PlannedWidth)),
+          'Narrowed to preserve the translated control beside it.');
+      if not Control.HeightOwnedByCode and
+        (Ceil(Control.PlannedHeight) > Ceil(Control.Height)) then
         AddProposal(AReview, Control, 'Height', FloatToStr(Control.Height),
           IntToStr(Ceil(Control.PlannedHeight)),
           'Heightened to hold the controls inside it.');
     end;
+
+    if Control.PlannedHorzAlign <> '' then
+      AddProposal(AReview, Control, TextAlignPropertyName(Control),
+        Trim(Control.HorzAlign), Control.PlannedHorzAlign,
+        'The caption is centred over the field it names.');
 
     { The parts of a mirror that are constants rather than coordinates. Each
       is stated only when it actually changes, so a centred caption and a
@@ -4878,12 +5350,14 @@ begin
       controls, so emit position changes for anything the planner moved. }
     if not Control.HasPosition then
       Continue;
-    if Abs(Control.PlannedLeft - Control.Left) > 1 then
+    if not Control.LeftOwnedByCode and
+      (Abs(Control.PlannedLeft - Control.Left) > 1) then
       AddProposal(AReview, Control, PositionPropertyName(Control, 'X'),
         FloatToStr(Control.Left), IntToStr(Ceil(Control.PlannedLeft)),
         Format('Move %.0f pixels horizontally to clear the neighbouring control.',
           [Control.PlannedLeft - Control.Left]));
-    if Abs(Control.PlannedTop - Control.Top) > 1 then
+    if not Control.TopOwnedByCode and
+      (Abs(Control.PlannedTop - Control.Top) > 1) then
       AddProposal(AReview, Control, PositionPropertyName(Control, 'Y'),
         FloatToStr(Control.Top), IntToStr(Ceil(Control.PlannedTop)),
         Format('Move %.0f pixels vertically to clear the control above it.',

@@ -44,6 +44,9 @@ type
     function RestoreLanguageLayout(const AManagedObject: TObject;
       const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; override;
+    function RestoreSourceLanguage(const AManagedObject: TObject;
+      const APack: TRuntimeLanguagePack;
+      const AFormIdentity: string): Integer; override;
     procedure CollectOpenManagedObjects(
       const AObjects: TList<TObject>); override;
   public
@@ -153,6 +156,13 @@ begin
 end;
 
 function TMockLanguageManager.RestoreLanguageLayout(
+  const AManagedObject: TObject; const APack: TRuntimeLanguagePack;
+  const AFormIdentity: string): Integer;
+begin
+  Result := 0;
+end;
+
+function TMockLanguageManager.RestoreSourceLanguage(
   const AManagedObject: TObject; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string): Integer;
 begin
@@ -286,7 +296,8 @@ begin
       'Initial source language was not active.');
     Manager.ApplyToOpenForms;
     Require(FirstForm.DisplayText = 'English catalog text',
-      'First form did not receive source-pack text.');
+      'First form did not receive source-pack text: ' +
+      FirstForm.DisplayText);
     Require(SecondForm.DisplayText = 'English catalog text',
       'Stable class identity did not translate the suffixed second instance.');
     Require(Manager.ResolveFormIdentity(SecondForm, SecondForm.Name) =

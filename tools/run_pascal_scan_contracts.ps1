@@ -61,6 +61,8 @@ $mustClaim = @(
   'Time',
   'Song',
   'Remaining events for Today:'
+  'Time: %s, Song: %s'
+  'Now Playing: %s  (%s remaining )'
 )
 
 # Plumbing, which must not be.

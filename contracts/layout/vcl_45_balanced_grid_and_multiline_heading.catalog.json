@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {"languageCode":"de-DE","nativeLanguageName":"Deutsch","textDirection":"ltr"},
+  "entries": [
+    {"key":"ContractForm.lblSplashTitle.Caption","sourceText":"Westminster Chimes\r\nand Carillon Bells","translatedText":"Westminster-Glockenspiel\r\nund Carillon-Glocken","formName":"ContractForm","componentName":"lblSplashTitle","componentClassName":"TLabel","propertyName":"Caption","sourceFileName":"{FIXTUREDIR}\\vcl_45_balanced_grid_and_multiline_heading.dfm","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"},
+    {"key":"ContractForm.grdGroups.Columns[0].Title.Caption","sourceText":"Group","translatedText":"Gruppe","formName":"ContractForm","componentName":"grdGroups","componentClassName":"TColumn","propertyName":"Columns[0].Title.Caption","sourceFileName":"{FIXTUREDIR}\\vcl_45_balanced_grid_and_multiline_heading.dfm","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"},
+    {"key":"ContractForm.grdGroups.Columns[1].Title.Caption","sourceText":"Play Date From","translatedText":"Wiedergabedatum ab","formName":"ContractForm","componentName":"grdGroups","componentClassName":"TColumn","propertyName":"Columns[1].Title.Caption","sourceFileName":"{FIXTUREDIR}\\vcl_45_balanced_grid_and_multiline_heading.dfm","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"},
+    {"key":"ContractForm.grdGroups.Columns[2].Title.Caption","sourceText":"Play Date To","translatedText":"Wiedergabe bis","formName":"ContractForm","componentName":"grdGroups","componentClassName":"TColumn","propertyName":"Columns[2].Title.Caption","sourceFileName":"{FIXTUREDIR}\\vcl_45_balanced_grid_and_multiline_heading.dfm","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"},
+    {"key":"ContractForm.grdGroups.Columns[3].Title.Caption","sourceText":"Play Time","translatedText":"Wiedergabezeit","formName":"ContractForm","componentName":"grdGroups","componentClassName":"TColumn","propertyName":"Columns[3].Title.Caption","sourceFileName":"{FIXTUREDIR}\\vcl_45_balanced_grid_and_multiline_heading.dfm","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"}
+  ]
+}

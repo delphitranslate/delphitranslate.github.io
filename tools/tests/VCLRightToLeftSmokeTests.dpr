@@ -68,8 +68,13 @@ const
       passed while real applications came back with unmirrored menus. }
     '"strings":{"frmRtl.mnuFile.Caption":"\u05E7\u05D5\u05D1\u05E5",' +
     '"frmRtl.lblName.Caption":"\u05E9\u05DD",' +
-    '"frmRtl.btnOk.Caption":"\u05D0\u05D9\u05E9\u05D5\u05E8"},' +
-    '"sources":{},' +
+    '"frmRtl.btnOk.Caption":"\u05D0\u05D9\u05E9\u05D5\u05E8",' +
+    '"frmRtl.grdData.Columns[0].Title.Caption":"Translated first",' +
+    '"frmRtl.grdData.Columns[1].Title.Caption":"Translated second",' +
+    '"frmRtl.grdData.Columns[2].Title.Caption":"Translated third"},' +
+    '"sources":{"frmRtl.grdData.Columns[0].Title.Caption":"First",' +
+    '"frmRtl.grdData.Columns[1].Title.Caption":"Second",' +
+    '"frmRtl.grdData.Columns[2].Title.Caption":"Third"},' +
     '"layout":[' +
     { 400 - (16 + 80) = 304 }
     '{"formName":"frmRtl","componentName":"lblName",' +
@@ -93,6 +98,9 @@ const
     '{"formName":"frmRtl","componentName":"pnlNav",' +
     '"propertyName":"Align","originalValue":"alLeft",' +
     '"translatedValue":"alRight","sourceChecksum":"t"},' +
+    '{"formName":"frmRtl","componentName":"pnlCentered",' +
+    '"propertyName":"Left","originalValue":"150",' +
+    '"translatedValue":"20","sourceChecksum":"t"},' +
     { the grid reads the way its language reads }
     '{"formName":"frmRtl","componentName":"grdData",' +
     '"propertyName":"Columns[0].Width","originalValue":"60",' +
@@ -164,6 +172,7 @@ end;
 
 var
   Form: TForm;
+  EmailBox: TEdit;
   Name_: TLabel;
   Box: TEdit;
   Number: TLabel;
@@ -172,6 +181,7 @@ var
   Inner: TButton;
   Grid: TDBGrid;
   Menu: TMainMenu;
+  CenteredPanel: TPanel;
   ExtraItem: TMenuItem;
   MenuIndex: Integer;
   DesignedMenuOrder: string;
@@ -218,6 +228,17 @@ begin
       Box.Name := 'edtName';
       Box.SetBounds(104, 16, 200, 25);
       Box.Anchors := [akLeft, akTop];
+
+      EmailBox := TEdit.Create(Form);
+      EmailBox.Parent := Form;
+      EmailBox.Name := 'edtEmailAddress';
+      EmailBox.SetBounds(104, 52, 200, 28);
+      EmailBox.Text := 'user@example.com';
+
+      CenteredPanel := TPanel.Create(Form);
+      CenteredPanel.Parent := Form;
+      CenteredPanel.Name := 'pnlCentered';
+      CenteredPanel.SetBounds(150, 84, 100, 28);
 
       Ok := TButton.Create(Form);
       Ok.Parent := Form;
@@ -319,6 +340,8 @@ begin
       Check(Inner.Left = 115, Format(
         'A control inside a panel mirrors within the panel: %d, expected 115.',
         [Inner.Left]));
+      Check(CenteredPanel.Left = 150,
+        'A container centred by the application remains centred after RTL layout.');
       Check(Nav.Align = alRight,
         'A framework-placed strip is mirrored by its edge, not its position.');
       Check(Box.Anchors = [akRight, akTop],
@@ -344,6 +367,8 @@ begin
         the box from where the reader is looking. }
       Check(Box.BiDiMode = bdRightToLeft,
         'A field takes the full right-to-left, so typing begins at the right.');
+      Check(EmailBox.BiDiMode = bdLeftToRight,
+        'An email address keeps its technical left-to-right ordering inside the RTL form.');
       Check(Number.BiDiMode = bdLeftToRight,
         'A caption of digits is left alone, so "1." is not drawn ".1".');
       Writeln(Format('        menu   BiDiMode=%d (form=%d)',
@@ -406,11 +431,11 @@ begin
       Writeln(Format('        grid   headings: %s, %s, %s   first width %d',
         [Grid.Columns[0].Title.Caption, Grid.Columns[1].Title.Caption,
          Grid.Columns[2].Title.Caption, Grid.Columns[2].Width]));
-      Check(Grid.Columns[0].Title.Caption = 'Third',
+      Check(Grid.Columns[0].Title.Caption = 'Translated third',
         'The grid reads right to left: the first column is now last.');
       Check(Pos(#$00AD, Grid.Columns[0].Title.Caption) = 0,
         'A grid heading carries no break marks for GDI to draw as hyphens.');
-      Check(Grid.Columns[2].Title.Caption = 'First',
+      Check(Grid.Columns[2].Title.Caption = 'Translated first',
         'and the last is first.');
       Writeln(Format('        grid   fields:   %s, %s, %s',
         [Grid.Columns[0].FieldName, Grid.Columns[1].FieldName,
@@ -437,10 +462,10 @@ begin
         [Grid.Columns[0].Title.Caption, Grid.Columns[0].FieldName,
          Grid.Columns[1].Title.Caption, Grid.Columns[1].FieldName,
          Grid.Columns[2].Title.Caption, Grid.Columns[2].FieldName]));
-      Check((Grid.Columns[0].Title.Caption = 'Third') and
+      Check((Grid.Columns[0].Title.Caption = 'Translated third') and
         (Grid.Columns[0].FieldName = 'THIRDFIELD'),
         'A second apply leaves the heading with its own column, not another.');
-      Check((Grid.Columns[2].Title.Caption = 'First') and
+      Check((Grid.Columns[2].Title.Caption = 'Translated first') and
         (Grid.Columns[2].FieldName = 'FIRSTFIELD'),
         'and the same at the other end.');
       { The width rule names column 0 as it was designed, and that column is
@@ -468,8 +493,8 @@ begin
         as asking for its reverse, and both now go through the same call. }
       Pack := HebrewPack;
       try
-        TVCLTranslationApplicator.ApplyLayoutToForm(Form, Pack, 'frmRtl',
-          False);
+        TVCLTranslationApplicator.RestoreSourceLanguage(Form, Pack,
+          'frmRtl');
       finally
         Pack.Free;
       end;

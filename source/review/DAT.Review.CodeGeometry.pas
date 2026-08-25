@@ -43,6 +43,11 @@ type
       hand. }
     class function ControlsPositionedInCode(
       const AFormFileName: string): TStringList; static;
+    { Component/property pairs assigned by the form's Pascal unit, written as
+      Component.Property. This lets the planner respect the coordinate the
+      application owns without needlessly surrendering the other three. }
+    class function PropertiesAssignedInCode(
+      const AFormFileName: string): TStringList; static;
   end;
 
 implementation
@@ -111,6 +116,28 @@ end;
 class function TCodeGeometry.ControlsPositionedInCode(
   const AFormFileName: string): TStringList;
 var
+  Assigned: TStringList;
+  Item: string;
+  DotAt: Integer;
+begin
+  Result := TStringList.Create;
+  Result.CaseSensitive := False;
+  Assigned := PropertiesAssignedInCode(AFormFileName);
+  try
+    for Item in Assigned do
+    begin
+      DotAt := Pos('.', Item);
+      if (DotAt > 1) and (Result.IndexOf(Copy(Item, 1, DotAt - 1)) < 0) then
+        Result.Add(Copy(Item, 1, DotAt - 1));
+    end;
+  finally
+    Assigned.Free;
+  end;
+end;
+
+class function TCodeGeometry.PropertiesAssignedInCode(
+  const AFormFileName: string): TStringList;
+var
   UnitFileName: string;
   Lines: TStringList;
   Line: string;
@@ -119,10 +146,19 @@ var
   At: Integer;
   Assignment: Integer;
 
-  procedure Note(const AName: string);
+  procedure Note(const AName, AProperty: string);
   begin
-    if (AName <> '') and (Result.IndexOf(AName) < 0) then
-      Result.Add(AName);
+    if (AName <> '') and (AProperty <> '') and
+      (Result.IndexOf(AName + '.' + AProperty) < 0) then
+      Result.Add(AName + '.' + AProperty);
+  end;
+
+  procedure NoteAll(const AName: string);
+  begin
+    Note(AName, 'Left');
+    Note(AName, 'Top');
+    Note(AName, 'Width');
+    Note(AName, 'Height');
   end;
 
 begin
@@ -163,7 +199,17 @@ begin
               if (At + Length(PropertyName) + 1 > Length(Trimmed)) or
                 not (Trimmed[At + Length(PropertyName) + 1].IsLetterOrDigit or
                      (Trimmed[At + Length(PropertyName) + 1] = '_')) then
-                Note(IdentifierBefore(Trimmed, At - 1));
+              begin
+                if SameText(PropertyName, 'Position.X') then
+                  Note(IdentifierBefore(Trimmed, At - 1), 'Left')
+                else if SameText(PropertyName, 'Position.Y') then
+                  Note(IdentifierBefore(Trimmed, At - 1), 'Top')
+                else if SameText(PropertyName, 'BoundsRect') or
+                  SameText(PropertyName, 'Align') then
+                  NoteAll(IdentifierBefore(Trimmed, At - 1))
+                else
+                  Note(IdentifierBefore(Trimmed, At - 1), PropertyName);
+              end;
               At := Pos('.' + PropertyName, Trimmed, At + 1);
             end;
           end;
@@ -172,7 +218,7 @@ begin
         At := Pos('.SetBounds', Trimmed);
         while At > 0 do
         begin
-          Note(IdentifierBefore(Trimmed, At - 1));
+          NoteAll(IdentifierBefore(Trimmed, At - 1));
           At := Pos('.SetBounds', Trimmed, At + 1);
         end;
       end;

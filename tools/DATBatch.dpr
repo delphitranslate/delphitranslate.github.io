@@ -212,7 +212,9 @@ function RunLanguage(const AProfile: TProjectProfile;
 var
   Catalog: TTranslationCatalog;
   CatalogFileName: string;
+  GlossaryFileName: string;
   Merge: TCatalogMergeSummary;
+  Glossary: TProjectGlossary;
   Memory: TTranslationMemory;
   Reused: Integer;
   Validation: TCatalogValidationResult;
@@ -276,6 +278,25 @@ begin
     Say(Format('  scanned: %d added, %d changed, %d obsolete, %d in all',
       [Merge.NewEntries, Merge.ChangedEntries, Merge.ObsoleteEntries,
        Catalog.Entries.Count]));
+
+    { The Studio applies approved project terminology before asking a
+      provider for anything. A headless regeneration must do the same or an
+      already-approved caption can fall back to stale provider output merely
+      because the packs were built from the command line. }
+    GlossaryFileName := TTranslationWorkspace.GlossaryFileName(AProfile,
+      ALanguageCode);
+    if TFile.Exists(GlossaryFileName) then
+    begin
+      Glossary := TProjectGlossary.LoadFromFile(GlossaryFileName);
+      try
+        Reused := Glossary.ApplyToCatalog(Catalog);
+        if Reused > 0 then
+          Say(Format('  applied %d approved project glossary term(s)',
+            [Reused]));
+      finally
+        Glossary.Free;
+      end;
+    end;
 
     { What another application already settled, before anything is sent. }
     Memory := TTranslationMemory.Load(ALanguageCode);

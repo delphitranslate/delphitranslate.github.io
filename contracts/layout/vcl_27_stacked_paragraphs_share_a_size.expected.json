@@ -5,11 +5,16 @@
     "lblSelDir",
     "lblDir2"
   ],
+  "uniform_width_group": [
+    "lblSelDir",
+    "lblDir2"
+  ],
   "controls": [
     {
       "form": "ContractForm",
       "name": "lblSelDir",
       "text_fits": true,
+      "planned_right_at_most": 874,
       "font_at_most": 10,
       "font_at_least": 9
     },
@@ -17,6 +22,7 @@
       "form": "ContractForm",
       "name": "lblDir2",
       "text_fits": true,
+      "planned_right_at_most": 874,
       "font_at_most": 10,
       "font_at_least": 9
     }

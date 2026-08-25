@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "de-DE",
+    "nativeLanguageName": "Deutsch",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.btnAssignSeasonalGroup.Text",
+      "sourceText": "Assign a Group to Selected Rows",
+      "translatedText": "Ausgewählten Zeilen eine Gruppe zuweisen",
+      "formName": "ContractForm",
+      "componentName": "btnAssignSeasonalGroup",
+      "componentClassName": "TButton",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\42_button_above_grid_uses_left_room.fmx",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

@@ -775,12 +775,15 @@ begin
           InstanceName := ManagedObjectInstanceName(ManagedObject);
           FormIdentity := ResolveFormIdentity(ManagedObject, InstanceName);
           if not IsExcluded(ManagedObject, FormIdentity, InstanceName) then
-            if SameText(CandidateLanguage, FSourceLanguage) then
-              RestoreSourceLanguage(ManagedObject, FRuntime.ActivePack,
-                FormIdentity)
-            else
-              RestoreLanguageLayout(ManagedObject, FRuntime.ActivePack,
-                FormIdentity);
+            { Always leave the current translated language through its source
+              text, not only when the destination itself is the source
+              language. Otherwise dynamic values written in German, for
+              example, are still German when an Arabic pack tries to match an
+              English source template. RestoreSourceLanguage also restores
+              layout, and only replaces text that the current pack can prove
+              it owns; live application data is left alone. }
+            RestoreSourceLanguage(ManagedObject, FRuntime.ActivePack,
+              FormIdentity);
         end;
       end;
       LoadedLanguage := FRuntime.LoadLanguage(CandidateLanguage);

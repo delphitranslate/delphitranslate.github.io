@@ -42,4 +42,18 @@ object ContractForm: TContractForm
     Height = 17
     Caption = 'Default music directory'
   end
+  object btnDirectory1: TButton
+    Left = 618
+    Top = 270
+    Width = 256
+    Height = 40
+    Caption = 'Select directory one'
+  end
+  object btnDirectory2: TButton
+    Left = 618
+    Top = 330
+    Width = 256
+    Height = 40
+    Caption = 'Select directory two'
+  end
 end

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "de-DE",
+    "nativeLanguageName": "Deutsch",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.btnAssignSeasonalGroup.Caption",
+      "sourceText": "Assign a Group to Selected Rows",
+      "translatedText": "Ausgewählten Zeilen eine Gruppe zuweisen",
+      "formName": "ContractForm",
+      "componentName": "btnAssignSeasonalGroup",
+      "componentClassName": "TButton",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_42_button_above_grid_uses_left_room.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

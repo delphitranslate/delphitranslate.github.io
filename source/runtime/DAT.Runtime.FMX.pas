@@ -98,6 +98,7 @@ uses
   FMX.Controls,
   FMX.Edit,
   FMX.Grid,
+  FMX.Layouts,
   FMX.Memo,
   FMX.Menus,
   FMX.Graphics,
@@ -475,6 +476,35 @@ begin
   Result := (AObject is TCustomEdit) or (AObject is TCustomMemo);
 end;
 
+function FMXInputRequiresLeftToRight(const AObject: TFmxObject): Boolean;
+const
+  TechnicalNameParts: array[0..13] of string = (
+    'email', 'mail', 'url', 'uri', 'path', 'file', 'folder', 'directory',
+    'host', 'port', 'server', 'user', 'password', 'ip');
+var
+  NamePart: string;
+  NameText: string;
+  ValueText: string;
+begin
+  Result := False;
+  if AObject = nil then
+    Exit;
+  NameText := LowerCase(AObject.Name);
+  for NamePart in TechnicalNameParts do
+    if ContainsText(NameText, NamePart) then
+      Exit(True);
+  if AObject is TCustomEdit then
+    ValueText := TCustomEdit(AObject).Text
+  else if AObject is TCustomMemo then
+    ValueText := TCustomMemo(AObject).Text
+  else
+    ValueText := '';
+  ValueText := Trim(ValueText);
+  Result := ContainsText(ValueText, '@') or ContainsText(ValueText, '://') or
+    ContainsText(ValueText, ':\') or ContainsText(ValueText, '\\') or
+    StartsText('.\', ValueText) or StartsText('www.', ValueText);
+end;
+
 function FMXApplyInputReadingOrder(const AForm: TCommonCustomForm;
   const ARightToLeft: Boolean): Integer;
 var
@@ -494,7 +524,7 @@ var
       Settings := (AObject as ITextSettings).TextSettings;
       if Settings <> nil then
       begin
-        if ARightToLeft then
+        if ARightToLeft and not FMXInputRequiresLeftToRight(AObject) then
           Desired := TTextAlign.Trailing
         else
           Desired := TTextAlign.Leading;
@@ -613,15 +643,14 @@ end;
 
 function FMXColumnIdentity(const AColumn: TColumn): string;
 begin
-  { The header first, since it is what the column is called; the name of the
-    object next, which survives translation; and the position last. }
-  Result := Trim(AColumn.Header);
-  if Result <> '' then
-    Exit;
+  { Prefer the designer identity, which survives translation. Runtime-created
+    unnamed columns use their object identity for the lifetime of that grid;
+    a translated header cannot identify itself because changing it would make
+    the next ordering pass unable to find the same column. }
   Result := Trim(AColumn.Name);
   if Result <> '' then
     Exit;
-  Result := '#' + IntToStr(AColumn.Index);
+  Result := '#' + IntToHex(NativeUInt(AColumn), SizeOf(Pointer) * 2);
 end;
 
 function FMXGridOf(const AComponent: TComponent;
@@ -965,13 +994,13 @@ var
   end;
 begin
   Result := 0;
-  if not (AComponent is TStringGrid) then
+  if not (AComponent is TCustomGrid) then
     Exit;
   StringDictionary := APack.Strings;
   StringPairs := StringDictionary.ToArray;
-  for ColumnIndex := 0 to TStringGrid(AComponent).ColumnCount - 1 do
+  for ColumnIndex := 0 to TCustomGrid(AComponent).ColumnCount - 1 do
   begin
-    CurrentText := TStringGrid(AComponent).Columns[ColumnIndex].Header;
+    CurrentText := TCustomGrid(AComponent).Columns[ColumnIndex].Header;
     TranslatedText := CurrentText;
     GridKey := Format('%s.%s.Columns.Header.%d', [AFormIdentity,
       AComponent.Name, ColumnIndex]);
@@ -995,7 +1024,7 @@ begin
         side and not here - but a mark that can only ever do harm is not
         worth carrying on either framework, and a heading narrow enough
         to break at one would break mid-word. }
-      TStringGrid(AComponent).Columns[ColumnIndex].Header :=
+      TCustomGrid(AComponent).Columns[ColumnIndex].Header :=
         StringReplace(TranslatedText, SoftHyphenMark, '',
           [rfReplaceAll]);
       Inc(Result);
@@ -1612,6 +1641,9 @@ var
   PropertyInfo: PPropInfo;
   CurrentText: string;
   Key: string;
+  NextText: string;
+  Pass: Integer;
+  SourceText: string;
   TranslatedText: string;
 begin
   Result := False;
@@ -1628,14 +1660,27 @@ begin
   begin
     if TranslatedText = CurrentText then
       Exit;
+    { Preserve live application data that has replaced a designer placeholder
+      before this form was discovered, as commonly happens on splash screens. }
+    if APack.TryGetSource(Key, SourceText) and
+      (StringReplace(CurrentText, SoftHyphenMark, '', [rfReplaceAll]) <>
+       StringReplace(SourceText, SoftHyphenMark, '', [rfReplaceAll])) then
+      Exit;
     SetStrProp(AComponent, PropertyInfo,
       HeadingWithoutBreakMarks(APropertyName, TranslatedText));
     Result := True;
   end;
   if Result then
     Exit;
-  if APack.TryTranslateDynamicText(CurrentText, TranslatedText) and
-    (TranslatedText <> CurrentText) then
+  TranslatedText := CurrentText;
+  for Pass := 1 to 64 do
+  begin
+    if not APack.TryTranslateDynamicText(TranslatedText, NextText) or
+      (NextText = TranslatedText) then
+      Break;
+    TranslatedText := NextText;
+  end;
+  if TranslatedText <> CurrentText then
   begin
     SetStrProp(AComponent, PropertyInfo,
       HeadingWithoutBreakMarks(APropertyName, TranslatedText));
@@ -1702,19 +1747,31 @@ function RestoreSourceTextProperty(const AFormIdentity: string;
   const AForm, AComponent: TComponent; const APropertyName: string;
   const APack: TRuntimeLanguagePack): Boolean;
 var
+  CurrentText: string;
+  Key: string;
   PropertyInfo: PPropInfo;
+  RestoredText: string;
   SourceText: string;
+  TranslatedText: string;
 begin
   Result := False;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName,
     [tkString, tkLString, tkWString, tkUString]);
-  if (PropertyInfo = nil) or
-    not APack.TryGetSource(ComponentKey(AFormIdentity, AForm, AComponent,
-      APropertyName), SourceText) then
+  if PropertyInfo = nil then
     Exit;
-  if GetStrProp(AComponent, PropertyInfo) = SourceText then
+  Key := ComponentKey(AFormIdentity, AForm, AComponent, APropertyName);
+  if not APack.TryGetSource(Key, SourceText) then
     Exit;
-  SetStrProp(AComponent, PropertyInfo, SourceText);
+  CurrentText := GetStrProp(AComponent, PropertyInfo);
+  if CurrentText = SourceText then
+    Exit;
+  if APack.TryGetText(Key, TranslatedText) and
+    (StringReplace(CurrentText, SoftHyphenMark, '', [rfReplaceAll]) =
+     StringReplace(TranslatedText, SoftHyphenMark, '', [rfReplaceAll])) then
+    RestoredText := SourceText
+  else if not APack.TryRestoreDynamicText(CurrentText, RestoredText) then
+    Exit;
+  SetStrProp(AComponent, PropertyInfo, RestoredText);
   Result := True;
 end;
 
@@ -1960,14 +2017,14 @@ var
     for PropertyName in StringProperties do
       Inc(Result, RestoreSourceStringCollection(FormIdentity, AForm,
         AComponent, PropertyName, PropertyName + '.Strings', APack));
-    if AComponent is TStringGrid then
+    if AComponent is TCustomGrid then
     begin
-      for ColumnIndex := 0 to TStringGrid(AComponent).ColumnCount - 1 do
+      for ColumnIndex := 0 to TCustomGrid(AComponent).ColumnCount - 1 do
       begin
-        CurrentText := TStringGrid(AComponent).Columns[ColumnIndex].Header;
+        CurrentText := TCustomGrid(AComponent).Columns[ColumnIndex].Header;
         if APack.TryRestoreDynamicText(CurrentText, SourceText) then
         begin
-          TStringGrid(AComponent).Columns[ColumnIndex].Header := SourceText;
+          TCustomGrid(AComponent).Columns[ColumnIndex].Header := SourceText;
           Inc(Result);
         end;
         { Nothing to restore: the cells were never translated. See the note
@@ -2017,7 +2074,7 @@ end;
 class procedure TFMXTranslationApplicator.RecentreSelfPlacedText(
   const AForm: TCommonCustomForm; const AFormIdentity: string);
 const
-  CentreTolerance = 3;
+  CentreTolerance = 12;
 var
   Component: TComponent;
   Control: TControl;
@@ -2029,25 +2086,28 @@ begin
     Exit;
   for Component in AForm do
   begin
-    if not (Component is TControl) or (Component.Name = '') then
+    if not ((Component is TLayout) or (Component is TPanel)) or
+      (Component.Name = '') then
       Continue;
     Control := TControl(Component);
-    if Control.ParentControl = nil then
-      Continue;
-    if not ContainsText(Control.ClassName, 'Label') then
-      Continue;
     if not FOriginalGeometry.TryGetValue(
       AFormIdentity + '.' + Component.Name, Snapshot) then
       Continue;
     if not Snapshot.HasPosition then
       Continue;
-    ParentWidth := Control.ParentControl.Width;
+    if Control.ParentControl <> nil then
+      ParentWidth := Control.ParentControl.Width
+    else if Control.Parent is TCommonCustomForm then
+      ParentWidth := TCommonCustomForm(Control.Parent).ClientWidth
+    else
+      Continue;
     if ParentWidth <= 0 then
       Continue;
     WasCentre := Snapshot.Position.X + Snapshot.Size.X / 2;
     if Abs(WasCentre - ParentWidth / 2) > CentreTolerance then
       Continue;
-    if Abs(Control.Width - Snapshot.Size.X) < 0.5 then
+    if (Abs(Control.Width - Snapshot.Size.X) < 0.5) and
+      (Abs(Control.Position.X - Snapshot.Position.X) < 0.5) then
       Continue;
     Wanted := (ParentWidth - Control.Width) / 2;
     if Wanted < 0 then
@@ -2068,6 +2128,8 @@ const
 var
   ComponentIndex: Integer;
   FormIdentity: string;
+  LayoutComponent: TComponent;
+  LayoutRule: TRuntimeLayoutRule;
   PropertyName: string;
   SavedFocusedControl: IControl;
   VisitedComponents: TDictionary<TComponent, Boolean>;
@@ -2142,6 +2204,18 @@ begin
     Spanish pack says nothing about Align because Spanish needs nothing said,
     and silence cannot put an edge back. }
   RestoreOriginalGeometry(AForm, FormIdentity);
+  { Grid header keys are positional in the pack. Restore the designed column
+    order before applying those keys so a repeated RTL apply cannot attach a
+    heading to a different data column. }
+  for LayoutRule in APack.LayoutRules do
+    if SameText(LayoutRule.FormName, FormIdentity) and
+      SameText(LayoutRule.PropertyName, 'ColumnOrder') then
+    begin
+      LayoutComponent := AForm.FindComponent(LayoutRule.ComponentName);
+      if LayoutComponent <> nil then
+        FMXApplyColumnOrder(LayoutComponent,
+          FormIdentity + '.' + LayoutRule.ComponentName, False);
+    end;
   { The menu bar, in the direction the language reads.
 
     Both directions go through the one call, so a form returning to its
@@ -2247,11 +2321,16 @@ const
 var
   CandidateRule: TRuntimeLayoutRule;
   Component: TComponent;
+  CurrentText: string;
   CurrentNumber: Extended;
   OrderedProperty: string;
   Rule: TRuntimeLayoutRule;
   CandidateNumber: Extended;
   Superseded: Boolean;
+  SourceText: string;
+  TextKey: string;
+  TextPropertyInfo: PPropInfo;
+  TranslatedText: string;
   Value: string;
 
   function IsSafeRuntimeLayoutProperty(const APropertyName: string): Boolean;
@@ -2306,6 +2385,27 @@ begin
       Component := AForm.FindComponent(Rule.ComponentName);
     if Component = nil then
       Continue;
+    if AUseTranslatedValues and (Component <> AForm) then
+    begin
+      TextKey := AFormIdentity + '.' + Component.Name + '.Text';
+      TextPropertyInfo := GetPropInfo(Component.ClassInfo, 'Text',
+        [tkString, tkLString, tkWString, tkUString]);
+      if (TextPropertyInfo = nil) or
+        not APack.TryGetSource(TextKey, SourceText) or
+        not APack.TryGetText(TextKey, TranslatedText) then
+      begin
+        TextKey := AFormIdentity + '.' + Component.Name + '.Caption';
+        TextPropertyInfo := GetPropInfo(Component.ClassInfo, 'Caption',
+          [tkString, tkLString, tkWString, tkUString]);
+      end;
+      if (TextPropertyInfo <> nil) and APack.TryGetSource(TextKey, SourceText)
+        and APack.TryGetText(TextKey, TranslatedText) then
+      begin
+        CurrentText := GetStrProp(Component, TextPropertyInfo);
+        if (CurrentText <> SourceText) and (CurrentText <> TranslatedText) then
+          Continue;
+      end;
+    end;
     if AUseTranslatedValues then
       Value := Rule.TranslatedValue
     else
@@ -2341,4 +2441,3 @@ finalization
   TFMXTranslationApplicator.FDesignedMenus := nil;
 
 end.
-

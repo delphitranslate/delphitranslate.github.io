@@ -1,0 +1,39 @@
+object ContractForm: TContractForm
+  Left = 0
+  Top = 0
+  Caption = 'Contract Form'
+  ClientHeight = 700
+  ClientWidth = 960
+  object Panel1: TPanel
+    Position.X = 0.000000000000000000
+    Position.Y = 0.000000000000000000
+    Size.Width = 930.000000000000000000
+    Size.Height = 650.000000000000000000
+    Size.PlatformDefault = False
+    object edtGroupFilter: TEdit
+      Position.X = 20.000000000000000000
+      Position.Y = 157.000000000000000000
+      Size.Width = 190.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object btnAssignSeasonalGroup: TButton
+      Position.X = 664.000000000000000000
+      Position.Y = 155.000000000000000000
+      Size.Width = 249.000000000000000000
+      Size.Height = 30.000000000000000000
+      Size.PlatformDefault = False
+      StyledSettings = []
+      TextSettings.Font.Size = 9.000000000000000000
+      TextSettings.WordWrap = True
+      Text = 'Assign a Group to Selected Rows'
+    end
+    object gridPlaylist: TStringGrid
+      Position.X = 20.000000000000000000
+      Position.Y = 191.000000000000000000
+      Size.Width = 893.000000000000000000
+      Size.Height = 423.000000000000000000
+      Size.PlatformDefault = False
+    end
+  end
+end

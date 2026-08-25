@@ -2,11 +2,13 @@
   "description": "The FireMonkey counterpart of vcl_27. Two paragraphs stacked in the same column, drawn at the same size. Their translations differ in length, so one needs a smaller size to fit and the other does not - and left to decide separately they end up visibly different, which reads as a mistake rather than as a decision. Whatever size the pair settles at, they settle at it together, and that is stated here as a group rather than as a band: a band proves both sizes are allowed, not that they are the same. The pair is drawn at fifteen point where the VCL twin uses eleven, because DirectWrite reports these strings about a quarter narrower than GDI does at the same size. At eleven point both paragraphs already fit their boxes under FireMonkey, nothing has to give, and the fixture would be watching a rule that was never asked to do anything. Fifteen point restores the asymmetry the rule exists for: the longer paragraph cannot fit and the shorter one can.",
   "catalog_file": "27_stacked_paragraphs_share_a_size.catalog.json",
   "uniform_font_group": ["lblSelDir", "lblDir2"],
+  "uniform_width_group": ["lblSelDir", "lblDir2"],
   "controls": [
     {
       "form": "ContractForm",
       "name": "lblSelDir",
       "text_fits": true,
+      "planned_right_at_most": 874,
       "font_at_most": 14,
       "font_at_least": 9
     },
@@ -14,6 +16,7 @@
       "form": "ContractForm",
       "name": "lblDir2",
       "text_fits": true,
+      "planned_right_at_most": 874,
       "font_at_most": 14,
       "font_at_least": 9
     }

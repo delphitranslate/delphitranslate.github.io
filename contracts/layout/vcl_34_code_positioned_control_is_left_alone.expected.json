@@ -1,11 +1,10 @@
 {
-  "description": "A control the application positions itself must keep its geometry. Carillon centres its main heading in code at start-up, and the planner - reading only the designer geometry - moved and resized it, overwriting a decision already made and one that is never made again. The caption is still translated; only the layout is left alone. lblOrdinary is in the same form and is not mentioned in the unit, so it must still be laid out normally: without it, a contract that passed by disabling the planner altogether would look identical to one that passed for the right reason.",
+  "description": "Code ownership is property-specific. The application owns lblHeading.Left, so the planner must not emit Left, but it may widen the translated heading and the same code will centre that new width.",
   "catalog_file": "vcl_34_code_positioned_control_is_left_alone.catalog.json",
   "proposals": [
     {
       "name": "lblHeading",
-      "property": "Width",
-      "absent": true
+      "property": "Width"
     },
     {
       "name": "lblHeading",
@@ -13,18 +12,9 @@
       "absent": true
     },
     {
-      "name": "lblHeading",
-      "property": "AutoSize",
-      "absent": true
-    },
-    {
-      "name": "lblHeading",
-      "property": "FontSize",
-      "absent": true
-    },
-    {
       "name": "lblOrdinary",
       "property": "Width"
     }
-  ]
+  ],
+  "controls": [{"form":"ContractForm","name":"lblHeading","text_fits":true}]
 }

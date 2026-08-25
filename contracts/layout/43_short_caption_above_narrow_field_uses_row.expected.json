@@ -1,0 +1,15 @@
+{
+  "description": "A short FireMonkey caption above a narrow numeric field uses the empty remainder of its row before adding wrapped lines.",
+  "catalog_file": "43_short_caption_above_narrow_field_uses_row.catalog.json",
+  "controls": [
+    {
+      "form": "ContractForm",
+      "name": "lblTimesToPlay",
+      "text_fits": true,
+      "planned_left_equals": 461,
+      "planned_width_at_least": 62,
+      "planned_height_equals": 40,
+      "font_at_least": 11
+    }
+  ]
+}

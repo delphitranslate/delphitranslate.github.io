@@ -42,9 +42,27 @@ begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
 
+function ArabicPack: TRuntimeLanguagePack;
+const
+  JsonText =
+    '{"schemaVersion":3,"applicationId":"StatusPanelTest",' +
+    '"applicationVersion":"1.0","framework":"VCL",' +
+    '"sourceLanguage":"en-US","sourceCatalogChecksum":"test",' +
+    '"language":{"code":"ar-SA","nativeName":"Arabic","direction":"rtl"},' +
+    '"locale":{},"strings":{},' +
+    '"templates":{"frmStatusTest.StatusBar1.Panels[0].Text":' +
+    '"Arabic last played: "},' +
+    '"sourceStrings":{},"sourceTemplates":{},' +
+    '"sources":{"frmStatusTest.StatusBar1.Panels[0].Text":' +
+    '"Last Song Played: "},"proposals":[]}';
+begin
+  Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
+end;
+
 var
   Form: TForm;
   Bar: TStatusBar;
+  NextPack: TRuntimeLanguagePack;
   Pack: TRuntimeLanguagePack;
 begin
   ExitCode := 0;
@@ -77,6 +95,23 @@ begin
         'A status panel the application overwrites is re-translated ' +
         'without waiting for the language to be reapplied from scratch, ' +
         'and the new song name it wrote survives translation.');
+
+      { Switching translated language to translated language must pass through
+        the source template. Otherwise the Arabic pack sees German, cannot
+        match its English source, and the old language remains on screen. }
+      TVCLTranslationApplicator.RestoreSourceLanguage(Form, Pack,
+        'frmStatusTest');
+      Require(Bar.Panels[0].Text = 'Last Song Played: other.mp3',
+        'Leaving German restores the source prefix and keeps the filename.');
+      NextPack := ArabicPack;
+      try
+        TVCLTranslationApplicator.ApplyToForm(Form, NextPack,
+          'frmStatusTest', False);
+        Require(Bar.Panels[0].Text = 'Arabic last played: other.mp3',
+          'The next translated language replaces the previous one immediately.');
+      finally
+        NextPack.Free;
+      end;
 
       Writeln('VCL status panel intercept smoke test passed.');
     finally

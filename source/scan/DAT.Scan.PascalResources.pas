@@ -421,9 +421,124 @@ begin
   Result := APhrase <> '';
 end;
 
+function IsSemanticTextVariable(const ALeftSide: string): Boolean;
+var
+  Name: string;
+begin
+  Name := LowerCase(LastIdentifier(ALeftSide));
+  Result := ContainsText(Name, 'playing') or ContainsText(Name, 'status') or
+    ContainsText(Name, 'message') or ContainsText(Name, 'caption') or
+    ContainsText(Name, 'prompt') or ContainsText(Name, 'title') or
+    ContainsText(Name, 'displaytext');
+end;
+
+{ Converts a concatenated caption into the same placeholder shape the runtime
+  already understands. Literal words remain literal, while file names,
+  counters, Format calls and other live expressions become %s. A previously
+  assigned semantic text variable may contribute its template to a later
+  visible Caption assignment. }
+function ExtractConcatTemplate(const AExpression: string;
+  const AKnownTemplates: TDictionary<string, string>;
+  out ATemplate: string): Boolean;
+var
+  Current: string;
+  Decoded: string;
+  Index: Integer;
+  InString: Boolean;
+  ParenthesisDepth: Integer;
+  SawLiteral: Boolean;
+  SawPlaceholder: Boolean;
+  Term: string;
+
+  procedure AppendPlaceholder;
+  begin
+    if not EndsText('%s', ATemplate) then
+      ATemplate := ATemplate + '%s';
+    SawPlaceholder := True;
+  end;
+
+  procedure AppendTerm;
+  var
+    Known: string;
+    Name: string;
+  begin
+    Term := Trim(Current);
+    Current := '';
+    if Term = '' then
+      Exit;
+    if TryDecodeDelphiStringExpression(Term, Decoded) then
+    begin
+      ATemplate := ATemplate + Decoded;
+      SawLiteral := SawLiteral or (Trim(Decoded) <> '');
+      Exit;
+    end;
+    if IsLineBreakTerm(Term) then
+    begin
+      ATemplate := ATemplate + sLineBreak;
+      Exit;
+    end;
+    Name := LastIdentifier(Term);
+    if (AKnownTemplates <> nil) and
+      (AKnownTemplates.TryGetValue(Trim(Term), Known) or
+       AKnownTemplates.TryGetValue(Name, Known)) then
+    begin
+      ATemplate := ATemplate + Known;
+      SawLiteral := True;
+      SawPlaceholder := SawPlaceholder or ContainsText(Known, '%s');
+      Exit;
+    end;
+    AppendPlaceholder;
+  end;
+
+begin
+  ATemplate := '';
+  Current := '';
+  InString := False;
+  ParenthesisDepth := 0;
+  SawLiteral := False;
+  SawPlaceholder := False;
+  Index := 1;
+  while Index <= Length(AExpression) do
+  begin
+    if AExpression[Index] = '''' then
+    begin
+      Current := Current + AExpression[Index];
+      if InString and (Index < Length(AExpression)) and
+        (AExpression[Index + 1] = '''') then
+      begin
+        Inc(Index);
+        Current := Current + AExpression[Index];
+      end
+      else
+        InString := not InString;
+    end
+    else if not InString and (AExpression[Index] = '(') then
+    begin
+      Inc(ParenthesisDepth);
+      Current := Current + AExpression[Index];
+    end
+    else if not InString and (AExpression[Index] = ')') then
+    begin
+      Dec(ParenthesisDepth);
+      Current := Current + AExpression[Index];
+    end
+    else if not InString and (ParenthesisDepth = 0) and
+      (AExpression[Index] = '+') then
+      AppendTerm
+    else
+      Current := Current + AExpression[Index];
+    Inc(Index);
+  end;
+  AppendTerm;
+  ATemplate := Trim(ATemplate);
+  Result := SawLiteral and SawPlaceholder and (Length(ATemplate) >= 4);
+end;
+
 procedure AddRuntimeItem(const AResult: TProjectScanResult;
   const AFileName, AUnitName, ALeftSide, APropertyName, ASourceText: string;
   const ASourceLine: Integer; const ARuntimeRole: TRuntimeTextRole); forward;
+function ExtractFormatTemplate(const AExpression: string;
+  out ATemplate: string): Boolean; forward;
 
 procedure ScanRuntimeCall(const AStatement: TRuntimeStatement;
   const AResult: TProjectScanResult; const AFileName, AUnitName,
@@ -488,6 +603,38 @@ begin
     Exit;
   AddRuntimeItem(AResult, AFileName, AUnitName, 'Add', 'ListHeading',
     Phrase, AStatement.SourceLine, rtrRuntimeTemplate);
+end;
+
+{ A formatted row added to a string list that is later shown as a dialog.
+
+  Broad Items.Add scanning remains deliberately excluded: those calls usually
+  carry data, paths or logs. This narrower case first proves that the receiving
+  variable is passed to a dialog, then takes only a Format template. The live
+  time, filename or other data remains in placeholders and is never translated. }
+procedure ScanDialogListRow(const AStatement: TRuntimeStatement;
+  const ADialogTextVariables: TDictionary<string, Boolean>;
+  const AResult: TProjectScanResult; const AFileName, AUnitName: string);
+var
+  AddAt: Integer;
+  ArgumentText: string;
+  Receiver: string;
+  Template: string;
+begin
+  if ADialogTextVariables = nil then
+    Exit;
+  AddAt := Pos('.add(', LowerCase(AStatement.Text));
+  if AddAt < 2 then
+    Exit;
+  Receiver := LowerCase(LastIdentifier(
+    Copy(AStatement.Text, 1, AddAt - 1)));
+  if not ADialogTextVariables.ContainsKey(Receiver) then
+    Exit;
+  ArgumentText := FirstArgument(Copy(AStatement.Text,
+    AddAt + Length('.add('), MaxInt));
+  if not ExtractFormatTemplate(ArgumentText, Template) then
+    Exit;
+  AddRuntimeItem(AResult, AFileName, AUnitName, 'DialogListRow',
+    'DialogMessage', Template, AStatement.SourceLine, rtrRuntimeTemplate);
 end;
 
 { A file name, as opposed to a sentence that happens to contain a dot. Both
@@ -1070,11 +1217,56 @@ var
   PropertyName: string;
   Statement: TRuntimeStatement;
   Statements: TList<TRuntimeStatement>;
+  DialogTextVariables: TDictionary<string, Boolean>;
+  TextVariables: TDictionary<string, string>;
   ValueText: string;
 begin
   Statements := TList<TRuntimeStatement>.Create;
+  DialogTextVariables := TDictionary<string, Boolean>.Create;
+  TextVariables := TDictionary<string, string>.Create;
   try
     CollectRuntimeStatements(ALines, Statements);
+    { Prove which string-list variables are eventually displayed. The Add
+      calls normally occur before this ShowMessage call, so discovery is a
+      separate pass over the collected statements. }
+    for Statement in Statements do
+    begin
+      AssignAt := Pos('showmessage(', LowerCase(Statement.Text));
+      if AssignAt = 0 then
+        Continue;
+      Expression := FirstArgument(Copy(Statement.Text,
+        AssignAt + Length('showmessage('), MaxInt));
+      if EndsText('.text', LowerCase(Trim(Expression))) then
+      begin
+        Delete(Expression, Length(Expression) - Length('.text') + 1,
+          Length('.text'));
+        Expression := LowerCase(LastIdentifier(Expression));
+        if Expression <> '' then
+          DialogTextVariables.AddOrSetValue(Expression, True);
+      end;
+    end;
+    { Learn semantic text variables before scanning visible assignments. A
+      timer method may use a field near the top of the unit even though the
+      playback method which gives that field its caption template appears
+      hundreds of lines later. Source order must not decide whether the user
+      sees a complete template. }
+    for Statement in Statements do
+    begin
+      AssignAt := Pos(':=', Statement.Text);
+      if AssignAt = 0 then
+        Continue;
+      LeftSide := Trim(Copy(Statement.Text, 1, AssignAt - 1));
+      if not IsSemanticTextVariable(LeftSide) then
+        Continue;
+      Expression := Trim(Copy(Statement.Text, AssignAt + 2, MaxInt));
+      if EndsText(';', Expression) then
+        Delete(Expression, Length(Expression), 1);
+      if ExtractConcatTemplate(Expression, TextVariables, FormatTemplate) then
+      begin
+        TextVariables.AddOrSetValue(Trim(LeftSide), FormatTemplate);
+        TextVariables.AddOrSetValue(LastIdentifier(LeftSide), FormatTemplate);
+      end;
+    end;
     for Statement in Statements do
     begin
       ScanHtmlText(Statement, AResult, AFileName, AUnitName);
@@ -1091,6 +1283,8 @@ begin
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'ShowScheduleDialog', 'DialogTitle');
       ScanListHeading(Statement, AResult, AFileName, AUnitName);
+      ScanDialogListRow(Statement, DialogTextVariables, AResult, AFileName,
+        AUnitName);
       { Do not harvest broad Items.Add/Lines.Add/Strings.Add or canvas
         drawing calls. In real applications these are commonly data rows,
         logs, filenames, generated HTML, or owner-drawn runtime values rather
@@ -1110,6 +1304,12 @@ begin
       Expression := Trim(Copy(Statement.Text, AssignAt + 2, MaxInt));
       if EndsText(';', Expression) then
         Delete(Expression, Length(Expression), 1);
+      if IsSemanticTextVariable(LeftSide) and
+        ExtractConcatTemplate(Expression, TextVariables, FormatTemplate) then
+      begin
+        TextVariables.AddOrSetValue(Trim(LeftSide), FormatTemplate);
+        TextVariables.AddOrSetValue(LastIdentifier(LeftSide), FormatTemplate);
+      end;
       if TryClassifyRuntimeAssignment(LeftSide, PropertyName) then
       begin
         if TryDecodeDelphiStringExpression(Expression, ValueText) then
@@ -1121,6 +1321,15 @@ begin
               PropertyName, ValueText, Statement.SourceLine, rtrStaticText);
         end
         else if ExtractFormatTemplate(Expression, FormatTemplate) then
+        begin
+          if not IsNonUiAssignment(LeftSide, FormatTemplate) and
+            not SameText(PropertyName, 'RuntimeValue') then
+            AddRuntimeItem(AResult, AFileName, AUnitName, LeftSide,
+              PropertyName, FormatTemplate, Statement.SourceLine,
+              rtrRuntimeTemplate);
+        end
+        else if ExtractConcatTemplate(Expression, TextVariables,
+          FormatTemplate) then
         begin
           if not IsNonUiAssignment(LeftSide, FormatTemplate) and
             not SameText(PropertyName, 'RuntimeValue') then
@@ -1150,6 +1359,8 @@ begin
           rtrRuntimeTemplate);
     end;
   finally
+    TextVariables.Free;
+    DialogTextVariables.Free;
     Statements.Free;
   end;
 end;

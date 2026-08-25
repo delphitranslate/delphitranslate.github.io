@@ -1,0 +1,19 @@
+{
+  "description": "The FireMonkey twin of the remaining VCL field-test polish: the same five relationships must hold under both frameworks.",
+  "catalog_file": "44_remaining_visual_polish.catalog.json",
+  "proposals": [
+    {"name":"lblTo","property":"TextSettings.HorzAlign","value":"Center","decision":"accepted"},
+    {"name":"lblStart","property":"TextSettings.HorzAlign","value":"Center","decision":"accepted"},
+    {"name":"lblRecipient","property":"TextSettings.HorzAlign","value":"Center","decision":"accepted"}
+  ],
+  "controls": [
+    {"form":"ContractForm","name":"lblTo","planned_left_equals":100,"planned_width_equals":107},
+    {"form":"ContractForm","name":"lblStart","planned_left_equals":300,"planned_width_equals":105},
+    {"form":"ContractForm","name":"lblRecipient","planned_left_equals":100,"planned_width_equals":286,"text_fits":true},
+    {"form":"ContractForm","name":"btnMute","planned_width_at_least":85,"planned_height_equals":25,"text_fits":true,"font_at_least":8},
+    {"form":"ContractForm","name":"btnClose","planned_right_at_most":847,"text_fits":true},
+    {"form":"ContractForm","name":"btnReset","planned_width_at_least":120,"planned_height_at_most":80,"planned_right_at_most":263,"text_fits":true},
+    {"form":"ContractForm","name":"lblInstructions","planned_width_at_least":590,"planned_height_at_least":66,"text_fits":true},
+    {"form":"ContractForm","name":"lblDefaultInstructions","text_fits":true}
+  ]
+}

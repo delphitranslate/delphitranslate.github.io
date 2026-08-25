@@ -31,7 +31,15 @@ const
     '"applicationVersion":"1.0","framework":"FMX",' +
     '"sourceLanguage":"en-US","sourceCatalogChecksum":"t",' +
     '"language":{"code":"ar-SA","nativeName":"Arabic","direction":"rtl"},' +
-    '"locale":{},"strings":{},"sources":{},' +
+    '"locale":{},"strings":{' +
+    '"Groups.Grid1.Columns.Header.0":"Translated group",' +
+    '"Groups.Grid1.Columns.Header.1":"Translated from",' +
+    '"Groups.Grid1.Columns.Header.2":"Translated to",' +
+    '"Groups.Grid1.Columns.Header.3":"Translated time"},' +
+    '"sources":{"Groups.Grid1.Columns.Header.0":"Group",' +
+    '"Groups.Grid1.Columns.Header.1":"From",' +
+    '"Groups.Grid1.Columns.Header.2":"To",' +
+    '"Groups.Grid1.Columns.Header.3":"Time"},' +
     '"layout":[{"formName":"Groups","componentName":"Grid1",' +
     '"propertyName":"ColumnOrder","originalValue":"designed",' +
     '"translatedValue":"reversed","sourceChecksum":"t"}]}';
@@ -77,7 +85,7 @@ begin
       '"translatedValue":"designed"', []);
   Local := TRuntimeLanguagePack.LoadFromJson(Json);
   try
-    TFMXTranslationApplicator.ApplyLayoutToForm(Form, Local, 'Groups', True);
+    TFMXTranslationApplicator.ApplyToForm(Form, Local, 'Groups', True, True);
   finally
     Local.Free;
   end;
@@ -106,18 +114,18 @@ begin
 
       ApplyPack(True);
       Writeln('        reversed:    ', Order);
-      Check(Order = 'Time To From Group',
+      Check(Order = 'Translated time Translated to Translated from Translated group',
         'A right-to-left pack puts the first column at the edge the reader starts from.');
 
       ApplyPack(True);
       Writeln('        applied again:', Order);
-      Check(Order = 'Time To From Group',
-        'Applying the same pack again changes nothing, so the order cannot drift.');
+      Check(Order = 'Translated time Translated to Translated from Translated group',
+        'Applying the same pack again keeps each translated heading with its own column.');
 
       ApplyPack(False);
       Writeln('        restored:    ', Order);
-      Check(Order = 'Group From To Time',
-        'Asking for the designed order puts it back.');
+      Check(Order = 'Translated group Translated from Translated to Translated time',
+        'Asking for the designed order puts the translated columns back in designed order.');
     finally
       Form.Free;
     end;

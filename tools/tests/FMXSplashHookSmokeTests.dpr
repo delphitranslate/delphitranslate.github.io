@@ -48,11 +48,18 @@ const
     '"sourceLanguage":"en-US","sourceCatalogChecksum":"t",' +
     '"language":{"code":"de-DE","nativeName":"Deutsch","direction":"ltr"},' +
     '"locale":{},' +
-    '"strings":{"Form1.lblTitle.Text":"Wird geladen"},' +
-    '"sources":{},"layout":[]}';
+    '"strings":{"Form1.lblTitle.Text":"Wird geladen",' +
+    '"Form1.lblOrgName.Text":"Beliebiger Name"},' +
+    '"sources":{"Form1.lblTitle.Text":"Loading",' +
+    '"Form1.lblOrgName.Text":"Any Organization Name"},' +
+    '"layout":[{"formName":"Form1","componentName":"lblOrgName",' +
+    '"propertyName":"Width","originalValue":"220",' +
+    '"translatedValue":"80","sourceChecksum":"t"}]}';
 
 var
   Failures: Integer = 0;
+  OrganizationAfterShowing: string = '';
+  OrganizationWidthAfterShowing: Single = 0;
   TextWhenMessageArrived: string = '(no message seen)';
   WitnessId: Integer;
 
@@ -111,6 +118,7 @@ end;
 function ShowSplashAndReadText: string;
 var
   Splash: TForm;
+  Organization: TLabel;
   Title: TLabel;
 begin
   Splash := TForm.CreateNew(nil);
@@ -120,9 +128,16 @@ begin
     Title.Parent := Splash;
     Title.Name := 'lblTitle';
     Title.Text := 'Loading';
+    Organization := TLabel.Create(Splash);
+    Organization.Parent := Splash;
+    Organization.Name := 'lblOrgName';
+    Organization.Width := 220;
+    Organization.Text := 'Saint Mark Church';
     Splash.Show;
     Application.ProcessMessages;
     Result := Title.Text;
+    OrganizationAfterShowing := Organization.Text;
+    OrganizationWidthAfterShowing := Organization.Width;
   finally
     Splash.Free;
   end;
@@ -169,6 +184,11 @@ begin
 
       Check(TextAfterShowing = 'Wird geladen',
         'A splash shown before any manager exists is translated.');
+      Check(OrganizationAfterShowing = 'Saint Mark Church',
+        'Live splash data is preserved instead of replacing it with a ' +
+        'translated designer placeholder.');
+      Check(Abs(OrganizationWidthAfterShowing - 220) < 0.5,
+        'Layout planned for a placeholder does not resize live splash data.');
       { The one that is not merely parity with VCL. }
       Check(TextWhenMessageArrived = 'Wird geladen',
         'and it was already translated before the window was shown.');

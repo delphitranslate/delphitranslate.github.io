@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "de-DE",
+    "nativeLanguageName": "Deutsch",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblTimesToPlay.Text",
+      "sourceText": "Times to Play:",
+      "translatedText": "Wiederholungen:",
+      "formName": "ContractForm",
+      "componentName": "lblTimesToPlay",
+      "componentClassName": "TLabel",
+      "propertyName": "Text",
+      "sourceFileName": "{FIXTUREDIR}\\43_short_caption_above_narrow_field_uses_row.fmx",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

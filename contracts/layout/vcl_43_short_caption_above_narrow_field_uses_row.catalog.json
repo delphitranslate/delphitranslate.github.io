@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {
+    "languageCode": "de-DE",
+    "nativeLanguageName": "Deutsch",
+    "textDirection": "ltr"
+  },
+  "entries": [
+    {
+      "key": "ContractForm.lblTimesToPlay.Caption",
+      "sourceText": "Times to Play:",
+      "translatedText": "Wiederholungen:",
+      "formName": "ContractForm",
+      "componentName": "lblTimesToPlay",
+      "componentClassName": "TLabel",
+      "propertyName": "Caption",
+      "sourceFileName": "{FIXTUREDIR}\\vcl_43_short_caption_above_narrow_field_uses_row.dfm",
+      "sourceKind": "Form property",
+      "contextKind": "interface text",
+      "textOwnership": "designerAutomatic",
+      "status": "machineTranslated"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "description": "An overflowing four-column grid shares the designer's original width evenly, and a centred authored two-line splash heading gets rendering safety room so it does not become three lines.",
+  "catalog_file": "vcl_45_balanced_grid_and_multiline_heading.catalog.json",
+  "proposals": [
+    {"name":"grdGroups","property":"Columns[0].Width","value":"125","decision":"accepted"},
+    {"name":"grdGroups","property":"Columns[1].Width","value":"125","decision":"accepted"},
+    {"name":"grdGroups","property":"Columns[2].Width","value":"125","decision":"accepted"},
+    {"name":"grdGroups","property":"Columns[3].Width","value":"125","decision":"accepted"}
+  ],
+  "uniform_width_group": ["grdGroups.Columns[0]","grdGroups.Columns[1]","grdGroups.Columns[2]","grdGroups.Columns[3]"],
+  "controls": [
+    {"form":"ContractForm","name":"lblSplashTitle","planned_width_at_least":600,"text_fits":true},
+    {"form":"ContractForm","name":"grdGroups.Columns[0]","text_fits":true,"font_at_least":9},
+    {"form":"ContractForm","name":"grdGroups.Columns[1]","text_fits":true,"font_at_least":9},
+    {"form":"ContractForm","name":"grdGroups.Columns[2]","text_fits":true,"font_at_least":9},
+    {"form":"ContractForm","name":"grdGroups.Columns[3]","text_fits":true,"font_at_least":9}
+  ]
+}
