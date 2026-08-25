@@ -2166,8 +2166,11 @@ begin
     if ParentWidth <= 0 then
       Continue;
     LargeCentredLabel := (Component is TLabel) and
-      (TLabel(Component).TextSettings.HorzAlign = TTextAlign.Center) and
-      (TLabel(Component).TextSettings.Font.Size >= 16);
+      Snapshot.HasTextSettings and
+      (TTextAlign(Snapshot.HorzAlign) = TTextAlign.Center) and
+      (Snapshot.FontSize >= 16);
+    if LargeCentredLabel then
+      TLabel(Component).TextSettings.HorzAlign := TTextAlign.Center;
     WasCentre := Snapshot.Position.X + Snapshot.Size.X / 2;
     if not LargeCentredLabel and
       (Abs(WasCentre - ParentWidth / 2) > CentreTolerance) then

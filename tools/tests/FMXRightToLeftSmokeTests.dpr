@@ -82,6 +82,9 @@ const
     '{"formName":"frmRtl","componentName":"lblHeading",' +
     '"propertyName":"Width","originalValue":"120",' +
     '"translatedValue":"200","sourceChecksum":"t"},' +
+    '{"formName":"frmRtl","componentName":"lblHeading",' +
+    '"propertyName":"TextSettings.HorzAlign","originalValue":"Center",' +
+    '"translatedValue":"Trailing","sourceChecksum":"t"},' +
     '{"formName":"frmRtl","componentName":"lblName",' +
     '"propertyName":"TextSettings.HorzAlign","originalValue":"Leading",' +
     '"translatedValue":"Trailing","sourceChecksum":"t"},' +
@@ -194,6 +197,8 @@ begin
       Check((Abs(Heading.Position.X - 100) < 1) and
         (Abs(Heading.Width - 200) < 1),
         'A large centred heading is centred after its translated width changes.');
+      Check(Heading.TextSettings.HorzAlign = TTextAlign.Center,
+        'A designer-centred heading remains centred under an RTL pack.');
       Check(Name_.TextSettings.HorzAlign = TTextAlign.Trailing,
         'The text sits against the opposite edge.');
       Check(Box.TextSettings.HorzAlign = TTextAlign.Trailing,

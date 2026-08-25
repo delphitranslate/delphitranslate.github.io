@@ -1904,6 +1904,7 @@ procedure ApplyMenuReadingOrder(const AForm: TCustomForm;
   const AFormIdentity: string; const ARightToLeft: Boolean);
 var
   Designed: TList<TMenuItem>;
+  DesiredBiDiMode: TBiDiMode;
   Item: TMenuItem;
   Index: Integer;
   Key: string;
@@ -1912,6 +1913,23 @@ var
 begin
   if (AForm = nil) or (AForm.Menu = nil) or (AForm.Menu.Items = nil) then
     Exit;
+  { Caption changes rebuild popup handles.  Reassert the VCL menu object's
+    direction itself before correcting the native flags: clearing only the
+    HMENU flags is temporary when VCL still believes the menu is RTL and
+    rebuilds a child handle the next time it opens.  Toggling through the
+    opposite value also rebuilds a menu which already reports the desired
+    value but whose popup handles came from the language being left. }
+  if ARightToLeft then
+    DesiredBiDiMode := bdRightToLeftNoAlign
+  else
+    DesiredBiDiMode := bdLeftToRight;
+  AForm.Menu.ParentBiDiMode := False;
+  if AForm.Menu.BiDiMode = DesiredBiDiMode then
+    if ARightToLeft then
+      AForm.Menu.BiDiMode := bdLeftToRight
+    else
+      AForm.Menu.BiDiMode := bdRightToLeftNoAlign;
+  AForm.Menu.BiDiMode := DesiredBiDiMode;
   ApplyMenuCascadeDirection(AForm, ARightToLeft);
   if AForm.Menu.Items.Count < 2 then
     Exit;
@@ -2179,8 +2197,11 @@ begin
     if ParentWidth <= 0 then
       Continue;
     LargeCentredLabel := (Component is TLabel) and
-      (TLabel(Component).Alignment = taCenter) and
-      (TLabel(Component).Font.Size >= 16);
+      Snapshot.HasAlignment and
+      (Snapshot.Alignment = Ord(taCenter)) and Snapshot.HasFont and
+      (Snapshot.FontSize >= 16);
+    if LargeCentredLabel then
+      TLabel(Component).Alignment := taCenter;
     WasCentre := Snapshot.Left + Snapshot.Width div 2;
     if not LargeCentredLabel and
       (Abs(WasCentre - ParentWidth div 2) > CentreTolerance) then

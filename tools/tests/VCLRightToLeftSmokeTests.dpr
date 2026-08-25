@@ -84,6 +84,9 @@ const
     '{"formName":"frmRtl","componentName":"lblHeading",' +
     '"propertyName":"Width","originalValue":"120",' +
     '"translatedValue":"200","sourceChecksum":"t"},' +
+    '{"formName":"frmRtl","componentName":"lblHeading",' +
+    '"propertyName":"Alignment","originalValue":"taCenter",' +
+    '"translatedValue":"taRightJustify","sourceChecksum":"t"},' +
     '{"formName":"frmRtl","componentName":"lblName",' +
     '"propertyName":"Alignment","originalValue":"taLeftJustify",' +
     '"translatedValue":"taRightJustify","sourceChecksum":"t"},' +
@@ -367,6 +370,8 @@ begin
         'A container centred by the application remains centred after RTL layout.');
       Check((Heading.Left = 100) and (Heading.Width = 200),
         'A large centred heading is centred after its translated width changes.');
+      Check(Heading.Alignment = taCenter,
+        'A designer-centred heading remains centred under an RTL pack.');
       Check(Nav.Align = alRight,
         'A framework-placed strip is mirrored by its edge, not its position.');
       Check(Box.Anchors = [akRight, akTop],
@@ -600,8 +605,9 @@ begin
       Check((ChildMenuHandle <> 0) and
         GetMenuItemInfo(ChildMenuHandle, 0, True, NativeItemInfo),
         'The nested menu item remains queryable after the switch.');
-      Check((NativeItemInfo.fType and MFT_RIGHTJUSTIFY) = 0,
-        'Every submenu caption also returns to left-to-right alignment.');
+      Check((NativeItemInfo.fType and
+        (MFT_RIGHTORDER or MFT_RIGHTJUSTIFY)) = 0,
+        'Every submenu item fully returns to left-to-right order and alignment.');
       Check(MenuBarOrder(Menu) = DesignedMenuOrder,
         'and the menu bar returns to its designed order.');
       Writeln(Format('        grid   headings: %s, %s, %s',
