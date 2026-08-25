@@ -2138,6 +2138,7 @@ const
 var
   Component: TComponent;
   Control: TControl;
+  LargeCentredLabel: Boolean;
   ParentWidth: Single;
   Snapshot: TDATControlSnapshot;
   WasCentre, Wanted: Single;
@@ -2146,7 +2147,8 @@ begin
     Exit;
   for Component in AForm do
   begin
-    if not ((Component is TLayout) or (Component is TPanel)) or
+    if not ((Component is TLayout) or (Component is TPanel) or
+      (Component is TLabel)) or
       (Component.Name = '') then
       Continue;
     Control := TControl(Component);
@@ -2163,8 +2165,12 @@ begin
       Continue;
     if ParentWidth <= 0 then
       Continue;
+    LargeCentredLabel := (Component is TLabel) and
+      (TLabel(Component).TextSettings.HorzAlign = TTextAlign.Center) and
+      (TLabel(Component).TextSettings.Font.Size >= 16);
     WasCentre := Snapshot.Position.X + Snapshot.Size.X / 2;
-    if Abs(WasCentre - ParentWidth / 2) > CentreTolerance then
+    if not LargeCentredLabel and
+      (Abs(WasCentre - ParentWidth / 2) > CentreTolerance) then
       Continue;
     if (Abs(Control.Width - Snapshot.Size.X) < 0.5) and
       (Abs(Control.Position.X - Snapshot.Position.X) < 0.5) then

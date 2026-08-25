@@ -1744,7 +1744,12 @@ const
     imported. Restated rather than invented: the value is VCL's own. }
   RightToLeftMenuFlag = MFT_RIGHTORDER or MFT_RIGHTJUSTIFY;
 var
+  Changed: Boolean;
+  HandleIndex: Integer;
+  ItemIndex: Integer;
   MenuHandle: HMENU;
+  MenuHandles: TList<HMENU>;
+  SubMenuHandle: HMENU;
   ItemInfo: TMenuItemInfo;
   Buffer: array[0..BufferSize - 1] of Char;
   Desired: UINT;
@@ -1765,16 +1770,64 @@ begin
     Desired := ItemInfo.fType or RightToLeftMenuFlag
   else
     Desired := ItemInfo.fType and not RightToLeftMenuFlag;
-  if Desired = ItemInfo.fType then
+  if (Desired = ItemInfo.fType) and ARightToLeft then
     Exit;
   { Only fType is written. Handing back the buffer GetMenuItemInfo filled
     would rewrite item zero's caption as a side effect of a layout flag, and
     on a menu whose captions were just translated that loses one. }
-  FillChar(ItemInfo, SizeOf(ItemInfo), 0);
-  ItemInfo.cbSize := SizeOf(TMenuItemInfo);
-  ItemInfo.fMask := MIIM_FTYPE;
-  ItemInfo.fType := Desired;
-  if SetMenuItemInfo(MenuHandle, 0, True, ItemInfo) then
+  if Desired <> ItemInfo.fType then
+  begin
+    FillChar(ItemInfo, SizeOf(ItemInfo), 0);
+    ItemInfo.cbSize := SizeOf(TMenuItemInfo);
+    ItemInfo.fMask := MIIM_FTYPE;
+    ItemInfo.fType := Desired;
+    if SetMenuItemInfo(MenuHandle, 0, True, ItemInfo) then
+      DrawMenuBar(AForm.Handle);
+  end;
+
+  if ARightToLeft then
+    Exit;
+
+  { VCL can stamp the RTL flags onto each submenu item when its caption is
+    rebuilt. Clearing item zero on the menu bar restores the bar itself but
+    leaves those child handles drawing Spanish, English, or another LTR
+    language against the right edge. Walk the native menu tree when leaving
+    RTL and remove the flags everywhere Windows may have retained them. }
+  Changed := False;
+  MenuHandles := TList<HMENU>.Create;
+  try
+    MenuHandles.Add(MenuHandle);
+    HandleIndex := 0;
+    while HandleIndex < MenuHandles.Count do
+    begin
+      MenuHandle := MenuHandles[HandleIndex];
+      for ItemIndex := 0 to GetMenuItemCount(MenuHandle) - 1 do
+      begin
+        FillChar(ItemInfo, SizeOf(ItemInfo), 0);
+        ItemInfo.cbSize := SizeOf(TMenuItemInfo);
+        ItemInfo.fMask := MIIM_FTYPE;
+        if not GetMenuItemInfo(MenuHandle, ItemIndex, True, ItemInfo) then
+          Continue;
+        SubMenuHandle := GetSubMenu(MenuHandle, ItemIndex);
+        if (SubMenuHandle <> 0) and
+          (MenuHandles.IndexOf(SubMenuHandle) < 0) then
+          MenuHandles.Add(SubMenuHandle);
+        Desired := ItemInfo.fType and not RightToLeftMenuFlag;
+        if Desired = ItemInfo.fType then
+          Continue;
+        FillChar(ItemInfo, SizeOf(ItemInfo), 0);
+        ItemInfo.cbSize := SizeOf(TMenuItemInfo);
+        ItemInfo.fMask := MIIM_FTYPE;
+        ItemInfo.fType := Desired;
+        if SetMenuItemInfo(MenuHandle, ItemIndex, True, ItemInfo) then
+          Changed := True;
+      end;
+      Inc(HandleIndex);
+    end;
+  finally
+    MenuHandles.Free;
+  end;
+  if Changed then
     DrawMenuBar(AForm.Handle);
 end;
 
@@ -1915,6 +1968,10 @@ begin
     Wanted.Free;
     Designed.Free;
   end;
+  { Deleting and re-adding the top-level items rebuilds their submenu handles.
+    VCL stamps those fresh handles with the form's former BiDi flags, so the
+    native tree must be finalized again after the order itself is restored. }
+  ApplyMenuCascadeDirection(AForm, ARightToLeft);
   if AForm.HandleAllocated then
     DrawMenuBar(AForm.Handle);
 end;
@@ -2100,6 +2157,7 @@ const
 var
   Component: TComponent;
   Control: TControl;
+  LargeCentredLabel: Boolean;
   ParentWidth: Integer;
   Snapshot: TDATVCLControlSnapshot;
   WasCentre, Wanted: Integer;
@@ -2108,7 +2166,8 @@ begin
     Exit;
   for Component in AForm do
   begin
-    if not (Component is TCustomPanel) or (Component.Name = '') then
+    if not ((Component is TCustomPanel) or (Component is TLabel)) or
+      (Component.Name = '') then
       Continue;
     Control := TControl(Component);
     if Control.Parent = nil then
@@ -2119,8 +2178,12 @@ begin
     ParentWidth := Control.Parent.ClientWidth;
     if ParentWidth <= 0 then
       Continue;
+    LargeCentredLabel := (Component is TLabel) and
+      (TLabel(Component).Alignment = taCenter) and
+      (TLabel(Component).Font.Size >= 16);
     WasCentre := Snapshot.Left + Snapshot.Width div 2;
-    if Abs(WasCentre - ParentWidth div 2) > CentreTolerance then
+    if not LargeCentredLabel and
+      (Abs(WasCentre - ParentWidth div 2) > CentreTolerance) then
       Continue;
     if (Control.Width = Snapshot.Width) and (Control.Left = Snapshot.Left) then
       Continue;
@@ -2269,13 +2332,15 @@ begin
       is not sufficient on its own, because the flag that survives a
       rebuild is the one written after it. Doing both costs an early
       exit when nothing changed. }
-    ApplyMenuReadingOrder(AForm, FormIdentity,
-      SameText(Trim(APack.TextDirection), 'rtl'));
     { Last, because it reads the widths every pass above settled. }
     RecentreSelfPlacedText(AForm, FormIdentity);
     ApplyCollectionTextRules(AForm, FormIdentity, APack);
     Inc(Result, RefreshDynamicText(AForm, APack));
     TDATVCLCollectionTextIntercept.Install(AForm, FormIdentity, APack);
+    { Truly last: the collection/template refreshes above can rewrite captions
+      and make VCL rebuild a submenu after an earlier direction correction. }
+    ApplyMenuReadingOrder(AForm, FormIdentity,
+      SameText(Trim(APack.TextDirection), 'rtl'));
   finally
     if APreserveControlState and SavedFocusedState and
       (SavedFocusedControl <> nil) and SavedFocusedControl.CanFocus then

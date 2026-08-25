@@ -81,6 +81,9 @@ const
     '{"formName":"frmRtl","componentName":"lblName",' +
     '"propertyName":"Left","originalValue":"16",' +
     '"translatedValue":"304","sourceChecksum":"t"},' +
+    '{"formName":"frmRtl","componentName":"lblHeading",' +
+    '"propertyName":"Width","originalValue":"120",' +
+    '"translatedValue":"200","sourceChecksum":"t"},' +
     '{"formName":"frmRtl","componentName":"lblName",' +
     '"propertyName":"Alignment","originalValue":"taLeftJustify",' +
     '"translatedValue":"taRightJustify","sourceChecksum":"t"},' +
@@ -175,6 +178,7 @@ var
   Form: TForm;
   EmailBox: TEdit;
   Name_: TLabel;
+  Heading: TLabel;
   Box: TEdit;
   Number: TLabel;
   Ok: TButton;
@@ -188,6 +192,9 @@ var
   DesignedMenuOrder: string;
   ReversedMenuOrder: string;
   FileItem: TMenuItem;
+  ChildItem: TMenuItem;
+  ChildMenuHandle: HMENU;
+  NativeItemInfo: TMenuItemInfo;
   ExStyleUnderArabic: NativeInt;
 
   Pack: TRuntimeLanguagePack;
@@ -223,6 +230,14 @@ begin
       Number.SetBounds(16, 200, 30, 17);
       Number.Caption := '1.';
       Name_.Alignment := taLeftJustify;
+
+      Heading := TLabel.Create(Form);
+      Heading.Parent := Form;
+      Heading.Name := 'lblHeading';
+      Heading.SetBounds(40, 92, 120, 30);
+      Heading.Alignment := taCenter;
+      Heading.Font.Size := 20;
+      Heading.Caption := 'Large heading';
 
       Box := TEdit.Create(Form);
       Box.Parent := Form;
@@ -282,6 +297,10 @@ begin
         caption for application-owned live text. }
       FileItem.Caption := '&File';
       Menu.Items.Add(FileItem);
+      ChildItem := TMenuItem.Create(Form);
+      ChildItem.Name := 'mnuChild';
+      ChildItem.Caption := 'Child';
+      FileItem.Add(ChildItem);
       Form.Menu := Menu;
       { A menu built in the designer, not at run time. Setting BiDiMode on a
         TMenu clears ParentBiDiMode, so any application whose menu was ever
@@ -346,6 +365,8 @@ begin
         [Inner.Left]));
       Check(CenteredPanel.Left = 150,
         'A container centred by the application remains centred after RTL layout.');
+      Check((Heading.Left = 100) and (Heading.Width = 200),
+        'A large centred heading is centred after its translated width changes.');
       Check(Nav.Align = alRight,
         'A framework-placed strip is mirrored by its edge, not its position.');
       Check(Box.Anchors = [akRight, akTop],
@@ -483,6 +504,17 @@ begin
         Format('A column keeps its own width through the reversal: %d, ' +
           'expected 90.', [Grid.Columns[2].Width]));
 
+      { Reproduce the native child-item flags retained when a submenu caption
+        is rebuilt under RTL, even after the menu bar itself has changed. }
+      FillChar(NativeItemInfo, SizeOf(NativeItemInfo), 0);
+      NativeItemInfo.cbSize := SizeOf(TMenuItemInfo);
+      NativeItemInfo.fMask := MIIM_FTYPE;
+      NativeItemInfo.fType := MFT_RIGHTORDER or MFT_RIGHTJUSTIFY;
+      ChildMenuHandle := GetSubMenu(Menu.Handle, FileItem.MenuIndex);
+      Check((ChildMenuHandle <> 0) and
+        SetMenuItemInfo(ChildMenuHandle, 0, True, NativeItemInfo),
+        'The nested-menu RTL regression state was created.');
+
       Check((Box.TabOrder = 2) and (Ok.TabOrder = 0),
         Format('The Tab key follows the reader: edit %d, button %d.',
           [Box.TabOrder, Ok.TabOrder]));
@@ -561,6 +593,15 @@ begin
         check passed and the menus stayed reversed until a restart. }
       Check(not MenuIsRightToLeft(Menu),
         'The menu itself stops opening right to left.');
+      FillChar(NativeItemInfo, SizeOf(NativeItemInfo), 0);
+      NativeItemInfo.cbSize := SizeOf(TMenuItemInfo);
+      NativeItemInfo.fMask := MIIM_FTYPE;
+      ChildMenuHandle := GetSubMenu(Menu.Handle, FileItem.MenuIndex);
+      Check((ChildMenuHandle <> 0) and
+        GetMenuItemInfo(ChildMenuHandle, 0, True, NativeItemInfo),
+        'The nested menu item remains queryable after the switch.');
+      Check((NativeItemInfo.fType and MFT_RIGHTJUSTIFY) = 0,
+        'Every submenu caption also returns to left-to-right alignment.');
       Check(MenuBarOrder(Menu) = DesignedMenuOrder,
         'and the menu bar returns to its designed order.');
       Writeln(Format('        grid   headings: %s, %s, %s',

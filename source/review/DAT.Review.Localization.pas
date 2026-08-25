@@ -5139,6 +5139,41 @@ begin
         SettleSpanRight - Control.PlannedLeft);
   end;
 
+  { A short field caption must not retain a wrap decision left over from a
+    longer translation.  The final width is authoritative: when the complete
+    caption fits there on one line, wrapping only makes the label consume the
+    next line and lets a single-line designer height clip its lower half. }
+  for Control in AReview.Controls do
+  begin
+    if (Trim(Control.TranslatedText) = '') or
+      IsParagraphLike(Control) or IsButtonLike(Control) or
+      not Control.HasSize then
+      Continue;
+    if WrappedLineCount(Control, Control.PlannedWidth) <= 1 then
+    begin
+      Control.PlannedWordWrap := False;
+      if Control.Height <= Max(24, EffectiveFontOf(Control) * 2.2) then
+        Control.PlannedHeight := Control.Height;
+    end;
+  end;
+
+  { In a left-to-right form, captions immediately preceding input fields
+    share the field edge as their visual margin.  Aligning their text to that
+    trailing edge keeps short and long captions in the same column without
+    moving either designer control.  RTL forms are mirrored by the runtime
+    and retain their direction-aware alignment rules. }
+  if not IsRightToLeft(AReview) then
+    for Control in AReview.Controls do
+    begin
+      if (Trim(Control.TranslatedText) = '') or not Control.HasPosition or
+        not Control.HasSize or (FieldImmediatelyToRight(Control) = nil) then
+        Continue;
+      if SameText(TextAlignPropertyName(Control), 'Alignment') then
+        Control.PlannedHorzAlign := 'taRightJustify'
+      else
+        Control.PlannedHorzAlign := 'Trailing';
+    end;
+
   { Phase 4 - emit proposals from the settled geometry. Because every value
     comes from the same resolved model, the exported rules agree with one
     another instead of describing conflicting placements. }
@@ -5229,7 +5264,10 @@ begin
     if Control.PlannedHorzAlign <> '' then
       AddProposal(AReview, Control, TextAlignPropertyName(Control),
         Trim(Control.HorzAlign), Control.PlannedHorzAlign,
-        'The caption is centred over the field it names.');
+        IfThen(MatchText(Control.PlannedHorzAlign,
+          ['Center', 'TTextAlign.Center', 'taCenter']),
+          'The caption is centred over the field it names.',
+          'The caption shares the trailing margin of the field it names.'));
 
     { The parts of a mirror that are constants rather than coordinates. Each
       is stated only when it actually changes, so a centred caption and a

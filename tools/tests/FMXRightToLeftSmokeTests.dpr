@@ -79,6 +79,9 @@ const
     '{"formName":"frmRtl","componentName":"lblName",' +
     '"propertyName":"Position.X","originalValue":"16",' +
     '"translatedValue":"304","sourceChecksum":"t"},' +
+    '{"formName":"frmRtl","componentName":"lblHeading",' +
+    '"propertyName":"Width","originalValue":"120",' +
+    '"translatedValue":"200","sourceChecksum":"t"},' +
     '{"formName":"frmRtl","componentName":"lblName",' +
     '"propertyName":"TextSettings.HorzAlign","originalValue":"Leading",' +
     '"translatedValue":"Trailing","sourceChecksum":"t"},' +
@@ -101,6 +104,7 @@ var
   Form: TForm;
   EmailBox: TEdit;
   Name_: TLabel;
+  Heading: TLabel;
   Box: TEdit;
   Grid: TGrid;
   GridColumn: TStringColumn;
@@ -128,6 +132,14 @@ begin
       Name_.SetBounds(16, 20, 80, 20);
       Name_.Text := 'Name';
       Name_.TextSettings.HorzAlign := TTextAlign.Leading;
+
+      Heading := TLabel.Create(Form);
+      Heading.Parent := Form;
+      Heading.Name := 'lblHeading';
+      Heading.SetBounds(40, 92, 120, 30);
+      Heading.TextSettings.HorzAlign := TTextAlign.Center;
+      Heading.TextSettings.Font.Size := 20;
+      Heading.Text := 'Large heading';
 
       Box := TEdit.Create(Form);
       Box.Parent := Form;
@@ -179,6 +191,9 @@ begin
         'A framework-placed layout is mirrored by its edge.');
       Check(Abs(CenteredLayout.Position.X - 150) < 1,
         'A container centred by the application remains centred after RTL layout.');
+      Check((Abs(Heading.Position.X - 100) < 1) and
+        (Abs(Heading.Width - 200) < 1),
+        'A large centred heading is centred after its translated width changes.');
       Check(Name_.TextSettings.HorzAlign = TTextAlign.Trailing,
         'The text sits against the opposite edge.');
       Check(Box.TextSettings.HorzAlign = TTextAlign.Trailing,
