@@ -29,6 +29,9 @@ const
     '"sourceLanguage":"en-US","sourceCatalogChecksum":"t",' +
     '"language":{"code":"de-DE","nativeName":"Deutsch","direction":"ltr"},' +
     '"locale":{},"strings":{},' +
+    { Compatibility with early keyed integration packs. The VCL companion
+      test covers the canonical source-text -> translated-text form emitted
+      by current exports. }
     '"sourceTemplates":{"App.Runtime.Uptime.1":' +
     '"Uptime: %d years %d months"},' +
     '"templates":{"App.Runtime.Uptime.1":' +

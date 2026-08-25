@@ -512,6 +512,8 @@ var
 
   procedure Walk(const AObject: TFmxObject);
   var
+    ColumnIndex: Integer;
+    Grid: TCustomGrid;
     Index: Integer;
     Settings: TTextSettings;
     Desired: TTextAlign;
@@ -537,8 +539,32 @@ var
         end;
       end;
     end;
-    for Index := 0 to AObject.ChildrenCount - 1 do
-      Walk(AObject.Children[Index]);
+    { A grid creates its cell editor only when editing begins, after this walk
+      has completed. The editor copies its reading alignment from the active
+      column, so set the column rather than trying to find a transient editor
+      that does not exist yet. This is the FireMonkey equivalent of giving a
+      VCL TCustomGrid the full input BiDiMode. }
+    if AObject is TCustomGrid then
+    begin
+      Grid := TCustomGrid(AObject);
+      if ARightToLeft then
+        Desired := TTextAlign.Trailing
+      else
+        Desired := TTextAlign.Leading;
+      for ColumnIndex := 0 to Grid.ColumnCount - 1 do
+        if Grid.Columns[ColumnIndex].HorzAlign <> Desired then
+        begin
+          Grid.Columns[ColumnIndex].HorzAlign := Desired;
+          Inc(Applied);
+        end;
+    end;
+    { Designer controls belong to the form/component ownership tree. Their
+      visual Parent/Children tree is independent and may not include them at
+      this point in form creation, so walking Children can miss every edit and
+      grid while still making the layout look mirrored. }
+    for Index := 0 to AObject.ComponentCount - 1 do
+      if AObject.Components[Index] is TFmxObject then
+        Walk(TFmxObject(AObject.Components[Index]));
   end;
 
 begin
@@ -2224,11 +2250,6 @@ begin
     means - it has a framework flag to work around, and this does not. }
   FMXApplyMenuOrder(AForm, FormIdentity,
     SameText(Trim(APack.TextDirection), 'rtl'));
-  { Where the caret starts, which is the reader's property rather than the
-    layout's. VCL reaches this through BiDiMode; FireMonkey has none, so it
-    is reached through the field's own alignment. }
-  FMXApplyInputReadingOrder(AForm,
-    SameText(Trim(APack.TextDirection), 'rtl'));
   if APreserveControlState then
     SavedFocusedControl := AForm.Focused;
 
@@ -2250,6 +2271,13 @@ begin
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
     { Last, because it reads the widths every pass above settled. }
     RecentreSelfPlacedText(AForm, FormIdentity);
+    { Where the caret starts, which is the reader's property rather than the
+      layout's. VCL reaches this through BiDiMode; FireMonkey has none, so it
+      is reached through the field or grid column alignment. It must follow
+      layout application because a pack can also carry the designed alignment
+      and would otherwise overwrite the active language's input direction. }
+    Inc(Result, FMXApplyInputReadingOrder(AForm,
+      SameText(Trim(APack.TextDirection), 'rtl')));
   finally
     VisitedComponents.Free;
     if APreserveControlState and (SavedFocusedControl <> nil) then

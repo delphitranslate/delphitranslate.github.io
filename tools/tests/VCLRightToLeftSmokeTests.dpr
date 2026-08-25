@@ -371,6 +371,8 @@ begin
         the box from where the reader is looking. }
       Check(Box.BiDiMode = bdRightToLeft,
         'A field takes the full right-to-left, so typing begins at the right.');
+      Check(Grid.BiDiMode = bdRightToLeft,
+        'An editable grid gives its future in-place editor full right-to-left input order.');
       Check(EmailBox.BiDiMode = bdLeftToRight,
         'An email address keeps its technical left-to-right ordering inside the RTL form.');
       Check(Number.BiDiMode = bdLeftToRight,
@@ -533,6 +535,8 @@ begin
       Check(Box.Anchors = [akLeft, akTop], 'And the anchors.');
       Check(Form.BiDiMode = bdLeftToRight,
         'Reading order returns to left-to-right.');
+      Check(Grid.BiDiMode = bdLeftToRight,
+        'The grid input order returns to left-to-right with the source language.');
       { The one the screenshots caught: switching from Arabic to Italian left
         the menus still opening right to left, and only a restart cleared it. }
       Check(Menu.BiDiMode = bdLeftToRight,

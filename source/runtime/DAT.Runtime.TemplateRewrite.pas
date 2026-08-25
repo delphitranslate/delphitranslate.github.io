@@ -281,6 +281,7 @@ class function TDATTemplateRewriter.Rewrite(const AText: string;
   const APack: TRuntimeLanguagePack; out ARewritten: string): Boolean;
 var
   Pair: TPair<string, string>;
+  SourceTemplate: string;
   Translated: string;
 begin
   Result := False;
@@ -288,11 +289,21 @@ begin
     Exit;
   for Pair in APack.SourceTemplates do
   begin
-    if not APack.Templates.TryGetValue(Pair.Key, Translated) then
+    { Current packs store sourceTemplates as source text -> translated text.
+      Early integration packs stored stable key -> source text and kept the
+      translation under that key in templates. Accept both forms so a pack
+      already deployed by a developer remains usable while newly exported
+      packs follow the canonical runtime-pack contract. }
+    if APack.Templates.TryGetValue(Pair.Key, Translated) then
+      SourceTemplate := Pair.Value
+    else
+    begin
+      SourceTemplate := Pair.Key;
+      Translated := Pair.Value;
+    end;
+    if Translated = SourceTemplate then
       Continue;
-    if Translated = Pair.Value then
-      Continue;
-    if RewriteWith(AText, Pair.Value, Translated, ARewritten) then
+    if RewriteWith(AText, SourceTemplate, Translated, ARewritten) then
       Exit(True);
   end;
 end;

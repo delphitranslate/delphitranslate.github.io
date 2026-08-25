@@ -96,18 +96,28 @@ begin
         'without waiting for the language to be reapplied from scratch, ' +
         'and the new song name it wrote survives translation.');
 
+      { Indentation in application code is not visible content. Carillon's
+        first panel deliberately begins with one space, while the scanner's
+        source prefix is trimmed. The space must survive without blocking the
+        translation. }
+      Bar.Panels[0].Text := ' Last Song Played: indented.mp3';
+      TVCLTranslationApplicator.ApplyCollectionTextRules(Form,
+        'frmStatusTest', Pack);
+      Require(Bar.Panels[0].Text = ' Zuletzt gespielt: indented.mp3',
+        'Leading status whitespace is preserved and does not block translation.');
+
       { Switching translated language to translated language must pass through
         the source template. Otherwise the Arabic pack sees German, cannot
         match its English source, and the old language remains on screen. }
       TVCLTranslationApplicator.RestoreSourceLanguage(Form, Pack,
         'frmStatusTest');
-      Require(Bar.Panels[0].Text = 'Last Song Played: other.mp3',
+      Require(Bar.Panels[0].Text = ' Last Song Played: indented.mp3',
         'Leaving German restores the source prefix and keeps the filename.');
       NextPack := ArabicPack;
       try
         TVCLTranslationApplicator.ApplyToForm(Form, NextPack,
           'frmStatusTest', False);
-        Require(Bar.Panels[0].Text = 'Arabic last played: other.mp3',
+        Require(Bar.Panels[0].Text = ' Arabic last played: indented.mp3',
           'The next translated language replaces the previous one immediately.');
       finally
         NextPack.Free;

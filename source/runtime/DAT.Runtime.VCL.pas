@@ -125,6 +125,7 @@ uses
   System.StrUtils,
   System.TypInfo,
   Vcl.Graphics,
+  Vcl.Grids,
   Vcl.StdCtrls,
   Vcl.ExtCtrls,
   DAT.Runtime.TemplateRewrite;
@@ -650,6 +651,7 @@ var
   BracketAt: Integer;
   ComponentName: string;
   ComponentIndex: Integer;
+  CurrentStart: Integer;
   CurrentText: string;
   DotAt: Integer;
   FormIdentity: string;
@@ -660,6 +662,7 @@ var
   Rest: string;
   RestoredText: string;
   StringPair: TPair<string, string>;
+  TemplateStart: Integer;
   Target: TComponent;
   TranslatedTemplate: string;
 
@@ -721,10 +724,25 @@ begin
     if RestoredText <> CurrentText then
       { An exact keyed collection translation, found independently of the
         column's current numeric position. }
-    else if APack.Templates.TryGetValue(Pair.Key, TranslatedTemplate) and
-      StartsText(TranslatedTemplate, CurrentText) then
-      RestoredText := Pair.Value +
-        Copy(CurrentText, Length(TranslatedTemplate) + 1, MaxInt)
+    else if APack.Templates.TryGetValue(Pair.Key, TranslatedTemplate) then
+    begin
+      CurrentStart := 1;
+      while (CurrentStart <= Length(CurrentText)) and
+        CharInSet(CurrentText[CurrentStart], [#9, #10, #13, ' ']) do
+        Inc(CurrentStart);
+      TemplateStart := 1;
+      while (TemplateStart <= Length(TranslatedTemplate)) and
+        CharInSet(TranslatedTemplate[TemplateStart], [#9, #10, #13, ' ']) do
+        Inc(TemplateStart);
+      TranslatedTemplate := Copy(TranslatedTemplate, TemplateStart,
+        Length(TranslatedTemplate));
+      if (TranslatedTemplate <> '') and StartsText(TranslatedTemplate,
+        Copy(CurrentText, CurrentStart, Length(CurrentText))) then
+        RestoredText := Copy(CurrentText, 1, CurrentStart - 1) + Pair.Value +
+          Copy(CurrentText, CurrentStart + Length(TranslatedTemplate), MaxInt)
+      else if not APack.TryRestoreDynamicText(CurrentText, RestoredText) then
+        Continue;
+    end
     else if not APack.TryRestoreDynamicText(CurrentText, RestoredText) then
       Continue;
     if RestoredText = CurrentText then
@@ -1216,10 +1234,10 @@ class function TVCLTranslationApplicator.ApplyCollectionTextRules(
   const AForm: TCustomForm; const AFormIdentity: string;
   const APack: TRuntimeLanguagePack): Integer;
 var
+  CurrentStart: Integer;
   Prefix: string;
   Pair: TPair<string, string>;
-  Rest: string;
-  DotAt, BracketAt: Integer;
+  SourceStart: Integer;
   ComponentName, PropertyPath: string;
   Target: TComponent;
   CurrentText, RewrittenText, SourceTemplate: string;
@@ -1299,10 +1317,25 @@ begin
       Continue;
     if not APack.Sources.TryGetValue(Pair.Key, SourceTemplate) then
       Continue;
-    if (SourceTemplate = '') or not StartsText(SourceTemplate, CurrentText) then
+    { A harmless indentation space in application code must not prevent a
+      recognised status prefix from being translated. Preserve the exact
+      leading whitespace the application supplied and compare the visible
+      prefix that follows it. }
+    CurrentStart := 1;
+    while (CurrentStart <= Length(CurrentText)) and
+      CharInSet(CurrentText[CurrentStart], [#9, #10, #13, ' ']) do
+      Inc(CurrentStart);
+    SourceStart := 1;
+    while (SourceStart <= Length(SourceTemplate)) and
+      CharInSet(SourceTemplate[SourceStart], [#9, #10, #13, ' ']) do
+      Inc(SourceStart);
+    SourceTemplate := Copy(SourceTemplate, SourceStart, Length(SourceTemplate));
+    if (SourceTemplate = '') or not StartsText(SourceTemplate,
+      Copy(CurrentText, CurrentStart, Length(CurrentText))) then
       Continue;
-    RewrittenText := Pair.Value +
-      Copy(CurrentText, Length(SourceTemplate) + 1, Length(CurrentText));
+    RewrittenText := Copy(CurrentText, 1, CurrentStart - 1) + Pair.Value +
+      Copy(CurrentText, CurrentStart + Length(SourceTemplate),
+        Length(CurrentText));
     if RewrittenText = CurrentText then
       Continue;
     if TrySetCollectionProperty(Target, PropertyPath, RewrittenText) then
@@ -1939,7 +1972,7 @@ end;
 function IsInputControl(const AControl: TControl): Boolean;
 begin
   Result := (AControl is TCustomEdit) or (AControl is TCustomComboBox) or
-    (AControl is TCustomListBox);
+    (AControl is TCustomListBox) or (AControl is TCustomGrid);
 end;
 
 function InputRequiresLeftToRight(const AControl: TControl): Boolean;

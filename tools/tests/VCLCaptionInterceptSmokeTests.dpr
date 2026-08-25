@@ -39,8 +39,8 @@ const
     '"sourceLanguage":"en-US","sourceCatalogChecksum":"t",' +
     '"language":{"code":"de-DE","nativeName":"Deutsch","direction":"ltr"},' +
     '"locale":{},"strings":{},' +
-    '"sourceTemplates":{"App.Runtime.Uptime.1":' +
-    '"Uptime: %d years %d months"},' +
+    '"sourceTemplates":{"Uptime: %d years %d months":' +
+    '"Betriebszeit: %d Jahre %d Monate"},' +
     '"templates":{"App.Runtime.Uptime.1":' +
     '"Betriebszeit: %d Jahre %d Monate"},' +
     '"sources":{},"layout":[]}';

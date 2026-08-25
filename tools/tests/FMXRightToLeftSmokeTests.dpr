@@ -24,6 +24,7 @@ uses
   FMX.StdCtrls,
   FMX.Layouts,
   FMX.Edit,
+  FMX.Grid,
   FMX.Types,
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Runtime.FMX in '..\..\source\runtime\DAT.Runtime.FMX.pas';
@@ -101,6 +102,8 @@ var
   EmailBox: TEdit;
   Name_: TLabel;
   Box: TEdit;
+  Grid: TGrid;
+  GridColumn: TStringColumn;
   Nav: TLayout;
   CenteredLayout: TLayout;
   Pack: TRuntimeLanguagePack;
@@ -142,6 +145,13 @@ begin
       CenteredLayout.Name := 'lytCentered';
       CenteredLayout.SetBounds(150, 84, 100, 28);
 
+      Grid := TGrid.Create(Form);
+      Grid.Parent := Form;
+      Grid.Name := 'grdData';
+      Grid.SetBounds(16, 130, 300, 80);
+      GridColumn := TStringColumn.Create(Grid);
+      GridColumn.Parent := Grid;
+
       Pack := HebrewPack;
       try
         TFMXTranslationApplicator.ApplyToForm(Form, Pack, 'frmRtl', True);
@@ -153,6 +163,8 @@ begin
       Writeln(Format('        label  X=%.0f  HorzAlign=%d',
         [Name_.Position.X, Ord(Name_.TextSettings.HorzAlign)]));
       Writeln(Format('        edit   X=%.0f', [Box.Position.X]));
+      Writeln(Format('        grid   columns=%d  HorzAlign=%d',
+        [Grid.ColumnCount, Ord(GridColumn.HorzAlign)]));
       Writeln(Format('        layout Align=%d (Left=%d, Right=%d)',
         [Ord(Nav.Align), Ord(TAlignLayout.Left), Ord(TAlignLayout.Right)]));
       Writeln;
@@ -169,8 +181,12 @@ begin
         'A container centred by the application remains centred after RTL layout.');
       Check(Name_.TextSettings.HorzAlign = TTextAlign.Trailing,
         'The text sits against the opposite edge.');
+      Check(Box.TextSettings.HorzAlign = TTextAlign.Trailing,
+        'A FireMonkey edit starts input at the right-hand reading edge.');
       Check(EmailBox.TextSettings.HorzAlign = TTextAlign.Leading,
         'An email address keeps its technical left-to-right ordering inside the RTL form.');
+      Check(GridColumn.HorzAlign = TTextAlign.Trailing,
+        'A future FireMonkey grid editor copies right-to-left alignment from its column.');
       Check(not (TStyledSetting.Other in Name_.StyledSettings),
         'and the style has given up its claim on it, so it survives a repaint.');
 
@@ -200,6 +216,8 @@ begin
         'The layout returns to its designed edge.');
       Check(Name_.TextSettings.HorzAlign = TTextAlign.Leading,
         'And the text to the edge it was drawn against.');
+      Check(GridColumn.HorzAlign = TTextAlign.Leading,
+        'The FireMonkey grid column returns to source-language input alignment.');
     finally
       Form.Free;
     end;
