@@ -1678,65 +1678,6 @@ end;
   BiDiMode does not move child controls in any mode - also measured - so this
   neither duplicates nor fights the mirrored coordinates in the pack. }
 
-{ The menu bar reads in the language's direction.
-
-  Three things were tried before this one, and the first two are worth
-  recording because they look right and are not:
-
-    - TMenu.BiDiMode. Follows the form, reports right-to-left, changes
-      nothing on screen. VCL's only mirroring path, DoBiDiModeChanged,
-      gives up when the machine is not Middle Eastern or the window handle
-      is not yet made.
-
-    - MFT_RIGHTORDER or MFT_RIGHTJUSTIFY on item zero, which is what VCL
-      itself sets. These decide which way submenus cascade and push the bar
-      against the right edge. Neither reverses the order of the top-level
-      items, so File stays leftmost and the bar merely moves. A probe with
-      four items read back File Schedule Settings Help both before and
-      after applying an Arabic pack - the flag was set and nothing had
-      moved. That is exactly what a tester sees and calls "unchanged".
-
-  The order only truly reverses under WS_EX_LAYOUTRTL, and VCL never sets
-  it - deliberately, because it mirrors every child window too and this
-  applicator already computes mirrored positions itself. Turning it on
-  would mirror everything twice.
-
-  So the order is reversed here, the same way grid columns already are:
-  explicitly, in the collection, rather than by asking the framework to
-  present the same order differently. Delete unlinks a TMenuItem without
-  freeing it, so walking the bar backwards and re-adding each item leaves
-  the same objects in the opposite order, with their captions, shortcuts
-  and handlers intact.
-
-  Reversal is its own inverse, so the registry records which forms are
-  currently reversed. Without it, applying Arabic twice would reverse the
-  bar back to English order, and returning to English would leave it
-  reversed - both of which are worse than never mirroring at all. }
-function ReverseMenuBar(const AMenu: TMenu): Boolean;
-var
-  Items: TList<TMenuItem>;
-  Item: TMenuItem;
-  Index: Integer;
-begin
-  Result := False;
-  if (AMenu = nil) or (AMenu.Items = nil) or (AMenu.Items.Count < 2) then
-    Exit;
-  Items := TList<TMenuItem>.Create;
-  try
-    for Index := AMenu.Items.Count - 1 downto 0 do
-    begin
-      Item := AMenu.Items[Index];
-      AMenu.Items.Delete(Index);
-      Items.Add(Item);
-    end;
-    for Item in Items do
-      AMenu.Items.Add(Item);
-  finally
-    Items.Free;
-  end;
-  Result := True;
-end;
-
 { The cascade direction of submenus, which is a separate question from the
   order of the bar and is what the flag genuinely controls. }
 procedure ApplyMenuCascadeDirection(const AForm: TCustomForm;

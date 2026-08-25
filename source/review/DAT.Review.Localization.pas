@@ -1814,60 +1814,6 @@ var
       (Length(Trim(AControl.TranslatedText)) >= ParagraphTextLength);
   end;
 
-  { True when a control that is not a caption sits just under this one, close
-    enough that the two read as a labelled field. }
-  function HasFieldDirectlyBelow(const AControl: TLayoutControl): Boolean;
-  const
-    CloseEnough = 30;
-  var
-    Candidate: TLayoutControl;
-    Gap: Double;
-  begin
-    Result := False;
-    for Candidate in AReview.Controls do
-    begin
-      if (Candidate = AControl) or not Candidate.HasPosition or
-        not Candidate.HasSize or IsVisualContainer(Candidate) then
-        Continue;
-      if not SameText(Candidate.FormName, AControl.FormName) or
-        not SameText(Candidate.ParentName, AControl.ParentName) then
-        Continue;
-      if (Candidate.Left >= AControl.Left + AControl.Width) or
-         (Candidate.Left + Candidate.Width <= AControl.Left) then
-        Continue;
-      Gap := Candidate.Top - (AControl.Top + AControl.Height);
-      if (Gap > -AControl.Height) and (Gap < CloseEnough) then
-        Exit(True);
-    end;
-  end;
-
-  { The lowest edge anything above this control reaches, which is as far up as
-    it may grow. }
-  function RoomAbove(const AControl: TLayoutControl): Double;
-  var
-    Candidate: TLayoutControl;
-  begin
-    Result := 0;
-    for Candidate in AReview.Controls do
-    begin
-      { Everything above counts here, frames and grids included: growing a
-        caption up into a panel is no better than growing it down into a
-        field. }
-      if (Candidate = AControl) or not Candidate.HasPosition or
-        not Candidate.HasSize then
-        Continue;
-      if not SameText(Candidate.FormName, AControl.FormName) or
-        not SameText(Candidate.ParentName, AControl.ParentName) then
-        Continue;
-      if (Candidate.Left >= AControl.Left + AControl.Width) or
-         (Candidate.Left + Candidate.Width <= AControl.Left) then
-        Continue;
-      if Candidate.Top + Candidate.Height > AControl.Top then
-        Continue;
-      Result := Max(Result, Candidate.Top + Candidate.Height + ControlGap);
-    end;
-  end;
-
   { True when this control's planned box lands on a neighbour it was not drawn
     on top of. Controls the designer deliberately overlapped stay overlapped;
     only a collision this planning would have created is one to answer for. }
