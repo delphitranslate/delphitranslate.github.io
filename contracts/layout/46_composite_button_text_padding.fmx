@@ -1,0 +1,27 @@
+object ContractForm: TContractForm
+  Caption = 'Contract Form'
+  ClientHeight = 240
+  ClientWidth = 620
+  object navBar: TLayout
+    Align = Top
+    Size.Width = 620.000000000000000000
+    Size.Height = 60.000000000000000000
+    Size.PlatformDefault = False
+    object navPropertyMap: TRectangle
+      Align = Left
+      Size.Width = 144.000000000000000000
+      Size.Height = 48.000000000000000000
+      Size.PlatformDefault = False
+      object lblPropertyMap: TLabel
+        Align = Client
+        Size.Width = 144.000000000000000000
+        Size.Height = 48.000000000000000000
+        Size.PlatformDefault = False
+        StyledSettings = []
+        TextSettings.Font.Size = 13.000000000000000000
+        TextSettings.HorzAlign = Center
+        Text = 'Property Mapping'
+      end
+    end
+  end
+end

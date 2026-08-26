@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "FireMonkey",
+  "sourceLanguage": "en-US",
+  "locale": {"languageCode": "de-DE", "nativeLanguageName": "Deutsch", "textDirection": "ltr"},
+  "entries": [
+    {"key":"ContractForm.lblPropertyMap.Text","sourceText":"Property Mapping","translatedText":"Eigenschaftszuordnung","formName":"ContractForm","componentName":"lblPropertyMap","componentClassName":"TLabel","propertyName":"Text","sourceFileName":"{FIXTUREDIR}\\46_composite_button_text_padding.fmx","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"}
+  ]
+}

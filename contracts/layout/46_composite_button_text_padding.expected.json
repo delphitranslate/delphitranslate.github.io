@@ -1,0 +1,8 @@
+{
+  "description": "A client-aligned FMX label used as the face of a visual button keeps button padding, and its rectangle grows with it.",
+  "catalog_file": "46_composite_button_text_padding.catalog.json",
+  "controls": [
+    {"form":"ContractForm","name":"navPropertyMap","planned_width_at_least":155},
+    {"form":"ContractForm","name":"lblPropertyMap","planned_width_at_least":155,"text_fits":true}
+  ]
+}

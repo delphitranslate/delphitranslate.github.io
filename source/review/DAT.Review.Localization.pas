@@ -5242,6 +5242,44 @@ begin
         Control.PlannedWidth;
     end;
 
+  { A visual button is sometimes drawn as a rectangle or panel with one label
+    aligned over its entire client area.  The label is the translated control,
+    but the parent is the actual clickable surface.  Widening only the label
+    lets its text extend beyond that surface and leaves the caption pressed
+    against the visible ends.  Treat this common VCL/FMX composition as one
+    control: keep button clearance around the caption and grow the surface and
+    its client label together. }
+  for Control in AReview.Controls do
+  begin
+    if (Trim(Control.TranslatedText) = '') or not Control.HasSize or
+      not ContainsText(Control.ComponentClassName, 'Label') or
+      not ContainsText(Control.Align, 'Client') or
+      not MatchText(Trim(Control.HorzAlign),
+        ['Center', 'TTextAlign.Center', 'taCenter']) then
+      Continue;
+    Leader := ParentContainerOf(Control);
+    if (Leader = nil) or not Leader.HasSize or
+      not (ContainsText(Leader.ComponentClassName, 'Rectangle') or
+        ContainsText(Leader.ComponentClassName, 'Panel')) then
+      Continue;
+    SettleGuard := 0;
+    for Other in AReview.Controls do
+      if (Other <> Control) and
+        SameText(Other.FormName, Control.FormName) and
+        SameText(Other.ParentName, Leader.ComponentName) and
+        ContainsText(Other.ComponentClassName, 'Label') and
+        ((Trim(Other.SourceText) <> '') or
+         (Trim(Other.TranslatedText) <> '')) then
+        Inc(SettleGuard);
+    if SettleGuard <> 0 then
+      Continue;
+    RequiredWidth := MeasuredTextWidth(Control, Control.TranslatedText) +
+      2 * ButtonPaddingHorizontal;
+    if RequiredWidth > Leader.PlannedWidth then
+      Leader.PlannedWidth := RequiredWidth;
+    Control.PlannedWidth := Leader.PlannedWidth;
+  end;
+
   { Phase 4 - emit proposals from the settled geometry. Because every value
     comes from the same resolved model, the exported rules agree with one
     another instead of describing conflicting placements. }

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 3,
+  "applicationId": "LayoutContract",
+  "framework": "VCL",
+  "sourceLanguage": "en-US",
+  "locale": {"languageCode": "de-DE", "nativeLanguageName": "Deutsch", "textDirection": "ltr"},
+  "entries": [
+    {"key":"ContractForm.lblPropertyMap.Caption","sourceText":"Property Mapping","translatedText":"Eigenschaftszuordnung","formName":"ContractForm","componentName":"lblPropertyMap","componentClassName":"TLabel","propertyName":"Caption","sourceFileName":"{FIXTUREDIR}\\vcl_46_composite_button_text_padding.dfm","sourceKind":"Form property","contextKind":"interface text","textOwnership":"designerAutomatic","status":"machineTranslated"}
+  ]
+}

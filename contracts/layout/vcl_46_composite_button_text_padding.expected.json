@@ -1,0 +1,8 @@
+{
+  "description": "The VCL twin of the composite-button contract: a client-aligned label and its visual panel grow together with button padding.",
+  "catalog_file": "vcl_46_composite_button_text_padding.catalog.json",
+  "controls": [
+    {"form":"ContractForm","name":"navPropertyMap","planned_width_at_least":160},
+    {"form":"ContractForm","name":"lblPropertyMap","planned_width_at_least":160,"text_fits":true}
+  ]
+}
