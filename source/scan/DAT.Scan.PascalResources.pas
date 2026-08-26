@@ -421,6 +421,78 @@ begin
   Result := APhrase <> '';
 end;
 
+function ArgumentAt(const AExpression: string; const AWantedIndex: Integer;
+  out AArgument: string): Boolean;
+var
+  ArgumentIndex: Integer;
+  ArgumentStart: Integer;
+  Depth: Integer;
+  InString: Boolean;
+  Index: Integer;
+begin
+  Result := False;
+  AArgument := '';
+  if AWantedIndex < 0 then
+    Exit;
+  ArgumentIndex := 0;
+  ArgumentStart := 1;
+  Depth := 0;
+  InString := False;
+  Index := 1;
+  while Index <= Length(AExpression) do
+  begin
+    if AExpression[Index] = '''' then
+    begin
+      if InString and (Index < Length(AExpression)) and
+        (AExpression[Index + 1] = '''') then
+        Inc(Index, 2)
+      else
+      begin
+        InString := not InString;
+        Inc(Index);
+      end;
+      Continue;
+    end;
+    if not InString then
+      case AExpression[Index] of
+        '(', '[': Inc(Depth);
+        ')', ']':
+          if Depth > 0 then
+            Dec(Depth)
+          else
+          begin
+            if ArgumentIndex = AWantedIndex then
+            begin
+              AArgument := Trim(Copy(AExpression, ArgumentStart,
+                Index - ArgumentStart));
+              Result := AArgument <> '';
+            end;
+            Exit;
+          end;
+        ',':
+          if Depth = 0 then
+          begin
+            if ArgumentIndex = AWantedIndex then
+            begin
+              AArgument := Trim(Copy(AExpression, ArgumentStart,
+                Index - ArgumentStart));
+              Exit(AArgument <> '');
+            end;
+            Inc(ArgumentIndex);
+            ArgumentStart := Index + 1;
+          end;
+      end;
+    Inc(Index);
+  end;
+  if ArgumentIndex = AWantedIndex then
+  begin
+    AArgument := Trim(Copy(AExpression, ArgumentStart, MaxInt));
+    if EndsText(';', AArgument) then
+      Delete(AArgument, Length(AArgument), 1);
+    Result := AArgument <> '';
+  end;
+end;
+
 function IsSemanticTextVariable(const ALeftSide: string): Boolean;
 var
   Name: string;
@@ -605,6 +677,70 @@ begin
     Phrase, AStatement.SourceLine, rtrRuntimeTemplate);
 end;
 
+procedure AddExplicitTranslationItem(const AResult: TProjectScanResult;
+  const AFileName, AUnitName, AKey, ASourceText: string;
+  const ASourceLine: Integer);
+var
+  ScanItem: TScanItem;
+begin
+  if (Trim(AKey) = '') or (Trim(ASourceText) = '') then
+    Exit;
+  ScanItem := TScanItem.Create;
+  ScanItem.Key := AKey;
+  ScanItem.SourceText := ASourceText;
+  ScanItem.ComponentName := 'GeneratedContent';
+  ScanItem.ComponentClassName := 'TGeneratedDocument';
+  ScanItem.PropertyName := 'GeneratedText';
+  ScanItem.SourceFileName := AFileName;
+  ScanItem.SourceLine := ASourceLine;
+  ScanItem.CollectionIndex := -1;
+  ScanItem.Framework := tfUnknown;
+  ScanItem.Kind := stkRuntimeAssignment;
+  ScanItem.RuntimeTextRole := rtrRuntimeTemplate;
+  TScanContextAnalyzer.Analyze(ScanItem);
+  TScanQualityAnalyzer.Analyze(ScanItem);
+  AResult.Items.Add(ScanItem);
+end;
+
+function ScanExplicitTranslationCall(const AStatement: TRuntimeStatement;
+  const AResult: TProjectScanResult; const AFileName, AUnitName,
+  ACallName: string): Boolean;
+var
+  CallAt: Integer;
+  FallbackExpression: string;
+  FallbackText: string;
+  KeyExpression: string;
+  KeyText: string;
+  LowerStatement: string;
+  SearchFrom: Integer;
+begin
+  Result := False;
+  LowerStatement := LowerCase(AStatement.Text);
+  SearchFrom := 1;
+  while SearchFrom <= Length(LowerStatement) do
+  begin
+    CallAt := PosEx(LowerCase(ACallName + '('), LowerStatement, SearchFrom);
+    if CallAt = 0 then
+      Exit;
+    SearchFrom := CallAt + Length(ACallName) + 1;
+    if (CallAt > 1) and
+      CharInSet(LowerStatement[CallAt - 1], ['A'..'Z', 'a'..'z',
+        '0'..'9', '_']) then
+      Continue;
+    if ArgumentAt(Copy(AStatement.Text, SearchFrom, MaxInt), 0,
+      KeyExpression) and
+      ArgumentAt(Copy(AStatement.Text, SearchFrom, MaxInt), 1,
+      FallbackExpression) and
+      TryDecodeDelphiStringExpression(KeyExpression, KeyText) and
+      TryDecodeDelphiStringExpression(FallbackExpression, FallbackText) then
+    begin
+      AddExplicitTranslationItem(AResult, AFileName, AUnitName, KeyText,
+        FallbackText, AStatement.SourceLine);
+      Result := True;
+    end;
+  end;
+end;
+
 { A formatted row added to a string list that is later shown as a dialog.
 
   Broad Items.Add scanning remains deliberately excluded: those calls usually
@@ -742,6 +878,20 @@ begin
   Result := True;
 end;
 
+function IsLowercaseIdentifier(const AText: string): Boolean;
+var
+  CharacterIndex: Integer;
+  Trimmed: string;
+begin
+  Trimmed := Trim(AText);
+  Result := Trimmed <> '';
+  if not Result then
+    Exit;
+  for CharacterIndex := 1 to Length(Trimmed) do
+    if not CharInSet(Trimmed[CharacterIndex], ['a'..'z', '0'..'9', '_']) then
+      Exit(False);
+end;
+
 { How many times this statement assigns to Result. }
 function CountReturnedAssignments(const ALowerStatement: string): Integer;
 var
@@ -840,7 +990,12 @@ begin
           if Stop <= Length(AStatement) then
           begin
             Literal := Copy(AStatement, Start + 1, Stop - Start - 1);
-            if IsLikelyUserFacingLiteral(Literal) then
+            { Lowercase identifiers returned by classifiers are technical
+              tokens (CSS classes, state codes, strategy names), not visible
+              captions. Generated-document display labels use explicit stable
+              translation keys instead. }
+            if IsLikelyUserFacingLiteral(Literal) and
+              not IsLowercaseIdentifier(Literal) then
             begin
               { The key is built from the left side and the line, and a
                 conditional puts several returned values on one statement,
@@ -955,7 +1110,36 @@ var
   StartAt: Integer;
   TextValue: string;
 begin
-  if not ContainsText(AStatement.Text, '<') or
+  { Delphi source generators legitimately contain comparison operators and
+    generic type syntax inside long string literals. Treating every angle
+    bracket as HTML once harvested whole generated Pascal procedures. Require
+    an actual user-facing HTML element before parsing text nodes. }
+  if not (ContainsText(AStatement.Text, '<html') or
+    ContainsText(AStatement.Text, '<head') or
+    ContainsText(AStatement.Text, '<body') or
+    ContainsText(AStatement.Text, '<title') or
+    ContainsText(AStatement.Text, '<meta') or
+    ContainsText(AStatement.Text, '<style') or
+    ContainsText(AStatement.Text, '<section') or
+    ContainsText(AStatement.Text, '<article') or
+    ContainsText(AStatement.Text, '<div') or
+    ContainsText(AStatement.Text, '<span') or
+    ContainsText(AStatement.Text, '<p') or
+    ContainsText(AStatement.Text, '<h1') or
+    ContainsText(AStatement.Text, '<h2') or
+    ContainsText(AStatement.Text, '<h3') or
+    ContainsText(AStatement.Text, '<table') or
+    ContainsText(AStatement.Text, '<thead') or
+    ContainsText(AStatement.Text, '<tbody') or
+    ContainsText(AStatement.Text, '<tr') or
+    ContainsText(AStatement.Text, '<th') or
+    ContainsText(AStatement.Text, '<td') or
+    ContainsText(AStatement.Text, '<ul') or
+    ContainsText(AStatement.Text, '<ol') or
+    ContainsText(AStatement.Text, '<li') or
+    ContainsText(AStatement.Text, '<a ') or
+    ContainsText(AStatement.Text, '<br') or
+    ContainsText(AStatement.Text, '<hr')) or
     not JoinAllLiterals(AStatement.Text, Decoded) then
     Exit;
   SegmentIndex := 0;
@@ -1213,6 +1397,7 @@ var
   AssignAt: Integer;
   Expression: string;
   FormatTemplate: string;
+  HasExplicitTranslation: Boolean;
   LeftSide: string;
   PropertyName: string;
   Statement: TRuntimeStatement;
@@ -1269,6 +1454,22 @@ begin
     end;
     for Statement in Statements do
     begin
+      HasExplicitTranslation := ScanExplicitTranslationCall(Statement,
+        AResult, AFileName, AUnitName, 'DATTranslateText');
+      if ScanExplicitTranslationCall(Statement, AResult, AFileName, AUnitName,
+        'TranslateText') then
+        HasExplicitTranslation := True;
+      if ScanExplicitTranslationCall(Statement, AResult, AFileName, AUnitName,
+        'DATFormatText') then
+        HasExplicitTranslation := True;
+      if ScanExplicitTranslationCall(Statement, AResult, AFileName, AUnitName,
+        'TranslateFormat') then
+        HasExplicitTranslation := True;
+      { A stable-key call owns every literal inside its statement. Running the
+        broad HTML/assignment scanners too creates synthetic keys from the key
+        and fallback joined together, then offers the same text twice. }
+      if HasExplicitTranslation then
+        Continue;
       ScanHtmlText(Statement, AResult, AFileName, AUnitName);
       ScanRuntimeCall(Statement, AResult, AFileName, AUnitName,
         'ShowMessage', 'DialogMessage');
@@ -1381,6 +1582,11 @@ begin
   try
     LoadDelphiTextFile(AFileName, Lines);
     UnitName := ReadUnitName(Lines, AFileName);
+    { DAT runtime/component units are infrastructure copied beside a target
+      project. Their language codes, directions and internal diagnostics are
+      not application content and must not enter the application's catalog. }
+    if StartsText('DAT.', UnitName) then
+      Exit;
     InResourceStrings := False;
     Statement := '';
     SourceLine := 0;

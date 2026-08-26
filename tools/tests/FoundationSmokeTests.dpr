@@ -582,10 +582,34 @@ begin
     AExpectedText);
 end;
 
+procedure RequireScannedKey(const AResult: TProjectScanResult;
+  const AExpectedKey, AExpectedText: string);
+var
+  Item: TScanItem;
+begin
+  for Item in AResult.Items do
+    if (Item.Key = AExpectedKey) and (Item.SourceText = AExpectedText) then
+      Exit;
+  raise Exception.CreateFmt('Expected explicit translation key was not found: %s',
+    [AExpectedKey]);
+end;
+
+procedure RejectSourceText(const AResult: TProjectScanResult;
+  const AUnexpectedText: string);
+var
+  Item: TScanItem;
+begin
+  for Item in AResult.Items do
+    if Item.SourceText = AUnexpectedText then
+      raise Exception.Create('Unexpected scanner source text was found: ' +
+        AUnexpectedText);
+end;
+
 procedure TestExtendedTextScanning;
 var
   FormFileName: string;
   PascalFileName: string;
+  RuntimeInfrastructureFileName: string;
   ScanItem: TScanItem;
   ScanResult: TProjectScanResult;
   TempDirectory: string;
@@ -595,6 +619,8 @@ begin
   TDirectory.CreateDirectory(TempDirectory);
   FormFileName := TPath.Combine(TempDirectory, 'RuntimeForm.fmx');
   PascalFileName := TPath.Combine(TempDirectory, 'RuntimeForm.pas');
+  RuntimeInfrastructureFileName := TPath.Combine(TempDirectory,
+    'DAT.Runtime.Sample.pas');
   TFile.WriteAllText(FormFileName,
     'object frmRuntime: TForm' + sLineBreak +
     '  object lblInstructions: TLabel' + sLineBreak +
@@ -618,12 +644,31 @@ begin
     '  Canvas.FillText(Rect, ''Owner drawn heading'', False, 1, [], Align);' + sLineBreak +
     '  EventColumn.Header := ''Eventoooooooooooooooo'';' + sLineBreak +
     '  Html.Add(''<thead><tr><th>Time</th><th>Type</th><th>Song/Purpose</th></tr></thead>'');' + sLineBreak +
+    '  DisplayText := DATTranslateText(''Report.Component.Title'',' + sLineBreak +
+    '    ''Component Mapping Reference'');' + sLineBreak +
+    '  DisplayText := DATFormatText(''Report.Component.Count'',' + sLineBreak +
+    '    ''%d discoverable components'', [7]);' + sLineBreak +
+    '  Html.Add(''<h1>'' + DATTranslateText(''Report.Html.Title'',' +
+      sLineBreak +
+    '    ''Generated report'') + ''</h1>'');' + sLineBreak +
+    '  if DisplayText = '''' then Result := ''direct'' else Result := ''other'';' +
+      sLineBreak +
     'end;' + sLineBreak +
+    'end.', TEncoding.UTF8);
+  TFile.WriteAllText(RuntimeInfrastructureFileName,
+    'unit DAT.Runtime.Sample;' + sLineBreak +
+    'interface' + sLineBreak +
+    'implementation' + sLineBreak +
+    'procedure Internal;' + sLineBreak +
+    'begin RuntimeLabel.Text := ''Infrastructure marker must not scan''; end;' +
+      sLineBreak +
     'end.', TEncoding.UTF8);
   ScanResult := TProjectScanResult.Create;
   try
     TTextFormScanner.ScanFile(FormFileName, tfFireMonkey, ScanResult);
     TPascalResourceStringScanner.ScanFile(PascalFileName, ScanResult);
+    TPascalResourceStringScanner.ScanFile(RuntimeInfrastructureFileName,
+      ScanResult);
     RequireSourceText(ScanResult,
       'Select a folder for each slot. Dates use month/day format, for example 04/27.',
       stkFormProperty);
@@ -660,6 +705,17 @@ begin
     RequireSourceText(ScanResult, 'Time', stkRuntimeAssignment);
     RequireSourceText(ScanResult, 'Type', stkRuntimeAssignment);
     RequireSourceText(ScanResult, 'Song/Purpose', stkRuntimeAssignment);
+    RequireScannedKey(ScanResult, 'Report.Component.Title',
+      'Component Mapping Reference');
+    RequireScannedKey(ScanResult, 'Report.Component.Count',
+      '%d discoverable components');
+    RequireScannedKey(ScanResult, 'Report.Html.Title', 'Generated report');
+    RejectSourceText(ScanResult,
+      'Report.Html.TitleGenerated report');
+    RejectSourceText(ScanResult, 'direct');
+    RejectSourceText(ScanResult, 'other');
+    RejectSourceText(ScanResult,
+      'Infrastructure marker must not scan');
     Require(not TranslationEntryEligibleForAutomaticTranslation(nil),
       'A nil entry was incorrectly eligible for automatic translation.');
   finally

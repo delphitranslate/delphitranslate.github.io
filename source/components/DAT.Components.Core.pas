@@ -9,6 +9,11 @@ uses
   DAT.Runtime.LanguagePack,
   DAT.Runtime.Manager;
 
+function DATTranslateText(const AKey, AFallbackText: string): string;
+function DATFormatText(const AKey, AFallbackText: string;
+  const AArgs: array of const): string;
+function DATActiveLanguageCode: string;
+function DATActiveTextDirection: string;
 function DATTranslateDynamicText(const ASourceText: string): string;
 function DATTranslateHtmlText(const AHtmlText: string): string;
 
@@ -61,6 +66,7 @@ type
     FFormIdentityMappings: TStringList;
     FFormIdentities: TDictionary<string, string>;
     FAppliedGenerations: TDictionary<TObject, Cardinal>;
+    FReportedMissingTranslations: TDictionary<string, string>;
     FRuntime: TTranslationRuntime;
     FGeneration: Cardinal;
     FInitialized: Boolean;
@@ -94,6 +100,7 @@ type
     function ResolveLanguagesDirectory: string;
     function ResolvePreferencePath: string;
     procedure AdvanceGeneration;
+    procedure ReportMissingTranslation(const AKey, AFallbackText: string);
     function GetActivePack: TRuntimeLanguagePack;
     function IsExcluded(const AManagedObject: TObject;
       const AIdentity, AInstanceName: string): Boolean;
@@ -155,6 +162,9 @@ type
     function TranslateHtmlText(const AHtmlText: string): string;
     function FormatTemplate(const AKey, AFallbackText: string;
       const AArgs: array of const): string;
+    function CurrentLanguageCode: string;
+    function CurrentTextDirection: string;
+    procedure GetMissingTranslations(const AValues: TStrings);
     function CurrentFormatSettings: TFormatSettings;
     property ActiveLanguage: string read FActiveLanguage;
     property ActivePack: TRuntimeLanguagePack read GetActivePack;
@@ -235,6 +245,40 @@ begin
     Result := ActiveDATLanguageManager.TranslateDynamicText(ASourceText);
 end;
 
+function DATTranslateText(const AKey, AFallbackText: string): string;
+begin
+  if ActiveDATLanguageManager = nil then
+    Result := AFallbackText
+  else
+    Result := ActiveDATLanguageManager.Translate(AKey, AFallbackText);
+end;
+
+function DATFormatText(const AKey, AFallbackText: string;
+  const AArgs: array of const): string;
+begin
+  if ActiveDATLanguageManager = nil then
+    Result := Format(AFallbackText, AArgs)
+  else
+    Result := ActiveDATLanguageManager.FormatTemplate(AKey, AFallbackText,
+      AArgs);
+end;
+
+function DATActiveLanguageCode: string;
+begin
+  if ActiveDATLanguageManager = nil then
+    Result := 'en-US'
+  else
+    Result := ActiveDATLanguageManager.CurrentLanguageCode;
+end;
+
+function DATActiveTextDirection: string;
+begin
+  if ActiveDATLanguageManager = nil then
+    Result := 'ltr'
+  else
+    Result := ActiveDATLanguageManager.CurrentTextDirection;
+end;
+
 function DATTranslateHtmlText(const AHtmlText: string): string;
 begin
   if ActiveDATLanguageManager = nil then
@@ -268,6 +312,7 @@ begin
   FFormIdentityMappings.OnChange := FormIdentityMappingsChanged;
   FFormIdentities := TDictionary<string, string>.Create;
   FAppliedGenerations := TDictionary<TObject, Cardinal>.Create;
+  FReportedMissingTranslations := TDictionary<string, string>.Create;
 end;
 
 destructor TDATCustomLanguageManager.Destroy;
@@ -283,6 +328,8 @@ begin
   FRuntime := nil;
   if ActiveDATLanguageManager = Self then
     ActiveDATLanguageManager := nil;
+  FReportedMissingTranslations.Free;
+  FReportedMissingTranslations := nil;
   FAppliedGenerations.Free;
   FAppliedGenerations := nil;
   FFormIdentities.Free;
@@ -304,9 +351,23 @@ end;
 
 procedure TDATCustomLanguageManager.AdvanceGeneration;
 begin
+  FReportedMissingTranslations.Clear;
   Inc(FGeneration);
   if FGeneration = 0 then
     Inc(FGeneration);
+end;
+
+procedure TDATCustomLanguageManager.ReportMissingTranslation(
+  const AKey, AFallbackText: string);
+var
+  NormalizedKey: string;
+begin
+  NormalizedKey := LowerCase(Trim(AKey));
+  if (NormalizedKey = '') or
+    FReportedMissingTranslations.ContainsKey(NormalizedKey) then
+    Exit;
+  FReportedMissingTranslations.Add(NormalizedKey, AFallbackText);
+  NotifyMissingTranslation('GeneratedContent', AKey, AFallbackText);
 end;
 
 function TDATCustomLanguageManager.ApplyToManagedObject(
@@ -918,13 +979,73 @@ begin
   Result := FAppliedGenerations.Count;
 end;
 
+function TDATCustomLanguageManager.CurrentLanguageCode: string;
+begin
+  CheckMainThread;
+  if not FInitialized then
+    Initialize;
+  if (FRuntime <> nil) and (FRuntime.ActivePack <> nil) then
+    Result := FRuntime.ActivePack.LanguageCode
+  else if FActiveLanguage <> '' then
+    Result := FActiveLanguage
+  else
+    Result := FSourceLanguage;
+end;
+
+function TDATCustomLanguageManager.CurrentTextDirection: string;
+begin
+  CheckMainThread;
+  if not FInitialized then
+    Initialize;
+  if (FRuntime <> nil) and (FRuntime.ActivePack <> nil) and
+    SameText(FRuntime.ActivePack.TextDirection, 'rtl') then
+    Result := 'rtl'
+  else
+    Result := 'ltr';
+end;
+
+procedure TDATCustomLanguageManager.GetMissingTranslations(
+  const AValues: TStrings);
+var
+  FallbackText: string;
+  Key: string;
+  SortedValues: TStringList;
+begin
+  if AValues = nil then
+    raise EArgumentNilException.Create(
+      'A string collection is required for missing translations.');
+  SortedValues := TStringList.Create;
+  try
+    for Key in FReportedMissingTranslations.Keys do
+    begin
+      FallbackText := FReportedMissingTranslations[Key];
+      SortedValues.Add(Key + '=' + FallbackText);
+    end;
+    SortedValues.Sort;
+    AValues.BeginUpdate;
+    try
+      AValues.Assign(SortedValues);
+    finally
+      AValues.EndUpdate;
+    end;
+  finally
+    SortedValues.Free;
+  end;
+end;
+
 function TDATCustomLanguageManager.Translate(const AKey,
   AFallbackText: string): string;
+var
+  Ignored: string;
 begin
   CheckMainThread;
   if not FInitialized then
     if not Initialize then
       Exit(AFallbackText);
+  if (FRuntime <> nil) and (FRuntime.ActivePack <> nil) and
+    not FRuntime.ActivePack.TryGetText(AKey, Ignored) and
+    not FRuntime.ActivePack.TryGetTemplate(AKey, Ignored) then
+    ReportMissingTranslation(AKey, AFallbackText);
   Result := FRuntime.Translate(AKey, AFallbackText);
 end;
 
@@ -956,11 +1077,17 @@ end;
 
 function TDATCustomLanguageManager.FormatTemplate(const AKey,
   AFallbackText: string; const AArgs: array of const): string;
+var
+  Ignored: string;
 begin
   CheckMainThread;
   if not FInitialized then
     if not Initialize then
       Exit(Format(AFallbackText, AArgs));
+  if (FRuntime <> nil) and (FRuntime.ActivePack <> nil) and
+    not FRuntime.ActivePack.TryGetTemplate(AKey, Ignored) and
+    not FRuntime.ActivePack.TryGetText(AKey, Ignored) then
+    ReportMissingTranslation(AKey, AFallbackText);
   Result := FRuntime.FormatTemplate(AKey, AFallbackText, AArgs);
 end;
 

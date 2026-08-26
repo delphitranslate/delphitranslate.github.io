@@ -6,6 +6,7 @@ uses
   System.Classes,
   System.Generics.Collections,
   System.IOUtils,
+  System.StrUtils,
   System.SysUtils,
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
@@ -63,6 +64,7 @@ type
     FCancelNextLanguageChange: Boolean;
     FErrorCount: Integer;
     FLanguageChangedCount: Integer;
+    FMissingTranslationCount: Integer;
     FTranslatedCount: Integer;
     FLastIdentity: string;
   public
@@ -76,10 +78,13 @@ type
       const AElapsedMilliseconds: Double; const AGeneration: Cardinal);
     procedure TranslationError(Sender: TObject; const AContext,
       AMessage: string; var AHandled: Boolean);
+    procedure MissingTranslation(Sender: TObject; const AFormIdentity,
+      AKey, AFallbackText: string);
     property CancelNextLanguageChange: Boolean
       read FCancelNextLanguageChange write FCancelNextLanguageChange;
     property ErrorCount: Integer read FErrorCount;
     property LanguageChangedCount: Integer read FLanguageChangedCount;
+    property MissingTranslationCount: Integer read FMissingTranslationCount;
     property TranslatedCount: Integer read FTranslatedCount;
     property LastIdentity: string read FLastIdentity;
   end;
@@ -106,7 +111,9 @@ begin
     '"longTimeFormat":"HH:mm:ss","decimalSeparator":",",' +
     '"thousandSeparator":".","currencySymbol":"EUR"},' +
     '"strings":{"frmMock.Text":"' + AText + '",' +
-    '"Messages.Dynamic":"Dynamic ' + ALanguageCode + '"}}';
+    '"Messages.Dynamic":"Dynamic ' + ALanguageCode + '",' +
+    '"Document.Title":"Document ' + ALanguageCode + '"},' +
+    '"templates":{"Document.Count":"Count ' + ALanguageCode + ': %d"}}';
   TFile.WriteAllText(AFileName, JsonText, TEncoding.UTF8);
 end;
 
@@ -228,6 +235,12 @@ begin
   AHandled := True;
 end;
 
+procedure TCoreTestObserver.MissingTranslation(Sender: TObject;
+  const AFormIdentity, AKey, AFallbackText: string);
+begin
+  Inc(FMissingTranslationCount);
+end;
+
 procedure RunCoreTests;
 var
   Available: TObjectList<TLanguagePackDescriptor>;
@@ -238,6 +251,7 @@ var
   InitialApplyCount: Integer;
   LanguagesDirectory: string;
   Manager: TMockLanguageManager;
+  MissingTranslations: TStringList;
   MissingGeneration: Cardinal;
   Observer: TCoreTestObserver;
   PreferenceDirectory: string;
@@ -286,6 +300,7 @@ begin
     Manager.OnLanguageChanged := Observer.LanguageChanged;
     Manager.OnFormTranslated := Observer.ManagedObjectTranslated;
     Manager.OnTranslationError := Observer.TranslationError;
+    Manager.OnMissingTranslation := Observer.MissingTranslation;
     Manager.AddOpenObject(FirstForm);
     Manager.AddOpenObject(SecondForm);
 
@@ -323,6 +338,30 @@ begin
       'Open forms did not reapply the selected language.');
     Require(Manager.Translate('Messages.Dynamic', 'fallback') =
       'Dynamic de-DE', 'Dynamic translation lookup failed.');
+    Require(DATTranslateText('Document.Title', 'Document title') =
+      'Document de-DE', 'Keyed generated-document translation failed.');
+    Require(DATFormatText('Document.Count', 'Count: %d', [7]) =
+      'Count de-DE: 7', 'Generated-document template formatting failed.');
+    Require(SameText(DATActiveLanguageCode, 'de-DE'),
+      'Generated-document language code is wrong.');
+    Require(SameText(DATActiveTextDirection, 'ltr'),
+      'Generated-document text direction is wrong.');
+    Require(DATTranslateText('Document.Missing', 'English fallback') =
+      'English fallback', 'Missing generated-document key lost its fallback.');
+    Require(DATTranslateText('Document.Missing', 'English fallback') =
+      'English fallback', 'Repeated missing key lost its fallback.');
+    MissingTranslations := TStringList.Create;
+    try
+      Manager.GetMissingTranslations(MissingTranslations);
+      Require(MissingTranslations.Count = 1,
+        'Repeated missing keys were not consolidated.');
+      Require(ContainsText(MissingTranslations[0], 'document.missing='),
+        'Missing-key report did not retain the stable key.');
+      Require(Observer.MissingTranslationCount = 1,
+        'Repeated missing key raised more than one notification.');
+    finally
+      MissingTranslations.Free;
+    end;
     { The pack asked for dd.MM.yyyy and does not get it.
 
       A language is what someone reads; a date format is what their

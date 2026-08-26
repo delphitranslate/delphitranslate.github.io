@@ -128,6 +128,10 @@ begin
     'function SelectLanguage(const ALanguageCode: string): Boolean;' + sLineBreak +
     'function SelectLanguageMenuItem(const AMenuItemName: string): Boolean;' + sLineBreak +
     'function TranslateText(const AKey, AFallbackText: string): string;' + sLineBreak +
+    'function TranslateFormat(const AKey, AFallbackText: string;' + sLineBreak +
+    '  const AArgs: array of const): string;' + sLineBreak +
+    'function ActiveLanguageCode: string;' + sLineBreak +
+    'function ActiveTextDirection: string;' + sLineBreak +
     'function TranslationRuntime: TTranslationRuntime;' + sLineBreak + sLineBreak +
     'implementation' + sLineBreak + sLineBreak +
     'uses' + sLineBreak +
@@ -200,6 +204,33 @@ begin
     '    Result := AFallbackText' + sLineBreak +
     '  else' + sLineBreak +
     '    Result := ApplicationTranslationRuntime.Translate(AKey, AFallbackText);' + sLineBreak +
+    'end;' + sLineBreak + sLineBreak +
+    'function TranslateFormat(const AKey, AFallbackText: string;' + sLineBreak +
+    '  const AArgs: array of const): string;' + sLineBreak +
+    'begin' + sLineBreak +
+    '  if ApplicationTranslationRuntime = nil then' + sLineBreak +
+    '    Result := Format(AFallbackText, AArgs)' + sLineBreak +
+    '  else' + sLineBreak +
+    '    Result := ApplicationTranslationRuntime.FormatTemplate(AKey,' + sLineBreak +
+    '      AFallbackText, AArgs);' + sLineBreak +
+    'end;' + sLineBreak + sLineBreak +
+    'function ActiveLanguageCode: string;' + sLineBreak +
+    'begin' + sLineBreak +
+    '  if (ApplicationTranslationRuntime <> nil) and' + sLineBreak +
+    '    (ApplicationTranslationRuntime.ActivePack <> nil) then' + sLineBreak +
+    '    Result := ApplicationTranslationRuntime.ActivePack.LanguageCode' + sLineBreak +
+    '  else' + sLineBreak +
+    '    Result := ''' + ASourceLanguageCode + ''';' + sLineBreak +
+    'end;' + sLineBreak + sLineBreak +
+    'function ActiveTextDirection: string;' + sLineBreak +
+    'begin' + sLineBreak +
+    '  if (ApplicationTranslationRuntime <> nil) and' + sLineBreak +
+    '    (ApplicationTranslationRuntime.ActivePack <> nil) and' + sLineBreak +
+    '    SameText(ApplicationTranslationRuntime.ActivePack.TextDirection,' + sLineBreak +
+    '      ''rtl'') then' + sLineBreak +
+    '    Result := ''rtl''' + sLineBreak +
+    '  else' + sLineBreak +
+    '    Result := ''ltr'';' + sLineBreak +
     'end;' + sLineBreak + sLineBreak +
     'function TranslationRuntime: TTranslationRuntime;' + sLineBreak +
     'begin' + sLineBreak +
