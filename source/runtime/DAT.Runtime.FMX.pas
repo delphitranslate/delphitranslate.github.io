@@ -68,7 +68,8 @@ type
     class function ApplyToForm(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const APreserveControlState: Boolean = True;
-      const AApplyLayout: Boolean = True): Integer; overload; static;
+      const AApplyLayout: Boolean = True;
+      const ATranslateBrowserContent: Boolean = False): Integer; overload; static;
     { Refreshes only application-generated text. It deliberately does not
       restore geometry, fit controls, reorder menus or apply layout rules;
       those operations belong to a language change, not to a periodic check
@@ -2211,7 +2212,8 @@ end;
 class function TFMXTranslationApplicator.ApplyToForm(
   const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string;
-  const APreserveControlState, AApplyLayout: Boolean): Integer;
+  const APreserveControlState, AApplyLayout,
+  ATranslateBrowserContent: Boolean): Integer;
 const
   TextProperties: array[0..4] of string = (
     'Caption', 'Text', 'Hint', 'TextPrompt', 'Header');
@@ -2257,10 +2259,14 @@ var
           LocalPropertyName, LocalPropertyName + '.Strings', APack,
           APreserveControlState));
       Inc(Result, ApplyGridText(FormIdentity, AComponent, APack));
-      { Browser-backed HTML is text, not layout. Dynamic dialogs often contain
-        no designer-authored form file, so their browser text must be applied
-        whenever the language manager sees the browser component. }
-      Inc(Result, ApplyBrowserText(AComponent, APack));
+      { Evaluating script in a platform browser can block the FMX UI thread for
+        seconds, especially when several browser controls have already been
+        created on inactive tabs. Generated HTML has the keyed
+        DATTranslateText/DATTranslateHtmlText contract, so DOM post-processing
+        is an explicit compatibility option rather than a cost every
+        application pays on every language switch. }
+      if ATranslateBrowserContent then
+        Inc(Result, ApplyBrowserText(AComponent, APack));
       for ChildIndex := 0 to AComponent.ComponentCount - 1 do
         ApplyComponentTree(AComponent.Components[ChildIndex]);
     finally

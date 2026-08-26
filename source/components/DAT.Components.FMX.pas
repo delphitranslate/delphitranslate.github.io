@@ -20,6 +20,7 @@ type
     FDynamicRefreshInterval: Cardinal;
     FDynamicRefreshBusy: Boolean;
     FDynamicTimer: TTimer;
+    FTranslateBrowserContent: Boolean;
     procedure EnsureDynamicTimer;
     procedure DynamicTimerTick(Sender: TObject);
     procedure SetAutoRefreshDynamicText(const Value: Boolean);
@@ -57,6 +58,8 @@ type
       write SetAutoRefreshDynamicText default True;
     property DynamicRefreshInterval: Cardinal read FDynamicRefreshInterval
       write SetDynamicRefreshInterval default 1000;
+    property TranslateBrowserContent: Boolean read FTranslateBrowserContent
+      write FTranslateBrowserContent default False;
   end;
 
 implementation
@@ -410,6 +413,7 @@ begin
     InstallFMXDialogTranslationService;
   FAutoRefreshDynamicText := True;
   FDynamicRefreshInterval := 1000;
+  FTranslateBrowserContent := False;
   if not (csDesigning in ComponentState) then
     SubscribeToLifecycle;
 end;
@@ -509,7 +513,7 @@ begin
   TDATSplashTranslation.StandDown;
   Result := TFMXTranslationApplicator.ApplyToForm(
     TCommonCustomForm(AManagedObject), APack, AFormIdentity,
-    PreserveControlState);
+    PreserveControlState, True, FTranslateBrowserContent);
 end;
 
 function TDATFMXLanguageManager.RestoreLanguageLayout(

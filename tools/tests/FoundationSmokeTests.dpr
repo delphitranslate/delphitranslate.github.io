@@ -30,6 +30,7 @@ uses
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
   DAT.Integration.Package in '..\..\source\integration\DAT.Integration.Package.pas',
   DAT.Integration.ComponentPackage in '..\..\source\integration\DAT.Integration.ComponentPackage.pas',
+  DAT.Integration.BuildDeploy in '..\..\source\integration\DAT.Integration.BuildDeploy.pas',
   DAT.Integration.MenuResource in '..\..\source\integration\DAT.Integration.MenuResource.pas',
   DAT.Integration.DelphiSource in '..\..\source\integration\DAT.Integration.DelphiSource.pas',
   DAT.Scan.Types in '..\..\source\scan\DAT.Scan.Types.pas',
@@ -908,6 +909,8 @@ end;
 
 procedure TestFMXBrowserTranslationRemainsBounded;
 var
+  ComponentFileName: string;
+  ComponentSource: string;
   ProjectRoot: string;
   RuntimeFileName: string;
   RuntimeSource: string;
@@ -918,6 +921,9 @@ begin
   Require(TFile.Exists(RuntimeFileName),
     'The FMX runtime source was not available for the browser retry contract.');
   RuntimeSource := TFile.ReadAllText(RuntimeFileName, TEncoding.UTF8);
+  ComponentFileName := TPath.Combine(ProjectRoot,
+    'source\components\DAT.Components.FMX.pas');
+  ComponentSource := TFile.ReadAllText(ComponentFileName, TEncoding.UTF8);
   Require(ContainsText(RuntimeSource, 'if NeedsRetry then') and
     ContainsText(RuntimeSource,
       'TBrowserTranslationRetry.Create(TCustomWebBrowser(AComponent)'),
@@ -931,6 +937,70 @@ begin
     'The former forty-pass browser DOM retry loop returned.');
   Require(ContainsText(RuntimeSource, '{$IFDEF DAT_RUNTIME_DEBUG_LOG}'),
     'FMX runtime browser diagnostics are again unconditional in shipping builds.');
+  Require(ContainsText(RuntimeSource,
+    'const ATranslateBrowserContent: Boolean = False') and
+    ContainsText(RuntimeSource, 'if ATranslateBrowserContent then'),
+    'FMX browser DOM rewriting is again mandatory during every language switch.');
+  Require(ContainsText(ComponentSource,
+    'property TranslateBrowserContent: Boolean') and
+    ContainsText(ComponentSource, 'default False'),
+    'The browser compatibility option is not available in Object Inspector.');
+end;
+
+procedure TestExistingIntegrationSourcesAreSynchronized;
+var
+  ComponentSourceDirectory: string;
+  KitDirectory: string;
+  ProjectDirectory: string;
+  ProjectFileName: string;
+  RuntimeDirectory: string;
+  TestDirectory: string;
+  UpdatedCount: Integer;
+begin
+  TestDirectory := TPath.Combine(TPath.GetTempPath,
+    'DAT-Source-Sync-' + TPath.GetRandomFileName);
+  ProjectDirectory := TPath.Combine(TestDirectory, 'Project');
+  RuntimeDirectory := TPath.Combine(ProjectDirectory, 'DAT_Runtime');
+  KitDirectory := TPath.Combine(TestDirectory, 'Kit');
+  ComponentSourceDirectory := TPath.Combine(KitDirectory, 'ComponentSource');
+  TDirectory.CreateDirectory(ProjectDirectory);
+  TDirectory.CreateDirectory(RuntimeDirectory);
+  TDirectory.CreateDirectory(ComponentSourceDirectory);
+  try
+    ProjectFileName := TPath.Combine(ProjectDirectory, 'Fixture.dproj');
+    TFile.WriteAllText(ProjectFileName, '<Project/>', TEncoding.UTF8);
+    TFile.WriteAllText(TPath.Combine(ComponentSourceDirectory,
+      'DAT.Components.FMX.pas'), 'current component', TEncoding.UTF8);
+    TFile.WriteAllText(TPath.Combine(ComponentSourceDirectory,
+      'DAT.Runtime.FMX.pas'), 'current runtime', TEncoding.UTF8);
+    TFile.WriteAllText(TPath.Combine(ComponentSourceDirectory,
+      'DAT.Runtime.Manager.pas'), 'not already local', TEncoding.UTF8);
+    TFile.WriteAllText(TPath.Combine(ProjectDirectory,
+      'DAT.Components.FMX.pas'), 'stale component', TEncoding.UTF8);
+    TFile.WriteAllText(TPath.Combine(RuntimeDirectory,
+      'DAT.Runtime.FMX.pas'), 'stale runtime', TEncoding.UTF8);
+
+    UpdatedCount :=
+      TTargetBuildDeployer.SynchronizeExistingIntegrationSources(
+        ProjectFileName, KitDirectory);
+    Require(UpdatedCount = 2,
+      'The build did not refresh both stale local DAT integration units.');
+    Require(TFile.ReadAllText(TPath.Combine(ProjectDirectory,
+      'DAT.Components.FMX.pas'), TEncoding.UTF8) = 'current component',
+      'A DAT unit beside the DPR still shadows the current component kit.');
+    Require(TFile.ReadAllText(TPath.Combine(RuntimeDirectory,
+      'DAT.Runtime.FMX.pas'), TEncoding.UTF8) = 'current runtime',
+      'A DAT_Runtime unit still shadows the current component kit.');
+    Require(not TFile.Exists(TPath.Combine(ProjectDirectory,
+      'DAT.Runtime.Manager.pas')),
+      'Synchronization added a target source file that was not already present.');
+    Require(TTargetBuildDeployer.SynchronizeExistingIntegrationSources(
+      ProjectFileName, KitDirectory) = 0,
+      'An already current integration unit was rewritten unnecessarily.');
+  finally
+    if TDirectory.Exists(TestDirectory) then
+      TDirectory.Delete(TestDirectory, True);
+  end;
 end;
 
 procedure TestObsoleteEntriesStayOutOfReview;
@@ -2033,6 +2103,7 @@ begin
     TestGeneratedAndTestTreeExclusion;
     TestStaleScanSourceContract;
     TestFMXBrowserTranslationRemainsBounded;
+    TestExistingIntegrationSourcesAreSynchronized;
     TestObsoleteEntriesStayOutOfReview;
     TestProjectScanning;
     TestStudioProjectScanning;

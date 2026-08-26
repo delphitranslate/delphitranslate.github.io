@@ -10,6 +10,8 @@ type
       ARequireExecutable: Boolean = False): string; static;
     class function BuildAndDeploy(const AProjectFileName, AProjectName,
       APlatform, AConfiguration, APackageDirectory: string): string; static;
+    class function SynchronizeExistingIntegrationSources(
+      const AProjectFileName, APackageDirectory: string): Integer; static;
     class function DeployBuildOutput(const AProjectFileName, AProjectName,
       APlatform, AConfiguration, ADestinationDirectory,
       APackageDirectory: string; AReplaceExecutable: Boolean): string; static;
@@ -30,6 +32,66 @@ const
     'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat';
   BuildProcessTimeout = 1800000;
   ProcessTerminationWait = 5000;
+
+function FilesHaveEqualBytes(const ALeftFileName,
+  ARightFileName: string): Boolean;
+var
+  LeftBytes: TBytes;
+  RightBytes: TBytes;
+begin
+  if not TFile.Exists(ALeftFileName) or not TFile.Exists(ARightFileName) then
+    Exit(False);
+  LeftBytes := TFile.ReadAllBytes(ALeftFileName);
+  RightBytes := TFile.ReadAllBytes(ARightFileName);
+  Result := (Length(LeftBytes) = Length(RightBytes)) and
+    ((Length(LeftBytes) = 0) or
+     CompareMem(@LeftBytes[0], @RightBytes[0], Length(LeftBytes)));
+end;
+
+class function TTargetBuildDeployer.SynchronizeExistingIntegrationSources(
+  const AProjectFileName, APackageDirectory: string): Integer;
+var
+  ComponentSourceDirectory: string;
+  DestinationDirectory: string;
+  ProjectDirectory: string;
+
+  procedure SynchronizeDirectory(const ADirectory: string);
+  var
+    DestinationFileName: string;
+    SourceFileName: string;
+  begin
+    if not TDirectory.Exists(ADirectory) then
+      Exit;
+    for SourceFileName in TDirectory.GetFiles(ComponentSourceDirectory,
+      'DAT.*.pas', TSearchOption.soTopDirectoryOnly) do
+    begin
+      DestinationFileName := TPath.Combine(ADirectory,
+        TPath.GetFileName(SourceFileName));
+      if not TFile.Exists(DestinationFileName) or
+        FilesHaveEqualBytes(SourceFileName, DestinationFileName) then
+        Continue;
+      { These are generated DAT integration units, not application source.
+        A copy beside the DPR takes precedence over the kit search path, so
+        leaving it stale silently compiles an old runtime into a new EXE. }
+      TFile.Copy(SourceFileName, DestinationFileName, True);
+      Inc(Result);
+    end;
+  end;
+
+begin
+  Result := 0;
+  if not TFile.Exists(AProjectFileName) then
+    raise EFileNotFoundException.CreateFmt(
+      'The target project was not found: %s', [AProjectFileName]);
+  ComponentSourceDirectory := TPath.Combine(APackageDirectory,
+    'ComponentSource');
+  if not TDirectory.Exists(ComponentSourceDirectory) then
+    Exit;
+  ProjectDirectory := TPath.GetDirectoryName(AProjectFileName);
+  SynchronizeDirectory(ProjectDirectory);
+  DestinationDirectory := TPath.Combine(ProjectDirectory, 'DAT_Runtime');
+  SynchronizeDirectory(DestinationDirectory);
+end;
 
 { The lines of a build log that say what went wrong.
 
@@ -275,6 +337,7 @@ var
   LanguagePackFileName: string;
   ProjectDirectory: string;
   SourceLanguageDirectory: string;
+  SynchronizedSourceCount: Integer;
 begin
   if not TFile.Exists(AProjectFileName) then
     raise EFileNotFoundException.CreateFmt(
@@ -289,6 +352,8 @@ begin
     TFile.Exists(TPath.ChangeExtension(BuildProjectFileName, '.dproj')) then
     BuildProjectFileName := TPath.ChangeExtension(
       BuildProjectFileName, '.dproj');
+  SynchronizedSourceCount := SynchronizeExistingIntegrationSources(
+    BuildProjectFileName, APackageDirectory);
   RunHiddenBuild(BuildProjectFileName, APlatform, AConfiguration,
     APackageDirectory);
   DestinationDirectory := FindBuildOutputDirectory(BuildProjectFileName,
@@ -312,8 +377,10 @@ begin
     TFile.Copy(LanguagePackFileName,
       TPath.Combine(DestinationLanguageDirectory,
         TPath.GetFileName(LanguagePackFileName)), True);
-  Result := Format('%s %s built. Language packs deployed to %s.',
-    [APlatform, AConfiguration, DestinationLanguageDirectory]);
+  Result := Format(
+    '%s %s built with %d existing DAT integration source(s) refreshed. Language packs deployed to %s.',
+    [APlatform, AConfiguration, SynchronizedSourceCount,
+     DestinationLanguageDirectory]);
 end;
 
 class function TTargetBuildDeployer.DeployBuildOutput(

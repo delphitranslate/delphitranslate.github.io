@@ -10,6 +10,7 @@ uses
   System.UITypes,
   Winapi.Windows,
   FMX.Dialogs,
+  FMX.DialogService,
   FMX.Forms,
   FMX.Platform,
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
@@ -133,21 +134,25 @@ begin
       IFMXDialogServiceSync, DialogService),
       'The translated dialog service was not installed.');
 
-    DialogService.ShowMessageSync('Please select a source folder.');
+    { Exercise the same public Delphi API used by a target application. Calling
+      the replacement interface directly let the first regression test pass
+      even when the real dialog path still displayed English. }
+    TDialogService.ShowMessage('Please select a source folder.');
     Require(RecordingObject.LastMessage =
       'Bitte w'#$00E4'hlen Sie einen Quellordner aus.',
       'ShowMessage text did not reach the platform service in German.');
 
-    DialogService.MessageDialogSync('Please select a source folder.',
-      TMsgDlgType.mtInformation, [TMsgDlgBtn.mbOK], TMsgDlgBtn.mbOK, 0);
+    TDialogService.MessageDialog('Please select a source folder.',
+      TMsgDlgType.mtInformation, [TMsgDlgBtn.mbOK], TMsgDlgBtn.mbOK, 0,
+      TInputCloseDialogProc(nil));
     Require(RecordingObject.LastMessage =
       'Bitte w'#$00E4'hlen Sie einen Quellordner aus.',
       'MessageDialog text did not reach the platform service in German.');
 
     SetLength(Values, 1);
     Values[0] := '';
-    DialogService.InputQuerySync('Project question', ['Project name:'],
-      Values);
+    TDialogService.InputQuery('Project question', ['Project name:'], Values,
+      TInputCloseQueryProc(nil));
     Require(RecordingObject.LastCaption = 'Projektfrage',
       'InputQuery caption was not translated.');
     Require(RecordingObject.LastPrompt = 'Projektname:',
