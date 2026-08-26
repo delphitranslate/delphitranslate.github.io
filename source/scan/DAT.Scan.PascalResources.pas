@@ -892,6 +892,79 @@ begin
       Exit(False);
 end;
 
+function IsTechnicalReturnedToken(const AStatement, AText: string): Boolean;
+var
+  CharacterIndex: Integer;
+  LiteralEnd: Integer;
+  LiteralStart: Integer;
+  PrefixLength: Integer;
+  QuotedToken: string;
+  Token: string;
+begin
+  { A returned Pascal/FMX token is behavior, not interface text. Two shapes are
+    strong enough to protect without hiding ordinary one-word labels:
+
+      Result := 'TComponent';
+      if SameText(Result, 'alRight') then Result := 'Right';
+
+    The first is visibly an identifier because it has an internal capital. The
+    second is an enum normalization: another quoted identifier ends in the
+    returned word and contributes only a short Delphi-style prefix. Human
+    labels such as Time and Song have neither proof and remain translatable. }
+  Result := False;
+  Token := Trim(AText);
+  if Token = '' then
+    Exit;
+  if not CharInSet(Token[1], ['A'..'Z', 'a'..'z', '_']) then
+    Exit;
+  for CharacterIndex := 2 to Length(Token) do
+  begin
+    if not CharInSet(Token[CharacterIndex],
+      ['A'..'Z', 'a'..'z', '0'..'9', '_']) then
+      Exit;
+    if CharInSet(Token[CharacterIndex], ['A'..'Z']) then
+      Result := True;
+  end;
+  if Result then
+    Exit;
+
+  LiteralStart := 1;
+  while LiteralStart <= Length(AStatement) do
+  begin
+    while (LiteralStart <= Length(AStatement)) and
+      (AStatement[LiteralStart] <> '''') do
+      Inc(LiteralStart);
+    if LiteralStart > Length(AStatement) then
+      Exit(False);
+    LiteralEnd := LiteralStart + 1;
+    while (LiteralEnd <= Length(AStatement)) and
+      (AStatement[LiteralEnd] <> '''') do
+      Inc(LiteralEnd);
+    if LiteralEnd > Length(AStatement) then
+      Exit(False);
+    QuotedToken := Copy(AStatement, LiteralStart + 1,
+      LiteralEnd - LiteralStart - 1);
+    if (Length(QuotedToken) > Length(Token)) and
+      EndsText(Token, QuotedToken) then
+    begin
+      PrefixLength := Length(QuotedToken) - Length(Token);
+      if PrefixLength <= 4 then
+      begin
+        Result := True;
+        for CharacterIndex := 1 to PrefixLength do
+          if not CharInSet(QuotedToken[CharacterIndex], ['A'..'Z', 'a'..'z']) then
+          begin
+            Result := False;
+            Break;
+          end;
+        if Result then
+          Exit;
+      end;
+    end;
+    LiteralStart := LiteralEnd + 1;
+  end;
+end;
+
 { How many times this statement assigns to Result. }
 function CountReturnedAssignments(const ALowerStatement: string): Integer;
 var
@@ -995,7 +1068,8 @@ begin
               captions. Generated-document display labels use explicit stable
               translation keys instead. }
             if IsLikelyUserFacingLiteral(Literal) and
-              not IsLowercaseIdentifier(Literal) then
+              not IsLowercaseIdentifier(Literal) and
+              not IsTechnicalReturnedToken(AStatement, Literal) then
             begin
               { The key is built from the left side and the line, and a
                 conditional puts several returned values on one statement,
@@ -1517,7 +1591,8 @@ begin
         begin
           if not IsNonUiAssignment(LeftSide, ValueText) and
             (not SameText(PropertyName, 'RuntimeValue') or
-             IsLikelyUserFacingLiteral(ValueText)) then
+             (IsLikelyUserFacingLiteral(ValueText) and
+              not IsTechnicalReturnedToken(Statement.Text, ValueText))) then
             AddRuntimeItem(AResult, AFileName, AUnitName, LeftSide,
               PropertyName, ValueText, Statement.SourceLine, rtrStaticText);
         end
@@ -1546,7 +1621,8 @@ begin
             branch was accepting whatever it had joined without asking. }
           if not IsNonUiAssignment(LeftSide, ValueText) and
             (not SameText(PropertyName, 'RuntimeValue') or
-             IsLikelyUserFacingLiteral(ValueText)) then
+             (IsLikelyUserFacingLiteral(ValueText) and
+              not IsTechnicalReturnedToken(Statement.Text, ValueText))) then
             AddRuntimeItem(AResult, AFileName, AUnitName, LeftSide,
               PropertyName, ValueText, Statement.SourceLine,
               rtrRuntimeTemplate);

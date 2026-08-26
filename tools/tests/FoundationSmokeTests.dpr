@@ -654,6 +654,22 @@ begin
     '    ''Generated report'') + ''</h1>'');' + sLineBreak +
     '  if DisplayText = '''' then Result := ''direct'' else Result := ''other'';' +
       sLineBreak +
+    '  if DisplayText = ''strike'' then Result := ''Schedule'' else Result := ''Bell'';' +
+      sLineBreak +
+    'end;' + sLineBreak +
+    'function NormalizeAlignLayoutValue(const Value: string): string;' +
+      sLineBreak +
+    'begin' + sLineBreak +
+    '  Result := Value;' + sLineBreak +
+    '  if SameText(Result, ''alTop'') then Result := ''Top'';' + sLineBreak +
+    '  if SameText(Result, ''alBottom'') then Result := ''Bottom'';' + sLineBreak +
+    '  if SameText(Result, ''alLeft'') then Result := ''Left'';' + sLineBreak +
+    '  if SameText(Result, ''alRight'') then Result := ''Right'';' + sLineBreak +
+    '  if SameText(Result, ''alClient'') then Result := ''Client'';' + sLineBreak +
+    '  if SameText(Result, ''alContents'') then Result := ''Contents'';' + sLineBreak +
+    '  if SameText(Result, ''alCenter'') then Result := ''Center'';' + sLineBreak +
+    '  if SameText(Result, ''alMostTop'') then Result := ''MostTop'';' + sLineBreak +
+    '  Result := ''TComponent'';' + sLineBreak +
     'end;' + sLineBreak +
     'end.', TEncoding.UTF8);
   TFile.WriteAllText(RuntimeInfrastructureFileName,
@@ -706,6 +722,17 @@ begin
     RequireSourceText(ScanResult, 'Time', stkRuntimeAssignment);
     RequireSourceText(ScanResult, 'Type', stkRuntimeAssignment);
     RequireSourceText(ScanResult, 'Song/Purpose', stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'Schedule', stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'Bell', stkRuntimeAssignment);
+    RequireNoSourceText(ScanResult, 'Top');
+    RequireNoSourceText(ScanResult, 'Bottom');
+    RequireNoSourceText(ScanResult, 'Left');
+    RequireNoSourceText(ScanResult, 'Right');
+    RequireNoSourceText(ScanResult, 'Client');
+    RequireNoSourceText(ScanResult, 'Contents');
+    RequireNoSourceText(ScanResult, 'Center');
+    RequireNoSourceText(ScanResult, 'MostTop');
+    RequireNoSourceText(ScanResult, 'TComponent');
     RequireScannedKey(ScanResult, 'Report.Component.Title',
       'Component Mapping Reference');
     RequireScannedKey(ScanResult, 'Report.Component.Count',
