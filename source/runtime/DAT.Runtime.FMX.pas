@@ -136,6 +136,7 @@ const
   DATRuntimeDebugLogFileName = 'C:\Downloads\DAT_Translation_Debug_Log.txt';
 
 procedure DATRuntimeDebugLog(const AMessage: string);
+{$IFDEF DAT_RUNTIME_DEBUG_LOG}
 var
   LogDirectory: string;
 begin
@@ -150,6 +151,12 @@ begin
     { Runtime diagnostics must never change target application behavior. }
   end;
 end;
+{$ELSE}
+begin
+  { Shipping applications do not write diagnostic traffic to a fixed user
+    folder. Define DAT_RUNTIME_DEBUG_LOG explicitly for a diagnostic build. }
+end;
+{$ENDIF}
 
 function PositionKey(const AFormIdentity: string;
   const AComponent: TComponent): string;
@@ -188,28 +195,159 @@ end;
 procedure TBrowserTranslationRetry.TimerTick(Sender: TObject);
 begin
   Inc(FAttempts);
-  if FBrowser <> nil then
+  if FBrowser = nil then
   begin
-    try
+    FTimer.Enabled := False;
+    Exit;
+  end;
+  try
+    DATRuntimeDebugLog(Format(
+      'Browser retry attempt %d on %s.%s; script length=%d',
+      [FAttempts, FBrowser.ClassName, FBrowser.Name, Length(FScript)]));
+    FBrowser.EvaluateJavaScript(FScript);
+    { EvaluateJavaScript returning means the platform accepted the script.
+      The script owns its small document-readiness wait from here; repeatedly
+      reinjecting it creates overlapping retry trees and stalls the UI. }
+    FTimer.Enabled := False;
+  except
+    on E: Exception do
       DATRuntimeDebugLog(Format(
-        'Browser retry attempt %d on %s.%s; script length=%d',
-        [FAttempts, FBrowser.ClassName, FBrowser.Name, Length(FScript)]));
-      FBrowser.EvaluateJavaScript(FScript);
+        'Browser retry attempt %d failed on %s.%s: %s: %s',
+        [FAttempts, FBrowser.ClassName, FBrowser.Name, E.ClassName,
+        E.Message]));
+  end;
+  if FAttempts >= 12 then
+    FTimer.Enabled := False;
+end;
+
+{ Browser text is translated inside the document because it is not exposed
+  as an FMX Text or Caption property. The work must remain bounded: embedded
+  browsers can contain thousands of text nodes, and a language change runs on
+  the UI thread. }
+
+function JavaScriptString(const AValue: string): string;
+var
+  JsonString: TJSONString;
+begin
+  JsonString := TJSONString.Create(AValue);
+  try
+    Result := JsonString.ToJSON;
+  finally
+    JsonString.Free;
+  end;
+end;
+
+function ApplyBrowserText(const AComponent: TComponent;
+  const APack: TRuntimeLanguagePack): Integer;
+var
+  Candidate: string;
+  Key: string;
+  NeedsRetry: Boolean;
+  Pairs: TStringList;
+  PairMap: TDictionary<string, string>;
+  Script: TStringBuilder;
+  ScriptText: string;
+  SourceText: string;
+  TranslatedText: string;
+
+  procedure LogKnownBrowserTerm(const ASourceText: string);
+  var
+    LogTranslation: string;
+  begin
+    LogTranslation := '';
+    if APack.TryTranslateSource(ASourceText, LogTranslation) or
+      APack.TryTranslateDynamicText(ASourceText, LogTranslation) then
+      DATRuntimeDebugLog(Format('Browser term "%s" -> "%s"',
+        [ASourceText, LogTranslation]))
+    else
+      DATRuntimeDebugLog(Format('Browser term "%s" has no runtime translation',
+        [ASourceText]));
+  end;
+
+  procedure AddBrowserPair(const ASourceText, ATranslatedText: string);
+  begin
+    if (Trim(ASourceText) = '') or (Trim(ATranslatedText) = '') or
+      SameText(ASourceText, ATranslatedText) then
+      Exit;
+    if not PairMap.ContainsKey(ASourceText) then
+      PairMap.Add(ASourceText, ATranslatedText);
+  end;
+begin
+  Result := 0;
+  if not (AComponent is TCustomWebBrowser) then
+    Exit;
+  PairMap := TDictionary<string, string>.Create;
+  Pairs := TStringList.Create;
+  Script := TStringBuilder.Create;
+  try
+    DATRuntimeDebugLog(Format('ApplyBrowserText start: %s.%s language=%s',
+      [AComponent.ClassName, AComponent.Name, APack.LanguageCode]));
+    for Key in APack.Sources.Keys do
+      if APack.Strings.TryGetValue(Key, TranslatedText) then
+      begin
+        SourceText := APack.Sources[Key];
+        AddBrowserPair(SourceText, TranslatedText);
+      end;
+    for Candidate in APack.SourceStrings.Keys do
+    begin
+      TranslatedText := APack.SourceStrings[Candidate];
+      AddBrowserPair(Candidate, TranslatedText);
+    end;
+    for Candidate in APack.SourceTemplates.Keys do
+    begin
+      TranslatedText := APack.SourceTemplates[Candidate];
+      { Format strings belong to code, not browser text nodes. }
+      if (Pos('%', Candidate) = 0) and (Pos('%', TranslatedText) = 0) and
+        (Trim(Candidate) <> '') and (Trim(TranslatedText) <> '') then
+        AddBrowserPair(Candidate, TranslatedText);
+    end;
+    LogKnownBrowserTerm('Time');
+    LogKnownBrowserTerm('Type');
+    LogKnownBrowserTerm('Song/Purpose');
+    for Candidate in PairMap.Keys do
+      Pairs.Add(JavaScriptString(Candidate) + ',' +
+        JavaScriptString(PairMap[Candidate]));
+    if Pairs.Count = 0 then
+    begin
+      DATRuntimeDebugLog('ApplyBrowserText stopped: no browser text pairs.');
+      Exit;
+    end;
+    { Build a dictionary once, then each DOM text node is one lookup. The old
+      nested loop compared every node with every pack string and multiplied
+      that work again through two independent forty-pass retry loops. }
+    Script.Append('(function(){var a=[');
+    for Candidate in Pairs do
+    begin
+      if Script.Chars[Script.Length - 1] <> '[' then
+        Script.Append(',');
+      Script.Append('[').Append(Candidate).Append(']');
+    end;
+    Script.Append('],p=Object.create(null),i;for(i=0;i<a.length;i++){p[a[i][0]]=a[i][1];}function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}function apply(n){var c=0,v,l,r,ch,t;if(!n){return 0;}if(n.nodeType===3){v=n.nodeValue;t=trim(v);if(Object.prototype.hasOwnProperty.call(p,t)){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[t]+r;c++;}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}function run(){return document.body?apply(document.body):0;}var tries=0;function retry(){try{if(document.body){run();return;}}catch(e){}tries++;if(tries<20){window.setTimeout(retry,150);}}retry();})();');
+    ScriptText := Script.ToString;
+    DATRuntimeDebugLog(Format(
+      'ApplyBrowserText executing: pairs=%d script length=%d',
+      [Pairs.Count, Length(ScriptText)]));
+    NeedsRetry := False;
+    try
+      TCustomWebBrowser(AComponent).EvaluateJavaScript(ScriptText);
     except
       on E: Exception do
       begin
+        NeedsRetry := True;
         DATRuntimeDebugLog(Format(
-          'Browser retry attempt %d failed on %s.%s: %s: %s',
-          [FAttempts, FBrowser.ClassName, FBrowser.Name, E.ClassName,
-          E.Message]));
-        { TWebBrowser may reject script while the platform view is still
-          finishing navigation. Keep retrying quietly; never surface platform
-          script timing as an application error. }
+          'ApplyBrowserText immediate EvaluateJavaScript failed on %s.%s: %s: %s',
+          [AComponent.ClassName, AComponent.Name, E.ClassName, E.Message]));
       end;
     end;
+    if NeedsRetry then
+      TBrowserTranslationRetry.Create(TCustomWebBrowser(AComponent),
+        ScriptText);
+    Result := Pairs.Count;
+  finally
+    Script.Free;
+    Pairs.Free;
+    PairMap.Free;
   end;
-  if FAttempts >= 40 then
-    FTimer.Enabled := False;
 end;
 
 { Text settings, reached the way FireMonkey means them to be reached.
@@ -864,128 +1002,6 @@ begin
       Exit(False);
     end;
     Exit(True);
-  end;
-end;
-
-function JavaScriptString(const AValue: string): string;
-var
-  JsonString: TJSONString;
-begin
-  JsonString := TJSONString.Create(AValue);
-  try
-    Result := JsonString.ToJSON;
-  finally
-    JsonString.Free;
-  end;
-end;
-
-function ApplyBrowserText(const AComponent: TComponent;
-  const APack: TRuntimeLanguagePack): Integer;
-var
-  Candidate: string;
-  Key: string;
-  Pairs: TStringList;
-  PairMap: TDictionary<string, string>;
-  Script: TStringBuilder;
-  SourceText: string;
-  TranslatedText: string;
-
-  procedure LogKnownBrowserTerm(const ASourceText: string);
-  var
-    LogTranslation: string;
-  begin
-    LogTranslation := '';
-    if APack.TryTranslateSource(ASourceText, LogTranslation) or
-      APack.TryTranslateDynamicText(ASourceText, LogTranslation) then
-      DATRuntimeDebugLog(Format('Browser term "%s" -> "%s"',
-        [ASourceText, LogTranslation]))
-    else
-      DATRuntimeDebugLog(Format('Browser term "%s" has no runtime translation',
-        [ASourceText]));
-  end;
-
-  procedure AddBrowserPair(const ASourceText, ATranslatedText: string);
-  begin
-    if (Trim(ASourceText) = '') or (Trim(ATranslatedText) = '') or
-      SameText(ASourceText, ATranslatedText) then
-      Exit;
-    if not PairMap.ContainsKey(ASourceText) then
-      PairMap.Add(ASourceText, ATranslatedText);
-  end;
-begin
-  Result := 0;
-  if not (AComponent is TCustomWebBrowser) then
-    Exit;
-  PairMap := TDictionary<string, string>.Create;
-  Pairs := TStringList.Create;
-  Script := TStringBuilder.Create;
-  try
-    DATRuntimeDebugLog(Format('ApplyBrowserText start: %s.%s language=%s',
-      [AComponent.ClassName, AComponent.Name, APack.LanguageCode]));
-    for Key in APack.Sources.Keys do
-      if APack.Strings.TryGetValue(Key, TranslatedText) then
-      begin
-        SourceText := APack.Sources[Key];
-        AddBrowserPair(SourceText, TranslatedText);
-      end;
-    for Candidate in APack.SourceStrings.Keys do
-    begin
-      TranslatedText := APack.SourceStrings[Candidate];
-      AddBrowserPair(Candidate, TranslatedText);
-    end;
-    for Candidate in APack.SourceTemplates.Keys do
-    begin
-      TranslatedText := APack.SourceTemplates[Candidate];
-      { Format strings belong to code, not browser text nodes. }
-      if (Pos('%', Candidate) = 0) and (Pos('%', TranslatedText) = 0) and
-        (Trim(Candidate) <> '') and (Trim(TranslatedText) <> '') then
-        AddBrowserPair(Candidate, TranslatedText);
-    end;
-    LogKnownBrowserTerm('Time');
-    LogKnownBrowserTerm('Type');
-    LogKnownBrowserTerm('Song/Purpose');
-    for Candidate in PairMap.Keys do
-      Pairs.Add(JavaScriptString(Candidate) + ',' +
-        JavaScriptString(PairMap[Candidate]));
-    if Pairs.Count = 0 then
-    begin
-      DATRuntimeDebugLog('ApplyBrowserText stopped: no browser text pairs.');
-      Exit;
-    end;
-    Script.Append('(function(){var p=[');
-    for Candidate in Pairs do
-    begin
-      if Script.Chars[Script.Length - 1] <> '[' then
-        Script.Append(',');
-      Script.Append('[').Append(Candidate).Append(']');
-    end;
-    Script.Append('];function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}function apply(n){var c=0,i,v,l,r,ch;if(!n){return 0;}if(n.nodeType===3){v=n.nodeValue;for(i=0;i<p.length;i++){if(trim(v)===p[i][0]){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[i][1]+r;c++;break;}}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}function run(){if(!document.body){return 0;}return apply(document.body);}var tries=0;function retry(){try{run();}catch(e){}tries++;if(tries<40){window.setTimeout(retry,150);}}retry();})();');
-    DATRuntimeDebugLog(Format(
-      'ApplyBrowserText executing: pairs=%d script length=%d contains Time=%s Type=%s Song/Purpose=%s',
-      [Pairs.Count, Script.Length, BoolToStr(Pos('"Time"', Script.ToString) > 0,
-      True), BoolToStr(Pos('"Type"', Script.ToString) > 0, True),
-      BoolToStr(Pos('"Song/Purpose"', Script.ToString) > 0, True)]));
-    try
-      TCustomWebBrowser(AComponent).EvaluateJavaScript(Script.ToString);
-    except
-      on E: Exception do
-      begin
-        DATRuntimeDebugLog(Format(
-          'ApplyBrowserText immediate EvaluateJavaScript failed on %s.%s: %s: %s',
-          [AComponent.ClassName, AComponent.Name, E.ClassName, E.Message]));
-        { A browser may still be loading when a newly-created dynamic dialog is
-          first shown. Translation must never turn that platform race into a
-          repeated application error dialog. The retry component below keeps
-          applying the same browser-safe script after the platform view settles. }
-      end;
-    end;
-    TBrowserTranslationRetry.Create(TCustomWebBrowser(AComponent),
-      Script.ToString);
-    Result := Pairs.Count;
-  finally
-    Script.Free;
-    Pairs.Free;
-    PairMap.Free;
   end;
 end;
 

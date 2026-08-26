@@ -875,6 +875,33 @@ begin
   end;
 end;
 
+procedure TestFMXBrowserTranslationRemainsBounded;
+var
+  ProjectRoot: string;
+  RuntimeFileName: string;
+  RuntimeSource: string;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  RuntimeFileName := TPath.Combine(ProjectRoot,
+    'source\runtime\DAT.Runtime.FMX.pas');
+  Require(TFile.Exists(RuntimeFileName),
+    'The FMX runtime source was not available for the browser retry contract.');
+  RuntimeSource := TFile.ReadAllText(RuntimeFileName, TEncoding.UTF8);
+  Require(ContainsText(RuntimeSource, 'if NeedsRetry then') and
+    ContainsText(RuntimeSource,
+      'TBrowserTranslationRetry.Create(TCustomWebBrowser(AComponent)'),
+    'FMX browser translation again schedules retries after a successful injection.');
+  Require(ContainsText(RuntimeSource, 'Object.create(null)'),
+    'FMX browser translation no longer uses a direct source-text lookup.');
+  Require(ContainsText(RuntimeSource,
+    'if(document.body){run();return;}'),
+    'FMX browser translation no longer stops its DOM readiness retry after success.');
+  Require(not ContainsText(RuntimeSource, 'if(tries<40)'),
+    'The former forty-pass browser DOM retry loop returned.');
+  Require(ContainsText(RuntimeSource, '{$IFDEF DAT_RUNTIME_DEBUG_LOG}'),
+    'FMX runtime browser diagnostics are again unconditional in shipping builds.');
+end;
+
 procedure TestObsoleteEntriesStayOutOfReview;
 var
   Catalog: TTranslationCatalog;
@@ -1974,6 +2001,7 @@ begin
     TestNestedProjectExclusion;
     TestGeneratedAndTestTreeExclusion;
     TestStaleScanSourceContract;
+    TestFMXBrowserTranslationRemainsBounded;
     TestObsoleteEntriesStayOutOfReview;
     TestProjectScanning;
     TestStudioProjectScanning;
