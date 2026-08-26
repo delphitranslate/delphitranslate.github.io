@@ -69,6 +69,12 @@ type
       const APack: TRuntimeLanguagePack; const AFormIdentity: string;
       const APreserveControlState: Boolean = True;
       const AApplyLayout: Boolean = True): Integer; overload; static;
+    { Refreshes only application-generated text. It deliberately does not
+      restore geometry, fit controls, reorder menus or apply layout rules;
+      those operations belong to a language change, not to a periodic check
+      for a newly assigned caption. }
+    class function RefreshDynamicText(const AForm: TCommonCustomForm;
+      const APack: TRuntimeLanguagePack): Integer; static;
     { Adjustments a person made while the application was running, applied
       after every rule the pack carries. They are last on purpose: an
       override is the correction of somebody who looked at the result, and
@@ -2326,6 +2332,63 @@ begin
     if APreserveControlState and (SavedFocusedControl <> nil) then
       AForm.Focused := SavedFocusedControl;
   end;
+end;
+
+class function TFMXTranslationApplicator.RefreshDynamicText(
+  const AForm: TCommonCustomForm;
+  const APack: TRuntimeLanguagePack): Integer;
+const
+  TextProperties: array[0..4] of string = (
+    'Caption', 'Text', 'Hint', 'TextPrompt', 'Header');
+
+  procedure RefreshTree(const AComponent: TComponent);
+  var
+    ChildIndex: Integer;
+    CurrentText: string;
+    NextText: string;
+    Pass: Integer;
+    PropertyInfo: PPropInfo;
+    PropertyName: string;
+    TranslatedText: string;
+  begin
+    if AComponent = nil then
+      Exit;
+    for PropertyName in TextProperties do
+    begin
+      if SameText(PropertyName, 'Text') and
+        EditableTextComponent(AComponent) then
+        Continue;
+      PropertyInfo := GetPropInfo(AComponent.ClassInfo, PropertyName,
+        [tkString, tkLString, tkWString, tkUString]);
+      if PropertyInfo = nil then
+        Continue;
+      CurrentText := GetStrProp(AComponent, PropertyInfo);
+      if CurrentText = '' then
+        Continue;
+      TranslatedText := CurrentText;
+      for Pass := 1 to 64 do
+      begin
+        if not APack.TryTranslateDynamicText(TranslatedText, NextText) or
+          (NextText = TranslatedText) then
+          Break;
+        TranslatedText := NextText;
+      end;
+      if TranslatedText <> CurrentText then
+      begin
+        SetStrProp(AComponent, PropertyInfo,
+          HeadingWithoutBreakMarks(PropertyName, TranslatedText));
+        Inc(Result);
+      end;
+    end;
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      RefreshTree(AComponent.Components[ChildIndex]);
+  end;
+
+begin
+  Result := 0;
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  RefreshTree(AForm);
 end;
 
 class function TFMXTranslationApplicator.ApplyOverrides(

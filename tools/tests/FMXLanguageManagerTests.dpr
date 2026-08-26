@@ -140,6 +140,13 @@ begin
     if FMainForm = nil then
       FMainForm := TfrmFMXLifecycle(Application.MainForm);
     RequireGerman(FMainForm, 'Auto-created form');
+    FMainForm.lblProbe.Text := 'FMX source text';
+    FMainForm.lblProbe.Width := 333;
+    FManager.RefreshDynamicText;
+    Require(Pos('Deutsch', FMainForm.lblProbe.Text) > 0,
+      'The manager dynamic refresh did not translate newly assigned text.');
+    Require(Round(FMainForm.lblProbe.Width) = 333,
+      'The manager dynamic refresh entered the form layout applicator.');
     Require(FShowWasGerman,
       'The auto-created form OnShow did not observe German text.');
     Require(FPaintWasGerman,
@@ -242,6 +249,7 @@ begin
     Require(FManager.Generation >= 3,
       'Language generations did not advance across selections.');
     Writeln('FMX_MANAGER_BEFORE_SHOW=PASS');
+    Writeln('FMX_MANAGER_DYNAMIC_REFRESH_TEXT_ONLY=PASS');
     Writeln('FMX_MANAGER_STABLE_IDENTITY=PASS');
     Writeln('FMX_MANAGER_INSTANT_SWITCH=PASS');
     Writeln('FMX_MANAGER_HIDDEN_FORM_POLICY=PASS');

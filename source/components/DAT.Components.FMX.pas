@@ -18,6 +18,7 @@ type
     FReleasedSubscription: TMessageSubscriptionId;
     FAutoRefreshDynamicText: Boolean;
     FDynamicRefreshInterval: Cardinal;
+    FDynamicRefreshBusy: Boolean;
     FDynamicTimer: TTimer;
     procedure EnsureDynamicTimer;
     procedure DynamicTimerTick(Sender: TObject);
@@ -97,7 +98,14 @@ end;
 
 procedure TDATFMXLanguageManager.DynamicTimerTick(Sender: TObject);
 begin
-  RefreshDynamicText;
+  if FDynamicRefreshBusy then
+    Exit;
+  FDynamicRefreshBusy := True;
+  try
+    RefreshDynamicText;
+  finally
+    FDynamicRefreshBusy := False;
+  end;
 end;
 
 procedure TDATFMXLanguageManager.EnsureDynamicTimer;
@@ -123,7 +131,6 @@ end;
 procedure TDATFMXLanguageManager.RefreshDynamicText;
 var
   Form: TObject;
-  FormIdentity: string;
   Forms: TList<TObject>;
 begin
   if not Initialized or (ActivePack = nil) then
@@ -133,10 +140,8 @@ begin
     CollectOpenManagedObjects(Forms);
     for Form in Forms do
     begin
-      FormIdentity := ResolveFormIdentity(Form,
-        TCommonCustomForm(Form).Name);
-      TFMXTranslationApplicator.ApplyToForm(TCommonCustomForm(Form),
-        ActivePack, FormIdentity, PreserveControlState, False);
+      TFMXTranslationApplicator.RefreshDynamicText(
+        TCommonCustomForm(Form), ActivePack);
       { Text the application built for itself, which no property this
         applicator sets ever carried. VCL catches this at the window; FMX
         has no message to catch, so it is corrected here instead. }

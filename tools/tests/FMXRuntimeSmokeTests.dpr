@@ -217,11 +217,6 @@ begin
         'not its interface, and the substitution has no reliable inverse.');
       Require(Round(frmFMXSample.colCustomer.Width) = 240,
         'A width rule was not applied to a grid column.');
-      Require(TFMXTranslationApplicator.ApplyLayoutToForm(frmFMXSample,
-        Pack, 'frmFMXSample', False) = 12,
-        'The FMX source-layout restore rules were not all applied.');
-      Require(Round(frmFMXSample.lblHeading.Width) = 360,
-        'The FMX source layout was not restored.');
       Require(frmFMXSample.mnuLanguage.Text = 'Sprache',
         'The FMX menu was not translated.');
       Require(frmFMXSample.cmbDateRange.ItemIndex = 2,
@@ -241,15 +236,35 @@ begin
         'A runtime-created FMX formatted caption was not translated.');
       Require(EventLabel.Text = 'Evento',
         'The FMX runtime source string was not translated.');
-      Require(TFMXTranslationApplicator.ApplyToForm(frmFMXSample, Pack,
-        frmFMXSample.Name, True, False) >= 0,
+      { A periodic dynamic-text refresh must not enter the full form/layout
+        applicator. Recreate source-language dynamic text after the initial
+        apply, then prove that only those words change and the translated
+        geometry remains exactly where the language change put it. }
+      DynamicLabel.Text := 'Close';
+      TemplateLabel.Text := 'Uptime: 2 years';
+      EventLabel.Text := 'Event';
+      Require(TFMXTranslationApplicator.RefreshDynamicText(
+        frmFMXSample, Pack) = 3,
         'The FMX dynamic-only refresh failed.');
-      TFMXTranslationApplicator.ApplyToForm(frmFMXSample, Pack,
-        frmFMXSample.Name, True, False);
+      Require(DynamicLabel.Text = 'Schlie' + #$00DF + 'en',
+        'The dynamic-only refresh did not translate a runtime label.');
+      Require(TemplateLabel.Text = 'Laufzeit: 2 Jahre',
+        'The dynamic-only refresh did not translate a formatted caption.');
       Require(EventLabel.Text = 'Evento',
-        'Repeated FMX dynamic refresh mutated an already-translated value.');
+        'The dynamic-only refresh did not translate a runtime source string.');
+      Require(Round(frmFMXSample.lblHeading.Width) = 480,
+        'A dynamic-only refresh changed translated-language geometry.');
+      Require(TFMXTranslationApplicator.RefreshDynamicText(
+        frmFMXSample, Pack) = 0,
+        'Repeated FMX dynamic refresh changed settled text.');
+      Require(Round(frmFMXSample.lblHeading.Width) = 480,
+        'Repeated FMX dynamic refresh changed settled geometry.');
+
+      Require(TFMXTranslationApplicator.ApplyLayoutToForm(frmFMXSample,
+        Pack, 'frmFMXSample', False) = 12,
+        'The FMX source-layout restore rules were not all applied.');
       Require(Round(frmFMXSample.lblHeading.Width) = 360,
-        'A dynamic-only refresh reapplied language layout rules.');
+        'The FMX source-layout restore rules were not all applied.');
 
       { Going back to the language the application was written in must give the
         form back, not only its words.
