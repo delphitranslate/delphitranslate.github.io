@@ -345,7 +345,8 @@ begin
   Wanted := Format('Columns[%d].Title.Caption', [AColumnIndex]);
   ColumnName := Format('%s.Columns[%d]', [AGridName, AColumnIndex]);
   for Entry in ACatalog.Entries do
-    if SameText(Entry.FormName, AFormName) and
+    if not (Entry.Status in [tsExcluded, tsObsolete]) and
+      SameText(Entry.FormName, AFormName) and
       ((SameText(Entry.ComponentName, AGridName) and
         SameText(Entry.PropertyName, Wanted)) or
        (SameText(Entry.ComponentName, ColumnName) and
@@ -367,7 +368,8 @@ begin
   ASource := '';
   ATranslation := '';
   for Entry in ACatalog.Entries do
-    if SameText(Entry.FormName, AFormName) and
+    if not (Entry.Status in [tsExcluded, tsObsolete]) and
+      SameText(Entry.FormName, AFormName) and
        SameText(Entry.ComponentName, AComponentName) and
        (ContainsText(Entry.PropertyName, 'Text') or
         ContainsText(Entry.PropertyName, 'Caption') or
@@ -5429,15 +5431,16 @@ begin
     Result.Framework := ACatalog.Framework;
     Result.TextDirection := ACatalog.Locale.TextDirection;
     for Entry in ACatalog.Entries do
-      case Entry.TextOwnership of
-        tokRuntimeWired: Inc(Result.FRuntimeWiredCount);
-        tokRuntimeUnwired: Inc(Result.FRuntimeUnwiredCount);
-        tokApplicationData: Inc(Result.FApplicationDataCount);
-        tokSuspicious: Inc(Result.FSuspiciousCount);
-        tokExcluded: Inc(Result.FExcludedCount);
-      else
-        Inc(Result.FDesignerAutomaticCount);
-      end;
+      if not (Entry.Status in [tsExcluded, tsObsolete]) then
+        case Entry.TextOwnership of
+          tokRuntimeWired: Inc(Result.FRuntimeWiredCount);
+          tokRuntimeUnwired: Inc(Result.FRuntimeUnwiredCount);
+          tokApplicationData: Inc(Result.FApplicationDataCount);
+          tokSuspicious: Inc(Result.FSuspiciousCount);
+          tokExcluded: Inc(Result.FExcludedCount);
+        else
+          Inc(Result.FDesignerAutomaticCount);
+        end;
     ScanLayout(ACatalog, Result);
     AnalyzeTranslations(ACatalog, Result);
     AnalyzeLayout(Result);
@@ -5587,7 +5590,8 @@ begin
         try
           Languages.Add(Catalog.Locale.LanguageCode);
           for Entry in Catalog.Entries do
-            if Entry.TranslatedText <> '' then
+            if not (Entry.Status in [tsExcluded, tsObsolete]) and
+              (Entry.TranslatedText <> '') then
             begin
               Key := Entry.FormName + '.' + Entry.ComponentName;
               Required := Ceil(Length(Entry.TranslatedText) * 12 * 0.57 + 18);

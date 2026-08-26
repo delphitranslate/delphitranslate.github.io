@@ -54,7 +54,9 @@ uses
   translated at all. }
 function IsApplicationOwned(const AEntry: TTranslationEntry): Boolean;
 begin
-  Result := AEntry.TextOwnership = tokRuntimeUnwired;
+  Result := (AEntry <> nil) and
+    not (AEntry.Status in [tsExcluded, tsObsolete]) and
+    (AEntry.TextOwnership = tokRuntimeUnwired);
 end;
 
 class function TApplicationOwnedStrings.Count(

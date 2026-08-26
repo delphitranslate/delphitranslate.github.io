@@ -94,6 +94,7 @@ type
     destructor Destroy; override;
     function CountByKind(const AKind: TScannedTextKind): Integer;
     function FindItem(const AKey: string): TScanItem;
+    function SourcesStillExist(out AMissingFileName: string): Boolean;
     property Items: TObjectList<TScanItem> read FItems;
     property Diagnostics: TObjectList<TScanDiagnostic> read FDiagnostics;
     property FilesScanned: Integer read FFilesScanned write FFilesScanned;
@@ -107,6 +108,7 @@ function ScannedTextKindDisplayName(const AKind: TScannedTextKind): string;
 implementation
 
 uses
+  System.IOUtils,
   System.SysUtils;
 
 constructor TProjectScanResult.Create;
@@ -141,6 +143,22 @@ begin
   for ScanItem in FItems do
     if SameText(ScanItem.Key, AKey) then
       Exit(ScanItem);
+end;
+
+function TProjectScanResult.SourcesStillExist(
+  out AMissingFileName: string): Boolean;
+var
+  ScanItem: TScanItem;
+begin
+  AMissingFileName := '';
+  for ScanItem in FItems do
+    if (Trim(ScanItem.SourceFileName) <> '') and
+       not TFile.Exists(ScanItem.SourceFileName) then
+    begin
+      AMissingFileName := ScanItem.SourceFileName;
+      Exit(False);
+    end;
+  Result := True;
 end;
 
 function ScannedTextKindDisplayName(const AKind: TScannedTextKind): string;

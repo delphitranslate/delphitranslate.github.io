@@ -218,8 +218,11 @@ class function TProjectScanner.IsExcludedPath(const AProjectDirectory,
   AFileName: string): Boolean;
 var
   CandidateDirectory: string;
+  DirectoryPart: string;
   DirectoryPrefix: string;
   NestedProjects: TArray<string>;
+  RelativeDirectory: string;
+  RelativeParts: TArray<string>;
   RelativePath: string;
 begin
   DirectoryPrefix := IncludeTrailingPathDelimiter(
@@ -239,9 +242,39 @@ begin
     StartsText('export' + PathDelim, RelativePath) or
     StartsText('localization' + PathDelim, RelativePath) or
     StartsText('samples' + PathDelim, RelativePath) or
-    StartsText('source distributions' + PathDelim, RelativePath);
+    StartsText('source distributions' + PathDelim, RelativePath) or
+    StartsText('test' + PathDelim, RelativePath) or
+    StartsText('tests' + PathDelim, RelativePath);
   if Result then
     Exit;
+
+  { Recursive discovery supplements the units explicitly named by the
+    selected Delphi project. It must not promote generated build or test
+    output into application source. Explicit DCCReference units were added
+    before this filter and remain eligible even when a project deliberately
+    keeps one beneath a normally generated directory. }
+  RelativeDirectory := TPath.GetDirectoryName(RelativePath);
+  RelativeParts := RelativeDirectory.Split([PathDelim]);
+  for DirectoryPart in RelativeParts do
+    if SameText(DirectoryPart, '.git') or
+       SameText(DirectoryPart, '.agents') or
+       SameText(DirectoryPart, '__history') or
+       SameText(DirectoryPart, '__recovery') or
+       SameText(DirectoryPart, 'backup') or
+       SameText(DirectoryPart, 'backups') or
+       SameText(DirectoryPart, 'bin') or
+       SameText(DirectoryPart, 'build') or
+       SameText(DirectoryPart, 'dcu') or
+       SameText(DirectoryPart, 'debug') or
+       SameText(DirectoryPart, 'release') or
+       SameText(DirectoryPart, 'win32') or
+       SameText(DirectoryPart, 'win64') or
+       SameText(DirectoryPart, 'output') or
+       SameText(DirectoryPart, 'outputs') or
+       EndsText('_output', DirectoryPart) or
+       ContainsText(DirectoryPart, '_output_') or
+       ContainsText(DirectoryPart, 'contract_output') then
+      Exit(True);
 
   { A source tree may contain a separate utility or conversion project. Such
     a nested project is not part of the application selected by the user. }

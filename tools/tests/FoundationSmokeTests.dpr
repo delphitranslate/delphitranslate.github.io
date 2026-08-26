@@ -20,6 +20,7 @@ uses
   DAT.Core.Terminology in '..\..\source\core\DAT.Core.Terminology.pas',
   DAT.Core.Glossary in '..\..\source\core\DAT.Core.Glossary.pas',
   DAT.Review.CodeGeometry in '..\..\source\review\DAT.Review.CodeGeometry.pas',
+  DAT.Review.ApplicationStrings in '..\..\source\review\DAT.Review.ApplicationStrings.pas',
   DAT.Review.Localization in '..\..\source\review\DAT.Review.Localization.pas',
   DAT.Review.TextMeasurement in '..\..\source\review\DAT.Review.TextMeasurement.pas',
   DAT.Review.TextMeasurement.GDI in '..\..\source\review\DAT.Review.TextMeasurement.GDI.pas',
@@ -757,6 +758,149 @@ begin
   finally
     ScanResult.Free;
     TDirectory.Delete(TempDirectory, True);
+  end;
+end;
+
+procedure TestGeneratedAndTestTreeExclusion;
+var
+  GeneratedDirectory: string;
+  Profile: TProjectProfile;
+  ScanResult: TProjectScanResult;
+  TempDirectory: string;
+  TestsDirectory: string;
+begin
+  TempDirectory := TPath.Combine(TPath.GetTempPath,
+    'DAT-Generated-Tree-' + FormatDateTime('hhnnsszzz', Now));
+  TestsDirectory := TPath.Combine(TempDirectory, 'tests');
+  GeneratedDirectory := TPath.Combine(TestsDirectory,
+    'round11_contract_output6\contract_case\source');
+  TDirectory.CreateDirectory(GeneratedDirectory);
+  TDirectory.CreateDirectory(TPath.Combine(TempDirectory, 'Source'));
+  TDirectory.CreateDirectory(TPath.Combine(TempDirectory, 'build'));
+  TDirectory.CreateDirectory(TPath.Combine(TempDirectory,
+    'generated_output'));
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'Main.dproj'),
+    '<Project>' + sLineBreak +
+    '<FrameworkType>FMX</FrameworkType>' + sLineBreak +
+    '<DCCReference Include="Source\Additional.pas" />' + sLineBreak +
+    '<DCCReference Include="tests\ExplicitReferenced.pas" />' + sLineBreak +
+    '</Project>', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'Main.fmx'),
+    'object frmMain: TForm' + sLineBreak +
+    '  Caption = ''Main application''' + sLineBreak + 'end', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(TestsDirectory,
+    'ExplicitReferenced.pas'),
+    'unit ExplicitReferenced;' + sLineBreak +
+    'interface' + sLineBreak +
+    'resourcestring' + sLineBreak +
+    '  SExplicit = ''Explicit referenced test text'';' + sLineBreak +
+    'implementation' + sLineBreak +
+    'end.',
+    TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(TempDirectory,
+    'Source\Additional.pas'),
+    'unit Additional;' + sLineBreak +
+    'interface' + sLineBreak +
+    'resourcestring' + sLineBreak +
+    '  SAdditional = ''Additional application text'';' + sLineBreak +
+    'implementation' + sLineBreak +
+    'end.',
+    TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(GeneratedDirectory, 'Ignored.pas'),
+    'unit Ignored;' + sLineBreak + 'interface' + sLineBreak +
+    'resourcestring' + sLineBreak +
+    '  SClaude = ''Claude round output text'';' + sLineBreak +
+    'implementation' + sLineBreak + 'end.',
+    TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'build\IgnoredBuild.pas'),
+    'unit IgnoredBuild;' + sLineBreak + 'interface' + sLineBreak +
+    'resourcestring' + sLineBreak +
+    '  SBuild = ''Generated build text'';' + sLineBreak +
+    'implementation' + sLineBreak + 'end.', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(TempDirectory,
+    'generated_output\IgnoredOutput.pas'),
+    'unit IgnoredOutput;' + sLineBreak + 'interface' + sLineBreak +
+    'resourcestring' + sLineBreak +
+    '  SOutput = ''Generated output text'';' + sLineBreak +
+    'implementation' + sLineBreak + 'end.', TEncoding.UTF8);
+  Profile := Default(TProjectProfile);
+  Profile.ProjectFileName := TPath.Combine(TempDirectory, 'Main.dproj');
+  Profile.ProjectName := 'Main';
+  Profile.Framework := tfFireMonkey;
+  ScanResult := TProjectScanner.Scan(Profile);
+  try
+    RequireSourceText(ScanResult, 'Main application', stkFormProperty);
+    RequireSourceText(ScanResult, 'Additional application text',
+      stkResourceString);
+    RequireSourceText(ScanResult, 'Explicit referenced test text',
+      stkResourceString);
+    RequireNoSourceText(ScanResult, 'Claude round output text');
+    RequireNoSourceText(ScanResult, 'Generated build text');
+    RequireNoSourceText(ScanResult, 'Generated output text');
+  finally
+    ScanResult.Free;
+    TDirectory.Delete(TempDirectory, True);
+  end;
+end;
+
+procedure TestStaleScanSourceContract;
+var
+  MissingFileName: string;
+  ScanItem: TScanItem;
+  ScanResult: TProjectScanResult;
+  TempFileName: string;
+begin
+  TempFileName := TPath.Combine(TPath.GetTempPath,
+    'DAT-Stale-Scan-' + FormatDateTime('hhnnsszzz', Now) + '.pas');
+  TFile.WriteAllText(TempFileName, 'unit Existing; interface implementation end.',
+    TEncoding.UTF8);
+  ScanResult := TProjectScanResult.Create;
+  try
+    ScanItem := TScanItem.Create;
+    ScanItem.Key := 'Existing.Caption';
+    ScanItem.SourceText := 'Existing';
+    ScanItem.SourceFileName := TempFileName;
+    ScanResult.Items.Add(ScanItem);
+    Require(ScanResult.SourcesStillExist(MissingFileName),
+      'An existing scan source was reported missing.');
+    TFile.Delete(TempFileName);
+    Require(not ScanResult.SourcesStillExist(MissingFileName),
+      'A deleted source from an earlier scan was not detected.');
+    Require(SameText(MissingFileName, TempFileName),
+      'The stale-scan contract reported the wrong missing source file.');
+  finally
+    ScanResult.Free;
+    if TFile.Exists(TempFileName) then
+      TFile.Delete(TempFileName);
+  end;
+end;
+
+procedure TestObsoleteEntriesStayOutOfReview;
+var
+  Catalog: TTranslationCatalog;
+  Entry: TTranslationEntry;
+  Review: TLocalizationReview;
+begin
+  Catalog := TTranslationCatalog.Create;
+  try
+    Entry := TTranslationEntry.Create;
+    Entry.Key := 'Removed.RuntimeText';
+    Entry.SourceText := 'Removed runtime text';
+    Entry.SourceFileName := 'missing\removed.pas';
+    Entry.TextOwnership := tokRuntimeUnwired;
+    Entry.Status := tsObsolete;
+    Catalog.Entries.Add(Entry);
+    Require(TApplicationOwnedStrings.Count(Catalog) = 0,
+      'An obsolete runtime string remained in the application-owned report.');
+    Review := TLocalizationReviewer.Analyze(Catalog);
+    try
+      Require(Review.RuntimeUnwiredCount = 0,
+        'An obsolete entry remained in localization review counts.');
+    finally
+      Review.Free;
+    end;
+  finally
+    Catalog.Free;
   end;
 end;
 
@@ -1828,6 +1972,9 @@ begin
     TestAuthoritativeTerminologyRepair;
     TestExtendedTextScanning;
     TestNestedProjectExclusion;
+    TestGeneratedAndTestTreeExclusion;
+    TestStaleScanSourceContract;
+    TestObsoleteEntriesStayOutOfReview;
     TestProjectScanning;
     TestStudioProjectScanning;
     TestIncrementalCatalogMerge;

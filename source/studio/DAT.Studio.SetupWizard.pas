@@ -1591,6 +1591,7 @@ var
   EntryIndexes: TArray<Integer>;
   Index: Integer;
   MissingCount: Integer;
+  MissingSourceFileName: string;
   Plan: TDeepLPlan;
   Provider: TTranslationProvider;
   Report: TStringList;
@@ -1625,6 +1626,14 @@ begin
     if FScanResult = nil then
       raise Exception.Create(
         'Run the project scan before final processing.');
+    if not TFile.Exists(FProjectProfile.ProjectFileName) then
+      raise Exception.CreateFmt(
+        'The selected Delphi project no longer exists: "%s". Select the project again and run a new scan before final processing.',
+        [FProjectProfile.ProjectFileName]);
+    if not FScanResult.SourcesStillExist(MissingSourceFileName) then
+      raise Exception.CreateFmt(
+        'A source file included in the previous scan no longer exists: "%s". Return to Scan Project and run the scan again before final processing.',
+        [MissingSourceFileName]);
     for ScanItem in FScanResult.Items do
       if TFile.Exists(ScanItem.SourceFileName) and
          (TFile.GetLastWriteTime(ScanItem.SourceFileName) >
