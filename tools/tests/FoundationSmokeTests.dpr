@@ -642,6 +642,8 @@ begin
     '  DisplayText := Format('' Uptime: %d years %d seconds'', [1, 2]);' + sLineBreak +
     '  Items.Add(''Close window'');' + sLineBreak +
     '  ShowMessage(''Unable to open the selected file.'');' + sLineBreak +
+    '  TDialogService.ShowMessage(''Please select a source folder.'');' +
+      sLineBreak +
     '  Canvas.FillText(Rect, ''Owner drawn heading'', False, 1, [], Align);' + sLineBreak +
     '  EventColumn.Header := ''Eventoooooooooooooooo'';' + sLineBreak +
     '  Html.Add(''<thead><tr><th>Time</th><th>Type</th><th>Song/Purpose</th></tr></thead>'');' + sLineBreak +
@@ -705,6 +707,8 @@ begin
       since the units it referenced were deleted. }
     RequireNoSourceText(ScanResult, 'Close window');
     RequireSourceText(ScanResult, 'Unable to open the selected file.',
+      stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'Please select a source folder.',
       stkRuntimeAssignment);
     { Deliberately not claimed either, and for the same reason as the item
       above: what a canvas draws is usually a data row or a runtime value, not

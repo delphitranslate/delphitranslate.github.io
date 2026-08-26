@@ -62,6 +62,10 @@ type
 implementation
 
 uses
+  System.Types,
+  System.UITypes,
+  FMX.Dialogs,
+  FMX.Platform,
   DAT.Runtime.SplashTranslation,
   { Named so it is linked at all.
 
@@ -74,9 +78,336 @@ uses
   DAT.Runtime.TemplateRewrite.FMX,
   DAT.Runtime.FMX;
 
+type
+  { FireMonkey sends TDialogService text straight to a platform service.  No
+    form or text control exists for the normal form applicator to translate,
+    so the language manager decorates that service and translates only the
+    message, caption, and prompt arguments before delegating. }
+  TDATFMXDialogTranslationService = class(TInterfacedObject,
+    IFMXDialogService, IFMXDialogServiceSync, IFMXDialogServiceAsync)
+  private
+    FLegacy: IFMXDialogService;
+    FSync: IFMXDialogServiceSync;
+    FAsync: IFMXDialogServiceAsync;
+    class function TranslatedPrompts(
+      const APrompts: array of string): TArray<string>; static;
+  public
+    constructor Create(const ALegacy: IFMXDialogService;
+      const ASync: IFMXDialogServiceSync;
+      const AAsync: IFMXDialogServiceAsync);
+    function DialogOpenFiles(const ADialog: TOpenDialog; var AFiles: TStrings;
+      AType: TDialogType = TDialogType.Standard): Boolean;
+    function DialogPrint(var ACollate, APrintToFile: Boolean;
+      var AFromPage, AToPage, ACopies: Integer; AMinPage, AMaxPage: Integer;
+      var APrintRange: TPrintRange; AOptions: TPrintDialogOptions): Boolean;
+    function PageSetupGetDefaults(var AMargin, AMinMargin: TRect;
+      var APaperSize: TPointF; AUnits: TPageMeasureUnits;
+      AOptions: TPageSetupDialogOptions): Boolean;
+    function DialogPageSetup(var AMargin, AMinMargin: TRect;
+      var APaperSize: TPointF; var AUnits: TPageMeasureUnits;
+      AOptions: TPageSetupDialogOptions): Boolean;
+    function DialogSaveFiles(const ADialog: TOpenDialog;
+      var AFiles: TStrings): Boolean;
+    function DialogPrinterSetup: Boolean;
+    function MessageDialog(const AMessage: string;
+      const ADialogType: TMsgDlgType; const AButtons: TMsgDlgButtons;
+      const ADefaultButton: TMsgDlgBtn; const AX, AY: Integer;
+      const AHelpCtx: THelpContext; const AHelpFileName: string): Integer;
+      overload;
+    procedure MessageDialog(const AMessage: string;
+      const ADialogType: TMsgDlgType; const AButtons: TMsgDlgButtons;
+      const ADefaultButton: TMsgDlgBtn; const AX, AY: Integer;
+      const AHelpCtx: THelpContext; const AHelpFileName: string;
+      const ACloseDialogProc: TInputCloseDialogProc); overload;
+    function InputQuery(const ACaption: string;
+      const APrompts: array of string; var AValues: array of string;
+      const ACloseQueryFunc: TInputCloseQueryFunc = nil): Boolean; overload;
+    procedure InputQuery(const ACaption: string;
+      const APrompts, ADefaultValues: array of string;
+      const ACloseQueryProc: TInputCloseQueryProc); overload;
+    procedure ShowMessageSync(const AMessage: string);
+    function MessageDialogSync(const AMessage: string;
+      const ADialogType: TMsgDlgType; const AButtons: TMsgDlgButtons;
+      const ADefaultButton: TMsgDlgBtn;
+      const AHelpCtx: THelpContext): Integer;
+    function InputQuerySync(const ACaption: string;
+      const APrompts: array of string; var AValues: array of string): Boolean;
+    procedure ShowMessageAsync(const AMessage: string); overload;
+    procedure ShowMessageAsync(const AMessage: string;
+      const ACloseDialogProc: TInputCloseDialogProc); overload;
+    procedure ShowMessageAsync(const AMessage: string;
+      const ACloseDialogEvent: TInputCloseDialogEvent;
+      const AContext: TObject = nil); overload;
+    procedure MessageDialogAsync(const AMessage: string;
+      const ADialogType: TMsgDlgType; const AButtons: TMsgDlgButtons;
+      const ADefaultButton: TMsgDlgBtn; const AHelpCtx: THelpContext;
+      const ACloseDialogProc: TInputCloseDialogProc); overload;
+    procedure MessageDialogAsync(const AMessage: string;
+      const ADialogType: TMsgDlgType; const AButtons: TMsgDlgButtons;
+      const ADefaultButton: TMsgDlgBtn; const AHelpCtx: THelpContext;
+      const ACloseDialogEvent: TInputCloseDialogEvent;
+      const AContext: TObject = nil); overload;
+    procedure InputQueryAsync(const ACaption: string;
+      const APrompts: array of string; const ADefaultValues: array of string;
+      const ACloseQueryProc: TInputCloseQueryProc); overload;
+    procedure InputQueryAsync(const ACaption: string;
+      const APrompts: array of string; const ADefaultValues: array of string;
+      const ACloseQueryEvent: TInputCloseQueryWithResultEvent;
+      const AContext: TObject = nil); overload;
+  end;
+
+var
+  DATFMXDialogTranslationService: IInterface;
+
+procedure InstallFMXDialogTranslationService;
+var
+  AsyncService: IFMXDialogServiceAsync;
+  LegacyService: IFMXDialogService;
+  Proxy: TDATFMXDialogTranslationService;
+  ProxyInterface: IFMXDialogServiceSync;
+  SyncService: IFMXDialogServiceSync;
+begin
+  if DATFMXDialogTranslationService <> nil then
+    Exit;
+  TPlatformServices.Current.SupportsPlatformService(IFMXDialogService,
+    LegacyService);
+  TPlatformServices.Current.SupportsPlatformService(IFMXDialogServiceSync,
+    SyncService);
+  TPlatformServices.Current.SupportsPlatformService(IFMXDialogServiceAsync,
+    AsyncService);
+  if (LegacyService = nil) and (SyncService = nil) and
+    (AsyncService = nil) then
+    Exit;
+  Proxy := TDATFMXDialogTranslationService.Create(LegacyService, SyncService,
+    AsyncService);
+  ProxyInterface := Proxy;
+  DATFMXDialogTranslationService := ProxyInterface;
+  if LegacyService <> nil then
+  begin
+    TPlatformServices.Current.RemovePlatformService(IFMXDialogService);
+    TPlatformServices.Current.AddPlatformService(IFMXDialogService,
+      Proxy as IFMXDialogService);
+  end;
+  if SyncService <> nil then
+  begin
+    TPlatformServices.Current.RemovePlatformService(IFMXDialogServiceSync);
+    TPlatformServices.Current.AddPlatformService(IFMXDialogServiceSync,
+      Proxy as IFMXDialogServiceSync);
+  end;
+  if AsyncService <> nil then
+  begin
+    TPlatformServices.Current.RemovePlatformService(IFMXDialogServiceAsync);
+    TPlatformServices.Current.AddPlatformService(IFMXDialogServiceAsync,
+      Proxy as IFMXDialogServiceAsync);
+  end;
+end;
+
+constructor TDATFMXDialogTranslationService.Create(
+  const ALegacy: IFMXDialogService; const ASync: IFMXDialogServiceSync;
+  const AAsync: IFMXDialogServiceAsync);
+begin
+  inherited Create;
+  FLegacy := ALegacy;
+  FSync := ASync;
+  FAsync := AAsync;
+end;
+
+class function TDATFMXDialogTranslationService.TranslatedPrompts(
+  const APrompts: array of string): TArray<string>;
+var
+  PromptIndex: Integer;
+begin
+  SetLength(Result, Length(APrompts));
+  for PromptIndex := 0 to High(APrompts) do
+    Result[PromptIndex] := DATTranslateDynamicText(APrompts[PromptIndex]);
+end;
+
+function TDATFMXDialogTranslationService.DialogOpenFiles(
+  const ADialog: TOpenDialog; var AFiles: TStrings;
+  AType: TDialogType): Boolean;
+begin
+  Result := FLegacy.DialogOpenFiles(ADialog, AFiles, AType);
+end;
+
+function TDATFMXDialogTranslationService.DialogPrint(var ACollate,
+  APrintToFile: Boolean; var AFromPage, AToPage, ACopies: Integer;
+  AMinPage, AMaxPage: Integer; var APrintRange: TPrintRange;
+  AOptions: TPrintDialogOptions): Boolean;
+begin
+  Result := FLegacy.DialogPrint(ACollate, APrintToFile, AFromPage, AToPage,
+    ACopies, AMinPage, AMaxPage, APrintRange, AOptions);
+end;
+
+function TDATFMXDialogTranslationService.PageSetupGetDefaults(
+  var AMargin, AMinMargin: TRect; var APaperSize: TPointF;
+  AUnits: TPageMeasureUnits; AOptions: TPageSetupDialogOptions): Boolean;
+begin
+  Result := FLegacy.PageSetupGetDefaults(AMargin, AMinMargin, APaperSize,
+    AUnits, AOptions);
+end;
+
+function TDATFMXDialogTranslationService.DialogPageSetup(
+  var AMargin, AMinMargin: TRect; var APaperSize: TPointF;
+  var AUnits: TPageMeasureUnits;
+  AOptions: TPageSetupDialogOptions): Boolean;
+begin
+  Result := FLegacy.DialogPageSetup(AMargin, AMinMargin, APaperSize, AUnits,
+    AOptions);
+end;
+
+function TDATFMXDialogTranslationService.DialogSaveFiles(
+  const ADialog: TOpenDialog; var AFiles: TStrings): Boolean;
+begin
+  Result := FLegacy.DialogSaveFiles(ADialog, AFiles);
+end;
+
+function TDATFMXDialogTranslationService.DialogPrinterSetup: Boolean;
+begin
+  Result := FLegacy.DialogPrinterSetup;
+end;
+
+function TDATFMXDialogTranslationService.MessageDialog(
+  const AMessage: string; const ADialogType: TMsgDlgType;
+  const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn;
+  const AX, AY: Integer; const AHelpCtx: THelpContext;
+  const AHelpFileName: string): Integer;
+begin
+  Result := FLegacy.MessageDialog(DATTranslateDynamicText(AMessage),
+    ADialogType, AButtons, ADefaultButton, AX, AY, AHelpCtx, AHelpFileName);
+end;
+
+procedure TDATFMXDialogTranslationService.MessageDialog(
+  const AMessage: string; const ADialogType: TMsgDlgType;
+  const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn;
+  const AX, AY: Integer; const AHelpCtx: THelpContext;
+  const AHelpFileName: string;
+  const ACloseDialogProc: TInputCloseDialogProc);
+begin
+  FLegacy.MessageDialog(DATTranslateDynamicText(AMessage), ADialogType,
+    AButtons, ADefaultButton, AX, AY, AHelpCtx, AHelpFileName,
+    ACloseDialogProc);
+end;
+
+function TDATFMXDialogTranslationService.InputQuery(const ACaption: string;
+  const APrompts: array of string; var AValues: array of string;
+  const ACloseQueryFunc: TInputCloseQueryFunc): Boolean;
+var
+  Prompts: TArray<string>;
+begin
+  Prompts := TranslatedPrompts(APrompts);
+  Result := FLegacy.InputQuery(DATTranslateDynamicText(ACaption), Prompts,
+    AValues, ACloseQueryFunc);
+end;
+
+procedure TDATFMXDialogTranslationService.InputQuery(const ACaption: string;
+  const APrompts, ADefaultValues: array of string;
+  const ACloseQueryProc: TInputCloseQueryProc);
+var
+  Prompts: TArray<string>;
+begin
+  Prompts := TranslatedPrompts(APrompts);
+  FLegacy.InputQuery(DATTranslateDynamicText(ACaption), Prompts,
+    ADefaultValues, ACloseQueryProc);
+end;
+
+procedure TDATFMXDialogTranslationService.ShowMessageSync(
+  const AMessage: string);
+begin
+  FSync.ShowMessageSync(DATTranslateDynamicText(AMessage));
+end;
+
+function TDATFMXDialogTranslationService.MessageDialogSync(
+  const AMessage: string; const ADialogType: TMsgDlgType;
+  const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn;
+  const AHelpCtx: THelpContext): Integer;
+begin
+  Result := FSync.MessageDialogSync(DATTranslateDynamicText(AMessage),
+    ADialogType, AButtons, ADefaultButton, AHelpCtx);
+end;
+
+function TDATFMXDialogTranslationService.InputQuerySync(
+  const ACaption: string; const APrompts: array of string;
+  var AValues: array of string): Boolean;
+var
+  Prompts: TArray<string>;
+begin
+  Prompts := TranslatedPrompts(APrompts);
+  Result := FSync.InputQuerySync(DATTranslateDynamicText(ACaption), Prompts,
+    AValues);
+end;
+
+procedure TDATFMXDialogTranslationService.ShowMessageAsync(
+  const AMessage: string);
+begin
+  FAsync.ShowMessageAsync(DATTranslateDynamicText(AMessage));
+end;
+
+procedure TDATFMXDialogTranslationService.ShowMessageAsync(
+  const AMessage: string; const ACloseDialogProc: TInputCloseDialogProc);
+begin
+  FAsync.ShowMessageAsync(DATTranslateDynamicText(AMessage),
+    ACloseDialogProc);
+end;
+
+procedure TDATFMXDialogTranslationService.ShowMessageAsync(
+  const AMessage: string; const ACloseDialogEvent: TInputCloseDialogEvent;
+  const AContext: TObject);
+begin
+  FAsync.ShowMessageAsync(DATTranslateDynamicText(AMessage),
+    ACloseDialogEvent, AContext);
+end;
+
+procedure TDATFMXDialogTranslationService.MessageDialogAsync(
+  const AMessage: string; const ADialogType: TMsgDlgType;
+  const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn;
+  const AHelpCtx: THelpContext;
+  const ACloseDialogProc: TInputCloseDialogProc);
+begin
+  FAsync.MessageDialogAsync(DATTranslateDynamicText(AMessage), ADialogType,
+    AButtons, ADefaultButton, AHelpCtx, ACloseDialogProc);
+end;
+
+procedure TDATFMXDialogTranslationService.MessageDialogAsync(
+  const AMessage: string; const ADialogType: TMsgDlgType;
+  const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn;
+  const AHelpCtx: THelpContext;
+  const ACloseDialogEvent: TInputCloseDialogEvent;
+  const AContext: TObject);
+begin
+  FAsync.MessageDialogAsync(DATTranslateDynamicText(AMessage), ADialogType,
+    AButtons, ADefaultButton, AHelpCtx, ACloseDialogEvent, AContext);
+end;
+
+procedure TDATFMXDialogTranslationService.InputQueryAsync(
+  const ACaption: string; const APrompts: array of string;
+  const ADefaultValues: array of string;
+  const ACloseQueryProc: TInputCloseQueryProc);
+var
+  Prompts: TArray<string>;
+begin
+  Prompts := TranslatedPrompts(APrompts);
+  FAsync.InputQueryAsync(DATTranslateDynamicText(ACaption), Prompts,
+    ADefaultValues, ACloseQueryProc);
+end;
+
+procedure TDATFMXDialogTranslationService.InputQueryAsync(
+  const ACaption: string; const APrompts: array of string;
+  const ADefaultValues: array of string;
+  const ACloseQueryEvent: TInputCloseQueryWithResultEvent;
+  const AContext: TObject);
+var
+  Prompts: TArray<string>;
+begin
+  Prompts := TranslatedPrompts(APrompts);
+  FAsync.InputQueryAsync(DATTranslateDynamicText(ACaption), Prompts,
+    ADefaultValues, ACloseQueryEvent, AContext);
+end;
+
 constructor TDATFMXLanguageManager.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+  if not (csDesigning in ComponentState) then
+    InstallFMXDialogTranslationService;
   FAutoRefreshDynamicText := True;
   FDynamicRefreshInterval := 1000;
   if not (csDesigning in ComponentState) then
