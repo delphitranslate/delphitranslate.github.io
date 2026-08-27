@@ -113,6 +113,7 @@ uses
   FMX.Menus,
   FMX.Graphics,
   FMX.StdCtrls,
+  FMX.TabControl,
   FMX.TextLayout,
   FMX.WebBrowser;
 
@@ -2120,7 +2121,9 @@ var
     Child: TFmxObject;
     ChildIndex: Integer;
     Control: TControl;
+    Ancestor: TFmxObject;
     EffectiveWidth: Single;
+    LargestChildRight: Single;
     MinimumPositiveInset: Single;
     MirroredLeft: Single;
     GroupLeft, GroupRight, MirroredGroupLeft: Single;
@@ -2151,6 +2154,7 @@ var
       that themselves began at or beyond that gutter; true edge-to-edge
       controls at X=0 remain edge-to-edge. }
     MinimumPositiveInset := MaxSingle;
+    LargestChildRight := 0;
     for ChildIndex := 0 to AParent.ChildrenCount - 1 do
     begin
       Child := AParent.Children[ChildIndex];
@@ -2162,10 +2166,42 @@ var
           (Control.Position.X > 0.5) and
           (Control.Position.X < MinimumPositiveInset) then
           MinimumPositiveInset := Control.Position.X;
+        if IsApplicationControl(Control) and
+          (Control.Align = TAlignLayout.None) and
+          (Control.Position.X + Control.Width > LargestChildRight) then
+          LargestChildRight := Control.Position.X + Control.Width;
       end;
     end;
     if MinimumPositiveInset = MaxSingle then
       MinimumPositiveInset := 0;
+
+    { A run-time scroll box on an inactive tab can still report the tab's
+      narrow header/placeholder width.  Its child cards, however, retain the
+      full tab-client geometry.  When those facts disagree, resolve the live
+      width from the owning tab control before mirroring or fitting anything.
+      This is deliberately based on FMX ownership and measured geometry, not
+      on an application or component name. }
+    if (LargestChildRight > EffectiveWidth + 0.5) and
+      not ((AParent is TControl) and
+        IsApplicationControl(TControl(AParent)) and
+        (TControl(AParent).Align = TAlignLayout.None)) then
+    begin
+      Ancestor := AParent.Parent;
+      while Ancestor <> nil do
+      begin
+        if Ancestor is TTabControl then
+        begin
+          if TTabControl(Ancestor).Width > EffectiveWidth then
+            EffectiveWidth := TTabControl(Ancestor).Width;
+          Break;
+        end;
+        if (Ancestor is TControl) and
+          IsApplicationControl(TControl(Ancestor)) and
+          (TControl(Ancestor).Align = TAlignLayout.None) then
+          Break;
+        Ancestor := Ancestor.Parent;
+      end;
+    end;
 
     TransportControls := TList<TControl>.Create;
     try
@@ -2217,6 +2253,8 @@ var
           begin
             if (MinimumPositiveInset > 0) and
               (Control.Position.X >= MinimumPositiveInset) and
+              (EffectiveWidth > 2 * MinimumPositiveInset) and
+              (Control.Width <= EffectiveWidth + MinimumPositiveInset + 1) and
               (Control.Width > EffectiveWidth -
                 (2 * MinimumPositiveInset)) then
               Control.Width := EffectiveWidth -

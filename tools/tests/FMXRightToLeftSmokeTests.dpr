@@ -110,8 +110,11 @@ var
   CenteredLayout: TLayout;
   Tabs: TTabControl;
   Page: TTabItem;
+  InactivePage: TTabItem;
+  InactiveScroll: TVertScrollBox;
   PageCard: TLayout;
   EdgeCard: TLayout;
+  InactiveEdgeCard: TLayout;
   RewindButton: TButton;
   PlayButton: TButton;
   StopButton: TButton;
@@ -185,6 +188,24 @@ begin
       { The one-pixel overrun is representative of an FMX tab client whose
         streamed width and live width round differently. }
       EdgeCard.SetBounds(12, 4, 389, 40);
+      InactivePage := TTabItem.Create(Form);
+      InactivePage.Parent := Tabs;
+      InactivePage.Name := 'tabProjectScan';
+      InactivePage.Text := 'Project Scan';
+      InactivePage.Width := 8;
+      InactiveScroll := TVertScrollBox.Create(Form);
+      InactiveScroll.Parent := InactivePage;
+      { This is the transient state seen while an inactive page has not yet
+        received its live client bounds. The V5 application creates these
+        wrappers at run time; FMX can still report a narrow placeholder here
+        when the translation pass begins. }
+      InactiveScroll.Align := TAlignLayout.None;
+      InactiveScroll.SetBounds(0, 0, 50, 70);
+      InactiveEdgeCard := TLayout.Create(Form);
+      InactiveEdgeCard.Name := 'lytInactiveEdgeCard';
+      InactiveEdgeCard.SetBounds(12, 4, 389, 40);
+      InactiveScroll.AddObject(InactiveEdgeCard);
+      Tabs.ActiveTab := Page;
 
       RewindButton := TButton.Create(Form);
       RewindButton.Parent := Form;
@@ -245,6 +266,9 @@ begin
           [EdgeCard.Position.X]));
       Check(Abs(EdgeCard.Width - 376) < 1,
         'A near-full-width card preserves the opposite 12-pixel gutter too.');
+      Check((Abs(InactiveEdgeCard.Position.X - 12) < 1) and
+        (Abs(InactiveEdgeCard.Width - 376) < 1),
+        'A card on an inactive tab uses the tab control client width and does not collapse.');
       Writeln(Format('        transport X=%.0f, %.0f, %.0f; close=%.0f; form=%d/%d',
         [RewindButton.Position.X, PlayButton.Position.X,
          StopButton.Position.X, CloseButton.Position.X, Form.Width,
@@ -301,6 +325,9 @@ begin
       Check((Abs(EdgeCard.Position.X - 12) < 1) and
         (Abs(EdgeCard.Width - 389) < 1),
         'The edge card returns to its exact designer geometry in an LTR language.');
+      Check((Abs(InactiveEdgeCard.Position.X - 12) < 1) and
+        (Abs(InactiveEdgeCard.Width - 389) < 1),
+        'The inactive-tab card also returns to its exact designer geometry.');
       Check((Abs(RewindButton.Position.X - 20) < 1) and
         (Abs(PlayButton.Position.X - 90) < 1) and
         (Abs(StopButton.Position.X - 160) < 1),
