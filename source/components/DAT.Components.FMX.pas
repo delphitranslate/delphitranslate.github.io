@@ -20,9 +20,12 @@ type
     FDynamicRefreshInterval: Cardinal;
     FDynamicRefreshBusy: Boolean;
     FDynamicTimer: TTimer;
+    FPendingPostShowForms: TList<TCommonCustomForm>;
     FTranslateBrowserContent: Boolean;
     procedure EnsureDynamicTimer;
     procedure DynamicTimerTick(Sender: TObject);
+    procedure ProcessPendingPostShowReapply;
+    procedure QueuePostShowReapply(const AForm: TCommonCustomForm);
     procedure SetAutoRefreshDynamicText(const Value: Boolean);
     procedure SetDynamicRefreshInterval(const Value: Cardinal);
     procedure SubscribeToLifecycle;
@@ -409,6 +412,7 @@ end;
 constructor TDATFMXLanguageManager.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+  FPendingPostShowForms := TList<TCommonCustomForm>.Create;
   if not (csDesigning in ComponentState) then
     InstallFMXDialogTranslationService;
   FAutoRefreshDynamicText := True;
@@ -428,6 +432,8 @@ begin
   end;
   FDynamicTimer.Free;
   FDynamicTimer := nil;
+  FPendingPostShowForms.Free;
+  FPendingPostShowForms := nil;
   inherited Destroy;
 end;
 
@@ -437,9 +443,47 @@ begin
     Exit;
   FDynamicRefreshBusy := True;
   try
+    ProcessPendingPostShowReapply;
     RefreshDynamicText;
   finally
     FDynamicRefreshBusy := False;
+  end;
+end;
+
+procedure TDATFMXLanguageManager.ProcessPendingPostShowReapply;
+var
+  Form: TCommonCustomForm;
+begin
+  if FPendingPostShowForms = nil then
+    Exit;
+  while FPendingPostShowForms.Count > 0 do
+  begin
+    Form := FPendingPostShowForms[0];
+    FPendingPostShowForms.Delete(0);
+    if (Form <> nil) and not (csDestroying in Form.ComponentState) and
+      (ActivePack <> nil) then
+      TFMXTranslationApplicator.RefreshDirectionLayout(Form, ActivePack,
+        ManagedObjectInstanceName(Form));
+  end;
+  EnsureDynamicTimer;
+end;
+
+procedure TDATFMXLanguageManager.QueuePostShowReapply(
+  const AForm: TCommonCustomForm);
+begin
+  if (AForm = nil) or (FPendingPostShowForms = nil) then
+    Exit;
+  if FPendingPostShowForms.IndexOf(AForm) < 0 then
+    FPendingPostShowForms.Add(AForm);
+  EnsureDynamicTimer;
+  if FDynamicTimer <> nil then
+  begin
+    { TFormBeforeShownMessage precedes the platform window, OnShow, and the
+      form's final alignment pass.  A one-shot timer runs immediately after
+      that sequence, when inactive tab scroll boxes have their real client
+      width and application responsive code has finished. }
+    FDynamicTimer.Interval := 1;
+    FDynamicTimer.Enabled := True;
   end;
 end;
 
@@ -571,6 +615,7 @@ begin
   begin
     Form := TFormBeforeShownMessage(AMessage).Value;
     ReapplyToManagedObject(Form);
+    QueuePostShowReapply(Form);
   end;
 end;
 
@@ -578,7 +623,11 @@ procedure TDATFMXLanguageManager.HandleReleased(const Sender: TObject;
   const AMessage: TMessage);
 begin
   if Sender is TCommonCustomForm then
+  begin
+    if FPendingPostShowForms <> nil then
+      FPendingPostShowForms.Remove(TCommonCustomForm(Sender));
     RemoveManagedObject(Sender);
+  end;
 end;
 
 function TDATFMXLanguageManager.ManagedObjectInstanceName(

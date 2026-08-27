@@ -112,9 +112,13 @@ var
   Page: TTabItem;
   InactivePage: TTabItem;
   InactiveScroll: TVertScrollBox;
+  StartupTabs: TTabControl;
+  StartupPage: TTabItem;
+  StartupScroll: TVertScrollBox;
   PageCard: TLayout;
   EdgeCard: TLayout;
   InactiveEdgeCard: TLayout;
+  StartupEdgeCard: TLayout;
   RewindButton: TButton;
   PlayButton: TButton;
   StopButton: TButton;
@@ -207,6 +211,27 @@ begin
       InactiveScroll.AddObject(InactiveEdgeCard);
       Tabs.ActiveTab := Page;
 
+      { Before a form is shown, FMX can report the tab control and its
+        inactive scroll content using only their placeholder dimensions.
+        The first language pass must not bake those transient values into a
+        full-width application card. }
+      StartupTabs := TTabControl.Create(Form);
+      StartupTabs.Parent := Form;
+      StartupTabs.Name := 'tabsStarting';
+      StartupTabs.SetBounds(0, 220, 400, 70);
+      StartupPage := TTabItem.Create(Form);
+      StartupPage.Parent := StartupTabs;
+      StartupPage.Name := 'tabStarting';
+      StartupPage.Width := 8;
+      StartupScroll := TVertScrollBox.Create(Form);
+      StartupScroll.Parent := StartupPage;
+      StartupScroll.Align := TAlignLayout.None;
+      StartupScroll.SetBounds(0, 0, 400, 70);
+      StartupEdgeCard := TLayout.Create(Form);
+      StartupEdgeCard.Name := 'lytStartupEdgeCard';
+      StartupEdgeCard.SetBounds(12, 4, 389, 40);
+      StartupScroll.AddObject(StartupEdgeCard);
+
       RewindButton := TButton.Create(Form);
       RewindButton.Parent := Form;
       RewindButton.Name := 'btnRewind';
@@ -230,6 +255,17 @@ begin
       Grid.SetBounds(16, 130, 300, 80);
       GridColumn := TStringColumn.Create(Grid);
       GridColumn.Parent := Grid;
+
+      { Snapshot the streamed designer geometry before simulating the narrow
+        dimensions FMX reports for an inactive page during startup. }
+      Pack := EnglishPack;
+      try
+        TFMXTranslationApplicator.ApplyToForm(Form, Pack, 'frmRtl', True);
+      finally
+        Pack.Free;
+      end;
+      StartupTabs.Width := 8;
+      StartupScroll.Width := 50;
 
       Pack := HebrewPack;
       try
@@ -269,6 +305,9 @@ begin
       Check((Abs(InactiveEdgeCard.Position.X - 12) < 1) and
         (Abs(InactiveEdgeCard.Width - 376) < 1),
         'A card on an inactive tab uses the tab control client width and does not collapse.');
+      Check((Abs(StartupEdgeCard.Position.X - 12) < 1) and
+        (StartupEdgeCard.Width > 300),
+        'A startup placeholder width is ignored rather than collapsing its card.');
       Writeln(Format('        transport X=%.0f, %.0f, %.0f; close=%.0f; form=%d/%d',
         [RewindButton.Position.X, PlayButton.Position.X,
          StopButton.Position.X, CloseButton.Position.X, Form.Width,
@@ -295,6 +334,22 @@ begin
         'A future FireMonkey grid editor copies right-to-left alignment from its column.');
       Check(not (TStyledSetting.Other in Name_.StyledSettings),
         'and the style has given up its claim on it, so it survives a repaint.');
+
+      { This is the post-show state used by the manager's deferred pass. }
+      StartupTabs.Width := 400;
+      StartupScroll.Width := 400;
+      Pack := HebrewPack;
+      try
+        TFMXTranslationApplicator.RefreshDirectionLayout(Form, Pack,
+          'frmRtl');
+        TFMXTranslationApplicator.RefreshDirectionLayout(Form, Pack,
+          'frmRtl');
+      finally
+        Pack.Free;
+      end;
+      Check((Abs(StartupEdgeCard.Position.X - 12) < 1) and
+        (Abs(StartupEdgeCard.Width - 376) < 1),
+        'The idempotent post-show pass fits the card to the live tab width.');
 
       { The numbers match the VCL test exactly. That is the point: the mirror
         is one implementation, not two that happen to agree today. }
@@ -328,6 +383,9 @@ begin
       Check((Abs(InactiveEdgeCard.Position.X - 12) < 1) and
         (Abs(InactiveEdgeCard.Width - 389) < 1),
         'The inactive-tab card also returns to its exact designer geometry.');
+      Check((Abs(StartupEdgeCard.Position.X - 12) < 1) and
+        (Abs(StartupEdgeCard.Width - 389) < 1),
+        'The startup-tab card also returns to its exact designer geometry.');
       Check((Abs(RewindButton.Position.X - 20) < 1) and
         (Abs(PlayButton.Position.X - 90) < 1) and
         (Abs(StopButton.Position.X - 160) < 1),

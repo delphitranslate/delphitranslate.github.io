@@ -79,6 +79,13 @@ type
       for a newly assigned caption. }
     class function RefreshDynamicText(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack): Integer; static;
+    { Re-evaluates only RTL horizontal geometry against the live parent
+      widths.  It is safe after OnShow because it does not restore designer
+      sizes or positions first, and the mirror is calculated from the stored
+      source coordinates rather than from an already mirrored position. }
+    class function RefreshDirectionLayout(const AForm: TCommonCustomForm;
+      const APack: TRuntimeLanguagePack;
+      const AFormIdentity: string): Integer; static;
     { Adjustments a person made while the application was running, applied
       after every rule the pack carries. They are last on purpose: an
       override is the correction of somebody who looked at the result, and
@@ -2123,11 +2130,25 @@ var
     Control: TControl;
     Ancestor: TFmxObject;
     EffectiveWidth: Single;
+    GeometryResolved: Boolean;
     LargestChildRight: Single;
     MinimumPositiveInset: Single;
     MirroredLeft: Single;
+    SourceLeft: Single;
     GroupLeft, GroupRight, MirroredGroupLeft: Single;
     TransportControls: TList<TControl>;
+
+    function DesignedLeft(const AControl: TControl): Single;
+    var
+      Snapshot: TDATControlSnapshot;
+    begin
+      Result := AControl.Position.X;
+      if (FOriginalGeometry <> nil) and
+        FOriginalGeometry.TryGetValue(
+          PositionKey(AFormIdentity, AControl), Snapshot) and
+        Snapshot.HasPosition then
+        Result := Snapshot.Position.X;
+    end;
   begin
     if AParent = nil then
       Exit;
@@ -2161,15 +2182,16 @@ var
       if Child is TControl then
       begin
         Control := TControl(Child);
+        SourceLeft := DesignedLeft(Control);
         if IsApplicationControl(Control) and
           (Control.Align = TAlignLayout.None) and
-          (Control.Position.X > 0.5) and
-          (Control.Position.X < MinimumPositiveInset) then
-          MinimumPositiveInset := Control.Position.X;
+          (SourceLeft > 0.5) and
+          (SourceLeft < MinimumPositiveInset) then
+          MinimumPositiveInset := SourceLeft;
         if IsApplicationControl(Control) and
           (Control.Align = TAlignLayout.None) and
-          (Control.Position.X + Control.Width > LargestChildRight) then
-          LargestChildRight := Control.Position.X + Control.Width;
+          (SourceLeft + Control.Width > LargestChildRight) then
+          LargestChildRight := SourceLeft + Control.Width;
       end;
     end;
     if MinimumPositiveInset = MaxSingle then
@@ -2203,6 +2225,15 @@ var
       end;
     end;
 
+    { During FMX startup an inactive tab can temporarily report every level
+      of its page and scroll hierarchy as 8 or 50 pixels wide.  Those values
+      are framework placeholders, not usable layout bounds.  Never turn that
+      transient state into permanent card geometry: retain the designer
+      position and width until the manager's post-show pass can resolve the
+      real tab client width. }
+    GeometryResolved := LargestChildRight <= EffectiveWidth +
+      MinimumPositiveInset + 1;
+
     TransportControls := TList<TControl>.Create;
     try
       for ChildIndex := 0 to AParent.ChildrenCount - 1 do
@@ -2220,22 +2251,25 @@ var
       { Transport icons describe a machine direction, not a reading
         direction. Move their block to the mirrored side while preserving the
         designed order inside that block. }
-      if (EffectiveWidth > 0) and (TransportControls.Count > 0) then
+      if GeometryResolved and (EffectiveWidth > 0) and
+        (TransportControls.Count > 0) then
       begin
-        GroupLeft := TransportControls[0].Position.X;
+        GroupLeft := DesignedLeft(TransportControls[0]);
         GroupRight := GroupLeft + TransportControls[0].Width;
         for Control in TransportControls do
         begin
-          if Control.Position.X < GroupLeft then
-            GroupLeft := Control.Position.X;
-          if Control.Position.X + Control.Width > GroupRight then
-            GroupRight := Control.Position.X + Control.Width;
+          SourceLeft := DesignedLeft(Control);
+          if SourceLeft < GroupLeft then
+            GroupLeft := SourceLeft;
+          if SourceLeft + Control.Width > GroupRight then
+            GroupRight := SourceLeft + Control.Width;
         end;
         MirroredGroupLeft := EffectiveWidth - GroupRight;
         for Control in TransportControls do
         begin
+          SourceLeft := DesignedLeft(Control);
           Control.Position.X := MirroredGroupLeft +
-            (Control.Position.X - GroupLeft);
+            (SourceLeft - GroupLeft);
           Inc(Result);
         end;
       end;
@@ -2249,10 +2283,12 @@ var
           if IsApplicationControl(Control) and
             (Control.Align = TAlignLayout.None) and
             (TransportControls.IndexOf(Control) < 0) and
+            GeometryResolved and
             (EffectiveWidth > 0) then
           begin
+            SourceLeft := DesignedLeft(Control);
             if (MinimumPositiveInset > 0) and
-              (Control.Position.X >= MinimumPositiveInset) and
+              (SourceLeft >= MinimumPositiveInset) and
               (EffectiveWidth > 2 * MinimumPositiveInset) and
               (Control.Width <= EffectiveWidth + MinimumPositiveInset + 1) and
               (Control.Width > EffectiveWidth -
@@ -2260,9 +2296,9 @@ var
               Control.Width := EffectiveWidth -
                 (2 * MinimumPositiveInset);
             MirroredLeft := EffectiveWidth -
-              (Control.Position.X + Control.Width);
+              (SourceLeft + Control.Width);
             if (MinimumPositiveInset > 0) and
-              (Control.Position.X >= MinimumPositiveInset) and
+              (SourceLeft >= MinimumPositiveInset) and
               (MirroredLeft < MinimumPositiveInset) then
               MirroredLeft := MinimumPositiveInset;
             Control.Position.X := MirroredLeft;
@@ -2303,6 +2339,24 @@ begin
     end;
   if MirrorEnabled then
     MirrorParent(AForm, AForm.ClientWidth);
+end;
+
+class function TFMXTranslationApplicator.RefreshDirectionLayout(
+  const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack;
+  const AFormIdentity: string): Integer;
+var
+  FormIdentity: string;
+begin
+  Result := 0;
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  FormIdentity := Trim(AFormIdentity);
+  if FormIdentity = '' then
+    FormIdentity := AForm.Name;
+  { Include controls an application created during FormCreate, but never
+    replace a source snapshot already taken before translation. }
+  SnapshotOriginalGeometry(AForm, FormIdentity);
+  Result := ApplyDirectionMirror(AForm, APack, FormIdentity);
 end;
 
 class function TFMXTranslationApplicator.RestoreSourceLanguage(
