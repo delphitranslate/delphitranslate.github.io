@@ -279,6 +279,14 @@ begin
       [Merge.NewEntries, Merge.ChangedEntries, Merge.ObsoleteEntries,
        Catalog.Entries.Count]));
 
+    { Keep headless regeneration equivalent to the Studio. Authoritative UI
+      terminology is deliberately allowed to repair an older provider result;
+      otherwise --no-translate can faithfully re-export a known-wrong term
+      forever even though the product dictionary has corrected it. }
+    Reused := TTerminologyResolver.ApplyAuthoritativeTerms(Catalog);
+    if Reused > 0 then
+      Say(Format('  repaired %d authoritative UI term(s)', [Reused]));
+
     { The Studio applies approved project terminology before asking a
       provider for anything. A headless regeneration must do the same or an
       already-approved caption can fall back to stale provider output merely

@@ -2,10 +2,12 @@ program FMXRightToLeftSmokeTests;
 
 { The right-to-left mirror under FireMonkey.
 
-  The VCL has BiDiMode for reading order and FlipChildren for geometry.
-  FireMonkey has neither, which is exactly why the mirror is computed by the
-  planner rather than asked of the framework: one implementation, and the
-  numbers in the FireMonkey layout contract are identical to the VCL one.
+  The VCL has BiDiMode for reading order and FireMonkey has neither a reading
+  direction nor a geometry mirror. Both runtimes therefore implement the same
+  MirrorChildren pack contract against each live parent width. This is
+  deliberately resolved at application time rather than frozen into numeric
+  design-time coordinates: maximised forms, DPI scaling, tab-page placeholder
+  widths and responsive application layout all remain valid.
 
   What is left for the framework here is small and specific - which edge the
   text sits against - and it has to go through TextSettings with StyledSettings
@@ -25,6 +27,7 @@ uses
   FMX.Layouts,
   FMX.Edit,
   FMX.Grid,
+  FMX.TabControl,
   FMX.Types,
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Runtime.FMX in '..\..\source\runtime\DAT.Runtime.FMX.pas';
@@ -75,10 +78,9 @@ const
     '"strings":{"frmRtl.lblName.Text":"\u05E9\u05DD"},' +
     '"sources":{},' +
     '"layout":[' +
-    { 400 - (16 + 80) = 304 }
-    '{"formName":"frmRtl","componentName":"lblName",' +
-    '"propertyName":"Position.X","originalValue":"16",' +
-    '"translatedValue":"304","sourceChecksum":"t"},' +
+    '{"formName":"frmRtl","componentName":"frmRtl",' +
+    '"propertyName":"MirrorChildren","originalValue":"False",' +
+    '"translatedValue":"True","sourceChecksum":"t"},' +
     '{"formName":"frmRtl","componentName":"lblHeading",' +
     '"propertyName":"Width","originalValue":"120",' +
     '"translatedValue":"200","sourceChecksum":"t"},' +
@@ -88,17 +90,10 @@ const
     '{"formName":"frmRtl","componentName":"lblName",' +
     '"propertyName":"TextSettings.HorzAlign","originalValue":"Leading",' +
     '"translatedValue":"Trailing","sourceChecksum":"t"},' +
-    { 400 - (104 + 200) = 96 }
-    '{"formName":"frmRtl","componentName":"edtName",' +
-    '"propertyName":"Position.X","originalValue":"104",' +
-    '"translatedValue":"96","sourceChecksum":"t"},' +
     { placed by the framework, so only its edge changes }
     '{"formName":"frmRtl","componentName":"lytNav",' +
     '"propertyName":"Align","originalValue":"Left",' +
-    '"translatedValue":"Right","sourceChecksum":"t"},' +
-    '{"formName":"frmRtl","componentName":"lytCentered",' +
-    '"propertyName":"Position.X","originalValue":"150",' +
-    '"translatedValue":"20","sourceChecksum":"t"}]}';
+    '"translatedValue":"Right","sourceChecksum":"t"}]}';
 begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
@@ -113,6 +108,13 @@ var
   GridColumn: TStringColumn;
   Nav: TLayout;
   CenteredLayout: TLayout;
+  Tabs: TTabControl;
+  Page: TTabItem;
+  PageCard: TLayout;
+  RewindButton: TButton;
+  PlayButton: TButton;
+  StopButton: TButton;
+  CloseButton: TButton;
   Pack: TRuntimeLanguagePack;
 begin
   try
@@ -160,6 +162,40 @@ begin
       CenteredLayout.Name := 'lytCentered';
       CenteredLayout.SetBounds(150, 84, 100, 28);
 
+      { A live tab page is substantially wider than the placeholder written
+        to an FMX file. This is the exact geometry that previously sent cards
+        to negative coordinates. }
+      Tabs := TTabControl.Create(Form);
+      Tabs.Parent := Form;
+      Tabs.Name := 'tabsMain';
+      Tabs.SetBounds(0, 220, 400, 70);
+      Page := TTabItem.Create(Form);
+      Page.Parent := Tabs;
+      Page.Name := 'tabDashboard';
+      Page.Text := 'Dashboard';
+      Page.Width := 8;
+      PageCard := TLayout.Create(Form);
+      PageCard.Parent := Page;
+      PageCard.Name := 'lytDashboardCard';
+      PageCard.SetBounds(12, 4, 100, 40);
+
+      RewindButton := TButton.Create(Form);
+      RewindButton.Parent := Form;
+      RewindButton.Name := 'btnRewind';
+      RewindButton.SetBounds(20, 165, 60, 24);
+      PlayButton := TButton.Create(Form);
+      PlayButton.Parent := Form;
+      PlayButton.Name := 'btnPlay';
+      PlayButton.SetBounds(90, 165, 60, 24);
+      StopButton := TButton.Create(Form);
+      StopButton.Parent := Form;
+      StopButton.Name := 'btnStop';
+      StopButton.SetBounds(160, 165, 60, 24);
+      CloseButton := TButton.Create(Form);
+      CloseButton.Parent := Form;
+      CloseButton.Name := 'btnClose';
+      CloseButton.SetBounds(300, 195, 75, 24);
+
       Grid := TGrid.Create(Form);
       Grid.Parent := Form;
       Grid.Name := 'grdData';
@@ -194,6 +230,20 @@ begin
         'A framework-placed layout is mirrored by its edge.');
       Check(Abs(CenteredLayout.Position.X - 150) < 1,
         'A container centred by the application remains centred after RTL layout.');
+      Check(Abs(PageCard.Position.X - 288) < 1,
+        Format('A tab-page card uses the live 400-pixel parent width: %.0f, expected 288.',
+          [PageCard.Position.X]));
+      Writeln(Format('        transport X=%.0f, %.0f, %.0f; close=%.0f',
+        [RewindButton.Position.X, PlayButton.Position.X,
+         StopButton.Position.X, CloseButton.Position.X]));
+      Check((Abs(RewindButton.Position.X -
+          (Form.ClientWidth - (160 + StopButton.Width))) < 1) and
+        (Abs((PlayButton.Position.X - RewindButton.Position.X) - 70) < 1) and
+        (Abs((StopButton.Position.X - PlayButton.Position.X) - 70) < 1),
+        'Transport buttons move as one block without reversing their machine order.');
+      Check(Abs(CloseButton.Position.X -
+          (Form.ClientWidth - (300 + CloseButton.Width))) < 1,
+        'An ordinary button beside the transport block mirrors normally.');
       Check((Abs(Heading.Position.X - 100) < 1) and
         (Abs(Heading.Width - 200) < 1),
         'A large centred heading is centred after its translated width changes.');
@@ -234,6 +284,12 @@ begin
         Format('and so is the box: %.0f, expected 104.', [Box.Position.X]));
       Check(Nav.Align = TAlignLayout.Left,
         'The layout returns to its designed edge.');
+      Check(Abs(PageCard.Position.X - 12) < 1,
+        'The tab-page card returns to its designed inset in an LTR language.');
+      Check((Abs(RewindButton.Position.X - 20) < 1) and
+        (Abs(PlayButton.Position.X - 90) < 1) and
+        (Abs(StopButton.Position.X - 160) < 1),
+        'The transport block returns to its designed LTR position.');
       Check(Name_.TextSettings.HorzAlign = TTextAlign.Leading,
         'And the text to the edge it was drawn against.');
       Check(GridColumn.HorzAlign = TTextAlign.Leading,

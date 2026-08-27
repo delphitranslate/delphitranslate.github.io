@@ -62,6 +62,9 @@ type
       const AFormIdentity: string); static;
     class function RestoreOriginalGeometry(const AForm: TCommonCustomForm;
       const AFormIdentity: string): Integer; static;
+    class function ApplyDirectionMirror(const AForm: TCommonCustomForm;
+      const APack: TRuntimeLanguagePack;
+      const AFormIdentity: string): Integer; static;
   public
     class function ApplyToForm(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack): Integer; overload; static;
@@ -2071,6 +2074,158 @@ begin
   Result := Restored;
 end;
 
+class function TFMXTranslationApplicator.ApplyDirectionMirror(
+  const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack;
+  const AFormIdentity: string): Integer;
+const
+  TransportWords: array[0..12] of string = (
+    'play', 'pause', 'stop', 'rewind', 'forward', 'record', 'eject',
+    'skip', 'previous', 'next', 'seek', 'replay', 'shuffle');
+var
+  Rule: TRuntimeLayoutRule;
+  MirrorEnabled: Boolean;
+
+  function IsApplicationControl(const AControl: TControl): Boolean;
+  begin
+    Result := (AControl <> nil) and (Trim(AControl.Name) <> '') and
+      (AForm.FindComponent(AControl.Name) = AControl) and
+      { A tab item is a page selected and positioned by its tab control. Its
+        contents mirror, but moving the page itself fights the framework. }
+      not ContainsText(AControl.ClassName, 'TabItem');
+  end;
+
+  function IsTransport(const AControl: TControl): Boolean;
+  var
+    SourceText: string;
+    Word: string;
+  begin
+    Result := False;
+    if (AControl = nil) or
+      (not ContainsText(AControl.ClassName, 'Button')) then
+      Exit;
+    SourceText := '';
+    if not APack.TryGetSource(AFormIdentity + '.' + AControl.Name + '.Text',
+      SourceText) then
+      APack.TryGetSource(AFormIdentity + '.' + AControl.Name + '.Caption',
+        SourceText);
+    for Word in TransportWords do
+      if ContainsText(AControl.Name, Word) or
+        ContainsText(SourceText, Word) then
+        Exit(True);
+  end;
+
+  procedure MirrorParent(const AParent: TFmxObject;
+    const ASerializedWidth: Single);
+  var
+    Child: TFmxObject;
+    ChildIndex: Integer;
+    Control: TControl;
+    EffectiveWidth: Single;
+    GroupLeft, GroupRight, MirroredGroupLeft: Single;
+    TransportControls: TList<TControl>;
+  begin
+    if AParent = nil then
+      Exit;
+    EffectiveWidth := ASerializedWidth;
+    { A TTabItem can retain its small designer placeholder width while its
+      tab control supplies the real client area.  An aligned content parent
+      has the same relationship after responsive layout. }
+    if (AParent is TControl) and
+      ((TControl(AParent).Align in [TAlignLayout.Client,
+        TAlignLayout.Contents]) or ContainsText(AParent.ClassName, 'TabItem'))
+      and (TControl(AParent).ParentControl <> nil) and
+      (TControl(AParent).ParentControl.Width > EffectiveWidth) then
+      EffectiveWidth := TControl(AParent).ParentControl.Width;
+
+    TransportControls := TList<TControl>.Create;
+    try
+      for ChildIndex := 0 to AParent.ChildrenCount - 1 do
+      begin
+        Child := AParent.Children[ChildIndex];
+        if Child is TControl then
+        begin
+          Control := TControl(Child);
+          if IsApplicationControl(Control) and
+            (Control.Align = TAlignLayout.None) and IsTransport(Control) then
+            TransportControls.Add(Control);
+        end;
+      end;
+
+      { Transport icons describe a machine direction, not a reading
+        direction. Move their block to the mirrored side while preserving the
+        designed order inside that block. }
+      if (EffectiveWidth > 0) and (TransportControls.Count > 0) then
+      begin
+        GroupLeft := TransportControls[0].Position.X;
+        GroupRight := GroupLeft + TransportControls[0].Width;
+        for Control in TransportControls do
+        begin
+          if Control.Position.X < GroupLeft then
+            GroupLeft := Control.Position.X;
+          if Control.Position.X + Control.Width > GroupRight then
+            GroupRight := Control.Position.X + Control.Width;
+        end;
+        MirroredGroupLeft := EffectiveWidth - GroupRight;
+        for Control in TransportControls do
+        begin
+          Control.Position.X := MirroredGroupLeft +
+            (Control.Position.X - GroupLeft);
+          Inc(Result);
+        end;
+      end;
+
+      for ChildIndex := 0 to AParent.ChildrenCount - 1 do
+      begin
+        Child := AParent.Children[ChildIndex];
+        if Child is TControl then
+        begin
+          Control := TControl(Child);
+          if IsApplicationControl(Control) and
+            (Control.Align = TAlignLayout.None) and
+            (TransportControls.IndexOf(Control) < 0) and
+            (EffectiveWidth > 0) then
+          begin
+            Control.Position.X := EffectiveWidth -
+              (Control.Position.X + Control.Width);
+            Inc(Result);
+          end;
+        end;
+      end;
+
+      { Coordinates are relative to the immediate visual parent. Mirroring
+        every level against that level's live width handles nested panels,
+        tab pages and run-time controls without absolute form coordinates. }
+      for ChildIndex := 0 to AParent.ChildrenCount - 1 do
+      begin
+        Child := AParent.Children[ChildIndex];
+        if Child is TControl then
+          MirrorParent(Child, TControl(Child).Width)
+        else
+          MirrorParent(Child, EffectiveWidth);
+      end;
+    finally
+      TransportControls.Free;
+    end;
+  end;
+
+begin
+  Result := 0;
+  if (AForm = nil) or (APack = nil) or
+    not SameText(Trim(APack.TextDirection), 'rtl') then
+    Exit;
+  MirrorEnabled := False;
+  for Rule in APack.LayoutRules do
+    if SameText(Rule.FormName, AFormIdentity) and
+      SameText(Rule.PropertyName, 'MirrorChildren') and
+      SameText(Trim(Rule.TranslatedValue), 'True') then
+    begin
+      MirrorEnabled := True;
+      Break;
+    end;
+  if MirrorEnabled then
+    MirrorParent(AForm, AForm.ClientWidth);
+end;
+
 class function TFMXTranslationApplicator.RestoreSourceLanguage(
   const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string): Integer;
@@ -2340,6 +2495,10 @@ begin
       little breathing room when the text already came from the language pack. }
     Inc(Result, ApplyConservativeTextFit(AForm, APack, FormIdentity));
     Inc(Result, ApplyFontColorsToForm(AForm, APack, FormIdentity));
+    { Position only after every translated size is final. The mirror uses live
+      parent widths, so it remains correct on maximised, DPI-scaled and
+      responsive forms instead of replaying design-time coordinates. }
+    Inc(Result, ApplyDirectionMirror(AForm, APack, FormIdentity));
     { Last, because it reads the widths every pass above settled. }
     RecentreSelfPlacedText(AForm, FormIdentity);
     { Where the caret starts, which is the reader's property rather than the

@@ -81,6 +81,9 @@ type
     class function RestoreOriginalGeometry(const AForm: TCustomForm;
       const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; static;
+    class function ApplyDirectionMirror(const AForm: TCustomForm;
+      const APack: TRuntimeLanguagePack;
+      const AFormIdentity: string): Integer; static;
   public
     class function ApplyToForm(const AForm: TCustomForm;
       const APack: TRuntimeLanguagePack): Integer; overload; static;
@@ -676,6 +679,113 @@ begin
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
     RestoreTree(AForm.Components[ComponentIndex]);
   Result := Restored;
+end;
+
+class function TVCLTranslationApplicator.ApplyDirectionMirror(
+  const AForm: TCustomForm; const APack: TRuntimeLanguagePack;
+  const AFormIdentity: string): Integer;
+const
+  TransportWords: array[0..12] of string = (
+    'play', 'pause', 'stop', 'rewind', 'forward', 'record', 'eject',
+    'skip', 'previous', 'next', 'seek', 'replay', 'shuffle');
+var
+  Rule: TRuntimeLayoutRule;
+  MirrorEnabled: Boolean;
+
+  function IsTransport(const AControl: TControl): Boolean;
+  var
+    SourceText: string;
+    Word: string;
+  begin
+    Result := False;
+    if (AControl = nil) or
+      (not ContainsText(AControl.ClassName, 'Button')) then
+      Exit;
+    SourceText := '';
+    if not APack.TryGetSource(AFormIdentity + '.' + AControl.Name + '.Text',
+      SourceText) then
+      APack.TryGetSource(AFormIdentity + '.' + AControl.Name + '.Caption',
+        SourceText);
+    for Word in TransportWords do
+      if ContainsText(AControl.Name, Word) or
+        ContainsText(SourceText, Word) then
+        Exit(True);
+  end;
+
+  procedure MirrorParent(const AParent: TWinControl);
+  var
+    Control: TControl;
+    GroupLeft, GroupRight, MirroredGroupLeft: Integer;
+    Index: Integer;
+    TransportControls: TList<TControl>;
+  begin
+    if AParent = nil then
+      Exit;
+    TransportControls := TList<TControl>.Create;
+    try
+      for Index := 0 to AParent.ControlCount - 1 do
+      begin
+        Control := AParent.Controls[Index];
+        if (Trim(Control.Name) <> '') and (Control.Align = alNone) and
+          IsTransport(Control) then
+          TransportControls.Add(Control);
+      end;
+
+      if TransportControls.Count > 0 then
+      begin
+        GroupLeft := TransportControls[0].Left;
+        GroupRight := GroupLeft + TransportControls[0].Width;
+        for Control in TransportControls do
+        begin
+          if Control.Left < GroupLeft then
+            GroupLeft := Control.Left;
+          if Control.Left + Control.Width > GroupRight then
+            GroupRight := Control.Left + Control.Width;
+        end;
+        MirroredGroupLeft := AParent.ClientWidth - GroupRight;
+        for Control in TransportControls do
+        begin
+          Control.Left := MirroredGroupLeft + (Control.Left - GroupLeft);
+          Inc(Result);
+        end;
+      end;
+
+      for Index := 0 to AParent.ControlCount - 1 do
+      begin
+        Control := AParent.Controls[Index];
+        if (Trim(Control.Name) <> '') and (Control.Align = alNone) and
+          (TransportControls.IndexOf(Control) < 0) then
+        begin
+          Control.Left := AParent.ClientWidth -
+            (Control.Left + Control.Width);
+          Inc(Result);
+        end;
+      end;
+
+      for Index := 0 to AParent.ControlCount - 1 do
+        if AParent.Controls[Index] is TWinControl then
+          MirrorParent(TWinControl(AParent.Controls[Index]));
+    finally
+      TransportControls.Free;
+    end;
+  end;
+
+begin
+  Result := 0;
+  if (AForm = nil) or (APack = nil) or
+    not SameText(Trim(APack.TextDirection), 'rtl') then
+    Exit;
+  MirrorEnabled := False;
+  for Rule in APack.LayoutRules do
+    if SameText(Rule.FormName, AFormIdentity) and
+      SameText(Rule.PropertyName, 'MirrorChildren') and
+      SameText(Trim(Rule.TranslatedValue), 'True') then
+    begin
+      MirrorEnabled := True;
+      Break;
+    end;
+  if MirrorEnabled then
+    MirrorParent(AForm);
 end;
 
 class function TVCLTranslationApplicator.RestoreSourceLanguage(
@@ -2365,6 +2475,10 @@ begin
     Inc(Result, ApplyLayoutToForm(AForm, APack, FormIdentity, True));
     { Last of all, now that every control is the size it will really be. }
     ResolveSoftHyphensOnForm(AForm);
+    { The same live-parent reflection used by FireMonkey. It deliberately
+      follows translated sizing and the application's responsive geometry,
+      rather than replaying coordinates measured from a DFM width. }
+    Inc(Result, ApplyDirectionMirror(AForm, APack, FormIdentity));
     { And the menu once more, after the captions.
 
       Writing a menu item's caption can rebuild the menu, and a rebuild

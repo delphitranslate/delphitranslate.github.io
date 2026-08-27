@@ -270,6 +270,34 @@ begin
     else
       Exit(False);
     Exit(True);
+  end
+  else if ALanguage = 'ar' then
+  begin
+    { These short state and rule labels are UI terminology, not prose. A
+      general provider sees "On" without context and commonly returns the
+      Arabic preposition meaning "in/on", which is grammatically valid but
+      wrong for a switch. Keep the software-state meaning authoritative for
+      every project. Technical product tokens such as VCL, FMX and WinAPI are
+      intentionally not translated here. }
+    if SameText(TextValue, 'On') then
+      ATranslation := 'مفعّل'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'معطّل'
+    else if SameText(TextValue, 'Data Aware') then
+      ATranslation := 'مراعي للبيانات'
+    else if SameText(TextValue, 'Critical Areas') then
+      ATranslation := 'المجالات الحرجة'
+    else if SameText(TextValue, '3rd Party') then
+      ATranslation := 'جهات خارجية'
+    else if SameText(TextValue, 'Project Scan') then
+      ATranslation := 'فحص المشروع'
+    else if SameText(TextValue, 'Conversion Output') then
+      ATranslation := 'مخرجات التحويل'
+    else if SameText(TextValue, 'Rules') then
+      ATranslation := 'القواعد'
+    else
+      Exit(False);
+    Exit(True);
   end;
 end;
 

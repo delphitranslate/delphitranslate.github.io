@@ -48,8 +48,8 @@ begin
   end;
 end;
 
-{ A Hebrew pack for the form below. The mirrored positions are the ones the
-  planner computes: the container width less the control's right edge. }
+{ A Hebrew pack for the form below. MirrorChildren is resolved from each live
+  parent width after the translated sizes are final. }
 function HebrewPack: TRuntimeLanguagePack;
 const
   JsonText =
@@ -77,10 +77,9 @@ const
     '"frmRtl.grdData.Columns[1].Title.Caption":"Second",' +
     '"frmRtl.grdData.Columns[2].Title.Caption":"Third"},' +
     '"layout":[' +
-    { 400 - (16 + 80) = 304 }
-    '{"formName":"frmRtl","componentName":"lblName",' +
-    '"propertyName":"Left","originalValue":"16",' +
-    '"translatedValue":"304","sourceChecksum":"t"},' +
+    '{"formName":"frmRtl","componentName":"frmRtl",' +
+    '"propertyName":"MirrorChildren","originalValue":"False",' +
+    '"translatedValue":"True","sourceChecksum":"t"},' +
     '{"formName":"frmRtl","componentName":"lblHeading",' +
     '"propertyName":"Width","originalValue":"120",' +
     '"translatedValue":"200","sourceChecksum":"t"},' +
@@ -90,24 +89,13 @@ const
     '{"formName":"frmRtl","componentName":"lblName",' +
     '"propertyName":"Alignment","originalValue":"taLeftJustify",' +
     '"translatedValue":"taRightJustify","sourceChecksum":"t"},' +
-    { 400 - (104 + 200) = 96 }
-    '{"formName":"frmRtl","componentName":"edtName",' +
-    '"propertyName":"Left","originalValue":"104",' +
-    '"translatedValue":"96","sourceChecksum":"t"},' +
     '{"formName":"frmRtl","componentName":"edtName",' +
     '"propertyName":"Anchors","originalValue":"[akLeft,akTop]",' +
     '"translatedValue":"[akRight,akTop]","sourceChecksum":"t"},' +
-    { the button inside the panel mirrors against the panel: 200-(10+75)=115 }
-    '{"formName":"frmRtl","componentName":"btnInner",' +
-    '"propertyName":"Left","originalValue":"10",' +
-    '"translatedValue":"115","sourceChecksum":"t"},' +
     { the navigation strip is placed by the framework, so only its edge changes }
     '{"formName":"frmRtl","componentName":"pnlNav",' +
     '"propertyName":"Align","originalValue":"alLeft",' +
     '"translatedValue":"alRight","sourceChecksum":"t"},' +
-    '{"formName":"frmRtl","componentName":"pnlCentered",' +
-    '"propertyName":"Left","originalValue":"150",' +
-    '"translatedValue":"20","sourceChecksum":"t"},' +
     { the grid reads the way its language reads }
     '{"formName":"frmRtl","componentName":"grdData",' +
     '"propertyName":"Columns[0].Width","originalValue":"60",' +
@@ -363,8 +351,8 @@ begin
         [Name_.Left]));
       Check(Box.Left = 96,
         Format('And the box moves with it: %d, expected 96.', [Box.Left]));
-      Check(Inner.Left = 115, Format(
-        'A control inside a panel mirrors within the panel: %d, expected 115.',
+      Check(Inner.Left = 15, Format(
+        'A control inside a panel mirrors within the live panel: %d, expected 15.',
         [Inner.Left]));
       Check(CenteredPanel.Left = 150,
         'A container centred by the application remains centred after RTL layout.');

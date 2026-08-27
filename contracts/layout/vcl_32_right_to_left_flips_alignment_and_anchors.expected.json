@@ -3,6 +3,12 @@
   "catalog_file": "vcl_32_right_to_left_flips_alignment_and_anchors.catalog.json",
   "proposals": [
     {
+      "name": "ContractForm",
+      "property": "MirrorChildren",
+      "value": "True",
+      "decision": "accepted"
+    },
+    {
       "name": "pnlNav",
       "property": "Align",
       "value": "alRight",
@@ -25,7 +31,7 @@
     {
       "form": "ContractForm",
       "name": "lblCentre",
-      "planned_left_equals": 160
+      "planned_left_equals": 120
     }
   ]
 }

@@ -51,7 +51,6 @@ type
     FAnchors: string;
     FTabOrder: Integer;
     FHasTabOrder: Boolean;
-    FMirrorHandled: Boolean;
     FLeftOwnedByCode: Boolean;
     FTopOwnedByCode: Boolean;
     FWidthOwnedByCode: Boolean;
@@ -93,9 +92,6 @@ type
       starts at the left. }
     property TabOrder: Integer read FTabOrder write FTabOrder;
     property HasTabOrder: Boolean read FHasTabOrder write FHasTabOrder;
-    { Set when the right-to-left pass has already placed this control, so the
-      general reflection leaves it alone. }
-    property MirrorHandled: Boolean read FMirrorHandled write FMirrorHandled;
     { Preserve only the coordinates the application actually owns. }
     property LeftOwnedByCode: Boolean read FLeftOwnedByCode
       write FLeftOwnedByCode;
@@ -519,34 +515,6 @@ begin
       Inc(Result);
 end;
 
-{ A control that works a recording rather than a sentence.
-
-  Rewind, play and stop refer to the direction a tape moves. That direction is
-  a fact about the machine, not about the language, so reversing a transport
-  group puts rewind to the right of play in a language where the group now
-  reads the other way - which says the opposite of what it means. Microsoft's
-  and Apple's guidance agree: leave them.
-
-  So the group is moved to the mirrored side of its parent as a block, keeping
-  its internal order, rather than being reflected control by control. }
-function IsTransportControl(const AControl: TLayoutControl): Boolean;
-const
-  Transport: array[0..12] of string = (
-    'play', 'pause', 'stop', 'rewind', 'forward', 'record', 'eject',
-    'skip', 'previous', 'next', 'seek', 'replay', 'shuffle');
-var
-  Word: string;
-begin
-  Result := False;
-  if not ContainsText(AControl.ComponentClassName, 'Button') and
-    not ContainsText(AControl.ComponentClassName, 'SpeedButton') then
-    Exit;
-  for Word in Transport do
-    if ContainsText(AControl.ComponentName, Word) or
-      ContainsText(AControl.SourceText, Word) then
-      Exit(True);
-end;
-
 { Whether this language is written right to left.
 
   The wizard settles this when the language is chosen - Arabic, Farsi, Hebrew
@@ -555,33 +523,6 @@ end;
 function IsRightToLeft(const AReview: TLocalizationReview): Boolean;
 begin
   Result := (AReview <> nil) and SameText(Trim(AReview.TextDirection), 'rtl');
-end;
-
-{ The width a control is mirrored within: its parent's, or the form's where the
-  parent is the form itself.
-
-  The form is in the control list like everything else - it is the record whose
-  component name is its own form name - so both cases are the same lookup. A
-  control whose parent cannot be found is left alone rather than reflected
-  against a guess, because mirroring against the wrong width is worse than not
-  mirroring at all. }
-function MirrorContainerWidth(const AReview: TLocalizationReview;
-  const AControl: TLayoutControl): Double;
-var
-  Candidate: TLayoutControl;
-  ParentName: string;
-begin
-  Result := 0;
-  if (AReview = nil) or (AControl = nil) then
-    Exit;
-  ParentName := Trim(AControl.ParentName);
-  if ParentName = '' then
-    ParentName := AControl.FormName;
-  for Candidate in AReview.Controls do
-    if SameText(Candidate.FormName, AControl.FormName) and
-      SameText(Candidate.ComponentName, ParentName) and
-      Candidate.HasSize then
-      Exit(Candidate.PlannedWidth);
 end;
 
 procedure AddProposal(const AReview: TLocalizationReview;
@@ -1176,12 +1117,9 @@ var
   BalanceLines: Integer;
   BalanceContainer: TLayoutControl;
   BalanceWidth, BalanceStep: Double;
-  MirrorWidth: Double;
   AlignSource: string;
   MirrorValue: string;
   MirrorHighest: Integer;
-  MirrorBlockLeft, MirrorBlockRight: Double;
-  MirrorGroup: TList<TLayoutControl>;
   SettleFits: Boolean;
   LineCount: Integer;
   NewWidth: Integer;
@@ -4712,102 +4650,22 @@ begin
       Control.PlannedHorzAlign := 'Center';
   end;
 
-  { Phase 3e - reflect the whole form for a right-to-left language.
+  { Phase 3e - declare, but do not pre-compute, the RTL reflection.
 
-    An Arabic or Hebrew interface is not a left-to-right interface with
-    right-to-left words in it. The layout itself is reflected: a caption drawn
-    to the left of its edit box belongs to the right of it, a row of buttons
-    reverses, and the eye starts at the right-hand edge. Anything less reads
-    as a translated foreign program rather than as a program in the reader's
-    own language.
+    The old planner wrote a numeric Left/Position.X for every reflected
+    control.  That number was correct only for the width serialized in the
+    DFM/FMX file.  A maximised form, a DPI-scaled form, a responsive layout,
+    and especially a FireMonkey TTabItem (whose serialized width can be only
+    a designer placeholder) all have a different live width.  The result was
+    negative card coordinates, controls jammed against the left edge, and a
+    hero row whose application-positioned buttons were never mirrored at all.
 
-    This runs last, after every other decision, for two reasons. The geometry
-    it reflects is then final - a caption that was widened for a longer
-    translation is mirrored at the width it ended up with, not the width it
-    started with. And every earlier pass can go on thinking in the left-to-
-    right terms it was written and contracted in; none of them needs to know
-    about this at all.
-
-    The arithmetic is one line, and it is the same line the VCL's own
-    FlipChildren uses: the new left edge is the space that used to lie to the
-    right of the control. Coordinates are relative to the parent in both
-    frameworks, so reflecting each control within its own parent handles
-    nesting on its own - a button inside a panel mirrors against the panel,
-    and the panel mirrors against the form, with no recursion needed. }
-  if IsRightToLeft(AReview) then
-  begin
-    { The transport controls of each parent, taken as one shape. Their block
-      moves to the mirrored side; their order inside it does not change. }
-    MirrorGroup := TList<TLayoutControl>.Create;
-    try
-      for Control in AReview.Controls do
-      begin
-        if Control.MirrorHandled or not IsTransportControl(Control) then
-          Continue;
-        if not (Control.HasPosition and Control.HasSize) then
-          Continue;
-        if Trim(Control.Align) <> '' then
-          Continue;
-        MirrorWidth := MirrorContainerWidth(AReview, Control);
-        if MirrorWidth <= 0 then
-          Continue;
-
-        { The whole group is gathered before any of it moves. Measuring the
-          block while its members are already being shifted measures a shape
-          that is half in its old place and half in its new one. }
-        MirrorGroup.Clear;
-        MirrorBlockLeft := Control.PlannedLeft;
-        MirrorBlockRight := Control.PlannedLeft + Control.PlannedWidth;
-        for Other in AReview.Controls do
-          if IsTransportControl(Other) and not Other.MirrorHandled and
-            Other.HasPosition and Other.HasSize and
-            (Trim(Other.Align) = '') and
-            SameText(Other.FormName, Control.FormName) and
-            SameText(Other.ParentName, Control.ParentName) then
-          begin
-            MirrorGroup.Add(Other);
-            MirrorBlockLeft := Min(MirrorBlockLeft, Other.PlannedLeft);
-            MirrorBlockRight := Max(MirrorBlockRight,
-              Other.PlannedLeft + Other.PlannedWidth);
-          end;
-
-        for Other in MirrorGroup do
-        begin
-          Other.PlannedLeft := (MirrorWidth - MirrorBlockRight) +
-            (Other.PlannedLeft - MirrorBlockLeft);
-          Other.MirrorHandled := True;
-        end;
-      end;
-    finally
-      MirrorGroup.Free;
-    end;
-
-    for Control in AReview.Controls do
-    begin
-      if Control.MirrorHandled then
-        Continue;
-      { A window is not reflected within anything. The form is in this list
-        like every other control, and mirroring it against its own width
-        reduces to negating its position: Carillon's three forms came out at
-        Left -20, -500 and -120, which is why a strip of desktop showed down
-        one side of the main window until it was maximised again by hand. }
-      if SameText(Control.ComponentName, Control.FormName) then
-        Continue;
-      { A control the framework positions is mirrored by changing which edge
-        it is told to sit against, not by moving it. Moving it would be
-        ignored, and the two instructions together would contradict each
-        other. }
-      if Trim(Control.Align) <> '' then
-        Continue;
-      if not (Control.HasPosition and Control.HasSize) then
-        Continue;
-      MirrorWidth := MirrorContainerWidth(AReview, Control);
-      if MirrorWidth <= 0 then
-        Continue;
-      Control.PlannedLeft := MirrorWidth -
-        (Control.PlannedLeft + Control.PlannedWidth);
-    end;
-  end;
+    The settled geometry therefore remains in its framework-neutral LTR
+    coordinate system.  Phase 4 emits one MirrorChildren contract on the form;
+    the VCL and FMX runtimes evaluate the same reflection against each live
+    parent after all sizing rules and application layout have finished.  This
+    also includes named controls created at run time and keeps the rule valid
+    at every supported screen size. }
 
   { Phase 3g - a grid heading that will not fit its column takes a smaller
     size, and every heading on that grid takes the same one.
@@ -5380,6 +5238,10 @@ begin
       control anchored to both edges produce nothing. }
     if IsRightToLeft(AReview) then
     begin
+      if SameText(Control.ComponentName, Control.FormName) then
+        AddProposal(AReview, Control, 'MirrorChildren', 'False', 'True',
+          'Right-to-left layout: reflect positioned children against each ' +
+          'live parent width after responsive layout and translated sizing.');
       MirrorValue := MirroredAlign(Control.Align);
       if MirrorValue <> '' then
         AddProposal(AReview, Control, 'Align', Trim(Control.Align),
@@ -5576,15 +5438,7 @@ begin
       Item.AddPair('decision', Proposal.Decision);
       Item.AddPair('sourceChecksum', Proposal.SourceChecksum);
       if SameText(Proposal.Decision, 'accepted') and
-        (SameText(Proposal.PropertyName, 'Width') or
-         SameText(Proposal.PropertyName, 'Height') or
-         SameText(Proposal.PropertyName, 'WordWrap') or
-         SameText(Proposal.PropertyName, 'AutoSize') or
-         SameText(Proposal.PropertyName, 'Left') or
-         SameText(Proposal.PropertyName, 'Top') or
-         SameText(Proposal.PropertyName, 'Position.X') or
-         SameText(Proposal.PropertyName, 'Position.Y') or
-         SameText(Proposal.PropertyName, 'FontSize')) then
+        IsRuntimeLayoutProperty(Proposal.PropertyName) then
       begin
         Item.AddPair('runtimeEligible', TJSONBool.Create(True));
         Inc(AcceptedSafeCount);

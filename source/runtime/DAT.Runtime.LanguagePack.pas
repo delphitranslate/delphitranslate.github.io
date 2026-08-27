@@ -174,6 +174,11 @@ begin
     SameText(APropertyName, 'Anchors') or
     SameText(APropertyName, 'TabOrder') or
     SameText(APropertyName, 'ColumnOrder') or
+    { Opt-in for the direction-aware runtime mirror.  Unlike a numeric Left
+      or Position.X rule, this is evaluated against the live parent width, so
+      it remains correct after DPI scaling, maximising, responsive layout and
+      controls created by the application after the form was streamed. }
+    SameText(APropertyName, 'MirrorChildren') or
     { a column names a path into a control rather than a property of it }
     StartsText('Columns[', APropertyName);
 end;

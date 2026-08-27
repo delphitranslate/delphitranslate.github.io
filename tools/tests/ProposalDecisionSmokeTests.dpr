@@ -62,10 +62,10 @@ begin
   Body := '';
   for Proposal in AReview.Proposals do
   begin
-    { The first Left proposal is marked rejected, standing for a human
+    { The form-level direction mirror is marked rejected, standing for a human
       saying no; everything else is written back as pending, standing for a
       build that did not know the property existed. }
-    if (Result = 0) and SameText(Proposal.PropertyName, 'Left') then
+    if (Result = 0) and SameText(Proposal.PropertyName, 'MirrorChildren') then
     begin
       Saved := 'rejected';
       Inc(Result);
@@ -138,7 +138,7 @@ begin
         Writeln;
         Writeln('  fresh analysis:');
         Writeln('    Alignment  = ', DecisionOf(Review, 'Alignment'));
-        Writeln('    Left       = ', DecisionOf(Review, 'Left'));
+        Writeln('    mirror     = ', DecisionOf(Review, 'MirrorChildren'));
         Check(SameText(DecisionOf(Review, 'Alignment'), 'accepted'),
           'The analyser accepts a mirror decision to begin with.');
 

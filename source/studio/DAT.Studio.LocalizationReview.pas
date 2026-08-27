@@ -129,7 +129,8 @@ uses
   System.UITypes,
   Winapi.ShellAPI,
   Winapi.Windows,
-  System.Math;
+  System.Math,
+  DAT.Runtime.LanguagePack;
 
 {$R *.fmx}
 
@@ -563,8 +564,7 @@ begin
     behind the moves that go with them, so a widened caption ships without the
     displacement that made room for it. }
   for Proposal in FReview.Proposals do
-    if MatchText(Proposal.PropertyName, ['Width', 'Height', 'WordWrap',
-      'AutoSize', 'Left', 'Top', 'Position.X', 'Position.Y', 'FontSize']) then
+    if IsRuntimeLayoutProperty(Proposal.PropertyName) then
     begin
       Proposal.Decision := 'accepted';
       Inc(AcceptedCount);

@@ -1,31 +1,39 @@
 {
-  "description": "The same reflection under FireMonkey. Mirroring is done by the planner rather than by either framework, so one implementation has to serve both: the VCL has FlipChildren and FireMonkey has nothing at all, and a feature that behaved differently on the two would be worse than one that behaved the same everywhere. The numbers are identical to the VCL contract because the arithmetic is identical.",
+  "description": "The FireMonkey form receives one framework-neutral MirrorChildren contract. The planner preserves designer coordinates; the runtime mirrors the live visual tree only after application sizing has established the real parent widths.",
   "catalog_file": "31_right_to_left_mirrors_the_form.catalog.json",
+  "proposals": [
+    {
+      "name": "ContractForm",
+      "property": "MirrorChildren",
+      "value": "True",
+      "decision": "accepted"
+    }
+  ],
   "controls": [
     {
       "form": "ContractForm",
       "name": "lblName",
-      "planned_left_equals": 304
+      "planned_left_equals": 16
     },
     {
       "form": "ContractForm",
       "name": "edtName",
-      "planned_left_equals": 96
+      "planned_left_equals": 104
     },
     {
       "form": "ContractForm",
       "name": "btnOk",
-      "planned_left_equals": 95
+      "planned_left_equals": 230
     },
     {
       "form": "ContractForm",
       "name": "pnlSide",
-      "planned_left_equals": 180
+      "planned_left_equals": 20
     },
     {
       "form": "ContractForm",
       "name": "btnInner",
-      "planned_left_equals": 115
+      "planned_left_equals": 10
     }
   ]
 }

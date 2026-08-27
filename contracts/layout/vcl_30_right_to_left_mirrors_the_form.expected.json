@@ -1,6 +1,14 @@
 {
-  "description": "A right-to-left interface is a reflected interface, not merely reversed text. The whole form is mirrored: a caption drawn to the left of its edit box belongs to the right of it, and a button at the right of the form belongs at the left. Each control is reflected within its own parent, so the button inside the panel mirrors against the panel's 200 pixels and not against the form's 400. The arithmetic is the same in every case - the new left edge is the space that used to lie to the right of the control. The form itself is not mirrored. A window has no parent to be reflected within, so the arithmetic degenerates into negating its own position - which is how three Carillon forms came to be given a negative Left and why a strip of desktop showed down one side of the main window.",
+  "description": "The VCL form receives one framework-neutral MirrorChildren contract. The planner preserves designer coordinates; the runtime mirrors each control within its live immediate parent only after application sizing has established the real widths. The form itself is never moved.",
   "catalog_file": "vcl_30_right_to_left_mirrors_the_form.catalog.json",
+  "proposals": [
+    {
+      "name": "ContractForm",
+      "property": "MirrorChildren",
+      "value": "True",
+      "decision": "accepted"
+    }
+  ],
   "controls": [
     {
       "form": "ContractForm",
@@ -10,27 +18,27 @@
     {
       "form": "ContractForm",
       "name": "lblName",
-      "planned_left_equals": 304
+      "planned_left_equals": 16
     },
     {
       "form": "ContractForm",
       "name": "edtName",
-      "planned_left_equals": 96
+      "planned_left_equals": 104
     },
     {
       "form": "ContractForm",
       "name": "btnOk",
-      "planned_left_equals": 95
+      "planned_left_equals": 230
     },
     {
       "form": "ContractForm",
       "name": "pnlSide",
-      "planned_left_equals": 180
+      "planned_left_equals": 20
     },
     {
       "form": "ContractForm",
       "name": "btnInner",
-      "planned_left_equals": 115
+      "planned_left_equals": 10
     }
   ]
 }
