@@ -2121,6 +2121,8 @@ var
     ChildIndex: Integer;
     Control: TControl;
     EffectiveWidth: Single;
+    MinimumPositiveInset: Single;
+    MirroredLeft: Single;
     GroupLeft, GroupRight, MirroredGroupLeft: Single;
     TransportControls: TList<TControl>;
   begin
@@ -2136,6 +2138,34 @@ var
       and (TControl(AParent).ParentControl <> nil) and
       (TControl(AParent).ParentControl.Width > EffectiveWidth) then
       EffectiveWidth := TControl(AParent).ParentControl.Width;
+
+    { Preserve the visible content gutter when a designer-sized control ends
+      on, or a rounding pixel beyond, its parent's opposite edge.  FMX form
+      resources commonly contain a one-pixel disagreement between a live tab
+      client width and a card width.  The literal mirror of that geometry is
+      zero or negative and makes the RTL card touch the window edge even though
+      its LTR peer has a deliberate leading inset.
+
+      The smallest positive designer inset among ordinary siblings is the
+      parent's content gutter.  It is used only as a lower bound for controls
+      that themselves began at or beyond that gutter; true edge-to-edge
+      controls at X=0 remain edge-to-edge. }
+    MinimumPositiveInset := MaxSingle;
+    for ChildIndex := 0 to AParent.ChildrenCount - 1 do
+    begin
+      Child := AParent.Children[ChildIndex];
+      if Child is TControl then
+      begin
+        Control := TControl(Child);
+        if IsApplicationControl(Control) and
+          (Control.Align = TAlignLayout.None) and
+          (Control.Position.X > 0.5) and
+          (Control.Position.X < MinimumPositiveInset) then
+          MinimumPositiveInset := Control.Position.X;
+      end;
+    end;
+    if MinimumPositiveInset = MaxSingle then
+      MinimumPositiveInset := 0;
 
     TransportControls := TList<TControl>.Create;
     try
@@ -2185,8 +2215,19 @@ var
             (TransportControls.IndexOf(Control) < 0) and
             (EffectiveWidth > 0) then
           begin
-            Control.Position.X := EffectiveWidth -
+            if (MinimumPositiveInset > 0) and
+              (Control.Position.X >= MinimumPositiveInset) and
+              (Control.Width > EffectiveWidth -
+                (2 * MinimumPositiveInset)) then
+              Control.Width := EffectiveWidth -
+                (2 * MinimumPositiveInset);
+            MirroredLeft := EffectiveWidth -
               (Control.Position.X + Control.Width);
+            if (MinimumPositiveInset > 0) and
+              (Control.Position.X >= MinimumPositiveInset) and
+              (MirroredLeft < MinimumPositiveInset) then
+              MirroredLeft := MinimumPositiveInset;
+            Control.Position.X := MirroredLeft;
             Inc(Result);
           end;
         end;

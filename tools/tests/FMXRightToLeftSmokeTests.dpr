@@ -111,6 +111,7 @@ var
   Tabs: TTabControl;
   Page: TTabItem;
   PageCard: TLayout;
+  EdgeCard: TLayout;
   RewindButton: TButton;
   PlayButton: TButton;
   StopButton: TButton;
@@ -178,6 +179,12 @@ begin
       PageCard.Parent := Page;
       PageCard.Name := 'lytDashboardCard';
       PageCard.SetBounds(12, 4, 100, 40);
+      EdgeCard := TLayout.Create(Form);
+      EdgeCard.Parent := Page;
+      EdgeCard.Name := 'lytEdgeCard';
+      { The one-pixel overrun is representative of an FMX tab client whose
+        streamed width and live width round differently. }
+      EdgeCard.SetBounds(12, 4, 389, 40);
 
       RewindButton := TButton.Create(Form);
       RewindButton.Parent := Form;
@@ -233,17 +240,22 @@ begin
       Check(Abs(PageCard.Position.X - 288) < 1,
         Format('A tab-page card uses the live 400-pixel parent width: %.0f, expected 288.',
           [PageCard.Position.X]));
-      Writeln(Format('        transport X=%.0f, %.0f, %.0f; close=%.0f',
+      Check(Abs(EdgeCard.Position.X - 12) < 1,
+        Format('An edge card preserves the parent''s 12-pixel content gutter: %.0f, expected 12.',
+          [EdgeCard.Position.X]));
+      Check(Abs(EdgeCard.Width - 376) < 1,
+        'A near-full-width card preserves the opposite 12-pixel gutter too.');
+      Writeln(Format('        transport X=%.0f, %.0f, %.0f; close=%.0f; form=%d/%d',
         [RewindButton.Position.X, PlayButton.Position.X,
-         StopButton.Position.X, CloseButton.Position.X]));
+         StopButton.Position.X, CloseButton.Position.X, Form.Width,
+         Form.ClientWidth]));
       Check((Abs(RewindButton.Position.X -
           (Form.ClientWidth - (160 + StopButton.Width))) < 1) and
         (Abs((PlayButton.Position.X - RewindButton.Position.X) - 70) < 1) and
         (Abs((StopButton.Position.X - PlayButton.Position.X) - 70) < 1),
         'Transport buttons move as one block without reversing their machine order.');
-      Check(Abs(CloseButton.Position.X -
-          (Form.ClientWidth - (300 + CloseButton.Width))) < 1,
-        'An ordinary button beside the transport block mirrors normally.');
+      Check(Abs(CloseButton.Position.X - 16) < 1,
+        'A trailing form button preserves the designer content gutter.');
       Check((Abs(Heading.Position.X - 100) < 1) and
         (Abs(Heading.Width - 200) < 1),
         'A large centred heading is centred after its translated width changes.');
@@ -286,6 +298,9 @@ begin
         'The layout returns to its designed edge.');
       Check(Abs(PageCard.Position.X - 12) < 1,
         'The tab-page card returns to its designed inset in an LTR language.');
+      Check((Abs(EdgeCard.Position.X - 12) < 1) and
+        (Abs(EdgeCard.Width - 389) < 1),
+        'The edge card returns to its exact designer geometry in an LTR language.');
       Check((Abs(RewindButton.Position.X - 20) < 1) and
         (Abs(PlayButton.Position.X - 90) < 1) and
         (Abs(StopButton.Position.X - 160) < 1),

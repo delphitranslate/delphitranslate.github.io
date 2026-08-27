@@ -21,7 +21,9 @@ uses
   System.Classes,
   System.Diagnostics,
   System.Generics.Collections,
+  System.Hash,
   System.IOUtils,
+  System.JSON,
   System.RegularExpressions,
   System.StrUtils,
   System.SysUtils,
@@ -30,6 +32,149 @@ uses
   DAT.Scan.PascalResources,
   DAT.Scan.Quality,
   DAT.Scan.TextCodec;
+
+const
+  ExternalResourceManifestName = 'dat-translatable-resources.json';
+
+function IsUnderDirectory(const ADirectory, AFileName: string): Boolean; forward;
+
+procedure AddExternalResourceItem(const AResult: TProjectScanResult;
+  const AFileName, APropertyName, ASourceText: string;
+  const ASeenSources: TStrings);
+var
+  ScanItem: TScanItem;
+  SourceHash: string;
+  Text: string;
+begin
+  Text := Trim(ASourceText);
+  if (Text = '') or (ASeenSources.IndexOf(Text) >= 0) then
+    Exit;
+  ASeenSources.Add(Text);
+  SourceHash := LowerCase(THashSHA2.GetHashString(Text));
+  ScanItem := TScanItem.Create;
+  ScanItem.Key := Format('ExternalData.%s.%s',
+    [APropertyName, Copy(SourceHash, 1, 24)]);
+  ScanItem.SourceText := Text;
+  ScanItem.FormName := 'ExternalData';
+  ScanItem.ComponentName := APropertyName;
+  ScanItem.ComponentClassName := 'TJSONObject';
+  ScanItem.PropertyName := APropertyName;
+  ScanItem.SourceFileName := AFileName;
+  ScanItem.SourceLine := 0;
+  ScanItem.Framework := tfUnknown;
+  ScanItem.Kind := stkRuntimeAssignment;
+  ScanItem.RuntimeTextRole := rtrStaticText;
+  TScanContextAnalyzer.Analyze(ScanItem);
+  TScanQualityAnalyzer.Analyze(ScanItem);
+  AResult.Items.Add(ScanItem);
+end;
+
+procedure ScanExternalJsonValue(const AValue: TJSONValue;
+  const AFileName: string; const APropertyNames, ASeenSources: TStrings;
+  const AResult: TProjectScanResult);
+var
+  ArrayValue: TJSONValue;
+  Pair: TJSONPair;
+begin
+  if AValue is TJSONObject then
+    for Pair in TJSONObject(AValue) do
+    begin
+      if (Pair.JsonValue is TJSONString) and
+        (APropertyNames.IndexOf(Pair.JsonString.Value) >= 0) then
+        AddExternalResourceItem(AResult, AFileName, Pair.JsonString.Value,
+          TJSONString(Pair.JsonValue).Value, ASeenSources);
+      ScanExternalJsonValue(Pair.JsonValue, AFileName, APropertyNames,
+        ASeenSources, AResult);
+    end
+  else if AValue is TJSONArray then
+    for ArrayValue in TJSONArray(AValue) do
+      ScanExternalJsonValue(ArrayValue, AFileName, APropertyNames,
+        ASeenSources, AResult);
+end;
+
+procedure ScanDeclaredExternalResources(const AProjectDirectory: string;
+  const AResult: TProjectScanResult);
+var
+  DirectoryName: string;
+  FileName: string;
+  FileNames: TArray<string>;
+  FilePattern: string;
+  ManifestFileName: string;
+  ManifestRoot: TJSONValue;
+  PropertiesArray: TJSONArray;
+  PropertyName: TJSONValue;
+  PropertyNames: TStringList;
+  ResourceItem: TJSONValue;
+  Resources: TJSONArray;
+  ResourceObject: TJSONObject;
+  RootValue: TJSONValue;
+  SeenSources: TStringList;
+begin
+  ManifestFileName := TPath.Combine(AProjectDirectory,
+    ExternalResourceManifestName);
+  if not TFile.Exists(ManifestFileName) then
+    Exit;
+  ManifestRoot := TJSONObject.ParseJSONValue(
+    TFile.ReadAllText(ManifestFileName, TEncoding.UTF8));
+  if not (ManifestRoot is TJSONObject) then
+  begin
+    ManifestRoot.Free;
+    raise EConvertError.CreateFmt('%s must contain a JSON object.',
+      [ExternalResourceManifestName]);
+  end;
+  SeenSources := TStringList.Create;
+  try
+    SeenSources.Sorted := True;
+    SeenSources.Duplicates := dupIgnore;
+    Resources := TJSONObject(ManifestRoot).GetValue('resources') as TJSONArray;
+    if Resources = nil then
+      raise EConvertError.CreateFmt('%s must declare a resources array.',
+        [ExternalResourceManifestName]);
+    for ResourceItem in Resources do
+    begin
+      if not (ResourceItem is TJSONObject) then
+        Continue;
+      ResourceObject := TJSONObject(ResourceItem);
+      DirectoryName := ResourceObject.GetValue<string>('directory', '');
+      FilePattern := ResourceObject.GetValue<string>('filePattern', '*.json');
+      PropertiesArray := ResourceObject.GetValue('properties') as TJSONArray;
+      if (Trim(DirectoryName) = '') or (PropertiesArray = nil) then
+        Continue;
+      DirectoryName := TPath.GetFullPath(TPath.Combine(AProjectDirectory,
+        DirectoryName));
+      if not IsUnderDirectory(AProjectDirectory, DirectoryName) or
+        not TDirectory.Exists(DirectoryName) then
+        Continue;
+      PropertyNames := TStringList.Create;
+      try
+        PropertyNames.Sorted := True;
+        PropertyNames.Duplicates := dupIgnore;
+        for PropertyName in PropertiesArray do
+          if PropertyName is TJSONString then
+            PropertyNames.Add(TJSONString(PropertyName).Value);
+        FileNames := TDirectory.GetFiles(DirectoryName, FilePattern,
+          TSearchOption.soTopDirectoryOnly);
+        for FileName in FileNames do
+        begin
+          RootValue := TJSONObject.ParseJSONValue(
+            TFile.ReadAllText(FileName, TEncoding.UTF8));
+          try
+            if RootValue <> nil then
+              ScanExternalJsonValue(RootValue, FileName, PropertyNames,
+                SeenSources, AResult);
+          finally
+            RootValue.Free;
+          end;
+        end;
+      finally
+        PropertyNames.Free;
+      end;
+    end;
+  finally
+    SeenSources.Free;
+    ManifestRoot.Free;
+  end;
+end;
 
 function IsUnderDirectory(const ADirectory, AFileName: string): Boolean;
 var
@@ -368,6 +513,12 @@ begin
         Result.SourceFilesScanned := Result.SourceFilesScanned + 1;
         Result.FilesScanned := Result.FilesScanned + 1;
       end;
+
+      { Generated UI can also be fed by JSON or similar project data. Only
+        resources explicitly declared by the project are eligible: this
+        avoids treating databases, settings, or user content as interface
+        copy while giving future applications a reusable opt-in contract. }
+      ScanDeclaredExternalResources(ProjectDirectory, Result);
     finally
       SourceFiles.Free;
       HtmlFiles.Free;

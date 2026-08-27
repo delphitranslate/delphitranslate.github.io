@@ -875,6 +875,61 @@ begin
   end;
 end;
 
+procedure TestDeclaredExternalResourceScanning;
+var
+  DataDirectory: string;
+  Profile: TProjectProfile;
+  ScanItem: TScanItem;
+  ScanResult: TProjectScanResult;
+  TempDirectory: string;
+begin
+  TempDirectory := TPath.Combine(TPath.GetTempPath,
+    'DAT-External-Resources-' + FormatDateTime('hhnnsszzz', Now));
+  DataDirectory := TPath.Combine(TempDirectory, 'mapping_packs');
+  TDirectory.CreateDirectory(DataDirectory);
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'Main.dproj'),
+    '<Project><FrameworkType>FMX</FrameworkType></Project>', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'Main.fmx'),
+    'object frmMain: TForm' + sLineBreak +
+    '  Caption = ''Main application''' + sLineBreak + 'end', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(TempDirectory,
+    'dat-translatable-resources.json'),
+    '{"schemaVersion":1,"resources":[{' +
+    '"directory":"mapping_packs","filePattern":"*.json",' +
+    '"properties":["notes","manual_review_reason"]}]}', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(DataDirectory, 'components.json'),
+    '{"items":[{' +
+    '"name":"TExample","notes":"Operator-facing mapping guidance.",' +
+    '"manual_review_reason":"Review the custom rendering behavior.",' +
+    '"technical_name":"Never translate this identifier."}]}', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'settings.json'),
+    '{"notes":"Undeclared user data must not be scanned."}', TEncoding.UTF8);
+  Profile := Default(TProjectProfile);
+  Profile.ProjectFileName := TPath.Combine(TempDirectory, 'Main.dproj');
+  Profile.ProjectName := 'Main';
+  Profile.Framework := tfFireMonkey;
+  ScanResult := TProjectScanner.Scan(Profile);
+  try
+    RequireSourceText(ScanResult, 'Operator-facing mapping guidance.',
+      stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'Review the custom rendering behavior.',
+      stkRuntimeAssignment);
+    RequireNoSourceText(ScanResult, 'Never translate this identifier.');
+    RequireNoSourceText(ScanResult,
+      'Undeclared user data must not be scanned.');
+    ScanItem := nil;
+    for ScanItem in ScanResult.Items do
+      if ScanItem.SourceText = 'Operator-facing mapping guidance.' then
+        Break;
+    Require((ScanItem <> nil) and
+      (ScanItem.RuntimeTextRole = rtrStaticText),
+      'Declared external prose was not marked for source-text lookup.');
+  finally
+    ScanResult.Free;
+    TDirectory.Delete(TempDirectory, True);
+  end;
+end;
+
 procedure TestStaleScanSourceContract;
 var
   MissingFileName: string;
@@ -2101,6 +2156,7 @@ begin
     TestExtendedTextScanning;
     TestNestedProjectExclusion;
     TestGeneratedAndTestTreeExclusion;
+    TestDeclaredExternalResourceScanning;
     TestStaleScanSourceContract;
     TestFMXBrowserTranslationRemainsBounded;
     TestExistingIntegrationSourcesAreSynchronized;
