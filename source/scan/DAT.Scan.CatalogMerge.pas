@@ -3,16 +3,20 @@ unit DAT.Scan.CatalogMerge;
 interface
 
 uses
+  System.SysUtils,
   DAT.Core.Types,
   DAT.Scan.Types;
 
 type
+  EScanKeyCollision = class(Exception);
+
   TCatalogMergeSummary = record
     NewEntries: Integer;
     UnchangedEntries: Integer;
     ChangedEntries: Integer;
     ObsoleteEntries: Integer;
     DuplicateScanKeys: Integer;
+    ConflictingScanKeys: Integer;
   end;
 
   TScanCatalogMerger = class
@@ -29,8 +33,7 @@ implementation
 
 uses
   System.Generics.Collections,
-  System.Hash,
-  System.SysUtils;
+  System.Hash;
 
 class function TScanCatalogMerger.SourceChecksum(
   const ASourceText: string): string;
@@ -99,7 +102,9 @@ var
   Entry: TTranslationEntry;
   PreviousRuntimeTextRole: TRuntimeTextRole;
   ScanItem: TScanItem;
-  SeenKeys: TDictionary<string, Boolean>;
+  FirstScanItem: TScanItem;
+  SeenKeys: TDictionary<string, TScanItem>;
+  NormalizedKey: string;
 begin
   Result := Default(TCatalogMergeSummary);
   if AScanResult = nil then
@@ -107,16 +112,27 @@ begin
   if ACatalog = nil then
     raise EArgumentNilException.Create('A translation catalog is required.');
 
-  SeenKeys := TDictionary<string, Boolean>.Create;
+  SeenKeys := TDictionary<string, TScanItem>.Create;
   try
     for ScanItem in AScanResult.Items do
     begin
-      if SeenKeys.ContainsKey(LowerCase(ScanItem.Key)) then
+      NormalizedKey := LowerCase(ScanItem.Key);
+      if SeenKeys.TryGetValue(NormalizedKey, FirstScanItem) then
       begin
+        if FirstScanItem.SourceText <> ScanItem.SourceText then
+        begin
+          Inc(Result.ConflictingScanKeys);
+          raise EScanKeyCollision.CreateFmt(
+            'Scan key collision for "%s". "%s" at %s:%d conflicts with "%s" at %s:%d.',
+            [ScanItem.Key, FirstScanItem.SourceText,
+             FirstScanItem.SourceFileName, FirstScanItem.SourceLine,
+             ScanItem.SourceText, ScanItem.SourceFileName,
+             ScanItem.SourceLine]);
+        end;
         Inc(Result.DuplicateScanKeys);
         Continue;
       end;
-      SeenKeys.Add(LowerCase(ScanItem.Key), True);
+      SeenKeys.Add(NormalizedKey, ScanItem);
       Entry := ACatalog.FindEntry(ScanItem.Key);
       if Entry = nil then
       begin

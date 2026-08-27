@@ -6,6 +6,8 @@ $ErrorActionPreference = 'Stop'
 $ProjectRoot = [System.IO.Path]::GetFullPath(
     (Join-Path $PSScriptRoot '..\..'))
 $RsVars = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat'
+$SourceSearchPath = ((Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'source') `
+    -Directory | Select-Object -ExpandProperty FullName) -join ';')
 $TestPrograms = @(
     'FMXManagerLifecycleSpikeTests',
     'VCLManagerLifecycleSpikeTests',
@@ -30,7 +32,8 @@ foreach ($Target in $Targets) {
             $SourceFile = "$TestProgram.dpr"
             $Command = 'call "' + $RsVars + '" && ' +
                 $Target.Compiler + ' -B -Q -E"' + $OutputDirectory +
-                '" -N0"' + $DcuDirectory + '" "' + $SourceFile + '"'
+                '" -N0"' + $DcuDirectory + '" -U"' +
+                $SourceSearchPath + '" "' + $SourceFile + '"'
             & cmd.exe /d /c $Command
             if ($LASTEXITCODE -ne 0) {
                 throw "$SourceFile failed to compile for $($Target.Platform)."

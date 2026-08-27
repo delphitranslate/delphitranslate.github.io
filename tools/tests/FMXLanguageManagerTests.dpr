@@ -17,6 +17,7 @@ uses
     {frmFMXInheritedLifecycle},
   SampleFMX.MainForm in '..\..\samples\FMXBasic\SampleFMX.MainForm.pas'
     {frmFMXSample},
+  DAT.Core.AtomicFile in '..\..\source\core\DAT.Core.AtomicFile.pas',
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
@@ -319,7 +320,10 @@ var
   RunTimer: TTimer;
   Test: TFMXManagerTest;
 begin
-  RootDirectory := TPath.Combine(TPath.GetTempPath,
+  RootDirectory := GetEnvironmentVariable('TEMP');
+  if RootDirectory = '' then
+    RootDirectory := ExtractFilePath(ParamStr(0));
+  RootDirectory := TPath.Combine(RootDirectory,
     'DAT_FMX_Manager_' + IntToStr(GetTickCount64));
   LanguagesDirectory := TPath.Combine(RootDirectory, 'Languages');
   PreferenceDirectory := TPath.Combine(RootDirectory, 'Preferences');

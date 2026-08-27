@@ -15,16 +15,80 @@ type
 implementation
 
 uses
+  System.Classes,
   System.Generics.Collections,
+  System.Hash,
   System.IOUtils,
   System.JSON,
   System.SysUtils,
+  DAT.Core.AtomicFile,
   DAT.Core.RuntimePack,
   DAT.Scan.CatalogMerge,
   DAT.Scan.Project,
   DAT.Scan.Types,
   DAT.Core.TranslationWorkspace,
   DAT.Runtime.LanguagePack;
+
+function UniqueSiblingDirectory(const ADirectory, ASuffix: string): string;
+var
+  Identifier: TGUID;
+begin
+  CreateGUID(Identifier);
+  Result := ADirectory + ASuffix + '-' +
+    Copy(GUIDToString(Identifier), 2, 36);
+end;
+
+procedure PromoteStagedDirectory(const AStagedDirectory,
+  AFinalDirectory: string);
+var
+  PreviousDirectory: string;
+begin
+  PreviousDirectory := AFinalDirectory + '.previous';
+  if TDirectory.Exists(PreviousDirectory) then
+    TDirectory.Delete(PreviousDirectory, True);
+  if TDirectory.Exists(AFinalDirectory) then
+    TDirectory.Move(AFinalDirectory, PreviousDirectory);
+  try
+    TDirectory.Move(AStagedDirectory, AFinalDirectory);
+  except
+    if not TDirectory.Exists(AFinalDirectory) and
+      TDirectory.Exists(PreviousDirectory) then
+      TDirectory.Move(PreviousDirectory, AFinalDirectory);
+    raise;
+  end;
+end;
+
+procedure WriteIntegrityManifest(const ARootDirectory: string);
+var
+  FileName: string;
+  Files: TStringList;
+  JsonRoot: TJSONObject;
+  RelativeName: string;
+begin
+  Files := TStringList.Create;
+  JsonRoot := TJSONObject.Create;
+  try
+    Files.Sorted := True;
+    Files.Duplicates := dupIgnore;
+    for FileName in TDirectory.GetFiles(ARootDirectory, '*',
+      TSearchOption.soAllDirectories) do
+      Files.Add(FileName);
+    JsonRoot.AddPair('schemaVersion', TJSONNumber.Create(1));
+    for FileName in Files do
+    begin
+      RelativeName := Copy(FileName,
+        Length(IncludeTrailingPathDelimiter(ARootDirectory)) + 1, MaxInt);
+      RelativeName := StringReplace(RelativeName, '\', '/', [rfReplaceAll]);
+      JsonRoot.AddPair(RelativeName,
+        LowerCase(THashSHA2.GetHashStringFromFile(FileName)));
+    end;
+    TAtomicTextFile.WriteAllText(TPath.Combine(ARootDirectory,
+      'integrity-sha256.json'), JsonRoot.Format(2), TEncoding.UTF8);
+  finally
+    JsonRoot.Free;
+    Files.Free;
+  end;
+end;
 
 function PascalIdentifier(const AValue: string): string;
 var
@@ -50,6 +114,14 @@ begin
       'Runtime source unit not found: %s', [SourceFileName]);
   TFile.Copy(SourceFileName,
     TPath.Combine(ADestinationDirectory, AUnitName + '.pas'), True);
+end;
+
+procedure CopyCoreUnit(const ARuntimeSourceDirectory,
+  ADestinationDirectory, AUnitName: string);
+begin
+  CopyRuntimeUnit(TPath.Combine(
+    TPath.GetDirectoryName(ARuntimeSourceDirectory), 'core'),
+    ADestinationDirectory, AUnitName);
 end;
 
 procedure GenerateSourceLanguagePack(const AProfile: TProjectProfile;
@@ -155,7 +227,8 @@ begin
     '    ''' + AProfile.ProjectName + ''',' + sLineBreak +
     '    TPath.Combine(ApplicationDirectory, ''Localization\Languages''),' + sLineBreak +
     '    TPath.Combine(PreferenceDirectory, ''language.ini''),' + sLineBreak +
-    '    ''' + ASourceLanguageCode + ''');' + sLineBreak +
+    '    ''' + ASourceLanguageCode + ''',' + sLineBreak +
+    '    ''' + TargetFrameworkToString(AProfile.Framework) + ''');' + sLineBreak +
     '  ApplicationTranslationRuntime.LoadPreferredLanguage;' + sLineBreak +
     'end;' + sLineBreak + sLineBreak +
     'procedure ApplyTranslation(const AForm: ' + FormType + ');' + sLineBreak +
@@ -257,6 +330,7 @@ var
   PackageDirectory: string;
   RuntimeDirectory: string;
   SourceLanguageCode: string;
+  StagedDirectory: string;
   UnitFileName: string;
   DeploymentScript: string;
 begin
@@ -265,11 +339,17 @@ begin
 
   PackageDirectory := TPath.Combine(AOutputRoot,
     PascalIdentifier(AProfile.ProjectName));
-  RuntimeDirectory := TPath.Combine(PackageDirectory, 'Runtime');
-  TDirectory.CreateDirectory(RuntimeDirectory);
+  StagedDirectory := UniqueSiblingDirectory(PackageDirectory, '.staging');
+  RuntimeDirectory := TPath.Combine(StagedDirectory, 'Runtime');
+  try
+    TDirectory.CreateDirectory(RuntimeDirectory);
 
   CopyRuntimeUnit(ARuntimeSourceDirectory, RuntimeDirectory,
     'DAT.Runtime.LanguagePack');
+  CopyCoreUnit(ARuntimeSourceDirectory, RuntimeDirectory,
+    'DAT.Core.AtomicFile');
+  CopyCoreUnit(ARuntimeSourceDirectory, RuntimeDirectory,
+    'DAT.Core.Diagnostics');
   CopyRuntimeUnit(ARuntimeSourceDirectory, RuntimeDirectory,
     'DAT.Runtime.Preference');
   CopyRuntimeUnit(ARuntimeSourceDirectory, RuntimeDirectory,
@@ -281,7 +361,7 @@ begin
   CopyRuntimeUnit(ARuntimeSourceDirectory, RuntimeDirectory, AdapterUnit);
 
   PackageLanguagesDirectory := TPath.Combine(
-    PackageDirectory, 'Localization\Languages');
+    StagedDirectory, 'Localization\Languages');
   TDirectory.CreateDirectory(PackageLanguagesDirectory);
   LanguagesDirectory := TTranslationWorkspace.LanguagesDirectory(AProfile);
   Languages := TLanguagePackDiscovery.Discover(
@@ -304,9 +384,9 @@ begin
     if Languages.Count > 0 then
       SourceLanguageCode := Languages[0].SourceLanguage;
 
-    UnitFileName := TPath.Combine(PackageDirectory,
+    UnitFileName := TPath.Combine(StagedDirectory,
       PascalIdentifier(AProfile.ProjectName) + '.Translation.pas');
-    TFile.WriteAllText(UnitFileName,
+    TAtomicTextFile.WriteAllText(UnitFileName,
       GeneratedUnitText(AProfile, SourceLanguageCode), TEncoding.UTF8);
 
     JsonArray := TJSONArray.Create;
@@ -320,31 +400,93 @@ begin
           TPath.GetFileName(Descriptor.FileName));
         JsonArray.AddElement(JsonObject);
       end;
-      TFile.WriteAllText(TPath.Combine(PackageDirectory,
+      TAtomicTextFile.WriteAllText(TPath.Combine(StagedDirectory,
         'language-menu.json'), JsonArray.ToJSON, TEncoding.UTF8);
       DeploymentScript :=
         'param([Parameter(Mandatory=$true)][string]$ApplicationDirectory)' +
         sLineBreak + '$ErrorActionPreference = ''Stop''' + sLineBreak +
         '$source = Join-Path $PSScriptRoot ''Localization\Languages''' +
         sLineBreak +
-        '$destination = Join-Path $ApplicationDirectory ''Localization\Languages''' +
+        '$manifestFile = Join-Path $PSScriptRoot ''integrity-sha256.json''' +
         sLineBreak +
-        'New-Item -ItemType Directory -Path $destination -Force | Out-Null' +
+        'if (-not (Test-Path -LiteralPath $manifestFile -PathType Leaf)) { throw ''Integrity manifest is missing.'' }' +
         sLineBreak +
-        'Copy-Item -Path (Join-Path $source ''*.json'') -Destination $destination -Force' +
+        '$integrity = Get-Content -LiteralPath $manifestFile -Raw | ConvertFrom-Json' +
         sLineBreak +
-        'Write-Output ""Language packs deployed to $destination""' +
+        'if ([int]$integrity.schemaVersion -ne 1) { throw ''Unsupported integrity manifest schema.'' }' +
+        sLineBreak +
+        '$target = [System.IO.Path]::GetFullPath($ApplicationDirectory)' +
+        sLineBreak +
+        '$localization = Join-Path $target ''Localization''' + sLineBreak +
+        '$destination = Join-Path $localization ''Languages''' + sLineBreak +
+        '$staging = Join-Path $localization (''Languages.staging-'' + [guid]::NewGuid().ToString(''N''))' +
+        sLineBreak +
+        '$previous = Join-Path $localization ''Languages.previous''' +
+        sLineBreak +
+        'New-Item -ItemType Directory -Path $staging -Force | Out-Null' +
+        sLineBreak +
+        'try {' + sLineBreak +
+        '  $files = @(Get-ChildItem -LiteralPath $source -Filter ''*.json'' -File)' +
+        sLineBreak +
+        '  if ($files.Count -eq 0) { throw ''No language packs were found.'' }' +
+        sLineBreak +
+        '  foreach ($file in $files) {' + sLineBreak +
+        '    $relative = ''Localization/Languages/'' + $file.Name' + sLineBreak +
+        '    $property = $integrity.PSObject.Properties[$relative]' + sLineBreak +
+        '    if ($null -eq $property) { throw "No integrity entry for $relative" }' +
+        sLineBreak +
+        '    $expected = ([string]$property.Value).ToLowerInvariant()' + sLineBreak +
+        '    $actual = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()' +
+        sLineBreak +
+        '    if ($actual -ne $expected) { throw "Source hash mismatch: $relative" }' +
+        sLineBreak +
+        '    $stagedFile = Join-Path $staging $file.Name' + sLineBreak +
+        '    Copy-Item -LiteralPath $file.FullName -Destination $stagedFile' +
+        sLineBreak +
+        '    $copied = (Get-FileHash -LiteralPath $stagedFile -Algorithm SHA256).Hash.ToLowerInvariant()' +
+        sLineBreak +
+        '    if ($copied -ne $expected) { throw "Staged hash mismatch: $relative" }' +
+        sLineBreak +
+        '  }' + sLineBreak +
+        '  if (Test-Path -LiteralPath $previous) { Remove-Item -LiteralPath $previous -Recurse -Force }' +
+        sLineBreak +
+        '  if (Test-Path -LiteralPath $destination) { Move-Item -LiteralPath $destination -Destination $previous }' +
+        sLineBreak +
+        '  try { Move-Item -LiteralPath $staging -Destination $destination }' +
+        sLineBreak +
+        '  catch {' + sLineBreak +
+        '    if ((-not (Test-Path -LiteralPath $destination)) -and (Test-Path -LiteralPath $previous)) { Move-Item -LiteralPath $previous -Destination $destination }' +
+        sLineBreak +
+        '    throw' + sLineBreak +
+        '  }' + sLineBreak +
+        '  Write-Output "Language packs deployed and verified at $destination"' +
+        sLineBreak +
+        '} finally {' + sLineBreak +
+        '  if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }' +
+        sLineBreak +
+        '}' +
         sLineBreak;
-      TFile.WriteAllText(TPath.Combine(PackageDirectory,
+      TAtomicTextFile.WriteAllText(TPath.Combine(StagedDirectory,
         'Deploy-LanguagePacks.ps1'), DeploymentScript, TEncoding.UTF8);
     finally
       JsonArray.Free;
     end;
+    if Languages.Count <> Length(TDirectory.GetFiles(
+      PackageLanguagesDirectory, '*.json', TSearchOption.soTopDirectoryOnly)) then
+      raise EInvalidOpException.Create(
+        'The staged integration package contains an incompatible language pack.');
   finally
     Languages.Free;
   end;
 
-  Result := PackageDirectory;
+    WriteIntegrityManifest(StagedDirectory);
+    PromoteStagedDirectory(StagedDirectory, PackageDirectory);
+    Result := PackageDirectory;
+  except
+    if TDirectory.Exists(StagedDirectory) then
+      TDirectory.Delete(StagedDirectory, True);
+    raise;
+  end;
 end;
 
 end.

@@ -172,9 +172,12 @@ type
     FCurrentStep: Integer;
     FHighestStep: Integer;
     FFinalProcessing: Boolean;
+    FFinalCancelRequested: Integer;
+    FCloseAfterFinalProcessing: Boolean;
     FCompleted: Boolean;
     FBuildCompleted: Boolean;
     FBuildInProgress: Boolean;
+    FCloseAfterBuild: Boolean;
     FProjectProfile: TProjectProfile;
     FScanResult: TProjectScanResult;
     FCatalog: TTranslationCatalog;
@@ -185,6 +188,11 @@ type
     FSessionApiKey: string;
     FLastScanCompletedAt: TDateTime;
     FReviewOutputDirectory: string;
+    FScanInProgress: Boolean;
+    FScanCancelRequested: Integer;
+    FCloseAfterScan: Boolean;
+    FProviderTestInProgress: Boolean;
+    FCloseAfterProviderTest: Boolean;
     procedure UpdateBuildChoice;
     procedure SetStep(const AStep: Integer);
     procedure UpdateNavigation;
@@ -197,6 +205,15 @@ type
     procedure ApplyLocaleDefaults;
     procedure BuildReview;
     procedure ExecuteFinalProcessing;
+    procedure ContinueFinalProcessing(
+      const AEntryIndexes: TArray<Integer>;
+      const ATranslatedTexts: TArray<string>;
+      const AProvider: TTranslationProvider;
+      const AProjectGlossaryFileName: string);
+    procedure ContinueFinalProcessingAfterDeployment(
+      const ADeployedCount, AConfiguredDestinationCount: Integer;
+      const ARuntimePackFileName: string);
+    procedure StopFinalProcessing(const AMessage: string);
     procedure AddProgress(const AText: string);
     function FindStudioRoot: string;
     function DesignBPLFileName: string;
@@ -205,7 +222,6 @@ type
     procedure RebuildAllTargetConfigurations;
     function ExistingBuildOutputDirectories: TArray<string>;
     function DeployLanguagePacksToExistingOutputs: Integer;
-    function DeployLanguagePacksToConfiguredDestinations: Integer;
     function DeployLanguagePacksDirect(const AApplicationDirectory: string): Boolean;
     function RunDeploymentScript(const AApplicationDirectory: string;
       const ASkipConfiguredDestinations: Boolean = True): Boolean;
@@ -230,6 +246,7 @@ uses
   System.RegularExpressions,
   System.Rtti,
   System.StrUtils,
+  System.SyncObjs,
   System.SysUtils,
   System.UITypes,
   System.Zip,
@@ -237,6 +254,7 @@ uses
   Winapi.Windows,
   FMX.DialogService.Sync,
   FMX.Platform,
+  DAT.Core.AtomicFile,
   DAT.Core.CatalogJson,
   DAT.Core.Glossary,
   DAT.Core.Hyphenation,
@@ -335,11 +353,14 @@ procedure TfrmSetupWizard.btnBuildNowClick(Sender: TObject);
 var
   DeployPlatform: string;
   DeployConfiguration: string;
-  ApplicationDirectory: string;
-  DestinationAttempt: Integer;
-  DestinationReady: Boolean;
+  Destinations: TArray<string>;
+  KitDirectory: string;
+  ProjectFileName: string;
+  ProjectName: string;
+  RebuildBeforeDeploy: Boolean;
+  ReplaceExecutable: Boolean;
 begin
-  if not FCompleted then
+  if not FCompleted or FBuildInProgress then
     Exit;
   btnBuildNow.Enabled := False;
   btnBack.Enabled := False;
@@ -348,93 +369,96 @@ begin
   FBuildCompleted := False;
   FBuildInProgress := True;
   lblBuildStatus.Text := 'Deploying the application. Please wait...';
-  Application.ProcessMessages;
-  try
-    { One build, chosen rather than inferred.
-
-      A destination folder holds one executable, so offering four combinations
-      only ever raised the question of which of them arrived, and the answer
-      used to depend on loop order. The lists offer one platform and one
-      configuration now, and this is what was picked.
-
-      The platform matters as much as the configuration and is easier to get
-      wrong quietly: a folder set up for a thirty-two bit application carries
-      thirty-two bit libraries beside it, and a sixty-four bit executable
-      dropped in cannot load them. The log names both. }
-    if cboBuildPlatform.ItemIndex = 1 then
-      DeployPlatform := 'Win64'
-    else
-      DeployPlatform := 'Win32';
-    if cboBuildConfiguration.ItemIndex = 1 then
-      DeployConfiguration := 'Debug'
-    else
-      DeployConfiguration := 'Release';
-
-    { Building is now the exception rather than the rule. Final processing has
-      already compiled every target that has a build folder, so repeating it
-      here wastes a minute and produces exactly what is already on disk. The
-      box is for the case final processing cannot cover: a configuration that
-      has never been built, and so has no folder for final processing to find. }
-    if chkBuildNow.IsChecked then
+  if cboBuildPlatform.ItemIndex = 1 then
+    DeployPlatform := 'Win64'
+  else
+    DeployPlatform := 'Win32';
+  if cboBuildConfiguration.ItemIndex = 1 then
+    DeployConfiguration := 'Debug'
+  else
+    DeployConfiguration := 'Release';
+  Destinations := lstDeploymentDestinations.Items.ToStringArray;
+  KitDirectory := FKitDirectory;
+  ProjectFileName := FProjectProfile.ProjectFileName;
+  ProjectName := FProjectProfile.ProjectName;
+  RebuildBeforeDeploy := chkBuildNow.IsChecked;
+  ReplaceExecutable := chkReplaceDeployedExecutable.IsChecked;
+  TThread.CreateAnonymousThread(
+    procedure
+    var
+      ApplicationDirectory: string;
+      DestinationAttempt: Integer;
+      DestinationReady: Boolean;
+      ErrorText: string;
+      Succeeded: Boolean;
     begin
-      AddProgress(Format('Rebuilding %s %s before deploying...',
-        [DeployPlatform, DeployConfiguration]));
-      Application.ProcessMessages;
-      AddProgress(TTargetBuildDeployer.BuildAndDeploy(
-        FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
-        DeployPlatform, DeployConfiguration, FKitDirectory));
-    end;
-
-    AddProgress(Format('Deploying the %s %s build.',
-      [DeployPlatform, DeployConfiguration]));
-
-
-    for ApplicationDirectory in lstDeploymentDestinations.Items do
-    begin
-      DestinationReady := TDirectory.Exists(ApplicationDirectory);
-      if not DestinationReady then
-        for DestinationAttempt := 1 to 12 do
+      ErrorText := '';
+      Succeeded := False;
+      try
+        if RebuildBeforeDeploy then
         begin
-          Sleep(500);
-          DestinationReady := TDirectory.Exists(ApplicationDirectory);
-          if DestinationReady then
-            Break;
+          AddProgress(Format('Rebuilding %s %s before deploying...',
+            [DeployPlatform, DeployConfiguration]));
+          AddProgress(TTargetBuildDeployer.BuildAndDeploy(ProjectFileName,
+            ProjectName, DeployPlatform, DeployConfiguration, KitDirectory));
         end;
-      if DestinationReady then
-        try
-          { Named so the log says which step copied the executable. It is the
-            only step that does, and when two of them did, the log gave the
-            developer no way to tell them apart. }
-          AddProgress('Build step: ' +
-            TTargetBuildDeployer.DeployBuildOutput(
-            FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
-            DeployPlatform, DeployConfiguration, ApplicationDirectory,
-            FKitDirectory, chkReplaceDeployedExecutable.IsChecked));
-        except
-          on E: EInOutError do
-            AddProgress(Format(
-              'Executable deployment skipped for %s %s in %s: %s',
-              [DeployPlatform, DeployConfiguration, ApplicationDirectory,
-               E.Message]));
-        end
-      else
-        AddProgress(Format(
-          'Destination unavailable after waiting: %s',
-          [ApplicationDirectory]));
-    end;
-    FBuildCompleted := True;
-    lblBuildStatus.Text := 'The application was deployed to every configured folder.';
-  except
-    on E: Exception do
-    begin
-      FBuildCompleted := False;
-      lblBuildStatus.Text := 'Build stopped: ' + E.Message;
-      AddProgress('BUILD STOPPED: ' + E.Message);
-    end;
-  end;
-  FBuildInProgress := False;
-  UpdateBuildChoice;
-  UpdateNavigation;
+        AddProgress(Format('Deploying the %s %s build.',
+          [DeployPlatform, DeployConfiguration]));
+        for ApplicationDirectory in Destinations do
+        begin
+          DestinationReady := TDirectory.Exists(ApplicationDirectory);
+          if not DestinationReady then
+            for DestinationAttempt := 1 to 12 do
+            begin
+              TThread.Sleep(500);
+              DestinationReady := TDirectory.Exists(ApplicationDirectory);
+              if DestinationReady then
+                Break;
+            end;
+          if DestinationReady then
+            try
+              AddProgress('Build step: ' +
+                TTargetBuildDeployer.DeployBuildOutput(ProjectFileName,
+                  ProjectName, DeployPlatform, DeployConfiguration,
+                  ApplicationDirectory, KitDirectory, ReplaceExecutable));
+            except
+              on E: EInOutError do
+                AddProgress(Format(
+                  'Executable deployment skipped for %s %s in %s: %s',
+                  [DeployPlatform, DeployConfiguration,
+                   ApplicationDirectory, E.Message]));
+            end
+          else
+            AddProgress('Destination unavailable after waiting: ' +
+              ApplicationDirectory);
+        end;
+        Succeeded := True;
+      except
+        on E: Exception do
+        begin
+          ErrorText := E.Message;
+          AddProgress('BUILD STOPPED: ' + ErrorText);
+        end;
+      end;
+      TThread.Queue(nil,
+        procedure
+        begin
+          FBuildInProgress := False;
+          FBuildCompleted := Succeeded;
+          if Succeeded then
+            lblBuildStatus.Text :=
+              'The application was deployed to every configured folder.'
+          else
+            lblBuildStatus.Text := 'Build stopped: ' + ErrorText;
+          UpdateBuildChoice;
+          UpdateNavigation;
+          if FCloseAfterBuild then
+          begin
+            FCloseAfterBuild := False;
+            Close;
+          end;
+        end);
+    end).Start;
 end;
 
 function TfrmSetupWizard.ExistingCatalogFileName: string;
@@ -672,7 +696,7 @@ begin
       if DestinationWorthRemembering(Destination) then
         Destinations.Add(Destination);
     Root.AddPair('destinations', Destinations);
-    TFile.WriteAllText(FileName, Root.Format(2), TEncoding.UTF8);
+    TAtomicTextFile.WriteAllText(FileName, Root.Format(2), TEncoding.UTF8);
   finally
     Root.Free;
   end;
@@ -731,12 +755,45 @@ end;
 procedure TfrmSetupWizard.FormCloseQuery(Sender: TObject;
   var CanClose: Boolean);
 begin
-  CanClose := not FFinalProcessing;
+  if FScanInProgress then
+  begin
+    TInterlocked.Exchange(FScanCancelRequested, 1);
+    FCloseAfterScan := True;
+    CanClose := False;
+    lblFooterStatus.Text := 'Cancelling the project scan before closing...';
+  end
+  else if FProviderTestInProgress then
+  begin
+    FCloseAfterProviderTest := True;
+    CanClose := False;
+    lblFooterStatus.Text := 'Waiting for the connection test to finish before closing...';
+  end
+  else if FBuildInProgress then
+  begin
+    FCloseAfterBuild := True;
+    CanClose := False;
+    lblFooterStatus.Text := 'Waiting for the build/deployment operation to finish before closing...';
+  end
+  else if FFinalProcessing then
+  begin
+    TInterlocked.Exchange(FFinalCancelRequested, 1);
+    FCloseAfterFinalProcessing := True;
+    CanClose := False;
+    lblFooterStatus.Text := 'Cancelling final processing before closing...';
+  end
+  else
+    CanClose := True;
 end;
 
 procedure TfrmSetupWizard.btnCancelClick(Sender: TObject);
 begin
   if FFinalProcessing then
+  begin
+    TInterlocked.Exchange(FFinalCancelRequested, 1);
+    lblFooterStatus.Text := 'Cancelling final processing...';
+    Exit;
+  end;
+  if FProviderTestInProgress or FBuildInProgress then
     Exit;
   ModalResult := mrCancel;
 end;
@@ -1074,28 +1131,59 @@ end;
 
 procedure TfrmSetupWizard.btnTestConnectionClick(Sender: TObject);
 var
-  Client: TTranslationProviderClient;
+  ApiKey: string;
   Plan: TDeepLPlan;
+  Provider: TTranslationProvider;
 begin
+  if FProviderTestInProgress then
+    Exit;
   btnTestConnection.Enabled := False;
-  try
-    if cboDeepLPlan.ItemIndex = 1 then
-      Plan := dpPro
-    else
-      Plan := dpFree;
-    Client := TTranslationProviderClient.Create(SelectedProvider, Plan,
-      EffectiveApiKey, 30, 40);
-    try
-      Client.TestConnection;
-      lblProviderStatus.Text := 'Connection test passed.';
-    finally
-      Client.Free;
-    end;
-  except
-    on E: Exception do
-      lblProviderStatus.Text := 'Connection test failed: ' + E.Message;
-  end;
-  btnTestConnection.Enabled := True;
+  if cboDeepLPlan.ItemIndex = 1 then
+    Plan := dpPro
+  else
+    Plan := dpFree;
+  Provider := SelectedProvider;
+  ApiKey := EffectiveApiKey;
+  FProviderTestInProgress := True;
+  lblProviderStatus.Text := 'Testing the provider connection...';
+  TThread.CreateAnonymousThread(
+    procedure
+    var
+      Client: TTranslationProviderClient;
+      ErrorText: string;
+      Passed: Boolean;
+    begin
+      Passed := False;
+      ErrorText := '';
+      Client := TTranslationProviderClient.Create(Provider, Plan,
+        ApiKey, 30, 40);
+      try
+        try
+          Client.TestConnection;
+          Passed := True;
+        except
+          on E: Exception do
+            ErrorText := E.Message;
+        end;
+      finally
+        Client.Free;
+      end;
+      TThread.Queue(nil,
+        procedure
+        begin
+          FProviderTestInProgress := False;
+          btnTestConnection.Enabled := True;
+          if Passed then
+            lblProviderStatus.Text := 'Connection test passed.'
+          else
+            lblProviderStatus.Text := 'Connection test failed: ' + ErrorText;
+          if FCloseAfterProviderTest then
+          begin
+            FCloseAfterProviderTest := False;
+            Close;
+          end;
+        end);
+    end).Start;
 end;
 
 procedure TfrmSetupWizard.LoadExistingCatalog;
@@ -1147,46 +1235,107 @@ end;
 
 procedure TfrmSetupWizard.btnRunScanClick(Sender: TObject);
 var
-  Item: TScanItem;
-  MergeSummary: TCatalogMergeSummary;
+  Profile: TProjectProfile;
 begin
+  if FScanInProgress then
+    Exit;
   btnRunScan.Enabled := False;
-  try
-    FreeAndNil(FScanResult);
-    FScanResult := TProjectScanner.Scan(FProjectProfile);
-    FLastScanCompletedAt := Now;
-    LoadExistingCatalog;
-    MergeSummary := TScanCatalogMerger.Merge(FScanResult, FCatalog);
-    memScanResults.Lines.BeginUpdate;
-    try
-      memScanResults.Lines.Clear;
-      for Item in FScanResult.Items do
-        memScanResults.Lines.Add(Item.Key + ' = ' + Item.SourceText);
-    finally
-      memScanResults.Lines.EndUpdate;
-    end;
-    if cboWorkflowMode.ItemIndex = 2 then
-      lblScanSummary.Text := Format(
-        '%d translatable entries  |  %d new  |  %d changed  |  %d unchanged  |  %d obsolete',
-        [FScanResult.Items.Count, MergeSummary.NewEntries,
-         MergeSummary.ChangedEntries, MergeSummary.UnchangedEntries,
-         MergeSummary.ObsoleteEntries])
-    else
-      lblScanSummary.Text := Format(
-        '%d current translatable entries  |  new catalog  |  %d duplicate scan key(s) ignored',
-        [FScanResult.Items.Count, MergeSummary.DuplicateScanKeys]);
-    FReviewOutputDirectory := TPath.Combine(FindStudioRoot,
-      TPath.Combine('export\localization-review',
-        TPath.Combine(FProjectProfile.ProjectName,
-          SelectedLanguageCode(cboTargetLanguage))));
-    UpdateWorkflowSummary;
-    lblFooterStatus.Text :=
-      'Scan complete. Continue through Review & Authorize; automatic translation and Localization Review occur during final processing.';
-  except
-    on E: Exception do
-      lblFooterStatus.Text := 'Scan failed: ' + E.Message;
-  end;
-  btnRunScan.Enabled := True;
+  ContentCard.Enabled := False;
+  RailBackground.Enabled := False;
+  btnBack.Enabled := False;
+  btnNext.Enabled := False;
+  btnCancel.Enabled := False;
+  btnFinish.Enabled := False;
+  lblFooterStatus.Text := 'Scanning project text resources...';
+  FScanInProgress := True;
+  FCloseAfterScan := False;
+  TInterlocked.Exchange(FScanCancelRequested, 0);
+  Profile := FProjectProfile;
+  TThread.CreateAnonymousThread(
+    procedure
+    var
+      ErrorText: string;
+      MergeSummary: TCatalogMergeSummary;
+      NewScanResult: TProjectScanResult;
+    begin
+      ErrorText := '';
+      NewScanResult := nil;
+      try
+        NewScanResult := TProjectScanner.Scan(Profile,
+          function: Boolean
+          begin
+            Result := TInterlocked.CompareExchange(
+              FScanCancelRequested, 0, 0) <> 0;
+          end);
+      except
+        on E: Exception do
+          ErrorText := E.Message;
+      end;
+      TThread.Queue(nil,
+        procedure
+        var
+          LocalItem: TScanItem;
+        begin
+          try
+            if ErrorText <> '' then
+            begin
+              NewScanResult.Free;
+              if TInterlocked.CompareExchange(
+                FScanCancelRequested, 0, 0) <> 0 then
+                lblFooterStatus.Text := 'Project scan cancelled.'
+              else
+                lblFooterStatus.Text := 'Scan failed: ' + ErrorText;
+            end
+            else
+            begin
+              FreeAndNil(FScanResult);
+              FScanResult := NewScanResult;
+              NewScanResult := nil;
+              FLastScanCompletedAt := Now;
+              LoadExistingCatalog;
+              MergeSummary := TScanCatalogMerger.Merge(FScanResult, FCatalog);
+              memScanResults.Lines.BeginUpdate;
+              try
+                memScanResults.Lines.Clear;
+                for LocalItem in FScanResult.Items do
+                  memScanResults.Lines.Add(LocalItem.Key + ' = ' +
+                    LocalItem.SourceText);
+              finally
+                memScanResults.Lines.EndUpdate;
+              end;
+              if cboWorkflowMode.ItemIndex = 2 then
+                lblScanSummary.Text := Format(
+                  '%d translatable entries  |  %d new  |  %d changed  |  %d unchanged  |  %d obsolete',
+                  [FScanResult.Items.Count, MergeSummary.NewEntries,
+                   MergeSummary.ChangedEntries, MergeSummary.UnchangedEntries,
+                   MergeSummary.ObsoleteEntries])
+              else
+                lblScanSummary.Text := Format(
+                  '%d current translatable entries  |  new catalog  |  %d equivalent duplicate occurrence(s) collapsed',
+                  [FScanResult.Items.Count, MergeSummary.DuplicateScanKeys]);
+              FReviewOutputDirectory := TPath.Combine(FindStudioRoot,
+                TPath.Combine('export\localization-review',
+                  TPath.Combine(FProjectProfile.ProjectName,
+                    SelectedLanguageCode(cboTargetLanguage))));
+              UpdateWorkflowSummary;
+              lblFooterStatus.Text :=
+                'Scan complete. Continue through Review & Authorize; automatic translation and Localization Review occur during final processing.';
+            end;
+          except
+            on E: Exception do
+              lblFooterStatus.Text := 'Scan failed: ' + E.Message;
+          end;
+          FScanInProgress := False;
+          ContentCard.Enabled := True;
+          RailBackground.Enabled := True;
+          UpdateNavigation;
+          if FCloseAfterScan then
+          begin
+            FCloseAfterScan := False;
+            ModalResult := mrCancel;
+          end;
+        end);
+    end).Start;
 end;
 
 function TfrmSetupWizard.FindStudioRoot: string;
@@ -1333,10 +1482,22 @@ begin
 end;
 
 procedure TfrmSetupWizard.AddProgress(const AText: string);
+var
+  TextToAdd: string;
 begin
+  if TThread.CurrentThread.ThreadID <> MainThreadID then
+  begin
+    TextToAdd := AText;
+    TThread.Queue(nil,
+      procedure
+      begin
+        if not (csDestroying in ComponentState) then
+          AddProgress(TextToAdd);
+      end);
+    Exit;
+  end;
   memProgress.Lines.Add(FormatDateTime('hh:nn:ss', Now) + '  ' + AText);
   memProgress.GoToTextEnd;
-  Application.ProcessMessages;
 end;
 
 procedure TfrmSetupWizard.BuildDeploymentCommands;
@@ -1482,6 +1643,9 @@ begin
   for Platform in ['Win32', 'Win64'] do
     for Configuration in ['Debug', 'Release'] do
     begin
+      if TInterlocked.CompareExchange(
+        FFinalCancelRequested, 0, 0) <> 0 then
+        raise EAbort.Create('Final processing was cancelled.');
       OutputDirectory := TTargetBuildDeployer.FindBuildOutputDirectory(
         FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
         Platform, Configuration, False);
@@ -1489,7 +1653,6 @@ begin
         Continue;
       AddProgress(Format('Rebuilding %s %s before deployment...',
         [Platform, Configuration]));
-      Application.ProcessMessages;
       AddProgress(TTargetBuildDeployer.BuildAndDeploy(
         FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
         Platform, Configuration, FKitDirectory));
@@ -1500,43 +1663,6 @@ begin
   else
     AddProgress(Format('%d target configuration(s) rebuilt with the current runtime.',
       [BuiltCount]));
-end;
-
-function TfrmSetupWizard.DeployLanguagePacksToConfiguredDestinations: Integer;
-var
-  ApplicationDirectory: string;
-  DestinationExecutable: string;
-begin
-  Result := 0;
-  for ApplicationDirectory in lstDeploymentDestinations.Items do
-  begin
-    if not DeployLanguagePacksDirect(ApplicationDirectory) then
-      raise Exception.Create('Language-pack deployment failed for configured destination ' +
-        ApplicationDirectory + '. The drive may still be waking or may be read-only.');
-    DestinationExecutable := TPath.Combine(ApplicationDirectory,
-      FProjectProfile.ProjectName + '.exe');
-    { Language packs deploy freely from here; the executable does not. Copying
-      it here as well as in the build step put two copies of the application on
-      the outboard drive in a single run, and the developer saw the second one
-      overwrite the first. Worse, a copy made outside the build step can only
-      be of whatever was built last time, so it is exactly how a stale
-      executable reaches the drive looking like a fresh one. The build step
-      owns the executable, and it is the only place that copies it. }
-    if FBuildCompleted then
-      AddProgress('Executable for ' + ApplicationDirectory +
-        ' was deployed by the build step and is not copied again.')
-    else if TFile.Exists(DestinationExecutable) then
-      AddProgress('Executable at ' + DestinationExecutable +
-        ' left as it stands: no build ran in this session, so the only copy ' +
-        'available would be from an earlier one.')
-    else
-      AddProgress('No executable deployed to ' + ApplicationDirectory +
-        ': no build ran in this session. Use Build and Deploy Selected ' +
-        'Targets to build and deploy one.');
-    Inc(Result);
-    AddProgress('Language packs deployed to configured destination ' +
-      ApplicationDirectory);
-  end;
 end;
 
 function TfrmSetupWizard.DeployLanguagePacksDirect(
@@ -1585,7 +1711,6 @@ var
   MemoryCount: Integer;
   ApiKey: string;
   BackupDirectory: string;
-  Client: TTranslationProviderClient;
   Entry: TTranslationEntry;
   ScanItem: TScanItem;
   EntryIndexes: TArray<Integer>;
@@ -1594,16 +1719,12 @@ var
   MissingSourceFileName: string;
   Plan: TDeepLPlan;
   Provider: TTranslationProvider;
-  Report: TStringList;
-  DeployedCount: Integer;
-  ConfiguredDestinationCount: Integer;
-  RuntimePackFileName: string;
   SourceTexts: TArray<string>;
-  TranslatedTexts: TArray<string>;
   Contexts: TArray<string>;
+  SourceLanguage: string;
+  TargetLanguage: string;
   ProviderCount: Integer;
   ResolvedText: string;
-  Validation: TCatalogValidationResult;
   Glossary: TProjectGlossary;
   AppliedGlossaryCount: Integer;
   SharedCount: Integer;
@@ -1612,6 +1733,7 @@ var
   ProjectGlossaryFileName: string;
 begin
   FFinalProcessing := True;
+  TInterlocked.Exchange(FFinalCancelRequested, 0);
   FCompleted := False;
   FBuildCompleted := False;
   btnBack.Enabled := False;
@@ -1817,30 +1939,102 @@ begin
     begin
       AddProgress(Format('Translating %d unresolved entries with %s...',
         [ProviderCount, TranslationProviderDisplayName(Provider)]));
-      Client := TTranslationProviderClient.Create(Provider, Plan, ApiKey, 30, 40);
-      try
-        TranslatedTexts := Client.TranslateWithContexts(SourceTexts, Contexts,
-          FCatalog.SourceLanguage, FCatalog.Locale.LanguageCode,
-          nil,
-          procedure(const ACompleted, ATotal: Integer)
-          begin
-            lblFinishText.Text := Format('Automatic translation: %d of %d',
-              [ACompleted, ATotal]);
-            Application.ProcessMessages;
-          end);
-      finally
-        Client.Free;
-      end;
-      for Index := 0 to High(TranslatedTexts) do
+      SourceLanguage := FCatalog.SourceLanguage;
+      TargetLanguage := FCatalog.Locale.LanguageCode;
+      TThread.CreateAnonymousThread(
+        procedure
+        var
+          BackgroundClient: TTranslationProviderClient;
+          ErrorText: string;
+          Translations: TArray<string>;
+        begin
+          ErrorText := '';
+          try
+            BackgroundClient := TTranslationProviderClient.Create(Provider,
+              Plan, ApiKey, 30, 40);
+            try
+              Translations := BackgroundClient.TranslateWithContexts(
+                SourceTexts, Contexts, SourceLanguage, TargetLanguage,
+                function: Boolean
+                begin
+                  Result := TInterlocked.CompareExchange(
+                    FFinalCancelRequested, 0, 0) <> 0;
+                end,
+                procedure(const ACompleted, ATotal: Integer)
+                begin
+                  TThread.Queue(nil,
+                    procedure
+                    begin
+                      if not (csDestroying in ComponentState) then
+                        lblFinishText.Text := Format(
+                          'Automatic translation: %d of %d',
+                          [ACompleted, ATotal]);
+                    end);
+                end);
+            finally
+              BackgroundClient.Free;
+            end;
+          except
+            on E: Exception do
+              ErrorText := E.Message;
+          end;
+          TThread.Queue(nil,
+            procedure
+            begin
+              if ErrorText <> '' then
+                StopFinalProcessing(ErrorText)
+              else
+                ContinueFinalProcessing(EntryIndexes, Translations, Provider,
+                  ProjectGlossaryFileName);
+            end);
+        end).Start;
+      Exit;
+    end
+    else
+    begin
+      ContinueFinalProcessing(EntryIndexes, nil, Provider,
+        ProjectGlossaryFileName);
+      Exit;
+    end;
+  except
+    on E: Exception do
+      StopFinalProcessing(E.Message);
+  end;
+end;
+
+procedure TfrmSetupWizard.ContinueFinalProcessing(
+  const AEntryIndexes: TArray<Integer>;
+  const ATranslatedTexts: TArray<string>;
+  const AProvider: TTranslationProvider;
+  const AProjectGlossaryFileName: string);
+var
+  AppliedGlossaryCount: Integer;
+  ContributedCount: Integer;
+  Destinations: TArray<string>;
+  Entry: TTranslationEntry;
+  Glossary: TProjectGlossary;
+  Index: Integer;
+  RuntimePackFileName: string;
+  Validation: TCatalogValidationResult;
+begin
+  try
+    if TInterlocked.CompareExchange(FFinalCancelRequested, 0, 0) <> 0 then
+      raise EAbort.Create('Final processing was cancelled.');
+    if Length(ATranslatedTexts) > 0 then
+    begin
+      if Length(ATranslatedTexts) <> Length(AEntryIndexes) then
+        raise EInvalidOpException.Create(
+          'The provider returned a different number of translations than requested.');
+      for Index := 0 to High(ATranslatedTexts) do
       begin
-        Entry := FCatalog.Entries[EntryIndexes[Index]];
-        Entry.TranslatedText := TranslatedTexts[Index];
+        Entry := FCatalog.Entries[AEntryIndexes[Index]];
+        Entry.TranslatedText := ATranslatedTexts[Index];
         Entry.Status := tsMachineTranslated;
-        if Provider = tpGoogle then
+        if AProvider = tpGoogle then
           Entry.TranslationOrigin := torGoogle
         else
           Entry.TranslationOrigin := torDeepL;
-        if Provider = tpGoogle then
+        if AProvider = tpGoogle then
         begin
           Entry.TranslationConfidence := 'provider-basic';
           if SameText(Entry.ContextConfidence, 'unknown') or
@@ -1853,7 +2047,8 @@ begin
           Entry.TranslationConfidence := 'contextual-provider';
       end;
       TTerminologyResolver.ApplyAuthoritativeTerms(FCatalog);
-      AddProgress(Format('%d translations recorded.', [Length(TranslatedTexts)]));
+      AddProgress(Format('%d translations recorded.',
+        [Length(ATranslatedTexts)]));
     end
     else
       AddProgress('All unresolved entries were satisfied by approved terminology or translation memory; existing work was preserved.');
@@ -1872,12 +2067,12 @@ begin
     try
       if TFile.Exists(StagedGlossaryFileName) then
         Glossary := TProjectGlossary.LoadFromFile(StagedGlossaryFileName)
-      else if TFile.Exists(ProjectGlossaryFileName) then
-        Glossary := TProjectGlossary.LoadFromFile(ProjectGlossaryFileName);
+      else if TFile.Exists(AProjectGlossaryFileName) then
+        Glossary := TProjectGlossary.LoadFromFile(AProjectGlossaryFileName);
       if Glossary <> nil then
       begin
         AppliedGlossaryCount := Glossary.ApplyToCatalog(FCatalog);
-        Glossary.SaveToFile(ProjectGlossaryFileName);
+        Glossary.SaveToFile(AProjectGlossaryFileName);
         AddProgress(Format('%d translation(s) applied from the completed in-Wizard review.',
           [AppliedGlossaryCount]));
         { Terms approved during the review are the best-vetted wording the
@@ -1920,21 +2115,76 @@ begin
       TPath.Combine(FindStudioRoot, 'source\components'));
     AddProgress('Component integration kit generated.');
     BuildDeploymentCommands;
-    RebuildAllTargetConfigurations;
-    DeployedCount := DeployLanguagePacksToExistingOutputs;
-    if DeployedCount = 0 then
+    Destinations := lstDeploymentDestinations.Items.ToStringArray;
+    TThread.CreateAnonymousThread(
+      procedure
+      var
+        ApplicationDirectory: string;
+        ConfiguredCount: Integer;
+        DeployedCount: Integer;
+        ErrorText: string;
+      begin
+        ConfiguredCount := 0;
+        DeployedCount := 0;
+        ErrorText := '';
+        try
+          RebuildAllTargetConfigurations;
+          if TInterlocked.CompareExchange(
+            FFinalCancelRequested, 0, 0) <> 0 then
+            raise EAbort.Create('Final processing was cancelled.');
+          DeployedCount := DeployLanguagePacksToExistingOutputs;
+          for ApplicationDirectory in Destinations do
+          begin
+            if TInterlocked.CompareExchange(
+              FFinalCancelRequested, 0, 0) <> 0 then
+              raise EAbort.Create('Final processing was cancelled.');
+            if not DeployLanguagePacksDirect(ApplicationDirectory) then
+              raise Exception.Create(
+                'Language-pack deployment failed for configured destination ' +
+                ApplicationDirectory + '.');
+            Inc(ConfiguredCount);
+            AddProgress('Language packs deployed to configured destination ' +
+              ApplicationDirectory);
+          end;
+        except
+          on E: Exception do
+            ErrorText := E.Message;
+        end;
+        TThread.Queue(nil,
+          procedure
+          begin
+            if ErrorText <> '' then
+              StopFinalProcessing(ErrorText)
+            else
+              ContinueFinalProcessingAfterDeployment(DeployedCount,
+                ConfiguredCount, RuntimePackFileName);
+          end);
+      end).Start;
+    Exit;
+  except
+    on E: Exception do
+      StopFinalProcessing(E.Message);
+  end;
+end;
+
+procedure TfrmSetupWizard.ContinueFinalProcessingAfterDeployment(
+  const ADeployedCount, AConfiguredDestinationCount: Integer;
+  const ARuntimePackFileName: string);
+var
+  Report: TStringList;
+begin
+  try
+    if ADeployedCount = 0 then
       AddProgress('No existing build-output folders were found. The next build will deploy the packs automatically.')
     else
       AddProgress(Format('Automatic deployment completed for %d existing build output(s).',
-        [DeployedCount]));
-    ConfiguredDestinationCount :=
-      DeployLanguagePacksToConfiguredDestinations;
+        [ADeployedCount]));
     if lstDeploymentDestinations.Items.Count = 0 then
       AddProgress('No separate application destinations were configured.')
     else
       AddProgress(Format(
         'Automatic deployment completed for %d of %d configured application destination(s).',
-        [ConfiguredDestinationCount,
+        [AConfiguredDestinationCount,
          lstDeploymentDestinations.Items.Count]));
     FProjectConfigurationBackupDirectory := '';
     AddProgress('Target project source and project files were not modified.');
@@ -1949,18 +2199,18 @@ begin
         FCatalog.Locale.LanguageCode + ')');
       Report.Add('Workflow: ' + EffectiveWorkflowName);
       Report.Add('Development catalog: ' + FCatalogFileName);
-      Report.Add('Runtime pack: ' + RuntimePackFileName);
+      Report.Add('Runtime pack: ' + ARuntimePackFileName);
       Report.Add('Component kit: ' + FKitDirectory);
       Report.Add('Backup: ' + FBackupFileName);
       Report.Add('DPROJ transaction backup: not created; target project file was not modified');
       Report.Add('Application ID: ' + FProjectProfile.ProjectName);
       Report.Add('ComponentSource Search Path: ' +
         TPath.Combine(FKitDirectory, 'ComponentSource'));
-      Report.Add('Existing build outputs deployed: ' + DeployedCount.ToString);
+      Report.Add('Existing build outputs deployed: ' + ADeployedCount.ToString);
       Report.Add('Configured application destinations: ' +
         lstDeploymentDestinations.Items.Count.ToString);
       Report.Add('Available configured destinations deployed: ' +
-        ConfiguredDestinationCount.ToString);
+        AConfiguredDestinationCount.ToString);
       Report.Add('Localization review package: ' +
         TPath.Combine(FReviewOutputDirectory, 'localization-review.html'));
       Report.Add('Review workflow: completed inside the same Wizard processing pass before final export');
@@ -1973,8 +2223,8 @@ begin
       Report.Add('');
       Report.Add('WIZARD PROGRESS AND DEPLOYMENT LOG');
       Report.AddStrings(memProgress.Lines);
-      Report.SaveToFile(TPath.Combine(FKitDirectory,
-        'Wizard-Completion-Report.txt'), TEncoding.UTF8);
+      TAtomicTextFile.WriteAllText(TPath.Combine(FKitDirectory,
+        'Wizard-Completion-Report.txt'), Report.Text, TEncoding.UTF8);
     finally
       Report.Free;
     end;
@@ -2000,6 +2250,31 @@ begin
   UpdateBuildChoice;
   UpdateNavigation;
   UpdateRail;
+  if FCloseAfterFinalProcessing then
+  begin
+    FCloseAfterFinalProcessing := False;
+    Close;
+  end;
+end;
+
+procedure TfrmSetupWizard.StopFinalProcessing(const AMessage: string);
+begin
+  AddProgress('STOPPED: ' + AMessage);
+  FProjectConfigurationBackupDirectory := '';
+  lblFinishText.Text :=
+    'Processing stopped safely. Review the message below. Target Pascal, form, DPR, and DPROJ files were not edited.';
+  lblFooterStatus.Text := 'Setup Wizard did not complete: ' + AMessage;
+  FCompleted := False;
+  FFinalProcessing := False;
+  btnCancel.Enabled := True;
+  UpdateBuildChoice;
+  UpdateNavigation;
+  UpdateRail;
+  if FCloseAfterFinalProcessing then
+  begin
+    FCloseAfterFinalProcessing := False;
+    Close;
+  end;
 end;
 
 procedure TfrmSetupWizard.btnCopyCommandsClick(Sender: TObject);

@@ -13,6 +13,7 @@ uses
   FMX.DialogService,
   FMX.Forms,
   FMX.Platform,
+  DAT.Core.AtomicFile in '..\..\source\core\DAT.Core.AtomicFile.pas',
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
@@ -95,9 +96,13 @@ var
   RecordingObject: TRecordingDialogService;
   RecordingService: IFMXDialogServiceSync;
   RootDirectory: string;
+  SecondManager: TDATFMXLanguageManager;
   Values: TArray<string>;
 begin
-  RootDirectory := TPath.Combine(TPath.GetTempPath,
+  RootDirectory := GetEnvironmentVariable('TEMP');
+  if RootDirectory = '' then
+    RootDirectory := ExtractFilePath(ParamStr(0));
+  RootDirectory := TPath.Combine(RootDirectory,
     'DAT_FMX_Dialog_' + IntToStr(GetTickCount64));
   LanguagesDirectory := TPath.Combine(RootDirectory, 'Languages');
   PreferenceDirectory := TPath.Combine(RootDirectory, 'Preferences');
@@ -120,6 +125,7 @@ begin
     RecordingService);
 
   Manager := TDATFMXLanguageManager.Create(nil);
+  SecondManager := TDATFMXLanguageManager.Create(nil);
   try
     Manager.ApplicationId := 'DialogTranslationTest';
     Manager.LanguagesFolder := LanguagesDirectory;
@@ -157,7 +163,20 @@ begin
       'InputQuery caption was not translated.');
     Require(RecordingObject.LastPrompt = 'Projektname:',
       'InputQuery prompt was not translated.');
+    Manager.Free;
+    Manager := nil;
+    Require(TPlatformServices.Current.SupportsPlatformService(
+      IFMXDialogServiceSync, DialogService) and
+      (Pointer(DialogService) <> Pointer(RecordingService)),
+      'Destroying one FMX manager removed the shared dialog proxy.');
+    SecondManager.Free;
+    SecondManager := nil;
+    Require(TPlatformServices.Current.SupportsPlatformService(
+      IFMXDialogServiceSync, DialogService) and
+      (Pointer(DialogService) = Pointer(RecordingService)),
+      'Destroying the final FMX manager did not restore the platform service.');
   finally
+    SecondManager.Free;
     Manager.Free;
   end;
   Writeln('RESULT: pass - FMX platform dialogs translate messages and prompts.');

@@ -8,6 +8,8 @@ $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $RsVars = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat'
+$SourceSearchPath = ((Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'source') `
+    -Directory | Select-Object -ExpandProperty FullName) -join ';')
 $RuntimePackages = @(
     'DATLanguageManagerCoreRuntime',
     'DATLanguageManagerVCLRuntime',
@@ -87,6 +89,7 @@ foreach ($Target in $Targets) {
         try {
             $Command = 'call "' + $RsVars + '" && ' + $Target.Compiler +
                 ' -B -Q ' + $DefineSwitch + ' -E"' + $ExecutableOutput + '" -N0"' + $DcuOutput +
+                '" -U"' + $SourceSearchPath + ';' + $PackageOutput +
                 '" "' + $TestName + '.dpr"'
             & cmd.exe /d /c $Command
             if ($LASTEXITCODE -ne 0) {

@@ -7,6 +7,8 @@ uses
   System.IOUtils,
   Vcl.Forms,
   VCLDesignHost in 'design\VCLDesignHost.pas' {frmVCLDesignHost},
+  DAT.Core.AtomicFile in '..\..\source\core\DAT.Core.AtomicFile.pas',
+  DAT.Core.Diagnostics in '..\..\source\core\DAT.Core.Diagnostics.pas',
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',

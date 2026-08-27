@@ -395,7 +395,7 @@ object frmLocalizationReview: TfrmLocalizationReview
           Size.PlatformDefault = False
           Items.Strings = (
             'Pending - decide later'
-            'Accept - save for a future layout pack'
+            'Accept - save this reviewed rule'
             'Reject - do not use this proposal'
             'Manual - developer will adjust the form')
         end

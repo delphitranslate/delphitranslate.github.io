@@ -20,12 +20,9 @@ type
     FDynamicRefreshInterval: Cardinal;
     FDynamicRefreshBusy: Boolean;
     FDynamicTimer: TTimer;
-    FPendingPostShowForms: TList<TCommonCustomForm>;
     FTranslateBrowserContent: Boolean;
     procedure EnsureDynamicTimer;
     procedure DynamicTimerTick(Sender: TObject);
-    procedure ProcessPendingPostShowReapply;
-    procedure QueuePostShowReapply(const AForm: TCommonCustomForm);
     procedure SetAutoRefreshDynamicText(const Value: Boolean);
     procedure SetDynamicRefreshInterval(const Value: Cardinal);
     procedure SubscribeToLifecycle;
@@ -40,6 +37,7 @@ type
       const AManagedObject: TObject): Boolean; override;
     function ManagedObjectInstanceName(
       const AManagedObject: TObject): string; override;
+    function ExpectedFramework: string; override;
     function ApplyLanguagePack(const AManagedObject: TObject;
       const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; override;
@@ -58,7 +56,7 @@ type
     procedure RefreshDynamicText;
   published
     property AutoRefreshDynamicText: Boolean read FAutoRefreshDynamicText
-      write SetAutoRefreshDynamicText default True;
+      write SetAutoRefreshDynamicText default False;
     property DynamicRefreshInterval: Cardinal read FDynamicRefreshInterval
       write SetDynamicRefreshInterval default 1000;
     property TranslateBrowserContent: Boolean read FTranslateBrowserContent
@@ -163,9 +161,15 @@ type
   end;
 
 var
-  DATFMXDialogTranslationService: IInterface;
+  DATFMXDialogManagerCount: Integer;
+  DATFMXOriginalLegacyService: IFMXDialogService;
+  DATFMXOriginalSyncService: IFMXDialogServiceSync;
+  DATFMXOriginalAsyncService: IFMXDialogServiceAsync;
+  DATFMXProxyLegacyService: IFMXDialogService;
+  DATFMXProxySyncService: IFMXDialogServiceSync;
+  DATFMXProxyAsyncService: IFMXDialogServiceAsync;
 
-procedure InstallFMXDialogTranslationService;
+procedure AcquireFMXDialogTranslationService;
 var
   AsyncService: IFMXDialogServiceAsync;
   LegacyService: IFMXDialogService;
@@ -173,8 +177,11 @@ var
   ProxyInterface: IFMXDialogServiceSync;
   SyncService: IFMXDialogServiceSync;
 begin
-  if DATFMXDialogTranslationService <> nil then
+  if DATFMXDialogManagerCount > 0 then
+  begin
+    Inc(DATFMXDialogManagerCount);
     Exit;
+  end;
   TPlatformServices.Current.SupportsPlatformService(IFMXDialogService,
     LegacyService);
   TPlatformServices.Current.SupportsPlatformService(IFMXDialogServiceSync,
@@ -187,25 +194,83 @@ begin
   Proxy := TDATFMXDialogTranslationService.Create(LegacyService, SyncService,
     AsyncService);
   ProxyInterface := Proxy;
-  DATFMXDialogTranslationService := ProxyInterface;
+  DATFMXOriginalLegacyService := LegacyService;
+  DATFMXOriginalSyncService := SyncService;
+  DATFMXOriginalAsyncService := AsyncService;
+  DATFMXProxySyncService := ProxyInterface;
+  if LegacyService <> nil then
+    DATFMXProxyLegacyService := Proxy as IFMXDialogService;
+  if AsyncService <> nil then
+    DATFMXProxyAsyncService := Proxy as IFMXDialogServiceAsync;
   if LegacyService <> nil then
   begin
     TPlatformServices.Current.RemovePlatformService(IFMXDialogService);
     TPlatformServices.Current.AddPlatformService(IFMXDialogService,
-      Proxy as IFMXDialogService);
+      DATFMXProxyLegacyService);
   end;
   if SyncService <> nil then
   begin
     TPlatformServices.Current.RemovePlatformService(IFMXDialogServiceSync);
     TPlatformServices.Current.AddPlatformService(IFMXDialogServiceSync,
-      Proxy as IFMXDialogServiceSync);
+      DATFMXProxySyncService);
   end;
   if AsyncService <> nil then
   begin
     TPlatformServices.Current.RemovePlatformService(IFMXDialogServiceAsync);
     TPlatformServices.Current.AddPlatformService(IFMXDialogServiceAsync,
-      Proxy as IFMXDialogServiceAsync);
+      DATFMXProxyAsyncService);
   end;
+  DATFMXDialogManagerCount := 1;
+end;
+
+procedure ReleaseFMXDialogTranslationService;
+var
+  CurrentAsync: IFMXDialogServiceAsync;
+  CurrentLegacy: IFMXDialogService;
+  CurrentSync: IFMXDialogServiceSync;
+begin
+  if DATFMXDialogManagerCount = 0 then
+    Exit;
+  Dec(DATFMXDialogManagerCount);
+  if DATFMXDialogManagerCount > 0 then
+    Exit;
+
+  if (DATFMXProxyLegacyService <> nil) and
+    TPlatformServices.Current.SupportsPlatformService(IFMXDialogService,
+      CurrentLegacy) and
+    (Pointer(CurrentLegacy) = Pointer(DATFMXProxyLegacyService)) then
+  begin
+    TPlatformServices.Current.RemovePlatformService(IFMXDialogService);
+    if DATFMXOriginalLegacyService <> nil then
+      TPlatformServices.Current.AddPlatformService(IFMXDialogService,
+        DATFMXOriginalLegacyService);
+  end;
+  if (DATFMXProxySyncService <> nil) and
+    TPlatformServices.Current.SupportsPlatformService(IFMXDialogServiceSync,
+      CurrentSync) and
+    (Pointer(CurrentSync) = Pointer(DATFMXProxySyncService)) then
+  begin
+    TPlatformServices.Current.RemovePlatformService(IFMXDialogServiceSync);
+    if DATFMXOriginalSyncService <> nil then
+      TPlatformServices.Current.AddPlatformService(IFMXDialogServiceSync,
+        DATFMXOriginalSyncService);
+  end;
+  if (DATFMXProxyAsyncService <> nil) and
+    TPlatformServices.Current.SupportsPlatformService(IFMXDialogServiceAsync,
+      CurrentAsync) and
+    (Pointer(CurrentAsync) = Pointer(DATFMXProxyAsyncService)) then
+  begin
+    TPlatformServices.Current.RemovePlatformService(IFMXDialogServiceAsync);
+    if DATFMXOriginalAsyncService <> nil then
+      TPlatformServices.Current.AddPlatformService(IFMXDialogServiceAsync,
+        DATFMXOriginalAsyncService);
+  end;
+  DATFMXProxyLegacyService := nil;
+  DATFMXProxySyncService := nil;
+  DATFMXProxyAsyncService := nil;
+  DATFMXOriginalLegacyService := nil;
+  DATFMXOriginalSyncService := nil;
+  DATFMXOriginalAsyncService := nil;
 end;
 
 constructor TDATFMXDialogTranslationService.Create(
@@ -272,6 +337,7 @@ begin
   Result := FLegacy.DialogPrinterSetup;
 end;
 
+{$WARN SYMBOL_DEPRECATED OFF}
 function TDATFMXDialogTranslationService.MessageDialog(
   const AMessage: string; const ADialogType: TMsgDlgType;
   const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn;
@@ -315,6 +381,7 @@ begin
   FLegacy.InputQuery(DATTranslateDynamicText(ACaption), Prompts,
     ADefaultValues, ACloseQueryProc);
 end;
+{$WARN SYMBOL_DEPRECATED ON}
 
 procedure TDATFMXDialogTranslationService.ShowMessageSync(
   const AMessage: string);
@@ -412,10 +479,9 @@ end;
 constructor TDATFMXLanguageManager.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FPendingPostShowForms := TList<TCommonCustomForm>.Create;
   if not (csDesigning in ComponentState) then
-    InstallFMXDialogTranslationService;
-  FAutoRefreshDynamicText := True;
+    AcquireFMXDialogTranslationService;
+  FAutoRefreshDynamicText := False;
   FDynamicRefreshInterval := 1000;
   FTranslateBrowserContent := False;
   if not (csDesigning in ComponentState) then
@@ -425,6 +491,8 @@ end;
 destructor TDATFMXLanguageManager.Destroy;
 begin
   UnsubscribeFromLifecycle;
+  if not (csDesigning in ComponentState) then
+    ReleaseFMXDialogTranslationService;
   if FDynamicTimer <> nil then
   begin
     FDynamicTimer.Enabled := False;
@@ -432,8 +500,6 @@ begin
   end;
   FDynamicTimer.Free;
   FDynamicTimer := nil;
-  FPendingPostShowForms.Free;
-  FPendingPostShowForms := nil;
   inherited Destroy;
 end;
 
@@ -443,47 +509,9 @@ begin
     Exit;
   FDynamicRefreshBusy := True;
   try
-    ProcessPendingPostShowReapply;
     RefreshDynamicText;
   finally
     FDynamicRefreshBusy := False;
-  end;
-end;
-
-procedure TDATFMXLanguageManager.ProcessPendingPostShowReapply;
-var
-  Form: TCommonCustomForm;
-begin
-  if FPendingPostShowForms = nil then
-    Exit;
-  while FPendingPostShowForms.Count > 0 do
-  begin
-    Form := FPendingPostShowForms[0];
-    FPendingPostShowForms.Delete(0);
-    if (Form <> nil) and not (csDestroying in Form.ComponentState) and
-      (ActivePack <> nil) then
-      TFMXTranslationApplicator.RefreshDirectionLayout(Form, ActivePack,
-        ManagedObjectInstanceName(Form));
-  end;
-  EnsureDynamicTimer;
-end;
-
-procedure TDATFMXLanguageManager.QueuePostShowReapply(
-  const AForm: TCommonCustomForm);
-begin
-  if (AForm = nil) or (FPendingPostShowForms = nil) then
-    Exit;
-  if FPendingPostShowForms.IndexOf(AForm) < 0 then
-    FPendingPostShowForms.Add(AForm);
-  EnsureDynamicTimer;
-  if FDynamicTimer <> nil then
-  begin
-    { TFormBeforeShownMessage precedes the platform window, OnShow, and the
-      form's final alignment pass.  A one-shot timer runs immediately after
-      that sequence, when inactive tab scroll boxes have their real client
-      width and application responsive code has finished. }
-    FDynamicTimer.Interval := 1;
-    FDynamicTimer.Enabled := True;
   end;
 end;
 
@@ -560,6 +588,11 @@ begin
     PreserveControlState, True, FTranslateBrowserContent);
 end;
 
+function TDATFMXLanguageManager.ExpectedFramework: string;
+begin
+  Result := 'FireMonkey';
+end;
+
 function TDATFMXLanguageManager.RestoreLanguageLayout(
   const AManagedObject: TObject; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string): Integer;
@@ -615,7 +648,6 @@ begin
   begin
     Form := TFormBeforeShownMessage(AMessage).Value;
     ReapplyToManagedObject(Form);
-    QueuePostShowReapply(Form);
   end;
 end;
 
@@ -623,11 +655,7 @@ procedure TDATFMXLanguageManager.HandleReleased(const Sender: TObject;
   const AMessage: TMessage);
 begin
   if Sender is TCommonCustomForm then
-  begin
-    if FPendingPostShowForms <> nil then
-      FPendingPostShowForms.Remove(TCommonCustomForm(Sender));
     RemoveManagedObject(Sender);
-  end;
 end;
 
 function TDATFMXLanguageManager.ManagedObjectInstanceName(

@@ -114,6 +114,7 @@ type
       const AManagedObject: TObject): Boolean; virtual; abstract;
     function ManagedObjectInstanceName(
       const AManagedObject: TObject): string; virtual; abstract;
+    function ExpectedFramework: string; virtual;
     function ApplyLanguagePack(const AManagedObject: TObject;
       const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; virtual; abstract;
@@ -235,56 +236,98 @@ uses
   System.IOUtils;
 
 var
-  ActiveDATLanguageManager: TDATCustomLanguageManager;
+  DATLanguageManagers: TList<TDATCustomLanguageManager>;
+
+function CurrentDATLanguageManager: TDATCustomLanguageManager;
+begin
+  if (DATLanguageManagers = nil) or (DATLanguageManagers.Count = 0) then
+    Result := nil
+  else
+    Result := DATLanguageManagers[DATLanguageManagers.Count - 1];
+end;
+
+procedure RegisterDATLanguageManager(
+  const AManager: TDATCustomLanguageManager);
+begin
+  if (DATLanguageManagers = nil) or (AManager = nil) then
+    Exit;
+  DATLanguageManagers.Remove(AManager);
+  DATLanguageManagers.Add(AManager);
+end;
+
+procedure UnregisterDATLanguageManager(
+  const AManager: TDATCustomLanguageManager);
+begin
+  if DATLanguageManagers <> nil then
+    DATLanguageManagers.Remove(AManager);
+end;
 
 function DATTranslateDynamicText(const ASourceText: string): string;
+var
+  Manager: TDATCustomLanguageManager;
 begin
-  if ActiveDATLanguageManager = nil then
+  Manager := CurrentDATLanguageManager;
+  if Manager = nil then
     Result := ASourceText
   else
-    Result := ActiveDATLanguageManager.TranslateDynamicText(ASourceText);
+    Result := Manager.TranslateDynamicText(ASourceText);
 end;
 
 function DATTranslateText(const AKey, AFallbackText: string): string;
+var
+  Manager: TDATCustomLanguageManager;
 begin
-  if ActiveDATLanguageManager = nil then
+  Manager := CurrentDATLanguageManager;
+  if Manager = nil then
     Result := AFallbackText
   else
-    Result := ActiveDATLanguageManager.Translate(AKey, AFallbackText);
+    Result := Manager.Translate(AKey, AFallbackText);
 end;
 
 function DATFormatText(const AKey, AFallbackText: string;
   const AArgs: array of const): string;
+var
+  Manager: TDATCustomLanguageManager;
 begin
-  if ActiveDATLanguageManager = nil then
+  Manager := CurrentDATLanguageManager;
+  if Manager = nil then
     Result := Format(AFallbackText, AArgs)
   else
-    Result := ActiveDATLanguageManager.FormatTemplate(AKey, AFallbackText,
+    Result := Manager.FormatTemplate(AKey, AFallbackText,
       AArgs);
 end;
 
 function DATActiveLanguageCode: string;
+var
+  Manager: TDATCustomLanguageManager;
 begin
-  if ActiveDATLanguageManager = nil then
+  Manager := CurrentDATLanguageManager;
+  if Manager = nil then
     Result := 'en-US'
   else
-    Result := ActiveDATLanguageManager.CurrentLanguageCode;
+    Result := Manager.CurrentLanguageCode;
 end;
 
 function DATActiveTextDirection: string;
+var
+  Manager: TDATCustomLanguageManager;
 begin
-  if ActiveDATLanguageManager = nil then
+  Manager := CurrentDATLanguageManager;
+  if Manager = nil then
     Result := 'ltr'
   else
-    Result := ActiveDATLanguageManager.CurrentTextDirection;
+    Result := Manager.CurrentTextDirection;
 end;
 
 function DATTranslateHtmlText(const AHtmlText: string): string;
+var
+  Manager: TDATCustomLanguageManager;
 begin
-  if ActiveDATLanguageManager = nil then
+  Manager := CurrentDATLanguageManager;
+  if Manager = nil then
     Result := AHtmlText
   else
-    Result := ActiveDATLanguageManager.TranslateHtmlText(AHtmlText);
+    Result := Manager.TranslateHtmlText(AHtmlText);
 end;
 
 constructor TDATCustomLanguageManager.Create(AOwner: TComponent);
@@ -326,8 +369,7 @@ begin
   FAppliedGenerations.Clear;
   FRuntime.Free;
   FRuntime := nil;
-  if ActiveDATLanguageManager = Self then
-    ActiveDATLanguageManager := nil;
+  UnregisterDATLanguageManager(Self);
   FReportedMissingTranslations.Free;
   FReportedMissingTranslations := nil;
   FAppliedGenerations.Free;
@@ -523,6 +565,11 @@ begin
     FOnTranslationError(Self, AContext, AException.Message, Result);
 end;
 
+function TDATCustomLanguageManager.ExpectedFramework: string;
+begin
+  Result := '';
+end;
+
 function TDATCustomLanguageManager.Initialize: Boolean;
 var
   LoadedLanguage: Boolean;
@@ -543,7 +590,8 @@ begin
   try
     try
       FRuntime := TTranslationRuntime.Create(FApplicationId,
-        ResolveLanguagesDirectory, ResolvePreferencePath, FSourceLanguage);
+        ResolveLanguagesDirectory, ResolvePreferencePath, FSourceLanguage,
+        ExpectedFramework);
       LoadedLanguage := False;
       { The machine's own language is consulted once, on a first run, and
         only if it was actually translated. A stored preference always
@@ -567,7 +615,7 @@ begin
         FActiveLanguage := FSourceLanguage;
       AdvanceGeneration;
       FInitialized := True;
-      ActiveDATLanguageManager := Self;
+      RegisterDATLanguageManager(Self);
       Result := True;
     except
       on E: Exception do
@@ -893,7 +941,7 @@ begin
         FActiveLanguage := FRuntime.ActivePack.LanguageCode
       else
         FActiveLanguage := CandidateLanguage;
-      ActiveDATLanguageManager := Self;
+      RegisterDATLanguageManager(Self);
       AdvanceGeneration;
       if FReapplyOpenForms then
         ApplyToOpenForms;
@@ -1100,5 +1148,11 @@ begin
     FAppliedGenerations.TryGetValue(AManagedObject, AppliedGeneration) and
     (AppliedGeneration = FGeneration);
 end;
+
+initialization
+  DATLanguageManagers := TList<TDATCustomLanguageManager>.Create;
+
+finalization
+  DATLanguageManagers.Free;
 
 end.

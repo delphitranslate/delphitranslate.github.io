@@ -54,6 +54,8 @@ type
   private
     class function JsonValueText(AObject: TJSONObject;
       const AName, ADefault: string): string; static;
+    class procedure ValidateNoDuplicateKeys(const AValue: TJSONValue;
+      const APath: string); static;
   public
     class function Serialize(const ACatalog: TTranslationCatalog): string; static;
     class function Deserialize(const AJson: string): TTranslationCatalog; static;
@@ -79,7 +81,49 @@ implementation
 uses
   System.IOUtils,
   System.StrUtils,
+  DAT.Core.AtomicFile,
+  DAT.Core.Diagnostics,
   DAT.Scan.TextCodec;
+
+class procedure TCatalogJson.ValidateNoDuplicateKeys(
+  const AValue: TJSONValue; const APath: string);
+var
+  ArrayItem: TJSONValue;
+  JsonArray: TJSONArray;
+  JsonObject: TJSONObject;
+  JsonPair: TJSONPair;
+  Keys: TDictionary<string, Boolean>;
+  PairPath: string;
+begin
+  if AValue is TJSONObject then
+  begin
+    JsonObject := TJSONObject(AValue);
+    Keys := TDictionary<string, Boolean>.Create;
+    try
+      for JsonPair in JsonObject do
+      begin
+        if Keys.ContainsKey(JsonPair.JsonString.Value) then
+          raise ECatalogJsonError.CreateFmt(
+            'The catalog contains duplicate JSON key "%s" at %s.',
+            [JsonPair.JsonString.Value, APath]);
+        Keys.Add(JsonPair.JsonString.Value, True);
+        if APath = '' then
+          PairPath := JsonPair.JsonString.Value
+        else
+          PairPath := APath + '.' + JsonPair.JsonString.Value;
+        ValidateNoDuplicateKeys(JsonPair.JsonValue, PairPath);
+      end;
+    finally
+      Keys.Free;
+    end;
+  end
+  else if AValue is TJSONArray then
+  begin
+    JsonArray := TJSONArray(AValue);
+    for ArrayItem in JsonArray do
+      ValidateNoDuplicateKeys(ArrayItem, APath + '[]');
+  end;
+end;
 
 constructor TCatalogCsvImportPlan.Create;
 begin
@@ -237,6 +281,7 @@ begin
 
   Root := TJSONObject(JsonValue);
   try
+    ValidateNoDuplicateKeys(Root, '$');
     Result := TTranslationCatalog.Create;
     try
       Result.SchemaVersion := StrToIntDef(
@@ -362,11 +407,26 @@ end;
 
 class function TCatalogJson.LoadFromFile(
   const AFileName: string): TTranslationCatalog;
+var
+  JsonText: string;
+  Recovered: Boolean;
 begin
   if not TFile.Exists(AFileName) then
     raise ECatalogJsonError.CreateFmt('Catalog file not found: %s',
       [AFileName]);
-  Result := Deserialize(TFile.ReadAllText(AFileName, TEncoding.UTF8));
+  JsonText := TAtomicTextFile.ReadAllText(AFileName, TEncoding.UTF8,
+    procedure(const AText: string)
+    var
+      ValidationCatalog: TTranslationCatalog;
+    begin
+      ValidationCatalog := Deserialize(AText);
+      ValidationCatalog.Free;
+    end, Recovered);
+  if Recovered then
+    TDATDiagnostics.Log('DAT-CATALOG-RECOVERY-001', 'LoadFromFile',
+      'Recovered the prior valid catalog and quarantined the invalid file: ' +
+      AFileName, dsWarning);
+  Result := Deserialize(JsonText);
 end;
 
 class procedure TCatalogJson.SaveToFile(const ACatalog: TTranslationCatalog;
@@ -377,7 +437,14 @@ begin
   DirectoryName := TPath.GetDirectoryName(AFileName);
   if DirectoryName <> '' then
     TDirectory.CreateDirectory(DirectoryName);
-  TFile.WriteAllText(AFileName, Serialize(ACatalog), TEncoding.UTF8);
+  TAtomicTextFile.WriteAllText(AFileName, Serialize(ACatalog), TEncoding.UTF8,
+    procedure(const AText: string)
+    var
+      ValidationCatalog: TTranslationCatalog;
+    begin
+      ValidationCatalog := Deserialize(AText);
+      ValidationCatalog.Free;
+    end);
 end;
 
 class function TCatalogCsv.EscapeField(const AValue: string): string;
@@ -520,7 +587,7 @@ begin
     DirectoryName := TPath.GetDirectoryName(AFileName);
     if DirectoryName <> '' then
       TDirectory.CreateDirectory(DirectoryName);
-    TFile.WriteAllText(AFileName, Output.ToString, TEncoding.UTF8);
+    TAtomicTextFile.WriteAllText(AFileName, Output.ToString, TEncoding.UTF8);
   finally
     Output.Free;
   end;

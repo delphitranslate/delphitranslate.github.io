@@ -97,11 +97,11 @@ $generator = Join-Path $ProjectRoot 'source\integration\DAT.Integration.Componen
 $generatorText = Get-Content -LiteralPath $generator -Raw
 $kitUnits = @()
 foreach ($match in [regex]::Matches($generatorText,
-    "CopyUnit\([^,]+,\s*[^,]+,\s*`r?`n?\s*'([^']+)'")) {
+    "Copy(?:Core)?Unit\([^,]+,\s*[^,]+,\s*`r?`n?\s*'([^']+)'")) {
   $kitUnits += $match.Groups[1].Value
 }
 foreach ($match in [regex]::Matches($generatorText,
-    "CopyUnit\([^,]+,\s*[^,]+,\s*'([^']+)'")) {
+    "Copy(?:Core)?Unit\([^,]+,\s*[^,]+,\s*'([^']+)'")) {
   $kitUnits += $match.Groups[1].Value
 }
 $kitUnits = $kitUnits | Sort-Object -Unique

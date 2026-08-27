@@ -14,12 +14,18 @@ type
     FLanguagesDirectory: string;
     FPreferenceFileName: string;
     FSourceLanguageCode: string;
+    FExpectedFramework: string;
     FActivePack: TRuntimeLanguagePack;
     FFormatSettings: TFormatSettings;
     procedure UpdateFormatSettings;
+    procedure ValidatePackHeader(const APack: TRuntimeLanguagePack;
+      const AFileName, AExpectedLanguageCode: string);
+    procedure ValidatePackAgainstSource(const APack,
+      ASourcePack: TRuntimeLanguagePack; const AFileName: string);
   public
     constructor Create(const AApplicationId, ALanguagesDirectory,
-      APreferenceFileName, ASourceLanguageCode: string);
+      APreferenceFileName, ASourceLanguageCode: string;
+      const AExpectedFramework: string = '');
     destructor Destroy; override;
     function AvailableLanguages: TObjectList<TLanguagePackDescriptor>;
     function LoadLanguage(const ALanguageCode: string): Boolean;
@@ -54,16 +60,32 @@ uses
   System.Classes,
   System.IOUtils,
   System.StrUtils,
+  DAT.Core.Diagnostics,
   DAT.Runtime.Preference;
 
+function CanonicalFramework(const AFramework: string): string;
+begin
+  if SameText(Trim(AFramework), 'VCL') then
+    Result := 'VCL'
+  else if SameText(Trim(AFramework), 'FMX') or
+    SameText(Trim(AFramework), 'FireMonkey') then
+    Result := 'FireMonkey'
+  else if SameText(Trim(AFramework), 'Neutral') then
+    Result := 'Neutral'
+  else
+    Result := Trim(AFramework);
+end;
+
 constructor TTranslationRuntime.Create(const AApplicationId,
-  ALanguagesDirectory, APreferenceFileName, ASourceLanguageCode: string);
+  ALanguagesDirectory, APreferenceFileName, ASourceLanguageCode: string;
+  const AExpectedFramework: string);
 begin
   inherited Create;
   FApplicationId := AApplicationId;
   FLanguagesDirectory := ALanguagesDirectory;
   FPreferenceFileName := APreferenceFileName;
   FSourceLanguageCode := ASourceLanguageCode;
+  FExpectedFramework := CanonicalFramework(AExpectedFramework);
   FFormatSettings := TFormatSettings.Create;
 end;
 
@@ -75,9 +97,85 @@ end;
 
 function TTranslationRuntime.AvailableLanguages:
   TObjectList<TLanguagePackDescriptor>;
+var
+  Descriptor: TLanguagePackDescriptor;
+  Index: Integer;
+  SourceFileName: string;
+  SourcePack: TRuntimeLanguagePack;
 begin
   Result := TLanguagePackDiscovery.Discover(
     FLanguagesDirectory, FApplicationId);
+  SourceFileName := TPath.Combine(FLanguagesDirectory,
+    FSourceLanguageCode + '.json');
+  if not TFile.Exists(SourceFileName) then
+    Exit;
+  SourcePack := TRuntimeLanguagePack.LoadFromFile(SourceFileName);
+  try
+    ValidatePackHeader(SourcePack, SourceFileName, FSourceLanguageCode);
+    for Index := Result.Count - 1 downto 0 do
+    begin
+      Descriptor := Result[Index];
+      if not SameText(Descriptor.SourceLanguage, FSourceLanguageCode) or
+        (CanonicalFramework(Descriptor.Framework) <>
+          CanonicalFramework(SourcePack.Framework)) or
+        (Descriptor.ApplicationVersion <> SourcePack.ApplicationVersion) or
+        (Descriptor.SourceCatalogChecksum <>
+          SourcePack.SourceCatalogChecksum) then
+      begin
+        TDATDiagnostics.Log('DAT-PACK-COMPAT-001',
+          'AvailableLanguages',
+          'Excluded incompatible pack: ' + Descriptor.FileName, dsWarning);
+        Result.Delete(Index);
+      end;
+    end;
+  finally
+    SourcePack.Free;
+  end;
+end;
+
+procedure TTranslationRuntime.ValidatePackHeader(
+  const APack: TRuntimeLanguagePack; const AFileName,
+  AExpectedLanguageCode: string);
+begin
+  if APack = nil then
+    raise ELanguagePackError.Create('A runtime language pack is required.');
+  if not SameText(APack.ApplicationId, FApplicationId) then
+    raise ELanguagePackError.CreateFmt(
+      'Language pack "%s" belongs to application "%s", not "%s".',
+      [AFileName, APack.ApplicationId, FApplicationId]);
+  if not SameText(APack.LanguageCode, AExpectedLanguageCode) then
+    raise ELanguagePackError.CreateFmt(
+      'Language pack filename and language code do not match: %s',
+      [AFileName]);
+  if not SameText(APack.SourceLanguage, FSourceLanguageCode) then
+    raise ELanguagePackError.CreateFmt(
+      'Language pack "%s" was built from source language "%s", not "%s".',
+      [AFileName, APack.SourceLanguage, FSourceLanguageCode]);
+  if (FExpectedFramework <> '') and
+    not SameText(CanonicalFramework(APack.Framework), FExpectedFramework) then
+    raise ELanguagePackError.CreateFmt(
+      'Language pack "%s" targets framework "%s", not "%s".',
+      [AFileName, APack.Framework, FExpectedFramework]);
+end;
+
+procedure TTranslationRuntime.ValidatePackAgainstSource(
+  const APack, ASourcePack: TRuntimeLanguagePack;
+  const AFileName: string);
+begin
+  if APack.ApplicationVersion <> ASourcePack.ApplicationVersion then
+    raise ELanguagePackError.CreateFmt(
+      'Language pack "%s" targets application version "%s"; the installed source pack is "%s".',
+      [AFileName, APack.ApplicationVersion,
+       ASourcePack.ApplicationVersion]);
+  if not SameText(CanonicalFramework(APack.Framework),
+    CanonicalFramework(ASourcePack.Framework)) then
+    raise ELanguagePackError.CreateFmt(
+      'Language pack "%s" targets framework "%s"; the installed source pack targets "%s".',
+      [AFileName, APack.Framework, ASourcePack.Framework]);
+  if APack.SourceCatalogChecksum <> ASourcePack.SourceCatalogChecksum then
+    raise ELanguagePackError.CreateFmt(
+      'Language pack "%s" was built for a different source catalog.',
+      [AFileName]);
 end;
 
 function TTranslationRuntime.LoadLanguage(
@@ -85,6 +183,8 @@ function TTranslationRuntime.LoadLanguage(
 var
   CandidateFileName: string;
   NewPack: TRuntimeLanguagePack;
+  SourceFileName: string;
+  SourcePack: TRuntimeLanguagePack;
 begin
   CandidateFileName := TPath.Combine(
     FLanguagesDirectory, ALanguageCode + '.json');
@@ -103,14 +203,23 @@ begin
 
   NewPack := TRuntimeLanguagePack.LoadFromFile(CandidateFileName);
   try
-    if not SameText(NewPack.ApplicationId, FApplicationId) then
-      raise ELanguagePackError.CreateFmt(
-        'Language pack "%s" belongs to application "%s", not "%s".',
-        [CandidateFileName, NewPack.ApplicationId, FApplicationId]);
-    if not SameText(NewPack.LanguageCode, ALanguageCode) then
-      raise ELanguagePackError.CreateFmt(
-        'Language pack filename and language code do not match: %s',
-        [CandidateFileName]);
+    ValidatePackHeader(NewPack, CandidateFileName, ALanguageCode);
+    if not SameText(ALanguageCode, FSourceLanguageCode) then
+    begin
+      SourceFileName := TPath.Combine(FLanguagesDirectory,
+        FSourceLanguageCode + '.json');
+      if not TFile.Exists(SourceFileName) then
+        raise ELanguagePackError.CreateFmt(
+          'The installed source-language pack is required before loading "%s": %s',
+          [ALanguageCode, SourceFileName]);
+      SourcePack := TRuntimeLanguagePack.LoadFromFile(SourceFileName);
+      try
+        ValidatePackHeader(SourcePack, SourceFileName, FSourceLanguageCode);
+        ValidatePackAgainstSource(NewPack, SourcePack, CandidateFileName);
+      finally
+        SourcePack.Free;
+      end;
+    end;
     FreeAndNil(FActivePack);
     FActivePack := NewPack;
     NewPack := nil;
@@ -185,6 +294,8 @@ begin
 end;
 
 function TTranslationRuntime.LoadPreferredLanguage: Boolean;
+var
+  PreferredLanguageCode: string;
 begin
   if not TFile.Exists(FPreferenceFileName) then
   begin
@@ -192,8 +303,20 @@ begin
     FFormatSettings := TFormatSettings.Create;
     Exit(True);
   end;
-  Result := LoadLanguage(TLanguagePreference.ReadLanguageCode(
-    FPreferenceFileName, FSourceLanguageCode));
+  PreferredLanguageCode := TLanguagePreference.ReadLanguageCode(
+    FPreferenceFileName, FSourceLanguageCode);
+  try
+    Result := LoadLanguage(PreferredLanguageCode);
+  except
+    on E: Exception do
+    begin
+      TDATDiagnostics.LogException('DAT-PREFERENCE-FALLBACK-001',
+        'LoadPreferredLanguage(' + PreferredLanguageCode + ')', E);
+      if SameText(PreferredLanguageCode, FSourceLanguageCode) then
+        raise;
+      Result := LoadLanguage(FSourceLanguageCode);
+    end;
+  end;
 end;
 
 function TTranslationRuntime.Translate(
@@ -220,8 +343,10 @@ var
   I: Integer;
   J: Integer;
   Keys: TStringList;
+  ProtectedDepth: Integer;
   Segment: string;
   SwapText: string;
+  TagText: string;
   TextIndex: Integer;
 
   function IsWordCharacter(const AValue: Char): Boolean;
@@ -261,10 +386,23 @@ var
 
   function TranslateVisibleSegment(const AText: string): string;
   var
+    ExactText: string;
     KeyIndex: Integer;
+    LeftWhitespace: string;
+    RightWhitespace: string;
     SourceText: string;
     TranslatedText: string;
   begin
+    ExactText := Trim(AText);
+    if (ExactText <> '') and
+      FActivePack.TryTranslateDynamicText(ExactText, TranslatedText) then
+    begin
+      LeftWhitespace := Copy(AText, 1,
+        Length(AText) - Length(TrimLeft(AText)));
+      RightWhitespace := Copy(AText,
+        Length(TrimRight(AText)) + 1, MaxInt);
+      Exit(LeftWhitespace + TranslatedText + RightWhitespace);
+    end;
     Result := AText;
     for KeyIndex := 0 to Keys.Count - 1 do
     begin
@@ -274,6 +412,61 @@ var
         not SameText(SourceText, TranslatedText) then
         Result := ReplaceWholeTerm(Result, SourceText, TranslatedText);
     end;
+  end;
+
+  function TagName(const ATag: string): string;
+  var
+    NameEnd: Integer;
+    NameStart: Integer;
+  begin
+    Result := '';
+    NameStart := 2;
+    while (NameStart <= Length(ATag)) and
+      CharInSet(ATag[NameStart], [' ', #9, #10, #13, '/']) do
+      Inc(NameStart);
+    NameEnd := NameStart;
+    while (NameEnd <= Length(ATag)) and
+      CharInSet(ATag[NameEnd], ['A'..'Z', 'a'..'z', '0'..'9', '-', ':']) do
+      Inc(NameEnd);
+    Result := LowerCase(Copy(ATag, NameStart, NameEnd - NameStart));
+  end;
+
+  function IsProtectedTag(const ATagName: string): Boolean;
+  begin
+    Result := (ATagName = 'script') or (ATagName = 'style') or
+      (ATagName = 'template') or (ATagName = 'noscript') or
+      (ATagName = 'code') or (ATagName = 'pre') or
+      (ATagName = 'textarea');
+  end;
+
+  procedure AppendSegment;
+  begin
+    if Segment = '' then
+      Exit;
+    if ProtectedDepth = 0 then
+      Result := Result + TranslateVisibleSegment(Segment)
+    else
+      Result := Result + Segment;
+    Segment := '';
+  end;
+
+  procedure AppendTag;
+  var
+    ClosingTag: Boolean;
+    Name: string;
+    SelfClosingTag: Boolean;
+  begin
+    if TagText = '' then
+      Exit;
+    Name := TagName(TagText);
+    ClosingTag := StartsText('</', TrimLeft(TagText));
+    SelfClosingTag := EndsText('/>', TrimRight(TagText));
+    if ClosingTag and IsProtectedTag(Name) and (ProtectedDepth > 0) then
+      Dec(ProtectedDepth);
+    Result := Result + TagText;
+    if not ClosingTag and not SelfClosingTag and IsProtectedTag(Name) then
+      Inc(ProtectedDepth);
+    TagText := '';
   end;
 
 begin
@@ -300,31 +493,36 @@ begin
 
     Result := '';
     Segment := '';
+    TagText := '';
     InTag := False;
+    ProtectedDepth := 0;
     for TextIndex := 1 to Length(AHtmlText) do
     begin
       if AHtmlText[TextIndex] = '<' then
       begin
-        if Segment <> '' then
-        begin
-          Result := Result + TranslateVisibleSegment(Segment);
-          Segment := '';
-        end;
+        AppendSegment;
         InTag := True;
-        Result := Result + AHtmlText[TextIndex];
+        TagText := '<';
       end
       else if AHtmlText[TextIndex] = '>' then
       begin
+        if InTag then
+        begin
+          TagText := TagText + '>';
+          AppendTag;
+        end
+        else
+          Segment := Segment + '>';
         InTag := False;
-        Result := Result + AHtmlText[TextIndex];
       end
       else if InTag then
-        Result := Result + AHtmlText[TextIndex]
+        TagText := TagText + AHtmlText[TextIndex]
       else
         Segment := Segment + AHtmlText[TextIndex];
     end;
-    if Segment <> '' then
-      Result := Result + TranslateVisibleSegment(Segment);
+    if TagText <> '' then
+      Result := Result + TagText;
+    AppendSegment;
   finally
     Keys.Free;
   end;

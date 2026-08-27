@@ -533,7 +533,7 @@ begin
     'Reason: ' + Proposal.Rationale + sLineBreak +
     'Decision: ' + Proposal.Decision + sLineBreak + sLineBreak +
     'How to judge it: click Open Visual Review. The left preview shows the translated text in the current designer geometry; the right preview shows this language''s proposed runtime geometry. Green controls have proposed changes.' + sLineBreak + sLineBreak +
-    'What happens: Accept stores this checksum-backed rule in layout-proposal.json. The next runtime-pack export embeds accepted safe rules in this language''s JSON pack. The component applies them when this language is selected and restores the original value before switching away. Delphi source and form files are never edited.';
+    'What happens: Accept stores this checksum-backed rule in layout-proposal.json. The next runtime-pack export embeds the accepted rule in this language''s JSON pack. Direction, text fitting, and column rules may be accepted in bulk. Absolute position or size rules require this individual visual decision because they can depend on resolution and DPI. The component restores the original value before switching away. Delphi source and form files are never edited.';
   if SameText(Proposal.Decision, 'accepted') then cboDecision.ItemIndex := 1
   else if SameText(Proposal.Decision, 'rejected') then cboDecision.ItemIndex := 2
   else if SameText(Proposal.Decision, 'manual') then cboDecision.ItemIndex := 3
@@ -560,11 +560,13 @@ var
   AcceptedCount: Integer;
 begin
   AcceptedCount := 0;
-  { Match the set the runtime is able to apply. Accepting only sizes leaves
-    behind the moves that go with them, so a widened caption ships without the
-    displacement that made room for it. }
+  { Runtime-supported and safe for bulk acceptance are deliberately different
+    contracts. Absolute Left/Top/Position and Width/Height values describe one
+    design-time surface. They may be accepted individually after visual
+    review, but accepting them for every control made maximised, DPI-scaled and
+    responsive forms inherit a frozen layout. }
   for Proposal in FReview.Proposals do
-    if IsRuntimeLayoutProperty(Proposal.PropertyName) then
+    if IsAutomaticallySafeLayoutProperty(Proposal.PropertyName) then
     begin
       Proposal.Decision := 'accepted';
       Inc(AcceptedCount);
@@ -574,7 +576,7 @@ begin
     FProposalFileName);
   RefreshProposals;
   lblStatus.Text := Format(
-    '%d safe proposal(s) accepted for the next language-pack export.',
+    '%d resolution-independent proposal(s) accepted. Absolute geometry remains pending for individual visual review.',
     [AcceptedCount]);
 end;
 

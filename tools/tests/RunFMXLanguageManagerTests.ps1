@@ -23,7 +23,11 @@ foreach ($Target in $Targets) {
     try {
         $Command = 'call "' + $RsVars + '" && ' +
             $Target.Compiler + ' -B -Q -E"' + $OutputDirectory +
-            '" -N0"' + $DcuDirectory + '" "FMXLanguageManagerTests.dpr"'
+            '" -N0"' + $DcuDirectory + '" -U"' +
+            (Join-Path $ProjectRoot 'source\core') + ';' +
+            (Join-Path $ProjectRoot 'source\runtime') + ';' +
+            (Join-Path $ProjectRoot 'source\components') +
+            '" "FMXLanguageManagerTests.dpr"'
         & cmd.exe /d /c $Command
         if ($LASTEXITCODE -ne 0) {
             throw "FMXLanguageManagerTests failed to compile for $($Target.Platform)."

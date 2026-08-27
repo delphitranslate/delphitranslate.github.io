@@ -123,7 +123,30 @@ implementation
 uses
   System.IOUtils,
   System.JSON,
-  System.SysUtils;
+  System.SysUtils,
+  DAT.Core.AtomicFile,
+  DAT.Core.Diagnostics;
+
+procedure ValidateLayoutOverridesText(const AText: string);
+var
+  JsonValue: TJSONValue;
+  Root: TJSONObject;
+begin
+  JsonValue := TJSONObject.ParseJSONValue(AText);
+  if not (JsonValue is TJSONObject) then
+  begin
+    JsonValue.Free;
+    raise EConvertError.Create('Layout overrides are not a JSON object.');
+  end;
+  Root := TJSONObject(JsonValue);
+  try
+    if not (Root.GetValue('adjustments') is TJSONArray) then
+      raise EConvertError.Create(
+        'Layout overrides are missing the adjustments array.');
+  finally
+    Root.Free;
+  end;
+end;
 
 constructor TLayoutOverrides.Create(const AApplicationId,
   ALanguageCode: string);
@@ -188,6 +211,8 @@ var
   Items: TJSONArray;
   Item: TJSONValue;
   Entry: TLayoutOverride;
+  JsonText: string;
+  Recovered: Boolean;
 begin
   Overrides := TLayoutOverrides.Create(AApplicationId, ALanguageCode);
   Overrides.FFileName := FileNameFor(ALanguagesDirectory, ALanguageCode);
@@ -195,8 +220,13 @@ begin
     Path := Overrides.FFileName;
     if not TFile.Exists(Path) then
       Exit(Overrides);
-    Root := TJSONObject.ParseJSONValue(
-      TFile.ReadAllText(Path, TEncoding.UTF8)) as TJSONObject;
+    JsonText := TAtomicTextFile.ReadAllText(Path, TEncoding.UTF8,
+      ValidateLayoutOverridesText, Recovered);
+    if Recovered then
+      TDATDiagnostics.Log('DAT-LAYOUT-OVERRIDE-RECOVERY-001', 'Load',
+        'Recovered prior valid layout overrides and quarantined the invalid file: ' +
+        Path, dsWarning);
+    Root := TJSONObject.ParseJSONValue(JsonText) as TJSONObject;
     if Root = nil then
       Exit(Overrides);
     try
@@ -232,9 +262,14 @@ begin
     end;
     Result := Overrides;
   except
+    on E: Exception do
+    begin
+      TDATDiagnostics.LogException('DAT-LAYOUT-OVERRIDE-READ-001',
+        'Load(' + Path + ')', E);
     { Adjustments that cannot be read are no adjustments. The application still
       runs, translated, with the layout the planner gave it. }
-    Result := Overrides;
+      Result := Overrides;
+    end;
   end;
 end;
 
@@ -277,7 +312,8 @@ begin
       Items.AddElement(Item);
     end;
     Root.AddPair('adjustments', Items);
-    TFile.WriteAllText(FFileName, Root.Format(2), TEncoding.UTF8);
+    TAtomicTextFile.WriteAllText(FFileName, Root.Format(2), TEncoding.UTF8,
+      ValidateLayoutOverridesText);
   finally
     Root.Free;
   end;

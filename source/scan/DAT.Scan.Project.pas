@@ -9,10 +9,13 @@ uses
 type
   TProjectScanner = class
   private
-    class function IsExcludedPath(const AProjectDirectory,
-      AFileName: string): Boolean; static;
   public
-    class function Scan(const AProfile: TProjectProfile): TProjectScanResult; static;
+    class function Scan(const AProfile: TProjectProfile): TProjectScanResult;
+      overload; static;
+    class function Scan(const AProfile: TProjectProfile;
+      const ACancelCheck: TProjectScanCancelCheck;
+      const AProgress: TProjectScanProgress = nil): TProjectScanResult;
+      overload; static;
   end;
 
 implementation
@@ -37,6 +40,58 @@ const
   ExternalResourceManifestName = 'dat-translatable-resources.json';
 
 function IsUnderDirectory(const ADirectory, AFileName: string): Boolean; forward;
+
+procedure ValidateUniqueJsonMemberNames(const AValue: TJSONValue;
+  const AFileName, AJsonPath: string);
+var
+  ChildPath: string;
+  Index: Integer;
+  MemberNames: TStringList;
+  Pair: TJSONPair;
+begin
+  if AValue is TJSONObject then
+  begin
+    MemberNames := TStringList.Create;
+    try
+      MemberNames.CaseSensitive := True;
+      MemberNames.Sorted := True;
+      MemberNames.Duplicates := dupError;
+      for Pair in TJSONObject(AValue) do
+      begin
+        try
+          MemberNames.Add(Pair.JsonString.Value);
+        except
+          on E: EStringListError do
+            raise EConvertError.CreateFmt(
+              '%s contains duplicate JSON member "%s" at %s.',
+              [AFileName, Pair.JsonString.Value, AJsonPath]);
+        end;
+        ChildPath := AJsonPath + '.' + Pair.JsonString.Value;
+        ValidateUniqueJsonMemberNames(Pair.JsonValue, AFileName, ChildPath);
+      end;
+    finally
+      MemberNames.Free;
+    end;
+  end
+  else if AValue is TJSONArray then
+    for Index := 0 to TJSONArray(AValue).Count - 1 do
+      ValidateUniqueJsonMemberNames(TJSONArray(AValue).Items[Index],
+        AFileName, Format('%s[%d]', [AJsonPath, Index]));
+end;
+
+function ParseValidatedJsonFile(const AFileName: string): TJSONValue;
+begin
+  Result := TJSONObject.ParseJSONValue(
+    TFile.ReadAllText(AFileName, TEncoding.UTF8));
+  if Result = nil then
+    raise EConvertError.CreateFmt('%s is not valid JSON.', [AFileName]);
+  try
+    ValidateUniqueJsonMemberNames(Result, AFileName, '$');
+  except
+    Result.Free;
+    raise;
+  end;
+end;
 
 procedure AddExternalResourceItem(const AResult: TProjectScanResult;
   const AFileName, APropertyName, ASourceText: string;
@@ -93,7 +148,8 @@ begin
 end;
 
 procedure ScanDeclaredExternalResources(const AProjectDirectory: string;
-  const AResult: TProjectScanResult);
+  const AResult: TProjectScanResult;
+  const ACancelCheck: TProjectScanCancelCheck);
 var
   DirectoryName: string;
   FileName: string;
@@ -105,17 +161,18 @@ var
   PropertyName: TJSONValue;
   PropertyNames: TStringList;
   ResourceItem: TJSONValue;
+  ResourceIndex: Integer;
   Resources: TJSONArray;
   ResourceObject: TJSONObject;
   RootValue: TJSONValue;
+  SchemaVersion: Integer;
   SeenSources: TStringList;
 begin
   ManifestFileName := TPath.Combine(AProjectDirectory,
     ExternalResourceManifestName);
   if not TFile.Exists(ManifestFileName) then
     Exit;
-  ManifestRoot := TJSONObject.ParseJSONValue(
-    TFile.ReadAllText(ManifestFileName, TEncoding.UTF8));
+  ManifestRoot := ParseValidatedJsonFile(ManifestFileName);
   if not (ManifestRoot is TJSONObject) then
   begin
     ManifestRoot.Free;
@@ -126,42 +183,83 @@ begin
   try
     SeenSources.Sorted := True;
     SeenSources.Duplicates := dupIgnore;
-    Resources := TJSONObject(ManifestRoot).GetValue('resources') as TJSONArray;
+    SchemaVersion := TJSONObject(ManifestRoot).GetValue<Integer>(
+      'schemaVersion', 0);
+    if SchemaVersion <> 1 then
+      raise EConvertError.CreateFmt(
+        '%s schemaVersion must be 1; found %d.',
+        [ExternalResourceManifestName, SchemaVersion]);
+    if not (TJSONObject(ManifestRoot).GetValue('resources') is TJSONArray) then
+      Resources := nil
+    else
+      Resources := TJSONArray(TJSONObject(ManifestRoot).GetValue('resources'));
     if Resources = nil then
       raise EConvertError.CreateFmt('%s must declare a resources array.',
         [ExternalResourceManifestName]);
-    for ResourceItem in Resources do
+    for ResourceIndex := 0 to Resources.Count - 1 do
     begin
+      ResourceItem := Resources.Items[ResourceIndex];
       if not (ResourceItem is TJSONObject) then
-        Continue;
+        raise EConvertError.CreateFmt(
+          '%s resources[%d] must be a JSON object.',
+          [ExternalResourceManifestName, ResourceIndex]);
       ResourceObject := TJSONObject(ResourceItem);
       DirectoryName := ResourceObject.GetValue<string>('directory', '');
       FilePattern := ResourceObject.GetValue<string>('filePattern', '*.json');
-      PropertiesArray := ResourceObject.GetValue('properties') as TJSONArray;
-      if (Trim(DirectoryName) = '') or (PropertiesArray = nil) then
-        Continue;
+      if not (ResourceObject.GetValue('properties') is TJSONArray) then
+        PropertiesArray := nil
+      else
+        PropertiesArray := TJSONArray(ResourceObject.GetValue('properties'));
+      if Trim(DirectoryName) = '' then
+        raise EConvertError.CreateFmt(
+          '%s resources[%d].directory must not be empty.',
+          [ExternalResourceManifestName, ResourceIndex]);
+      if (Trim(FilePattern) = '') or ContainsText(FilePattern, '..') or
+        (Pos(PathDelim, FilePattern) > 0) or (Pos('/', FilePattern) > 0) then
+        raise EConvertError.CreateFmt(
+          '%s resources[%d].filePattern must be a file-name pattern, not a path.',
+          [ExternalResourceManifestName, ResourceIndex]);
+      if PropertiesArray = nil then
+        raise EConvertError.CreateFmt(
+          '%s resources[%d].properties must be an array.',
+          [ExternalResourceManifestName, ResourceIndex]);
       DirectoryName := TPath.GetFullPath(TPath.Combine(AProjectDirectory,
         DirectoryName));
-      if not IsUnderDirectory(AProjectDirectory, DirectoryName) or
-        not TDirectory.Exists(DirectoryName) then
-        Continue;
+      if not IsUnderDirectory(AProjectDirectory, DirectoryName) then
+        raise EConvertError.CreateFmt(
+          '%s resources[%d].directory resolves outside the selected project.',
+          [ExternalResourceManifestName, ResourceIndex]);
+      if not TDirectory.Exists(DirectoryName) then
+        raise EConvertError.CreateFmt(
+          '%s declares a missing resource directory: %s.',
+          [ExternalResourceManifestName, DirectoryName]);
       PropertyNames := TStringList.Create;
       try
         PropertyNames.Sorted := True;
         PropertyNames.Duplicates := dupIgnore;
         for PropertyName in PropertiesArray do
-          if PropertyName is TJSONString then
+          if not (PropertyName is TJSONString) or
+             (Trim(TJSONString(PropertyName).Value) = '') then
+            raise EConvertError.CreateFmt(
+              '%s resources[%d].properties must contain non-empty strings.',
+              [ExternalResourceManifestName, ResourceIndex])
+          else
             PropertyNames.Add(TJSONString(PropertyName).Value);
+        if PropertyNames.Count = 0 then
+          raise EConvertError.CreateFmt(
+            '%s resources[%d].properties must not be empty.',
+            [ExternalResourceManifestName, ResourceIndex]);
         FileNames := TDirectory.GetFiles(DirectoryName, FilePattern,
           TSearchOption.soTopDirectoryOnly);
+        TArray.Sort<string>(FileNames);
         for FileName in FileNames do
         begin
-          RootValue := TJSONObject.ParseJSONValue(
-            TFile.ReadAllText(FileName, TEncoding.UTF8));
+          if Assigned(ACancelCheck) and ACancelCheck() then
+            raise EProjectScanCancelled.Create('Project scan was cancelled.');
+          RootValue := ParseValidatedJsonFile(FileName);
           try
-            if RootValue <> nil then
-              ScanExternalJsonValue(RootValue, FileName, PropertyNames,
-                SeenSources, AResult);
+            ScanExternalJsonValue(RootValue, FileName, PropertyNames,
+              SeenSources, AResult);
           finally
             RootValue.Free;
           end;
@@ -359,93 +457,120 @@ begin
   end;
 end;
 
-class function TProjectScanner.IsExcludedPath(const AProjectDirectory,
-  AFileName: string): Boolean;
+function IsExcludedDirectoryName(const ADirectoryName: string): Boolean;
 var
-  CandidateDirectory: string;
-  DirectoryPart: string;
-  DirectoryPrefix: string;
-  NestedProjects: TArray<string>;
-  RelativeDirectory: string;
-  RelativeParts: TArray<string>;
-  RelativePath: string;
+  Name: string;
 begin
-  DirectoryPrefix := IncludeTrailingPathDelimiter(
-    LowerCase(TPath.GetFullPath(AProjectDirectory)));
-  RelativePath := LowerCase(TPath.GetFullPath(AFileName));
-  if StartsText(DirectoryPrefix, RelativePath) then
-    Delete(RelativePath, 1, Length(DirectoryPrefix));
-  if not IsUnderDirectory(AProjectDirectory, AFileName) then
-    Exit(False);
-  Result := StartsText('.git' + PathDelim, RelativePath) or
-    StartsText('.agents' + PathDelim, RelativePath) or
-    StartsText('__history' + PathDelim, RelativePath) or
-    StartsText('__recovery' + PathDelim, RelativePath) or
-    StartsText('bin' + PathDelim, RelativePath) or
-    StartsText('dcu' + PathDelim, RelativePath) or
-    StartsText('docs' + PathDelim, RelativePath) or
-    StartsText('export' + PathDelim, RelativePath) or
-    StartsText('localization' + PathDelim, RelativePath) or
-    StartsText('samples' + PathDelim, RelativePath) or
-    StartsText('source distributions' + PathDelim, RelativePath) or
-    StartsText('test' + PathDelim, RelativePath) or
-    StartsText('tests' + PathDelim, RelativePath);
-  if Result then
-    Exit;
+  Name := LowerCase(Trim(ADirectoryName));
+  Result :=
+    (Name = '.git') or (Name = '.agents') or
+    (Name = '__history') or (Name = '__recovery') or
+    (Name = 'backup') or (Name = 'backups') or
+    (Name = 'bin') or (Name = 'build') or (Name = 'dcu') or
+    (Name = 'debug') or (Name = 'release') or
+    (Name = 'win32') or (Name = 'win64') or
+    (Name = 'output') or (Name = 'outputs') or
+    (Name = 'docs') or (Name = 'export') or
+    (Name = 'localization') or (Name = 'samples') or
+    (Name = 'source distributions') or
+    (Name = 'test') or (Name = 'tests') or
+    EndsText('_output', Name) or ContainsText(Name, '_output_') or
+    ContainsText(Name, 'contract_output');
+end;
 
-  { Recursive discovery supplements the units explicitly named by the
-    selected Delphi project. It must not promote generated build or test
-    output into application source. Explicit DCCReference units were added
-    before this filter and remain eligible even when a project deliberately
-    keeps one beneath a normally generated directory. }
-  RelativeDirectory := TPath.GetDirectoryName(RelativePath);
-  RelativeParts := RelativeDirectory.Split([PathDelim]);
-  for DirectoryPart in RelativeParts do
-    if SameText(DirectoryPart, '.git') or
-       SameText(DirectoryPart, '.agents') or
-       SameText(DirectoryPart, '__history') or
-       SameText(DirectoryPart, '__recovery') or
-       SameText(DirectoryPart, 'backup') or
-       SameText(DirectoryPart, 'backups') or
-       SameText(DirectoryPart, 'bin') or
-       SameText(DirectoryPart, 'build') or
-       SameText(DirectoryPart, 'dcu') or
-       SameText(DirectoryPart, 'debug') or
-       SameText(DirectoryPart, 'release') or
-       SameText(DirectoryPart, 'win32') or
-       SameText(DirectoryPart, 'win64') or
-       SameText(DirectoryPart, 'output') or
-       SameText(DirectoryPart, 'outputs') or
-       EndsText('_output', DirectoryPart) or
-       ContainsText(DirectoryPart, '_output_') or
-       ContainsText(DirectoryPart, 'contract_output') then
-      Exit(True);
+procedure AddScanDiagnostic(const AResult: TProjectScanResult;
+  const ASeverity: TScanDiagnosticSeverity; const AMessage,
+  AFileName: string);
+var
+  Diagnostic: TScanDiagnostic;
+begin
+  Diagnostic := TScanDiagnostic.Create;
+  Diagnostic.Severity := ASeverity;
+  Diagnostic.MessageText := AMessage;
+  Diagnostic.SourceFileName := AFileName;
+  AResult.Diagnostics.Add(Diagnostic);
+end;
 
-  { A source tree may contain a separate utility or conversion project. Such
-    a nested project is not part of the application selected by the user. }
-  CandidateDirectory := TPath.GetDirectoryName(TPath.GetFullPath(AFileName));
-  while not SameText(CandidateDirectory,
-    TPath.GetFullPath(AProjectDirectory)) do
-  begin
-    NestedProjects := TDirectory.GetFiles(CandidateDirectory, '*.dproj',
-      TSearchOption.soTopDirectoryOnly);
-    if Length(NestedProjects) = 0 then
-      NestedProjects := TDirectory.GetFiles(CandidateDirectory, '*.dpr',
-        TSearchOption.soTopDirectoryOnly);
-    if Length(NestedProjects) > 0 then
-      Exit(True);
-    if SameText(TPath.GetDirectoryName(CandidateDirectory),
-      CandidateDirectory) then
-      Break;
-    CandidateDirectory := TPath.GetDirectoryName(CandidateDirectory);
+procedure CollectSupplementalFiles(const AProjectDirectory, AFilePattern: string;
+  const AFiles: TList<string>; const AResult: TProjectScanResult;
+  const ACancelCheck: TProjectScanCancelCheck);
+var
+  CurrentDirectory: string;
+  Directories: TStringList;
+  DirectoryName: string;
+  Files: TStringList;
+  FileName: string;
+  Pending: TQueue<string>;
+  ProjectFiles: TArray<string>;
+  SeenDirectories: TDictionary<string, Boolean>;
+begin
+  Pending := TQueue<string>.Create;
+  SeenDirectories := TDictionary<string, Boolean>.Create;
+  Directories := TStringList.Create;
+  Files := TStringList.Create;
+  try
+    Directories.Sorted := True;
+    Files.Sorted := True;
+    Pending.Enqueue(TPath.GetFullPath(AProjectDirectory));
+    while Pending.Count > 0 do
+    begin
+      if Assigned(ACancelCheck) and ACancelCheck() then
+        raise EProjectScanCancelled.Create('Project scan was cancelled.');
+      CurrentDirectory := Pending.Dequeue;
+      if SeenDirectories.ContainsKey(LowerCase(CurrentDirectory)) then
+        Continue;
+      SeenDirectories.Add(LowerCase(CurrentDirectory), True);
+      try
+        if not SameText(CurrentDirectory,
+          TPath.GetFullPath(AProjectDirectory)) then
+        begin
+          ProjectFiles := TDirectory.GetFiles(CurrentDirectory, '*.dproj',
+            TSearchOption.soTopDirectoryOnly);
+          if Length(ProjectFiles) = 0 then
+            ProjectFiles := TDirectory.GetFiles(CurrentDirectory, '*.dpr',
+              TSearchOption.soTopDirectoryOnly);
+          if Length(ProjectFiles) > 0 then
+            Continue;
+        end;
+
+        Files.Clear;
+        Files.AddStrings(TDirectory.GetFiles(CurrentDirectory, AFilePattern,
+          TSearchOption.soTopDirectoryOnly));
+        for FileName in Files do
+          AddUniqueFileName(AFiles, FileName);
+
+        Directories.Clear;
+        Directories.AddStrings(TDirectory.GetDirectories(CurrentDirectory,
+          '*', TSearchOption.soTopDirectoryOnly));
+        for DirectoryName in Directories do
+          if not IsExcludedDirectoryName(TPath.GetFileName(DirectoryName)) then
+            Pending.Enqueue(DirectoryName);
+      except
+        on E: Exception do
+          AddScanDiagnostic(AResult, sdsWarning,
+            'Directory skipped because it could not be enumerated: ' +
+            E.Message, CurrentDirectory);
+      end;
+    end;
+  finally
+    Files.Free;
+    Directories.Free;
+    SeenDirectories.Free;
+    Pending.Free;
   end;
 end;
 
 class function TProjectScanner.Scan(
   const AProfile: TProjectProfile): TProjectScanResult;
+begin
+  Result := Scan(AProfile, nil, nil);
+end;
+
+class function TProjectScanner.Scan(const AProfile: TProjectProfile;
+  const ACancelCheck: TProjectScanCancelCheck;
+  const AProgress: TProjectScanProgress): TProjectScanResult;
 var
   FileName: string;
-  FileNames: TArray<string>;
   FormFiles: TList<string>;
   HtmlFiles: TList<string>;
   ProjectDirectory: string;
@@ -470,21 +595,14 @@ begin
         FormFiles, SourceFiles);
 
       if AProfile.Framework = tfVCL then
-        FileNames := TDirectory.GetFiles(ProjectDirectory, '*.dfm',
-          TSearchOption.soAllDirectories)
+        CollectSupplementalFiles(ProjectDirectory, '*.dfm', FormFiles,
+          Result, ACancelCheck)
       else
-        FileNames := TDirectory.GetFiles(ProjectDirectory, '*.fmx',
-          TSearchOption.soAllDirectories);
+        CollectSupplementalFiles(ProjectDirectory, '*.fmx', FormFiles,
+          Result, ACancelCheck);
 
-      for FileName in FileNames do
-        if not IsExcludedPath(ProjectDirectory, FileName) then
-          AddUniqueFileName(FormFiles, FileName);
-
-      FileNames := TDirectory.GetFiles(ProjectDirectory, '*.pas',
-        TSearchOption.soAllDirectories);
-      for FileName in FileNames do
-        if not IsExcludedPath(ProjectDirectory, FileName) then
-          AddUniqueFileName(SourceFiles, FileName);
+      CollectSupplementalFiles(ProjectDirectory, '*.pas', SourceFiles,
+        Result, ACancelCheck);
 
       { Do not scan every standalone .htm/.html file in the project tree as
         application UI. Real projects often carry websites, help pages,
@@ -495,30 +613,42 @@ begin
 
       for FileName in FormFiles do
       begin
+        if Assigned(ACancelCheck) and ACancelCheck() then
+          raise EProjectScanCancelled.Create('Project scan was cancelled.');
         TTextFormScanner.ScanFile(FileName, AProfile.Framework, Result);
         Result.FormFilesScanned := Result.FormFilesScanned + 1;
         Result.FilesScanned := Result.FilesScanned + 1;
+        if Assigned(AProgress) then
+          AProgress('Forms', Result.FilesScanned);
       end;
 
       for FileName in SourceFiles do
       begin
+        if Assigned(ACancelCheck) and ACancelCheck() then
+          raise EProjectScanCancelled.Create('Project scan was cancelled.');
         TPascalResourceStringScanner.ScanFile(FileName, Result);
         Result.SourceFilesScanned := Result.SourceFilesScanned + 1;
         Result.FilesScanned := Result.FilesScanned + 1;
+        if Assigned(AProgress) then
+          AProgress('Pascal source', Result.FilesScanned);
       end;
 
       for FileName in HtmlFiles do
       begin
+        if Assigned(ACancelCheck) and ACancelCheck() then
+          raise EProjectScanCancelled.Create('Project scan was cancelled.');
         ScanHtmlFile(FileName, Result);
         Result.SourceFilesScanned := Result.SourceFilesScanned + 1;
         Result.FilesScanned := Result.FilesScanned + 1;
+        if Assigned(AProgress) then
+          AProgress('HTML', Result.FilesScanned);
       end;
 
       { Generated UI can also be fed by JSON or similar project data. Only
         resources explicitly declared by the project are eligible: this
         avoids treating databases, settings, or user content as interface
         copy while giving future applications a reusable opt-in contract. }
-      ScanDeclaredExternalResources(ProjectDirectory, Result);
+      ScanDeclaredExternalResources(ProjectDirectory, Result, ACancelCheck);
     finally
       SourceFiles.Free;
       HtmlFiles.Free;

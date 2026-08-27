@@ -23,7 +23,11 @@ foreach ($Target in $Targets) {
     try {
         $Command = 'call "' + $RsVars + '" && ' +
             $Target.Compiler + ' -B -Q -E"' + $OutputDirectory +
-            '" -N0"' + $DcuDirectory + '" "VCLLanguageManagerTests.dpr"'
+            '" -N0"' + $DcuDirectory + '" -U"' +
+            (Join-Path $ProjectRoot 'source\core') + ';' +
+            (Join-Path $ProjectRoot 'source\runtime') + ';' +
+            (Join-Path $ProjectRoot 'source\components') +
+            '" "VCLLanguageManagerTests.dpr"'
         & cmd.exe /d /c $Command
         if ($LASTEXITCODE -ne 0) {
             throw "VCLLanguageManagerTests failed to compile for $($Target.Platform)."

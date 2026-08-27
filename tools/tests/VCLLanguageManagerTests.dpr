@@ -16,6 +16,7 @@ uses
     {frmVCLInheritedLifecycle},
   SampleVCL.MainForm in '..\..\samples\VCLBasic\SampleVCL.MainForm.pas'
     {frmVCLSample},
+  DAT.Core.AtomicFile in '..\..\source\core\DAT.Core.AtomicFile.pas',
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
@@ -24,6 +25,14 @@ uses
   DAT.Components.VCL in '..\..\source\components\DAT.Components.VCL.pas';
 
 type
+  TActiveFormBrokerObserver = class
+  private
+    FCallCount: Integer;
+  public
+    procedure ActiveFormChanged(Sender: TObject);
+    property CallCount: Integer read FCallCount;
+  end;
+
   TVCLManagerObserver = class
   private
     FCoexistingIdleCount: Integer;
@@ -48,6 +57,49 @@ procedure Require(const ACondition: Boolean; const AMessage: string);
 begin
   if not ACondition then
     raise Exception.Create(AMessage);
+end;
+
+procedure TActiveFormBrokerObserver.ActiveFormChanged(Sender: TObject);
+begin
+  Inc(FCallCount);
+end;
+
+procedure TestActiveFormBrokerLifetime;
+var
+  ExpectedHandler: TNotifyEvent;
+  FirstManager: TDATVCLLanguageManager;
+  Observer: TActiveFormBrokerObserver;
+  SecondManager: TDATVCLLanguageManager;
+begin
+  Observer := TActiveFormBrokerObserver.Create;
+  FirstManager := nil;
+  SecondManager := nil;
+  try
+    Screen.OnActiveFormChange := Observer.ActiveFormChanged;
+    ExpectedHandler := Observer.ActiveFormChanged;
+    FirstManager := TDATVCLLanguageManager.Create(nil);
+    SecondManager := TDATVCLLanguageManager.Create(nil);
+    Screen.OnActiveFormChange(Screen);
+    Require(Observer.CallCount = 1,
+      'The VCL active-form broker invoked the prior handler more than once.');
+    SecondManager.Free;
+    SecondManager := nil;
+    Screen.OnActiveFormChange(Screen);
+    Require(Observer.CallCount = 2,
+      'Destroying one VCL manager broke the remaining broker subscription.');
+    FirstManager.Free;
+    FirstManager := nil;
+    Require((TMethod(Screen.OnActiveFormChange).Code =
+      TMethod(ExpectedHandler).Code) and
+      (TMethod(Screen.OnActiveFormChange).Data =
+      TMethod(ExpectedHandler).Data),
+      'The VCL broker did not restore the pre-existing active-form handler.');
+  finally
+    SecondManager.Free;
+    FirstManager.Free;
+    Screen.OnActiveFormChange := nil;
+    Observer.Free;
+  end;
 end;
 
 procedure WritePack(const AFileName, ALanguageCode, ANativeName,
@@ -170,7 +222,12 @@ var
   RootDirectory: string;
   StateForm: TfrmVCLSample;
 begin
-  RootDirectory := TPath.Combine(TPath.GetTempPath,
+  Application.Initialize;
+  TestActiveFormBrokerLifetime;
+  RootDirectory := GetEnvironmentVariable('TEMP');
+  if RootDirectory = '' then
+    RootDirectory := ExtractFilePath(ParamStr(0));
+  RootDirectory := TPath.Combine(RootDirectory,
     'DAT_VCL_Manager_' + IntToStr(GetTickCount64));
   LanguagesDirectory := TPath.Combine(RootDirectory, 'Languages');
   PreferenceDirectory := TPath.Combine(RootDirectory, 'Preferences');
@@ -193,7 +250,6 @@ begin
   try
     SetLifecycleTraceEvent(Observer.FormLifecycle);
     CoexistingEvents.OnIdle := Observer.CoexistingIdle;
-    Application.Initialize;
     Application.MainFormOnTaskbar := True;
     Manager.ApplicationId := 'VCLManagerTest';
     Manager.LanguagesFolder := LanguagesDirectory;
@@ -335,7 +391,8 @@ begin
   MainForm.Free;
   Require(Manager.TrackedObjectCount = 0,
     'Released VCL forms remained in the manager tracking table.');
-  Writeln('VCL_MANAGER_DETERMINISTIC_RELEASE=PASS');
+    Writeln('VCL_MANAGER_DETERMINISTIC_RELEASE=PASS');
+    Writeln('VCL_MANAGER_SHARED_HOOK_LIFETIME=PASS');
   Writeln('VCL_LANGUAGE_MANAGER_TESTS=PASS');
   SetLifecycleTraceEvent(nil);
   CoexistingEvents.Free;

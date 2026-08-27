@@ -8,6 +8,8 @@ uses
   System.IOUtils,
   System.StrUtils,
   System.SysUtils,
+  DAT.Core.AtomicFile in '..\..\source\core\DAT.Core.AtomicFile.pas',
+  DAT.Core.Diagnostics in '..\..\source\core\DAT.Core.Diagnostics.pas',
   DAT.Runtime.LanguagePack in '..\..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Runtime.Preference in '..\..\source\runtime\DAT.Runtime.Preference.pas',
   DAT.Runtime.Manager in '..\..\source\runtime\DAT.Runtime.Manager.pas',
@@ -245,6 +247,7 @@ procedure RunCoreTests;
 var
   Available: TObjectList<TLanguagePackDescriptor>;
   ConfigurationBlocked: Boolean;
+  DirectRuntime: TTranslationRuntime;
   ErrorForm: TMockManagedForm;
   ExcludedForm: TExcludedMockManagedForm;
   FirstForm: TMockManagedForm;
@@ -262,7 +265,10 @@ var
   ThreadGuardPassed: Boolean;
   Worker: TThread;
 begin
-  TempRoot := TPath.Combine(TPath.GetTempPath,
+  TempRoot := GetEnvironmentVariable('TEMP');
+  if TempRoot = '' then
+    TempRoot := ExtractFilePath(ParamStr(0));
+  TempRoot := TPath.Combine(TempRoot,
     'DAT-Core-' + TGUID.NewGuid.ToString.Replace('{', '').Replace('}', ''));
   LanguagesDirectory := TPath.Combine(TempRoot, 'Languages');
   PreferenceDirectory := TPath.Combine(TempRoot, 'Preferences');
@@ -271,6 +277,18 @@ begin
     'en-US', 'English', 'M/d/yyyy', 'English catalog text');
   WritePack(TPath.Combine(LanguagesDirectory, 'de-DE.json'),
     'de-DE', 'Deutsch', 'dd.MM.yyyy', 'Deutscher Katalogtext');
+
+  DirectRuntime := TTranslationRuntime.Create('CoreTestApp',
+    LanguagesDirectory, TPath.Combine(PreferenceDirectory, 'direct.ini'),
+    'en-US');
+  try
+    Require(DirectRuntime.LoadLanguage('en-US'),
+      'Direct runtime could not load the source-language pack.');
+    Require(DirectRuntime.ActivePack <> nil,
+      'Direct runtime discarded the source-language pack.');
+  finally
+    DirectRuntime.Free;
+  end;
 
   Observer := TCoreTestObserver.Create;
   Manager := TMockLanguageManager.Create(nil);
@@ -309,6 +327,8 @@ begin
       'Initial generation was not one.');
     Require(SameText(Manager.ActiveLanguage, 'en-US'),
       'Initial source language was not active.');
+    Require(Manager.ActivePack <> nil,
+      'Initial source language did not retain its runtime pack.');
     Manager.ApplyToOpenForms;
     Require(FirstForm.DisplayText = 'English catalog text',
       'First form did not receive source-pack text: ' +
@@ -521,9 +541,17 @@ begin
         'Second manager did not initialize from saved preference.');
       Require(SameText(SecondManager.ActiveLanguage, 'en-US'),
         'Saved source-language preference was not loaded.');
+      Require(SecondManager.SelectLanguage('de-DE'),
+        'Second manager could not select German.');
+      Require(DATTranslateText('Document.Title', 'Document title') =
+        'Document de-DE',
+        'The newest live manager was not the global translation manager.');
     finally
       SecondManager.Free;
     end;
+    Require(DATTranslateText('Document.Title', 'Document title') =
+      'Document en-US',
+      'Destroying the newest manager did not restore the prior live manager.');
 
     Require(Observer.LanguageChangedCount >= 2,
       'Language-changed events were not raised.');
@@ -552,6 +580,7 @@ begin
     Writeln('MAIN_THREAD_GUARD=PASS');
     Writeln('REENTRANCY_GUARD=PASS');
     Writeln('DETERMINISTIC_REMOVAL=PASS');
+    Writeln('MULTI_MANAGER_LIFETIME=PASS');
   except
     on E: Exception do
     begin

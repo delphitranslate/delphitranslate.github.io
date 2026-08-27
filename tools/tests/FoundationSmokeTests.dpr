@@ -10,6 +10,7 @@ uses
   System.IOUtils,
   System.JSON,
   System.StrUtils,
+  DAT.Core.AtomicFile in '..\..\source\core\DAT.Core.AtomicFile.pas',
   DAT.Core.Types in '..\..\source\core\DAT.Core.Types.pas',
   DAT.Core.ProjectDetection in '..\..\source\core\DAT.Core.ProjectDetection.pas',
   DAT.Core.CatalogJson in '..\..\source\core\DAT.Core.CatalogJson.pas',
@@ -92,6 +93,30 @@ begin
     #$0628 + #$064A + #$0629) = #$0627 + #$0644 + #$0639 + #$0631 +
     #$0628 + #$064A + #$0629,
     'Unicode text outside Windows-1252 was changed by text repair.');
+end;
+
+procedure TestAutomaticLayoutSafetyContract;
+begin
+  Require(IsRuntimeLayoutProperty('Position.X'),
+    'Explicitly reviewed absolute geometry is no longer runtime-supported.');
+  Require(not IsAutomaticallySafeLayoutProperty('Position.X'),
+    'Position.X was incorrectly classified as safe for bulk acceptance.');
+  Require(not IsAutomaticallySafeLayoutProperty('Left'),
+    'Left was incorrectly classified as safe for bulk acceptance.');
+  Require(not IsAutomaticallySafeLayoutProperty('Width'),
+    'Width was incorrectly classified as safe for bulk acceptance.');
+  Require(not IsAutomaticallySafeLayoutProperty('Columns[0].Width'),
+    'A fixed grid-column width was incorrectly classified as resolution-independent.');
+  Require(IsAutomaticallySafeLayoutProperty('WordWrap'),
+    'WordWrap should remain safe for bulk acceptance.');
+  Require(IsAutomaticallySafeLayoutProperty('FontSize'),
+    'FontSize should remain safe for bulk acceptance.');
+  Require(IsAutomaticallySafeLayoutProperty('Columns[0].FontSize'),
+    'A grid-column font fit should remain safe for bulk acceptance.');
+  Require(IsAutomaticallySafeLayoutProperty('ColumnOrder'),
+    'Direction-aware column order should remain safe for bulk acceptance.');
+  Require(IsAutomaticallySafeLayoutProperty('MirrorChildren'),
+    'Live direction-aware mirroring should remain safe for bulk acceptance.');
 end;
 
 procedure TestLocalizationIntelligence;
@@ -648,6 +673,8 @@ begin
     '  Canvas.FillText(Rect, ''Owner drawn heading'', False, 1, [], Align);' + sLineBreak +
     '  EventColumn.Header := ''Eventoooooooooooooooo'';' + sLineBreak +
     '  Html.Add(''<thead><tr><th>Time</th><th>Type</th><th>Song/Purpose</th></tr></thead>'');' + sLineBreak +
+    '  Html.Add(''<div>Visible notes <strong>for operators</strong></div>'' +' + sLineBreak +
+    '    ''<script>Hidden script text</script><code>Hidden code text</code>'');' + sLineBreak +
     '  DisplayText := DATTranslateText(''Report.Component.Title'',' + sLineBreak +
     '    ''Component Mapping Reference'');' + sLineBreak +
     '  DisplayText := DATFormatText(''Report.Component.Count'',' + sLineBreak +
@@ -727,6 +754,10 @@ begin
     RequireSourceText(ScanResult, 'Time', stkRuntimeAssignment);
     RequireSourceText(ScanResult, 'Type', stkRuntimeAssignment);
     RequireSourceText(ScanResult, 'Song/Purpose', stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'Visible notes', stkRuntimeAssignment);
+    RequireSourceText(ScanResult, 'for operators', stkRuntimeAssignment);
+    RequireNoSourceText(ScanResult, 'Hidden script text');
+    RequireNoSourceText(ScanResult, 'Hidden code text');
     RequireSourceText(ScanResult, 'Schedule', stkRuntimeAssignment);
     RequireSourceText(ScanResult, 'Bell', stkRuntimeAssignment);
     RequireNoSourceText(ScanResult, 'Top');
@@ -930,6 +961,135 @@ begin
   end;
 end;
 
+procedure TestExternalResourceManifestValidation;
+var
+  DataDirectory: string;
+  ErrorRaised: Boolean;
+  ManifestFileName: string;
+  Profile: TProjectProfile;
+  ScanResult: TProjectScanResult;
+  TempDirectory: string;
+begin
+  TempDirectory := TPath.Combine(TPath.GetTempPath,
+    'DAT-External-Manifest-' + FormatDateTime('hhnnsszzz', Now));
+  DataDirectory := TPath.Combine(TempDirectory, 'mapping_packs');
+  TDirectory.CreateDirectory(DataDirectory);
+  ManifestFileName := TPath.Combine(TempDirectory,
+    'dat-translatable-resources.json');
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'Main.dproj'),
+    '<Project><FrameworkType>FMX</FrameworkType></Project>', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'Main.fmx'),
+    'object frmMain: TForm' + sLineBreak +
+    '  Caption = ''Main application''' + sLineBreak + 'end', TEncoding.UTF8);
+  Profile := Default(TProjectProfile);
+  Profile.ProjectFileName := TPath.Combine(TempDirectory, 'Main.dproj');
+  Profile.ProjectName := 'Main';
+  Profile.Framework := tfFireMonkey;
+  try
+    TFile.WriteAllText(ManifestFileName,
+      '{"schemaVersion":2,"resources":[]}', TEncoding.UTF8);
+    ErrorRaised := False;
+    try
+      ScanResult := TProjectScanner.Scan(Profile);
+      ScanResult.Free;
+    except
+      on E: EConvertError do
+        ErrorRaised := ContainsText(E.Message, 'schemaVersion');
+    end;
+    Require(ErrorRaised,
+      'An unsupported external-resource manifest schema was accepted.');
+
+    TFile.WriteAllText(ManifestFileName,
+      '{"schemaVersion":1,"resources":[{' +
+      '"directory":"..\\outside","filePattern":"*.json",' +
+      '"properties":["notes"]}]}', TEncoding.UTF8);
+    ErrorRaised := False;
+    try
+      ScanResult := TProjectScanner.Scan(Profile);
+      ScanResult.Free;
+    except
+      on E: EConvertError do
+        ErrorRaised := ContainsText(E.Message, 'outside the selected project');
+    end;
+    Require(ErrorRaised,
+      'An external-resource directory traversal was accepted.');
+
+    TFile.WriteAllText(ManifestFileName,
+      '{"schemaVersion":1,"schemaVersion":1,"resources":[]}',
+      TEncoding.UTF8);
+    ErrorRaised := False;
+    try
+      ScanResult := TProjectScanner.Scan(Profile);
+      ScanResult.Free;
+    except
+      on E: EConvertError do
+        ErrorRaised := ContainsText(E.Message, 'duplicate JSON member');
+    end;
+    Require(ErrorRaised,
+      'Duplicate JSON members in the resource manifest were accepted.');
+
+    TFile.WriteAllText(ManifestFileName,
+      '{"schemaVersion":1,"resources":[{' +
+      '"directory":"mapping_packs","filePattern":"*.json",' +
+      '"properties":["notes"]}]}', TEncoding.UTF8);
+    TFile.WriteAllText(TPath.Combine(DataDirectory, 'broken.json'),
+      '{"notes":"Incomplete resource"', TEncoding.UTF8);
+    ErrorRaised := False;
+    try
+      ScanResult := TProjectScanner.Scan(Profile);
+      ScanResult.Free;
+    except
+      on E: EConvertError do
+        ErrorRaised := ContainsText(E.Message, 'not valid JSON');
+    end;
+    Require(ErrorRaised,
+      'Malformed declared external JSON was silently ignored.');
+  finally
+    if TDirectory.Exists(TempDirectory) then
+      TDirectory.Delete(TempDirectory, True);
+  end;
+end;
+
+procedure TestProjectScanCancellationContract;
+var
+  CancelObserved: Boolean;
+  Profile: TProjectProfile;
+  ScanResult: TProjectScanResult;
+  TempDirectory: string;
+begin
+  TempDirectory := TPath.Combine(TPath.GetTempPath,
+    'DAT-Scan-Cancel-' + FormatDateTime('hhnnsszzz', Now));
+  TDirectory.CreateDirectory(TempDirectory);
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'Main.dproj'),
+    '<Project><FrameworkType>FMX</FrameworkType></Project>', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(TempDirectory, 'Main.fmx'),
+    'object frmMain: TForm' + sLineBreak +
+    '  Caption = ''Main application''' + sLineBreak + 'end', TEncoding.UTF8);
+  Profile := Default(TProjectProfile);
+  Profile.ProjectFileName := TPath.Combine(TempDirectory, 'Main.dproj');
+  Profile.ProjectName := 'Main';
+  Profile.Framework := tfFireMonkey;
+  CancelObserved := False;
+  try
+    try
+      ScanResult := TProjectScanner.Scan(Profile,
+        function: Boolean
+        begin
+          Result := True;
+        end);
+      ScanResult.Free;
+    except
+      on E: EProjectScanCancelled do
+        CancelObserved := True;
+    end;
+    Require(CancelObserved,
+      'The scanner did not honor cancellation before project traversal.');
+  finally
+    if TDirectory.Exists(TempDirectory) then
+      TDirectory.Delete(TempDirectory, True);
+  end;
+end;
+
 procedure TestStaleScanSourceContract;
 var
   MissingFileName: string;
@@ -985,6 +1145,9 @@ begin
     'FMX browser translation again schedules retries after a successful injection.');
   Require(ContainsText(RuntimeSource, 'Object.create(null)'),
     'FMX browser translation no longer uses a direct source-text lookup.');
+  Require(ContainsText(RuntimeSource,
+    'SCRIPT|STYLE|TEMPLATE|NOSCRIPT|CODE|PRE|TEXTAREA'),
+    'FMX browser translation again rewrites protected or executable content.');
   Require(ContainsText(RuntimeSource,
     'if(document.body){run();return;}'),
     'FMX browser translation no longer stops its DOM readiness retry after success.');
@@ -1046,6 +1209,12 @@ begin
     Require(TFile.ReadAllText(TPath.Combine(RuntimeDirectory,
       'DAT.Runtime.FMX.pas'), TEncoding.UTF8) = 'current runtime',
       'A DAT_Runtime unit still shadows the current component kit.');
+    Require(TFile.ReadAllText(TPath.Combine(ProjectDirectory,
+      'DAT.Components.FMX.pas.previous'), TEncoding.UTF8) = 'stale component',
+      'Synchronizing a generated unit did not retain its recovery copy.');
+    Require(TFile.ReadAllText(TPath.Combine(RuntimeDirectory,
+      'DAT.Runtime.FMX.pas.previous'), TEncoding.UTF8) = 'stale runtime',
+      'Synchronizing a runtime unit did not retain its recovery copy.');
     Require(not TFile.Exists(TPath.Combine(ProjectDirectory,
       'DAT.Runtime.Manager.pas')),
       'Synchronization added a target source file that was not already present.');
@@ -1056,6 +1225,70 @@ begin
     if TDirectory.Exists(TestDirectory) then
       TDirectory.Delete(TestDirectory, True);
   end;
+end;
+
+procedure TestTransactionalPackageAndDeploymentContract;
+var
+  BuildDeploySource: string;
+  ComponentPackageSource: string;
+  IntegrationPackageSource: string;
+  ProjectRoot: string;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  ComponentPackageSource := TFile.ReadAllText(TPath.Combine(ProjectRoot,
+    'source\integration\DAT.Integration.ComponentPackage.pas'),
+    TEncoding.UTF8);
+  IntegrationPackageSource := TFile.ReadAllText(TPath.Combine(ProjectRoot,
+    'source\integration\DAT.Integration.Package.pas'), TEncoding.UTF8);
+  BuildDeploySource := TFile.ReadAllText(TPath.Combine(ProjectRoot,
+    'source\integration\DAT.Integration.BuildDeploy.pas'), TEncoding.UTF8);
+  Require(ContainsText(ComponentPackageSource, '''integrity-sha256.json''') and
+    ContainsText(ComponentPackageSource, 'PromoteStagedDirectory') and
+    ContainsText(ComponentPackageSource, '''.staging'''),
+    'Component-kit generation is no longer stage/verify/promote transactional.');
+  Require(ContainsText(IntegrationPackageSource, '''integrity-sha256.json''') and
+    ContainsText(IntegrationPackageSource, 'PromoteStagedDirectory') and
+    ContainsText(IntegrationPackageSource, '''.staging'''),
+    'Integration-package generation is no longer stage/verify/promote transactional.');
+  Require(ContainsText(BuildDeploySource, 'DeployLanguagePacksAtomic') and
+    ContainsText(BuildDeploySource, 'ReplaceFileAtomic') and
+    ContainsText(BuildDeploySource, 'FileHash'),
+    'Build deployment no longer verifies and atomically promotes its files.');
+  Require(not ContainsText(BuildDeploySource,
+    'TFile.Copy(LanguagePackFileName'),
+    'Build deployment again copies language packs directly into a live set.');
+end;
+
+procedure TestStudioResponsivenessContract;
+var
+  MainFormSource: string;
+  ProjectRoot: string;
+  SetupWizardSource: string;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  MainFormSource := TFile.ReadAllText(TPath.Combine(ProjectRoot,
+    'source\studio\DAT.Studio.MainForm.pas'), TEncoding.UTF8);
+  SetupWizardSource := TFile.ReadAllText(TPath.Combine(ProjectRoot,
+    'source\studio\DAT.Studio.SetupWizard.pas'), TEncoding.UTF8);
+
+  Require(not ContainsText(MainFormSource, 'Application.ProcessMessages'),
+    'The main Studio form again uses ProcessMessages and permits UI re-entry.');
+  Require(not ContainsText(SetupWizardSource, 'Application.ProcessMessages'),
+    'The Setup Wizard again uses ProcessMessages and permits UI re-entry.');
+  Require(ContainsText(MainFormSource, 'TThread.CreateAnonymousThread') and
+    ContainsText(MainFormSource, 'FScanCancelRequested') and
+    ContainsText(MainFormSource, 'FProviderCancelRequested'),
+    'Main Studio scan/provider work is no longer cancellable background work.');
+  Require(ContainsText(SetupWizardSource, 'TThread.CreateAnonymousThread') and
+    ContainsText(SetupWizardSource, 'FScanCancelRequested') and
+    ContainsText(SetupWizardSource, 'FFinalCancelRequested') and
+    ContainsText(SetupWizardSource,
+      'ContinueFinalProcessingAfterDeployment'),
+    'Setup Wizard scan/final processing is no longer cancellable background work.');
+  Require(ContainsText(SetupWizardSource,
+    'if TThread.CurrentThread.ThreadID <> MainThreadID then') and
+    ContainsText(SetupWizardSource, 'TThread.Queue(nil,'),
+    'Setup Wizard progress reporting is no longer marshalled to the UI thread.');
 end;
 
 procedure TestObsoleteEntriesStayOutOfReview;
@@ -1567,10 +1800,13 @@ var
   PreferenceFileName: string;
   Runtime: TTranslationRuntime;
   RuntimeText: string;
+  SourceCatalog: TTranslationCatalog;
+  SourcePackFileName: string;
 begin
   LanguageDirectory := TPath.Combine(TPath.GetFullPath(GetCurrentDir),
     'export\RuntimeLoaderTest\Languages');
   PackFileName := TPath.Combine(LanguageDirectory, 'de-DE.json');
+  SourcePackFileName := TPath.Combine(LanguageDirectory, 'en-US.json');
   PreferenceFileName := TPath.Combine(
     TPath.GetDirectoryName(LanguageDirectory), 'language.ini');
   Catalog := CreateCompleteCatalog;
@@ -1578,6 +1814,15 @@ begin
     TRuntimePackBuilder.ExportToFile(Catalog, PackFileName);
   finally
     Catalog.Free;
+  end;
+  SourceCatalog := CreateCompleteCatalog;
+  try
+    SourceCatalog.Locale.LanguageCode := 'en-US';
+    SourceCatalog.Locale.NativeLanguageName := 'English';
+    SourceCatalog.Locale.TextDirection := 'ltr';
+    TRuntimePackBuilder.ExportToFile(SourceCatalog, SourcePackFileName);
+  finally
+    SourceCatalog.Free;
   end;
 
   Pack := TRuntimeLanguagePack.LoadFromFile(PackFileName);
@@ -1608,6 +1853,13 @@ begin
       'The runtime manager did not load the exported pack.');
     Require(Runtime.Translate('MainForm.Greeting.Text', 'Hello') = 'Hallo %s',
       'The runtime manager did not translate a key.');
+    RuntimeText := Runtime.TranslateHtmlText(
+      '<div>Click E&xit please <strong>E&xit</strong></div>' +
+      '<script>var label="E&xit";</script><code>E&xit</code>');
+    Require(RuntimeText =
+      '<div>Click &Beenden please <strong>&Beenden</strong></div>' +
+      '<script>var label="E&xit";</script><code>E&xit</code>',
+      'HTML translation changed markup/technical content or missed a mixed visible node.');
     Require(Runtime.FormatSettings.DecimalSeparator = ',',
       'The locale decimal separator was not applied.');
   finally
@@ -1624,6 +1876,209 @@ begin
       'The preferred runtime pack was not activated.');
   finally
     Runtime.Free;
+  end;
+
+  if TDirectory.Exists(TPath.GetDirectoryName(LanguageDirectory)) then
+    TDirectory.Delete(TPath.GetDirectoryName(LanguageDirectory), True);
+end;
+
+procedure TestDuplicateScanKeyContract;
+var
+  Catalog: TTranslationCatalog;
+  CollisionRejected: Boolean;
+  MergeSummary: TCatalogMergeSummary;
+  ScanItem: TScanItem;
+  ScanResult: TProjectScanResult;
+begin
+  Catalog := TTranslationCatalog.Create;
+  ScanResult := TProjectScanResult.Create;
+  try
+    ScanItem := TScanItem.Create;
+    ScanItem.Key := 'MainForm.Status.Caption';
+    ScanItem.SourceText := 'Ready';
+    ScanItem.SourceFileName := 'MainForm.pas';
+    ScanItem.SourceLine := 10;
+    ScanResult.Items.Add(ScanItem);
+    ScanItem := TScanItem.Create;
+    ScanItem.Key := 'MainForm.Status.Caption';
+    ScanItem.SourceText := 'Ready';
+    ScanItem.SourceFileName := 'MainForm.pas';
+    ScanItem.SourceLine := 20;
+    ScanResult.Items.Add(ScanItem);
+    MergeSummary := TScanCatalogMerger.Merge(ScanResult, Catalog);
+    Require(MergeSummary.DuplicateScanKeys = 1,
+      'Equivalent duplicate scan occurrences were not reported.');
+  finally
+    ScanResult.Free;
+    Catalog.Free;
+  end;
+
+  Catalog := TTranslationCatalog.Create;
+  ScanResult := TProjectScanResult.Create;
+  try
+    ScanItem := TScanItem.Create;
+    ScanItem.Key := 'MainForm.Status.Caption';
+    ScanItem.SourceText := 'Ready';
+    ScanItem.SourceFileName := 'MainForm.pas';
+    ScanItem.SourceLine := 10;
+    ScanResult.Items.Add(ScanItem);
+    ScanItem := TScanItem.Create;
+    ScanItem.Key := 'MainForm.Status.Caption';
+    ScanItem.SourceText := 'Failed';
+    ScanItem.SourceFileName := 'OtherUnit.pas';
+    ScanItem.SourceLine := 30;
+    ScanResult.Items.Add(ScanItem);
+    CollisionRejected := False;
+    try
+      TScanCatalogMerger.Merge(ScanResult, Catalog);
+    except
+      on E: EScanKeyCollision do
+        CollisionRejected := ContainsText(E.Message, 'MainForm.Status.Caption');
+    end;
+    Require(CollisionRejected,
+      'A conflicting duplicate scan key was silently accepted.');
+  finally
+    ScanResult.Free;
+    Catalog.Free;
+  end;
+end;
+
+procedure TestRuntimePackCompatibilityGate;
+var
+  Catalog: TTranslationCatalog;
+  DescriptorList: TObjectList<TLanguagePackDescriptor>;
+  DuplicateRejected: Boolean;
+  LanguageDirectory: string;
+  MisnamedFileName: string;
+  PackFileName: string;
+  PackText: string;
+  PreferenceFileName: string;
+  Rejected: Boolean;
+  Runtime: TTranslationRuntime;
+  SourceCatalog: TTranslationCatalog;
+  SourceFileName: string;
+  SourcePack: TRuntimeLanguagePack;
+  SourceChecksum: string;
+begin
+  LanguageDirectory := TPath.Combine(TPath.GetFullPath(GetCurrentDir),
+    'export\RuntimeCompatibilityTest\Languages');
+  PackFileName := TPath.Combine(LanguageDirectory, 'de-DE.json');
+  SourceFileName := TPath.Combine(LanguageDirectory, 'en-US.json');
+  PreferenceFileName := TPath.Combine(
+    TPath.GetDirectoryName(LanguageDirectory), 'language.ini');
+
+  Catalog := CreateCompleteCatalog;
+  try
+    TRuntimePackBuilder.ExportToFile(Catalog, PackFileName);
+  finally
+    Catalog.Free;
+  end;
+  SourceCatalog := CreateCompleteCatalog;
+  try
+    SourceCatalog.Locale.LanguageCode := 'en-US';
+    SourceCatalog.Locale.NativeLanguageName := 'English';
+    SourceCatalog.Locale.TextDirection := 'ltr';
+    TRuntimePackBuilder.ExportToFile(SourceCatalog, SourceFileName);
+  finally
+    SourceCatalog.Free;
+  end;
+
+  SourcePack := TRuntimeLanguagePack.LoadFromFile(SourceFileName);
+  try
+    SourceChecksum := SourcePack.SourceCatalogChecksum;
+  finally
+    SourcePack.Free;
+  end;
+  PackText := TFile.ReadAllText(PackFileName, TEncoding.UTF8);
+
+  { A pack for the wrong framework must never reach a VCL or FMX form. }
+  TFile.WriteAllText(PackFileName,
+    StringReplace(PackText, '"framework":"FireMonkey"',
+      '"framework":"VCL"', []), TEncoding.UTF8);
+  Runtime := TTranslationRuntime.Create('OfflineWorkflowTest',
+    LanguageDirectory, PreferenceFileName, 'en-US', 'FireMonkey');
+  try
+    Rejected := False;
+    try
+      Runtime.LoadLanguage('de-DE');
+    except
+      on E: ELanguagePackError do
+        Rejected := True;
+    end;
+    Require(Rejected, 'A runtime pack for the wrong framework was accepted.');
+  finally
+    Runtime.Free;
+  end;
+
+  { A stale saved preference must not prevent an application from starting.
+    Explicit pack loading remains strict, but startup falls back to the
+    validated source language and replaces the unusable preference. }
+  TLanguagePreference.WriteLanguageCode(PreferenceFileName, 'de-DE');
+  Runtime := TTranslationRuntime.Create('OfflineWorkflowTest',
+    LanguageDirectory, PreferenceFileName, 'en-US', 'FireMonkey');
+  try
+    Require(Runtime.LoadPreferredLanguage,
+      'An incompatible preferred pack prevented source-language fallback.');
+    Require((Runtime.ActivePack <> nil) and
+      SameText(Runtime.ActivePack.LanguageCode, 'en-US'),
+      'Preferred-language recovery did not activate the source-language pack.');
+    Require(SameText(TLanguagePreference.ReadLanguageCode(
+      PreferenceFileName, ''), 'en-US'),
+      'Preferred-language recovery did not replace the stale preference.');
+  finally
+    Runtime.Free;
+  end;
+
+  { A target pack from an older or different source scan is stale even when
+    its application and language names still look correct. }
+  TFile.WriteAllText(PackFileName,
+    StringReplace(PackText, SourceChecksum,
+      StringOfChar('0', Length(SourceChecksum)), []), TEncoding.UTF8);
+  Runtime := TTranslationRuntime.Create('OfflineWorkflowTest',
+    LanguageDirectory, PreferenceFileName, 'en-US', 'FireMonkey');
+  try
+    Rejected := False;
+    try
+      Runtime.LoadLanguage('de-DE');
+    except
+      on E: ELanguagePackError do
+        Rejected := True;
+    end;
+    Require(Rejected,
+      'A runtime pack for a different source-catalog checksum was accepted.');
+  finally
+    Runtime.Free;
+  end;
+  TFile.WriteAllText(PackFileName, PackText, TEncoding.UTF8);
+
+  { JSON parsers commonly retain the last duplicate key. Language packs do
+    not: ambiguity is corruption and must fail before any value is applied. }
+  DuplicateRejected := False;
+  try
+    SourcePack := TRuntimeLanguagePack.LoadFromJson(
+      '{"schemaVersion":3,"applicationId":"DuplicateTest",' +
+      '"applicationVersion":"1","framework":"VCL",' +
+      '"sourceLanguage":"en-US","sourceCatalogChecksum":"abc",' +
+      '"language":{"code":"en-US","nativeName":"English"},' +
+      '"strings":{"Button.Text":"First","Button.Text":"Second"}}');
+    SourcePack.Free;
+  except
+    on E: ELanguagePackError do
+      DuplicateRejected := True;
+  end;
+  Require(DuplicateRejected,
+    'A runtime pack containing duplicate JSON keys was accepted.');
+
+  { Discovery is canonical: a filename may not impersonate another locale. }
+  MisnamedFileName := TPath.Combine(LanguageDirectory, 'german.json');
+  TFile.WriteAllText(MisnamedFileName, PackText, TEncoding.UTF8);
+  DescriptorList := TLanguagePackDiscovery.Discover(
+    LanguageDirectory, 'OfflineWorkflowTest');
+  try
+    Require(DescriptorList.Count = 2,
+      'Discovery exposed a misnamed or otherwise invalid runtime pack.');
+  finally
+    DescriptorList.Free;
   end;
 
   if TDirectory.Exists(TPath.GetDirectoryName(LanguageDirectory)) then
@@ -2148,6 +2603,7 @@ end;
 begin
   try
     TestUnicodeTextRepairContract;
+    TestAutomaticLayoutSafetyContract;
     TestProjectDetection;
     TestProviderProtocolFixtures;
     TestCatalogRoundTrip;
@@ -2157,13 +2613,18 @@ begin
     TestNestedProjectExclusion;
     TestGeneratedAndTestTreeExclusion;
     TestDeclaredExternalResourceScanning;
+    TestExternalResourceManifestValidation;
+    TestProjectScanCancellationContract;
     TestStaleScanSourceContract;
     TestFMXBrowserTranslationRemainsBounded;
     TestExistingIntegrationSourcesAreSynchronized;
+    TestTransactionalPackageAndDeploymentContract;
+    TestStudioResponsivenessContract;
     TestObsoleteEntriesStayOutOfReview;
     TestProjectScanning;
     TestStudioProjectScanning;
     TestIncrementalCatalogMerge;
+    TestDuplicateScanKeyContract;
     TestRuntimeOwnershipClassification;
     TestCatalogFilePersistence;
     TestCatalogCsvRoundTrip;
@@ -2171,6 +2632,7 @@ begin
     TestCatalogValidation;
     TestRuntimePack;
     TestRuntimeLoadingAndPreference;
+    TestRuntimePackCompatibilityGate;
     TestProjectUnitInsertionBeforeResourceDirective;
     TestImplementationUsesAfterResourceDirective;
     TestFMXProjectStartupDefersTranslationToForms;

@@ -4,9 +4,15 @@ interface
 
 uses
   System.Generics.Collections,
+  System.SysUtils,
   DAT.Core.Types;
 
 type
+  EProjectScanCancelled = class(Exception);
+  TProjectScanCancelCheck = reference to function: Boolean;
+  TProjectScanProgress = reference to procedure(const AStage: string;
+    const AFilesCompleted: Integer);
+
   TScannedTextKind = (
     stkFormProperty,
     stkResourceString,
@@ -108,8 +114,7 @@ function ScannedTextKindDisplayName(const AKind: TScannedTextKind): string;
 implementation
 
 uses
-  System.IOUtils,
-  System.SysUtils;
+  System.IOUtils;
 
 constructor TProjectScanResult.Create;
 begin

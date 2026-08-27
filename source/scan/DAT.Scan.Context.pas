@@ -20,6 +20,7 @@ implementation
 
 uses
   System.Classes,
+  System.Generics.Collections,
   System.StrUtils,
   System.SysUtils,
   DAT.Scan.DomainProfile;
@@ -307,14 +308,32 @@ var
   Note: string;
   Sentence: string;
   Count: Integer;
+  ColumnGroups: TObjectDictionary<string, TList<TScanItem>>;
+  ColumnItems: TList<TScanItem>;
+  GroupKey: string;
 begin
   if AResult = nil then
     Exit;
 
-  Profile := TDomainProfiler.Profile(AResult, AApplicationName);
+  ColumnGroups := TObjectDictionary<string, TList<TScanItem>>.Create(
+    [doOwnsValues]);
   try
     for Item in AResult.Items do
-    begin
+      if ContainsText(LowerCase(Item.PropertyName), 'title.caption') then
+      begin
+        GroupKey := LowerCase(Item.FormName + #1 + Item.ComponentName);
+        if not ColumnGroups.TryGetValue(GroupKey, ColumnItems) then
+        begin
+          ColumnItems := TList<TScanItem>.Create;
+          ColumnGroups.Add(GroupKey, ColumnItems);
+        end;
+        ColumnItems.Add(Item);
+      end;
+
+    Profile := TDomainProfiler.Profile(AResult, AApplicationName);
+    try
+      for Item in AResult.Items do
+      begin
       if Trim(Item.SourceText) = '' then
         Continue;
 
@@ -338,11 +357,10 @@ begin
       begin
         Neighbours := '';
         Count := 0;
-        for Neighbour in AResult.Items do
+        GroupKey := LowerCase(Item.FormName + #1 + Item.ComponentName);
+        if ColumnGroups.TryGetValue(GroupKey, ColumnItems) then
+          for Neighbour in ColumnItems do
           if (Neighbour <> Item) and
-            SameText(Neighbour.FormName, Item.FormName) and
-            SameText(Neighbour.ComponentName, Item.ComponentName) and
-            ContainsText(LowerCase(Neighbour.PropertyName), 'title.caption') and
             (Trim(Neighbour.SourceText) <> '') and (Count < 6) then
           begin
             if Neighbours <> '' then
@@ -373,9 +391,12 @@ begin
         Sentence := Sentence + ' ' + Note;
 
       Item.ContextDescription := Sentence;
+      end;
+    finally
+      Profile.Free;
     end;
   finally
-    Profile.Free;
+    ColumnGroups.Free;
   end;
 end;
 

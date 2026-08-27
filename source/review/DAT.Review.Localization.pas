@@ -224,6 +224,7 @@ uses
   System.StrUtils,
   System.SysUtils,
   System.UITypes,
+  DAT.Core.AtomicFile,
   DAT.Core.CatalogJson,
   DAT.Review.CodeGeometry,
   DAT.Review.TextMeasurement,
@@ -1090,8 +1091,7 @@ var
   SettleSpanLeft, SettleSpanRight: Double;
   ContainerWasCentred: Boolean;
   RowRescued, RowBand: TList<TLayoutControl>;
-  RowWasClean: Boolean;
-  RowScanA, RowScanB: Integer;
+  RowScanA: Integer;
   RowGrowLimit: Double;
   GridNames2: TStringList;
   GridControl: TLayoutControl;
@@ -1107,12 +1107,12 @@ var
   RowWidth, RowGap, RowRoom: Double;
   SettleRow: TList<TLayoutControl>;
   SettleAlone: Boolean;
-  SettleWanted, SettleTakeLeft, SettleTakeRight: Double;
+  SettleWanted: Double;
   SettleFloor: Double;
   SettleSavedLeft, SettleSavedWidth: Double;
   SettleSavedHeight: Double;
   GridNames: TStringList;
-  HeadingAt, HeadingIndex: Integer;
+  HeadingIndex: Integer;
   HeadingFont, HeadingRoom: Double;
   BalanceLines: Integer;
   BalanceContainer: TLayoutControl;
@@ -5450,7 +5450,7 @@ begin
     Root.AddPair('acceptedSafeCount', TJSONNumber.Create(AcceptedSafeCount));
     Root.AddPair('proposals', Items);
     ForceDirectories(TPath.GetDirectoryName(AFileName));
-    TFile.WriteAllText(AFileName, Root.Format(2), TEncoding.UTF8);
+    TAtomicTextFile.WriteAllText(AFileName, Root.Format(2), TEncoding.UTF8);
   finally
     Root.Free;
   end;
@@ -5517,7 +5517,7 @@ begin
       end;
       Root.AddPair('controls', Items);
       ForceDirectories(TPath.GetDirectoryName(AFileName));
-      TFile.WriteAllText(AFileName, Root.Format(2), TEncoding.UTF8);
+      TAtomicTextFile.WriteAllText(AFileName, Root.Format(2), TEncoding.UTF8);
     finally
       Root.Free;
     end;
@@ -5645,7 +5645,7 @@ begin
     end;
     Html.Add('</body></html>');
     ForceDirectories(TPath.GetDirectoryName(AHtmlFileName));
-    TFile.WriteAllText(AHtmlFileName, Html.Text, TEncoding.UTF8);
+    TAtomicTextFile.WriteAllText(AHtmlFileName, Html.Text, TEncoding.UTF8);
   finally
     FormNames.Free;
     Html.Free;

@@ -64,7 +64,7 @@ begin
     'DelphiAppTranslationStudio',
     TPath.Combine(ApplicationDirectory, 'Localization\Languages'),
     TPath.Combine(PreferenceDirectory, 'language.ini'),
-    'en-US');
+    'en-US', 'FireMonkey');
   TranslationRuntimeInstance.LoadPreferredLanguage;
 end;
 

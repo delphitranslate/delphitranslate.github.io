@@ -9,6 +9,7 @@ uses
   System.SysUtils,
   FMX.Forms,
   FMX.Controls,
+  FMX.Grid,
   FMX.StdCtrls,
   FMX.Types,
   System.UITypes,

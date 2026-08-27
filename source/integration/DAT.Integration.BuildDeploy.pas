@@ -21,10 +21,13 @@ implementation
 
 uses
   System.Classes,
+  System.Generics.Collections,
+  System.Hash,
   System.IOUtils,
   System.RegularExpressions,
   System.StrUtils,
   System.SysUtils,
+  DAT.Runtime.LanguagePack,
   Winapi.Windows;
 
 const
@@ -46,6 +49,139 @@ begin
   Result := (Length(LeftBytes) = Length(RightBytes)) and
     ((Length(LeftBytes) = 0) or
      CompareMem(@LeftBytes[0], @RightBytes[0], Length(LeftBytes)));
+end;
+
+function UniqueSiblingName(const APath, ASuffix: string): string;
+var
+  Identifier: TGUID;
+begin
+  CreateGUID(Identifier);
+  Result := APath + ASuffix + '-' + Copy(GUIDToString(Identifier), 2, 36);
+end;
+
+function FileHash(const AFileName: string): string;
+begin
+  Result := LowerCase(THashSHA2.GetHashStringFromFile(AFileName));
+end;
+
+procedure CopyFileVerified(const ASourceFileName,
+  ADestinationFileName: string);
+var
+  SourceHash: string;
+begin
+  SourceHash := FileHash(ASourceFileName);
+  TFile.Copy(ASourceFileName, ADestinationFileName, False);
+  if not TFile.Exists(ADestinationFileName) or
+    not SameText(SourceHash, FileHash(ADestinationFileName)) then
+    raise EInOutError.CreateFmt('The staged copy failed hash validation: %s',
+      [ADestinationFileName]);
+end;
+
+procedure PromoteStagedDirectory(const AStagedDirectory,
+  ADestinationDirectory: string);
+var
+  PreviousDirectory: string;
+begin
+  PreviousDirectory := ADestinationDirectory + '.previous';
+  if TDirectory.Exists(PreviousDirectory) then
+    TDirectory.Delete(PreviousDirectory, True);
+  if TDirectory.Exists(ADestinationDirectory) then
+    TDirectory.Move(ADestinationDirectory, PreviousDirectory);
+  try
+    TDirectory.Move(AStagedDirectory, ADestinationDirectory);
+  except
+    if not TDirectory.Exists(ADestinationDirectory) and
+      TDirectory.Exists(PreviousDirectory) then
+      TDirectory.Move(PreviousDirectory, ADestinationDirectory);
+    raise;
+  end;
+end;
+
+procedure DeployLanguagePacksAtomic(const ASourceDirectory,
+  ADestinationDirectory, AApplicationId: string);
+var
+  Descriptor: TLanguagePackDescriptor;
+  DestinationFileName: string;
+  Languages: TObjectList<TLanguagePackDescriptor>;
+  SourceFiles: TArray<string>;
+  SourceFileName: string;
+  StagedDirectory: string;
+  StagedLanguages: TObjectList<TLanguagePackDescriptor>;
+begin
+  if not TDirectory.Exists(ASourceDirectory) then
+    raise EDirectoryNotFoundException.CreateFmt(
+      'The language-pack source directory was not found: %s',
+      [ASourceDirectory]);
+  SourceFiles := TDirectory.GetFiles(ASourceDirectory, '*.json',
+    TSearchOption.soTopDirectoryOnly);
+  Languages := TLanguagePackDiscovery.Discover(ASourceDirectory,
+    AApplicationId);
+  try
+    if (Languages.Count = 0) or (Languages.Count <> Length(SourceFiles)) then
+      raise EInvalidOpException.Create(
+        'Deployment stopped because a language pack is missing or incompatible.');
+    for Descriptor in Languages do
+      if not TFile.Exists(Descriptor.FileName) then
+        raise EFileNotFoundException.Create(Descriptor.FileName);
+  finally
+    Languages.Free;
+  end;
+
+  StagedDirectory := UniqueSiblingName(ADestinationDirectory, '.staging');
+  try
+    TDirectory.CreateDirectory(StagedDirectory);
+    for SourceFileName in SourceFiles do
+    begin
+      DestinationFileName := TPath.Combine(StagedDirectory,
+        TPath.GetFileName(SourceFileName));
+      CopyFileVerified(SourceFileName, DestinationFileName);
+    end;
+    StagedLanguages := TLanguagePackDiscovery.Discover(StagedDirectory,
+      AApplicationId);
+    try
+      if StagedLanguages.Count <> Length(SourceFiles) then
+        raise EInvalidOpException.Create(
+          'The staged language packs failed compatibility validation.');
+    finally
+      StagedLanguages.Free;
+    end;
+    TDirectory.CreateDirectory(TPath.GetDirectoryName(
+      ADestinationDirectory));
+    PromoteStagedDirectory(StagedDirectory, ADestinationDirectory);
+  except
+    if TDirectory.Exists(StagedDirectory) then
+      TDirectory.Delete(StagedDirectory, True);
+    raise;
+  end;
+end;
+
+procedure ReplaceFileAtomic(const ASourceFileName,
+  ADestinationFileName: string);
+var
+  PreviousFileName: string;
+  StagedFileName: string;
+begin
+  StagedFileName := UniqueSiblingName(ADestinationFileName, '.staging');
+  PreviousFileName := ADestinationFileName + '.previous';
+  try
+    CopyFileVerified(ASourceFileName, StagedFileName);
+    if TFile.Exists(ADestinationFileName) then
+    begin
+      if TFile.Exists(PreviousFileName) then
+        TFile.Delete(PreviousFileName);
+      TFile.Replace(StagedFileName, ADestinationFileName, PreviousFileName);
+    end
+    else
+      TFile.Move(StagedFileName, ADestinationFileName);
+    if not SameText(FileHash(ASourceFileName),
+      FileHash(ADestinationFileName)) then
+      raise EInOutError.CreateFmt(
+        'The promoted file failed hash validation: %s',
+        [ADestinationFileName]);
+  finally
+    if TFile.Exists(StagedFileName) then
+      TFile.Delete(StagedFileName);
+  end;
 end;
 
 class function TTargetBuildDeployer.SynchronizeExistingIntegrationSources(
@@ -73,7 +209,7 @@ var
       { These are generated DAT integration units, not application source.
         A copy beside the DPR takes precedence over the kit search path, so
         leaving it stale silently compiles an old runtime into a new EXE. }
-      TFile.Copy(SourceFileName, DestinationFileName, True);
+      ReplaceFileAtomic(SourceFileName, DestinationFileName);
       Inc(Result);
     end;
   end;
@@ -334,7 +470,6 @@ var
   DestinationDirectory: string;
   DestinationLanguageDirectory: string;
   ExecutableFileName: string;
-  LanguagePackFileName: string;
   ProjectDirectory: string;
   SourceLanguageDirectory: string;
   SynchronizedSourceCount: Integer;
@@ -371,12 +506,8 @@ begin
     APackageDirectory, 'Localization\Languages');
   DestinationLanguageDirectory := TPath.Combine(
     DestinationDirectory, 'Localization\Languages');
-  TDirectory.CreateDirectory(DestinationLanguageDirectory);
-  for LanguagePackFileName in TDirectory.GetFiles(
-    SourceLanguageDirectory, '*.json') do
-    TFile.Copy(LanguagePackFileName,
-      TPath.Combine(DestinationLanguageDirectory,
-        TPath.GetFileName(LanguagePackFileName)), True);
+  DeployLanguagePacksAtomic(SourceLanguageDirectory,
+    DestinationLanguageDirectory, AProjectName);
   Result := Format(
     '%s %s built with %d existing DAT integration source(s) refreshed. Language packs deployed to %s.',
     [APlatform, AConfiguration, SynchronizedSourceCount,
@@ -390,7 +521,6 @@ class function TTargetBuildDeployer.DeployBuildOutput(
 var
   DestinationExecutable: string;
   DestinationLanguageDirectory: string;
-  LanguagePackFileName: string;
   SourceExecutable: string;
   SourceLanguageDirectory: string;
   ExecutableStatus: string;
@@ -442,7 +572,7 @@ begin
     for Attempt := 1 to 8 do
     begin
       try
-        TFile.Copy(SourceExecutable, DestinationExecutable, True);
+        ReplaceFileAtomic(SourceExecutable, DestinationExecutable);
         CopySucceeded := TFile.Exists(DestinationExecutable) and
           (TFile.GetSize(DestinationExecutable) =
            TFile.GetSize(SourceExecutable));
@@ -473,12 +603,8 @@ begin
     'Localization\Languages');
   DestinationLanguageDirectory := TPath.Combine(ADestinationDirectory,
     'Localization\Languages');
-  TDirectory.CreateDirectory(DestinationLanguageDirectory);
-  for LanguagePackFileName in TDirectory.GetFiles(
-    SourceLanguageDirectory, '*.json') do
-    TFile.Copy(LanguagePackFileName,
-      TPath.Combine(DestinationLanguageDirectory,
-        TPath.GetFileName(LanguagePackFileName)), True);
+  DeployLanguagePacksAtomic(SourceLanguageDirectory,
+    DestinationLanguageDirectory, AProjectName);
   Result := Format('%s %s Language packs deployed to %s.',
     [ExecutableStatus, APlatform + ' ' + AConfiguration,
      DestinationLanguageDirectory]);

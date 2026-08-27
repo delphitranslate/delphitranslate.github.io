@@ -52,6 +52,7 @@ uses
   System.Hash,
   System.IOUtils,
   System.SysUtils,
+  DAT.Core.AtomicFile,
   DAT.Core.CatalogJson;
 
 constructor TAITranslationReview.Create;
@@ -125,7 +126,7 @@ var
 begin
   FileName := ProfileFileName(ACatalogFileName);
   if not TFile.Exists(FileName) then
-    TFile.WriteAllText(FileName, PROFILE_TEMPLATE, TEncoding.UTF8);
+    TAtomicTextFile.WriteAllText(FileName, PROFILE_TEMPLATE, TEncoding.UTF8);
 end;
 
 class function TAITranslationWorkflow.BuildInstructions(
@@ -196,9 +197,9 @@ begin
   if ACatalogFileName = '' then
     raise Exception.Create('Save the development catalog before translation.');
   EnsureProfile(ACatalogFileName);
-  TFile.WriteAllText(SnapshotFileName(ACatalogFileName),
+  TAtomicTextFile.WriteAllText(SnapshotFileName(ACatalogFileName),
     TCatalogJson.Serialize(ACatalog), TEncoding.UTF8);
-  TFile.WriteAllText(InstructionsFileName(ACatalogFileName),
+  TAtomicTextFile.WriteAllText(InstructionsFileName(ACatalogFileName),
     BuildInstructions(ACatalog, ACatalogFileName), TEncoding.UTF8);
 end;
 

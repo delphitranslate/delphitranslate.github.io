@@ -290,6 +290,8 @@ begin
     Exit;
   PairMap := TDictionary<string, string>.Create;
   Pairs := TStringList.Create;
+  Pairs.Sorted := True;
+  Pairs.Duplicates := dupIgnore;
   Script := TStringBuilder.Create;
   try
     DATRuntimeDebugLog(Format('ApplyBrowserText start: %s.%s language=%s',
@@ -334,7 +336,7 @@ begin
         Script.Append(',');
       Script.Append('[').Append(Candidate).Append(']');
     end;
-    Script.Append('],p=Object.create(null),i;for(i=0;i<a.length;i++){p[a[i][0]]=a[i][1];}function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}function apply(n){var c=0,v,l,r,ch,t;if(!n){return 0;}if(n.nodeType===3){v=n.nodeValue;t=trim(v);if(Object.prototype.hasOwnProperty.call(p,t)){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[t]+r;c++;}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}function run(){return document.body?apply(document.body):0;}var tries=0;function retry(){try{if(document.body){run();return;}}catch(e){}tries++;if(tries<20){window.setTimeout(retry,150);}}retry();})();');
+    Script.Append('],p=Object.create(null),i;for(i=0;i<a.length;i++){p[a[i][0]]=a[i][1];}function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}function apply(n){var c=0,v,l,r,ch,t;if(!n){return 0;}if(n.nodeType===1&&/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|CODE|PRE|TEXTAREA)$/i.test(n.nodeName)){return 0;}if(n.nodeType===3){v=n.nodeValue;t=trim(v);if(Object.prototype.hasOwnProperty.call(p,t)){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[t]+r;c++;}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}function run(){return document.body?apply(document.body):0;}var tries=0;function retry(){try{if(document.body){run();return;}}catch(e){}tries++;if(tries<20){window.setTimeout(retry,150);}}retry();})();');
     ScriptText := Script.ToString;
     DATRuntimeDebugLog(Format(
       'ApplyBrowserText executing: pairs=%d script length=%d',

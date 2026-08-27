@@ -95,7 +95,37 @@ uses
   System.IOUtils,
   System.JSON,
   System.SysUtils,
+  DAT.Core.AtomicFile,
+  DAT.Core.Diagnostics,
   DAT.Scan.TextCodec;
+
+procedure ValidateGlossaryText(const AText: string);
+var
+  Item: TJSONValue;
+  JsonValue: TJSONValue;
+  Root: TJSONObject;
+  Terms: TJSONArray;
+begin
+  JsonValue := TJSONObject.ParseJSONValue(AText);
+  if not (JsonValue is TJSONObject) then
+  begin
+    JsonValue.Free;
+    raise EConvertError.Create('The project glossary is not valid JSON.');
+  end;
+  Root := TJSONObject(JsonValue);
+  try
+    Terms := Root.GetValue('terms') as TJSONArray;
+    if Terms = nil then
+      raise EConvertError.Create(
+        'The project glossary is missing its terms array.');
+    for Item in Terms do
+      if not (Item is TJSONObject) then
+        raise EConvertError.Create(
+          'The project glossary contains an invalid term.');
+  finally
+    Root.Free;
+  end;
+end;
 
 function JsonText(const AObject: TJSONObject; const AName,
   ADefault: string): string;
@@ -339,7 +369,8 @@ begin
     end;
     Root.AddPair('terms', TermsArray);
     ForceDirectories(TPath.GetDirectoryName(AFileName));
-    TFile.WriteAllText(AFileName, Root.Format(2), TEncoding.UTF8);
+    TAtomicTextFile.WriteAllText(AFileName, Root.Format(2), TEncoding.UTF8,
+      ValidateGlossaryText);
   finally
     Root.Free;
   end;
@@ -350,6 +381,8 @@ class function TProjectGlossary.LoadFromFile(
 var
   Root: TJSONObject;
   JsonValue, ArrayValue: TJSONValue;
+  JsonDocument: string;
+  Recovered: Boolean;
   TermsArray: TJSONArray;
   TermObject: TJSONObject;
   Term: TProjectGlossaryTerm;
@@ -357,8 +390,13 @@ begin
   Result := TProjectGlossary.Create;
   if not TFile.Exists(AFileName) then
     Exit;
-  JsonValue := TJSONObject.ParseJSONValue(
-    TFile.ReadAllText(AFileName, TEncoding.UTF8));
+  JsonDocument := TAtomicTextFile.ReadAllText(AFileName, TEncoding.UTF8,
+    ValidateGlossaryText, Recovered);
+  if Recovered then
+    TDATDiagnostics.Log('DAT-GLOSSARY-RECOVERY-001', 'LoadFromFile',
+      'Recovered the prior valid glossary and quarantined the invalid file: ' +
+      AFileName, dsWarning);
+  JsonValue := TJSONObject.ParseJSONValue(JsonDocument);
   if not (JsonValue is TJSONObject) then
   begin
     JsonValue.Free;

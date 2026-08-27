@@ -221,6 +221,7 @@ type
     procedure btnOpenComponentKitFolderClick(Sender: TObject);
     procedure cboTargetLanguageChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure datLanguageMenuItemClick(Sender: TObject);
   private
     FProjectProfile: TProjectProfile;
@@ -235,6 +236,12 @@ type
     FUpdatingEntryControls: Boolean;
     FIntroScreen: Boolean;
     FLastScanCompletedAt: TDateTime;
+    FScanInProgress: Boolean;
+    FScanCancelRequested: Integer;
+    FCloseAfterScan: Boolean;
+    FProviderOperationInProgress: Boolean;
+    FProviderCancelRequested: Integer;
+    FCloseAfterProviderOperation: Boolean;
     procedure ClearProjectSummary;
     procedure ClearScanSummary;
     procedure ResetCatalog;
@@ -280,6 +287,7 @@ uses
   System.IOUtils,
   System.Math,
   System.Rtti,
+  System.SyncObjs,
   System.StrUtils,
   System.SysUtils,
   System.UITypes,
@@ -312,7 +320,6 @@ begin
   rectWizardBackdrop.Visible := True;
   rectWizardBackdrop.BringToFront;
   rectWizardBackdrop.Repaint;
-  Application.ProcessMessages;
   SetupWizard := TfrmSetupWizard.Create(Self);
   try
     WizardResult := SetupWizard.ShowModal;
@@ -358,6 +365,25 @@ begin
   UpdateIntegrationModeUI;
   LoadProviderSettings;
   SetWorkflowStep(1);
+end;
+
+procedure TfrmTranslationStudio.FormCloseQuery(Sender: TObject;
+  var CanClose: Boolean);
+begin
+  if not FScanInProgress and not FProviderOperationInProgress then
+    Exit;
+  if FScanInProgress then
+  begin
+    TInterlocked.Exchange(FScanCancelRequested, 1);
+    FCloseAfterScan := True;
+  end;
+  if FProviderOperationInProgress then
+  begin
+    TInterlocked.Exchange(FProviderCancelRequested, 1);
+    FCloseAfterProviderOperation := True;
+  end;
+  CanClose := False;
+  lblStatus.Text := 'Cancelling the active operation before closing...';
 end;
 
 procedure TfrmTranslationStudio.btnIntroMaintenanceClick(Sender: TObject);
@@ -1274,41 +1300,88 @@ end;
 
 procedure TfrmTranslationStudio.btnScanProjectClick(Sender: TObject);
 var
-  MergeSummary: TCatalogMergeSummary;
-  NewScanResult: TProjectScanResult;
+  Profile: TProjectProfile;
 begin
+  if FScanInProgress then
+    Exit;
   SetWorkflowStep(2);
   btnScanProject.Enabled := False;
   lblStatus.Text := 'Scanning project text resources...';
-  Application.ProcessMessages;
-  try
-    NewScanResult := TProjectScanner.Scan(FProjectProfile);
-    FreeAndNil(FScanResult);
-    FScanResult := NewScanResult;
-    FLastScanCompletedAt := Now;
-    DisplayScanResult(FScanResult);
-
-    if FTranslationCatalog = nil then
+  FScanInProgress := True;
+  FCloseAfterScan := False;
+  TInterlocked.Exchange(FScanCancelRequested, 0);
+  Profile := FProjectProfile;
+  TThread.CreateAnonymousThread(
+    procedure
+    var
+      ErrorText: string;
+      MergeSummary: TCatalogMergeSummary;
+      NewScanResult: TProjectScanResult;
     begin
-      FTranslationCatalog := TTranslationCatalog.Create;
-      FTranslationCatalog.ApplicationId := FProjectProfile.ProjectName;
-      FTranslationCatalog.Framework := FProjectProfile.Framework;
-      FTranslationCatalog.SourceLanguage :=
-        SelectedLanguageCode(cboSourceLanguage);
-    end;
-    MergeSummary := TScanCatalogMerger.Merge(FScanResult,
-      FTranslationCatalog);
-    DisplayCatalogEntries;
-    InvalidateValidation;
-    lblStatus.Text := Format(
-      'Scan complete: %d new, %d changed, %d unchanged, %d obsolete.',
-      [MergeSummary.NewEntries, MergeSummary.ChangedEntries,
-       MergeSummary.UnchangedEntries, MergeSummary.ObsoleteEntries]);
-  except
-    on E: Exception do
-      lblStatus.Text := 'Scan failed: ' + E.Message;
-  end;
-  btnScanProject.Enabled := FProjectProfile.Framework <> tfUnknown;
+      ErrorText := '';
+      NewScanResult := nil;
+      try
+        NewScanResult := TProjectScanner.Scan(Profile,
+          function: Boolean
+          begin
+            Result := TInterlocked.CompareExchange(
+              FScanCancelRequested, 0, 0) <> 0;
+          end);
+      except
+        on E: Exception do
+          ErrorText := E.Message;
+      end;
+      TThread.Queue(nil,
+        procedure
+        begin
+          try
+            if ErrorText <> '' then
+            begin
+              NewScanResult.Free;
+              if TInterlocked.CompareExchange(
+                FScanCancelRequested, 0, 0) <> 0 then
+                lblStatus.Text := 'Project scan cancelled.'
+              else
+                lblStatus.Text := 'Scan failed: ' + ErrorText;
+            end
+            else
+            begin
+              FreeAndNil(FScanResult);
+              FScanResult := NewScanResult;
+              NewScanResult := nil;
+              FLastScanCompletedAt := Now;
+              DisplayScanResult(FScanResult);
+              if FTranslationCatalog = nil then
+              begin
+                FTranslationCatalog := TTranslationCatalog.Create;
+                FTranslationCatalog.ApplicationId := FProjectProfile.ProjectName;
+                FTranslationCatalog.Framework := FProjectProfile.Framework;
+                FTranslationCatalog.SourceLanguage :=
+                  SelectedLanguageCode(cboSourceLanguage);
+              end;
+              MergeSummary := TScanCatalogMerger.Merge(FScanResult,
+                FTranslationCatalog);
+              DisplayCatalogEntries;
+              InvalidateValidation;
+              lblStatus.Text := Format(
+                'Scan complete: %d new, %d changed, %d unchanged, %d obsolete, %d equivalent duplicate occurrence(s) collapsed.',
+                [MergeSummary.NewEntries, MergeSummary.ChangedEntries,
+                 MergeSummary.UnchangedEntries, MergeSummary.ObsoleteEntries,
+                 MergeSummary.DuplicateScanKeys]);
+            end;
+          except
+            on E: Exception do
+              lblStatus.Text := 'Scan failed: ' + E.Message;
+          end;
+          FScanInProgress := False;
+          btnScanProject.Enabled := FProjectProfile.Framework <> tfUnknown;
+          if FCloseAfterScan then
+          begin
+            FCloseAfterScan := False;
+            Close;
+          end;
+        end);
+    end).Start;
 end;
 
 procedure TfrmTranslationStudio.lblNavigationProjectClick(Sender: TObject);
@@ -2084,7 +2157,6 @@ procedure TfrmTranslationStudio.btnTranslateMissingClick(Sender: TObject);
 var
   ActiveCount: Integer;
   ApiKey: string;
-  Client: TTranslationProviderClient;
   Entry: TTranslationEntry;
   EntryIndexes: TArray<Integer>;
   Index: Integer;
@@ -2209,53 +2281,111 @@ begin
     SetLength(Contexts, ProviderCount);
 
     btnTranslateMissing.Enabled := False;
+    BodyLayout.Enabled := False;
+    NavigationCard.Enabled := False;
+    FProviderOperationInProgress := True;
+    FCloseAfterProviderOperation := False;
+    TInterlocked.Exchange(FProviderCancelRequested, 0);
     lblStatus.Text := Format('Translating %d provider strings with %s...',
       [ProviderCount, TranslationProviderDisplayName(Provider)]);
-    Application.ProcessMessages;
-    Client := TTranslationProviderClient.Create(Provider,
-      FProviderSettings.DeepLPlan, ApiKey,
-      FProviderSettings.RequestTimeoutSeconds,
-      FProviderSettings.BatchSize);
-    try
-      TranslatedTexts := Client.TranslateWithContexts(SourceTexts, Contexts,
-        FTranslationCatalog.SourceLanguage,
-        FTranslationCatalog.Locale.LanguageCode);
-    finally
-      Client.Free;
-    end;
-    for Index := 0 to High(TranslatedTexts) do
-    begin
-      Entry := FTranslationCatalog.Entries[EntryIndexes[Index]];
-      Entry.TranslatedText := TranslatedTexts[Index];
-      Entry.Status := tsMachineTranslated;
-      if Provider = tpGoogle then
-        Entry.TranslationOrigin := torGoogle
-      else
-        Entry.TranslationOrigin := torDeepL;
-      if Provider = tpGoogle then
+    TThread.CreateAnonymousThread(
+      procedure
+      var
+        ErrorText: string;
+        LocalClient: TTranslationProviderClient;
       begin
-        Entry.TranslationConfidence := 'provider-basic';
-        if SameText(Entry.ContextConfidence, 'unknown') or
-          ((Length(Trim(Entry.SourceText)) <= 12) and
-           (Entry.SemanticConcept = '')) then
-          Entry.TranslationReviewNote :=
-            'Short or ambiguous text translated by Google Basic without provider-side context; review recommended.'
-        else
-          Entry.TranslationReviewNote := '';
-      end
-      else
-      begin
-        Entry.TranslationConfidence := 'contextual-provider';
-        Entry.TranslationReviewNote := '';
-      end;
-    end;
-    TTerminologyResolver.ApplyAuthoritativeTerms(FTranslationCatalog);
-    DisplayCatalogEntries;
-    InvalidateValidation;
-    SaveCatalog;
-    lblStatus.Text := Format(
-      '%d entries resolved and saved; %d were sent to the provider. Review flagged ambiguous results before export.',
-      [MissingCount, Length(TranslatedTexts)]);
+        ErrorText := '';
+        try
+          LocalClient := TTranslationProviderClient.Create(Provider,
+            FProviderSettings.DeepLPlan, ApiKey,
+            FProviderSettings.RequestTimeoutSeconds,
+            FProviderSettings.BatchSize);
+          try
+            TranslatedTexts := LocalClient.TranslateWithContexts(
+              SourceTexts, Contexts,
+              FTranslationCatalog.SourceLanguage,
+              FTranslationCatalog.Locale.LanguageCode,
+              function: Boolean
+              begin
+                Result := TInterlocked.CompareExchange(
+                  FProviderCancelRequested, 0, 0) <> 0;
+              end);
+          finally
+            LocalClient.Free;
+          end;
+        except
+          on E: Exception do
+            ErrorText := E.Message;
+        end;
+        TThread.Queue(nil,
+          procedure
+          var
+            LocalEntry: TTranslationEntry;
+            LocalIndex: Integer;
+          begin
+            try
+              if ErrorText <> '' then
+              begin
+                if TInterlocked.CompareExchange(
+                  FProviderCancelRequested, 0, 0) <> 0 then
+                  lblStatus.Text := 'Bulk translation cancelled.'
+                else
+                  lblStatus.Text := 'Bulk translation failed: ' + ErrorText;
+              end
+              else
+              begin
+                for LocalIndex := 0 to High(TranslatedTexts) do
+                begin
+                  LocalEntry := FTranslationCatalog.Entries[
+                    EntryIndexes[LocalIndex]];
+                  LocalEntry.TranslatedText := TranslatedTexts[LocalIndex];
+                  LocalEntry.Status := tsMachineTranslated;
+                  if Provider = tpGoogle then
+                    LocalEntry.TranslationOrigin := torGoogle
+                  else
+                    LocalEntry.TranslationOrigin := torDeepL;
+                  if Provider = tpGoogle then
+                  begin
+                    LocalEntry.TranslationConfidence := 'provider-basic';
+                    if SameText(LocalEntry.ContextConfidence, 'unknown') or
+                      ((Length(Trim(LocalEntry.SourceText)) <= 12) and
+                       (LocalEntry.SemanticConcept = '')) then
+                      LocalEntry.TranslationReviewNote :=
+                        'Short or ambiguous text translated by Google Basic without provider-side context; review recommended.'
+                    else
+                      LocalEntry.TranslationReviewNote := '';
+                  end
+                  else
+                  begin
+                    LocalEntry.TranslationConfidence := 'contextual-provider';
+                    LocalEntry.TranslationReviewNote := '';
+                  end;
+                end;
+                TTerminologyResolver.ApplyAuthoritativeTerms(
+                  FTranslationCatalog);
+                DisplayCatalogEntries;
+                InvalidateValidation;
+                SaveCatalog;
+                lblStatus.Text := Format(
+                  '%d entries resolved and saved; %d were sent to the provider. Review flagged ambiguous results before export.',
+                  [MissingCount, Length(TranslatedTexts)]);
+              end;
+            except
+              on E: Exception do
+                lblStatus.Text := 'Bulk translation failed: ' + E.Message;
+            end;
+            FProviderOperationInProgress := False;
+            BodyLayout.Enabled := True;
+            NavigationCard.Enabled := True;
+            btnTranslateMissing.Enabled := True;
+            if FCloseAfterProviderOperation then
+            begin
+              FCloseAfterProviderOperation := False;
+              Close;
+            end;
+          end);
+      end).Start;
+    Exit;
   except
     on E: Exception do
       lblStatus.Text := 'Bulk translation failed: ' + E.Message;

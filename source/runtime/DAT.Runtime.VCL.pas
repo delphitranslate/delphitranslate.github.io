@@ -2117,6 +2117,7 @@ end;
   is therefore left reading left to right, which is what its digits mean. One
   Arabic letter anywhere in it and this does not apply, because then the run
   has a direction of its own and belongs with the rest of the form. }
+{$WARN SYMBOL_DEPRECATED OFF}
 function HoldsOnlyNeutralText(const AControl: TControl): Boolean;
 var
   Text: string;
@@ -2142,6 +2143,7 @@ begin
     colon on its own, a dash between two fields - reads the same either way. }
   Result := SawDigit;
 end;
+{$WARN SYMBOL_DEPRECATED ON}
 
 { An entry field a right-to-left reader is going to type into.
 

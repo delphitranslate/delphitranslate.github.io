@@ -18,6 +18,7 @@ uses
   System.Classes,
   System.Generics.Collections,
   System.IOUtils,
+  System.RegularExpressions,
   System.StrUtils,
   System.SysUtils,
   DAT.Core.Types,
@@ -1176,13 +1177,30 @@ end;
 procedure ScanHtmlText(const AStatement: TRuntimeStatement;
   const AResult: TProjectScanResult; const AFileName, AUnitName: string);
 var
-  CloseAt: Integer;
+  CleanHtml: string;
   Decoded: string;
-  OpenAt: Integer;
-  Segment: string;
+  RawSegment: string;
+  Segments: TArray<string>;
   SegmentIndex: Integer;
-  StartAt: Integer;
   TextValue: string;
+
+  function DecodeVisibleText(const AText: string): string;
+  begin
+    Result := AText;
+    Result := StringReplace(Result, '&nbsp;', ' ',
+      [rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result, '&amp;', '&',
+      [rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result, '&lt;', '<',
+      [rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result, '&gt;', '>',
+      [rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result, '&quot;', '"',
+      [rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result, '&#39;', '''',
+      [rfReplaceAll, rfIgnoreCase]);
+    Result := Trim(TRegEx.Replace(Result, '\s+', ' '));
+  end;
 begin
   { Delphi source generators legitimately contain comparison operators and
     generic type syntax inside long string literals. Treating every angle
@@ -1216,19 +1234,19 @@ begin
     ContainsText(AStatement.Text, '<hr')) or
     not JoinAllLiterals(AStatement.Text, Decoded) then
     Exit;
+  { Visible prose is the contract. Executable/style/template text and code
+    samples remain byte-for-byte technical content and must never enter a
+    translation catalog merely because an application renders HTML. }
+  CleanHtml := TRegEx.Replace(Decoded,
+    '<!--.*?-->|<(script|style|template|noscript|code|pre)\b[^>]*>.*?</\1\s*>',
+    ' ', [roIgnoreCase, roSingleLine]);
+  CleanHtml := TRegEx.Replace(CleanHtml, '<[^>]+>', sLineBreak,
+    [roIgnoreCase, roSingleLine]);
+  Segments := CleanHtml.Split([sLineBreak]);
   SegmentIndex := 0;
-  StartAt := 1;
-  while StartAt <= Length(Decoded) do
+  for RawSegment in Segments do
   begin
-    OpenAt := PosEx('>', Decoded, StartAt);
-    if OpenAt = 0 then
-      Break;
-    CloseAt := PosEx('<', Decoded, OpenAt + 1);
-    if CloseAt = 0 then
-      Break;
-    Segment := Trim(Copy(Decoded, OpenAt + 1, CloseAt - OpenAt - 1));
-    TextValue := StringReplace(Segment, '&nbsp;', ' ', [rfReplaceAll,
-      rfIgnoreCase]);
+    TextValue := DecodeVisibleText(RawSegment);
     if (TextValue <> '') and (Pos('<', TextValue) = 0) and
       (Pos('>', TextValue) = 0) and
       not ContainsText(TextValue, '%s') and
@@ -1239,7 +1257,6 @@ begin
         TextValue, AStatement.SourceLine, rtrStaticText);
       Inc(SegmentIndex);
     end;
-    StartAt := CloseAt + 1;
   end;
 end;
 

@@ -100,7 +100,8 @@ uses
   System.IOUtils,
   System.JSON,
   System.StrUtils,
-  System.SysUtils;
+  System.SysUtils,
+  DAT.Core.AtomicFile;
 
 const
   { How many of the application's own words are worth quoting. Enough to place
@@ -408,7 +409,7 @@ begin
     if not TDirectory.Exists(Directory) then
       TDirectory.CreateDirectory(Directory);
     if not TFile.Exists(Target) then
-      TFile.WriteAllText(Target, BuiltInTermsJson, TEncoding.UTF8);
+      TAtomicTextFile.WriteAllText(Target, BuiltInTermsJson, TEncoding.UTF8);
     Result := TFile.Exists(Target);
   except
     Result := False;

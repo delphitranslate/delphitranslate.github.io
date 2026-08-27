@@ -31,6 +31,7 @@ uses
   System.IOUtils,
   System.JSON,
   System.StrUtils,
+  DAT.Core.AtomicFile,
   DAT.Core.Hyphenation,
   DAT.Runtime.LanguagePack,
   DAT.Validation.Catalog;
@@ -347,8 +348,15 @@ begin
   DirectoryName := TPath.GetDirectoryName(AFileName);
   if DirectoryName <> '' then
     TDirectory.CreateDirectory(DirectoryName);
-  TFile.WriteAllText(AFileName,
-    Serialize(ACatalog, ALayoutProposalFileName), TEncoding.UTF8);
+  TAtomicTextFile.WriteAllText(AFileName,
+    Serialize(ACatalog, ALayoutProposalFileName), TEncoding.UTF8,
+    procedure(const AText: string)
+    var
+      ValidationPack: TRuntimeLanguagePack;
+    begin
+      ValidationPack := TRuntimeLanguagePack.LoadFromJson(AText);
+      ValidationPack.Free;
+    end);
 end;
 
 end.

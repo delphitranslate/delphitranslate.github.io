@@ -69,7 +69,8 @@ uses
   System.Generics.Collections,
   System.IOUtils,
   System.StrUtils,
-  System.SysUtils;
+  System.SysUtils,
+  DAT.Core.AtomicFile;
 
 { ---------------------------------------------------------------------------
   Escaping, and the small scanner both readers share.
@@ -300,7 +301,7 @@ begin
     Output.Add('  </body>');
     Output.Add('</tmx>');
     TDirectory.CreateDirectory(TPath.GetDirectoryName(AFileName));
-    Output.SaveToFile(AFileName, TEncoding.UTF8);
+    TAtomicTextFile.WriteAllText(AFileName, Output.Text, TEncoding.UTF8);
   finally
     Output.Free;
   end;
@@ -411,7 +412,7 @@ begin
     Output.Add('  </text>');
     Output.Add('</martif>');
     TDirectory.CreateDirectory(TPath.GetDirectoryName(AFileName));
-    Output.SaveToFile(AFileName, TEncoding.UTF8);
+    TAtomicTextFile.WriteAllText(AFileName, Output.Text, TEncoding.UTF8);
   finally
     Output.Free;
   end;

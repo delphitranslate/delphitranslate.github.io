@@ -86,7 +86,8 @@ uses
   System.Classes,
   System.IOUtils,
   System.JSON,
-  System.SysUtils;
+  System.SysUtils,
+  DAT.Core.AtomicFile;
 
 { ---------------------------------------------------------------------------
   What differs between languages, and nothing else.
@@ -343,7 +344,7 @@ begin
   try
     if not TDirectory.Exists(Directory) then
       TDirectory.CreateDirectory(Directory);
-    TFile.WriteAllText(Target, BuiltInDictionaryJson(ALanguageCode),
+    TAtomicTextFile.WriteAllText(Target, BuiltInDictionaryJson(ALanguageCode),
       TEncoding.UTF8);
     Result := True;
   except

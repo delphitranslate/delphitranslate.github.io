@@ -13,6 +13,7 @@ object frmTranslationStudio: TfrmTranslationStudio
   FormFactor.Devices = [Desktop]
   DesignerMasterStyle = 0
   OnCreate = FormCreate
+  OnCloseQuery = FormCloseQuery
   object MainMenuBar: TMenuBar
     Align = Top
     Size.Width = 1220.000000000000000000

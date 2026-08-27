@@ -15,7 +15,6 @@ type
   private
     FApplicationEvents: TApplicationEvents;
     FAutoDiscoverForms: Boolean;
-    FPreviousActiveFormChange: TNotifyEvent;
     FTranslatingActiveForm: Boolean;
     FIdleScanInterval: Cardinal;
     FLastIdleScanTick: UInt64;
@@ -28,6 +27,7 @@ type
       const AManagedObject: TObject): Boolean; override;
     function ManagedObjectInstanceName(
       const AManagedObject: TObject): string; override;
+    function ExpectedFramework: string; override;
     function ApplyLanguagePack(const AManagedObject: TObject;
       const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; override;
@@ -48,7 +48,7 @@ type
     property AutoDiscoverForms: Boolean read FAutoDiscoverForms
       write FAutoDiscoverForms default True;
     property IdleScanInterval: Cardinal read FIdleScanInterval
-      write SetIdleScanInterval default 100;
+      write SetIdleScanInterval default 1000;
   end;
 
 implementation
@@ -68,43 +68,119 @@ uses
   DAT.Runtime.TemplateRewrite.VCL,
   DAT.Runtime.VCL;
 
+type
+  TDATVCLActiveFormBroker = class
+  private
+    FDispatching: Boolean;
+    FManagers: TList<TDATVCLLanguageManager>;
+    FPreviousHandler: TNotifyEvent;
+    procedure ActiveFormChanged(Sender: TObject);
+    procedure Install;
+    procedure Restore;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure Add(const AManager: TDATVCLLanguageManager);
+    procedure Remove(const AManager: TDATVCLLanguageManager);
+  end;
+
+var
+  DATVCLActiveFormBroker: TDATVCLActiveFormBroker;
+
+constructor TDATVCLActiveFormBroker.Create;
+begin
+  inherited Create;
+  FManagers := TList<TDATVCLLanguageManager>.Create;
+end;
+
+destructor TDATVCLActiveFormBroker.Destroy;
+begin
+  Restore;
+  FManagers.Free;
+  inherited Destroy;
+end;
+
+procedure TDATVCLActiveFormBroker.Install;
+var
+  BrokerHandler: TNotifyEvent;
+begin
+  if Screen = nil then
+    Exit;
+  BrokerHandler := ActiveFormChanged;
+  if (TMethod(Screen.OnActiveFormChange).Code = TMethod(BrokerHandler).Code) and
+    (TMethod(Screen.OnActiveFormChange).Data = Self) then
+    Exit;
+  FPreviousHandler := Screen.OnActiveFormChange;
+  Screen.OnActiveFormChange := ActiveFormChanged;
+end;
+
+procedure TDATVCLActiveFormBroker.Restore;
+var
+  BrokerHandler: TNotifyEvent;
+begin
+  if Screen = nil then
+    Exit;
+  BrokerHandler := ActiveFormChanged;
+  if (TMethod(Screen.OnActiveFormChange).Code = TMethod(BrokerHandler).Code) and
+    (TMethod(Screen.OnActiveFormChange).Data = Self) then
+    Screen.OnActiveFormChange := FPreviousHandler;
+  FPreviousHandler := nil;
+end;
+
+procedure TDATVCLActiveFormBroker.Add(
+  const AManager: TDATVCLLanguageManager);
+begin
+  if (AManager = nil) or (FManagers.IndexOf(AManager) >= 0) then
+    Exit;
+  if FManagers.Count = 0 then
+    Install;
+  FManagers.Add(AManager);
+end;
+
+procedure TDATVCLActiveFormBroker.Remove(
+  const AManager: TDATVCLLanguageManager);
+begin
+  FManagers.Remove(AManager);
+  if FManagers.Count = 0 then
+    Restore;
+end;
+
+procedure TDATVCLActiveFormBroker.ActiveFormChanged(Sender: TObject);
+var
+  ManagerIndex: Integer;
+  PreviousHandler: TNotifyEvent;
+begin
+  if FDispatching then
+    Exit;
+  FDispatching := True;
+  try
+    for ManagerIndex := FManagers.Count - 1 downto 0 do
+      FManagers[ManagerIndex].HandleActiveFormChange(Sender);
+    PreviousHandler := FPreviousHandler;
+    if Assigned(PreviousHandler) then
+      PreviousHandler(Sender);
+  finally
+    FDispatching := False;
+  end;
+end;
+
 constructor TDATVCLLanguageManager.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   FAutoDiscoverForms := True;
-  FIdleScanInterval := 100;
+  FIdleScanInterval := 1000;
   if not (csDesigning in ComponentState) then
   begin
     FApplicationEvents := TApplicationEvents.Create(Self);
     FApplicationEvents.OnIdle := HandleIdle;
     FApplicationEvents.OnModalBegin := HandleModalBegin;
-    { A form becoming active is the moment a form built after the language was
-      chosen first appears, and it is the only moment VCL offers that is as
-      early as FireMonkey's before-shown message. Without it a form created on
-      demand - which is how most applications open a dialog - was left to an
-      idle scan, and came up in the source language.
-
-      Whatever was on the hook stays on it: this is a screen-wide event and
-      another component may be listening. }
-    if Screen <> nil then
-    begin
-      FPreviousActiveFormChange := Screen.OnActiveFormChange;
-      Screen.OnActiveFormChange := HandleActiveFormChange;
-    end;
+    DATVCLActiveFormBroker.Add(Self);
   end;
 end;
 
 destructor TDATVCLLanguageManager.Destroy;
-var
-  OwnHandler: TNotifyEvent;
 begin
-  { Put back whatever was on the hook, but only if this manager is still the
-    one holding it: another component may have taken it since. }
-  OwnHandler := HandleActiveFormChange;
-  if (Screen <> nil) and
-    (TMethod(Screen.OnActiveFormChange).Code = TMethod(OwnHandler).Code) and
-    (TMethod(Screen.OnActiveFormChange).Data = Self) then
-    Screen.OnActiveFormChange := FPreviousActiveFormChange;
+  DATVCLActiveFormBroker.Remove(Self);
   FreeAndNil(FApplicationEvents);
   inherited Destroy;
 end;
@@ -216,8 +292,11 @@ begin
       end;
     end;
   end;
-  if Assigned(FPreviousActiveFormChange) then
-    FPreviousActiveFormChange(Sender);
+end;
+
+function TDATVCLLanguageManager.ExpectedFramework: string;
+begin
+  Result := 'VCL';
 end;
 
 procedure TDATVCLLanguageManager.HandleModalBegin(Sender: TObject);
@@ -263,9 +342,11 @@ begin
 end;
 
 initialization
+  DATVCLActiveFormBroker := TDATVCLActiveFormBroker.Create;
   System.Classes.RegisterClass(TDATVCLLanguageManager);
 
 finalization
   System.Classes.UnregisterClass(TDATVCLLanguageManager);
+  DATVCLActiveFormBroker.Free;
 
 end.

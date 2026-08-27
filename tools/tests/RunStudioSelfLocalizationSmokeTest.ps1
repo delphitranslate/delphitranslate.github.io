@@ -7,9 +7,12 @@ $ProjectRoot = [System.IO.Path]::GetFullPath(
     (Join-Path $PSScriptRoot '..\..'))
 $FixturePack = Join-Path $ProjectRoot `
     'samples\StudioSelfLocalization\it-IT.json'
+$SourceFixturePack = Join-Path $ProjectRoot `
+    'samples\StudioSelfLocalization\en-US.json'
 $LocalizationDirectory = Join-Path $ProjectRoot 'Localization'
 $LanguagesDirectory = Join-Path $LocalizationDirectory 'Languages'
 $TargetPack = Join-Path $LanguagesDirectory 'it-IT.json'
+$SourceTargetPack = Join-Path $LanguagesDirectory 'en-US.json'
 $PreferenceDirectory = Join-Path $env:LOCALAPPDATA `
     'DelphiAppTranslationStudio'
 $PreferenceFile = Join-Path $PreferenceDirectory 'language.ini'
@@ -17,13 +20,19 @@ $ExpectedTitle = 'Studio di traduzione app Delphi'
 $TemporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) `
     ('DAT-SelfLocalization-' + [Guid]::NewGuid().ToString('N'))
 $SavedPack = Join-Path $TemporaryDirectory 'it-IT.json'
+$SavedSourcePack = Join-Path $TemporaryDirectory 'en-US.json'
 $SavedPreference = Join-Path $TemporaryDirectory 'language.ini'
 $PackExisted = Test-Path -LiteralPath $TargetPack
+$SourcePackExisted = Test-Path -LiteralPath $SourceTargetPack
 $PreferenceExisted = Test-Path -LiteralPath $PreferenceFile
 
 New-Item -ItemType Directory -Path $TemporaryDirectory -Force | Out-Null
 if ($PackExisted) {
     Copy-Item -LiteralPath $TargetPack -Destination $SavedPack -Force
+}
+if ($SourcePackExisted) {
+    Copy-Item -LiteralPath $SourceTargetPack `
+        -Destination $SavedSourcePack -Force
 }
 if ($PreferenceExisted) {
     Copy-Item -LiteralPath $PreferenceFile `
@@ -34,6 +43,8 @@ try {
     New-Item -ItemType Directory -Path $LanguagesDirectory -Force | Out-Null
     New-Item -ItemType Directory -Path $PreferenceDirectory -Force | Out-Null
     Copy-Item -LiteralPath $FixturePack -Destination $TargetPack -Force
+    Copy-Item -LiteralPath $SourceFixturePack `
+        -Destination $SourceTargetPack -Force
     [System.IO.File]::WriteAllText(
         $PreferenceFile,
         "[Language]`r`nSelected=it-IT`r`n",
@@ -92,6 +103,13 @@ finally {
     }
     elseif (Test-Path -LiteralPath $TargetPack) {
         Remove-Item -LiteralPath $TargetPack -Force
+    }
+    if ($SourcePackExisted) {
+        Copy-Item -LiteralPath $SavedSourcePack `
+            -Destination $SourceTargetPack -Force
+    }
+    elseif (Test-Path -LiteralPath $SourceTargetPack) {
+        Remove-Item -LiteralPath $SourceTargetPack -Force
     }
 
     if ($PreferenceExisted) {

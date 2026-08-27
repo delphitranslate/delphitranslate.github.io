@@ -20,7 +20,7 @@ ICON = (
     / "images and icons"
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
-LAST_CHANGED = "August 12, 2026"
+LAST_CHANGED = "August 27, 2026"
 BLUE = "234C80"
 BRIGHT_BLUE = "1974DF"
 ORANGE = "F28A1B"
@@ -419,7 +419,25 @@ def build_user_guide() -> Path:
         "User Guide",
         "Delphi App Translation Studio",
     )
-    add_toc_section(document, title)
+    add_toc_section(document, title, [
+        ("1. About This Guide", 1),
+        ("2. Before You Begin", 3),
+        ("3. The End-to-End Workflow", 5),
+        ("4. Open and Scan a Project", 6),
+        ("5. Create and Edit a Language Catalog", 7),
+        ("6. Provider Settings and Secure Key Storage", 9),
+        ("7. Obtain and Enter a DeepL API Key", 10),
+        ("8. Obtain and Enter a Google API Key", 11),
+        ("9. Direct Provider Translation", 12),
+        ("10. Validate and Export", 12),
+        ("11. Integrate a Target Application", 13),
+        ("12. Translate the Studio Itself", 15),
+        ("13. Troubleshooting", 15),
+        ("14. Security and Privacy", 16),
+        ("15. File and Folder Reference", 17),
+        ("16. Provider Reference and Change Notice", 17),
+        ("17. Stabilization and Recovery", 18),
+    ])
 
     document.add_heading("1. About This Guide", level=1)
     add_paragraphs(
@@ -939,7 +957,45 @@ def build_user_guide() -> Path:
         document,
         [
             "Provider setup screens and commercial terms can change after this guide is published. Before creating a production key, compare these steps with the official pages listed in Chapters 7 and 8. Prefer a dedicated, restricted key and review the provider dashboard after the first bulk run.",
-            "This guide documents the implemented Studio as of August 10, 2026.",
+            "This guide documents the implemented Studio as of August 27, 2026.",
+        ],
+    )
+
+    document.add_heading("17. Stabilization and Recovery", level=1)
+    add_paragraphs(
+        document,
+        [
+            "The stabilization release treats a language change, scan, save, export, component-kit generation, and deployment as bounded operations. The Studio keeps the interface responsive during long scans and provider work, exposes cancellation at safe boundaries, and reports a concise diagnostic instead of repeatedly processing UI messages inside the operation.",
+            "Catalogs, preferences, provider settings, runtime packs, layout overrides, glossaries, translation memories, and interchange files use atomic replacement. When a previous valid file exists, a recoverable .previous copy is retained. An invalid current file is quarantined instead of being silently accepted or overwriting the last valid state.",
+        ],
+    )
+    document.add_heading("17.1 Strict runtime-pack admission", level=2)
+    add_bullets(
+        document,
+        [
+            "A pack must have unique JSON keys and a file name that matches its locale.",
+            "applicationId, framework, format version, locale, and checksum must match the target runtime contract.",
+            "A translated pack is accepted only with a compatible source-language pack; the source pack supplies the deterministic fallback and restores the source language after switching.",
+            "An incompatible saved language preference is logged, replaced with the validated source language, and does not prevent application startup.",
+        ],
+    )
+    document.add_heading("17.2 VCL and FMX form lifecycle", level=2)
+    add_paragraphs(
+        document,
+        [
+            "FMX applies the active language through its additive before-show lifecycle. VCL translates the manager owner during initialization, retranslates open forms when the language changes, and discovers later forms through additive application notifications. Delphi VCL does not expose one universal additive before-show event for every dynamically created modeless form. When first-paint translation is mandatory for such a form, call the manager's ApplyToForm method immediately before Show. Call ApplyToForm before ShowModal for the same explicit guarantee on modal forms.",
+            "Do not add a timer, idle replay, or repeated post-show translation loop to compensate for application-specific lifecycle code. Such replay can make the UI sluggish and can overwrite live control state.",
+        ],
+    )
+    document.add_heading("17.3 Layout, RTL, HTML, and diagnostics", level=2)
+    add_bullets(
+        document,
+        [
+            "RTL/LTR state is reapplied from a stable baseline whenever the language changes; direction does not accumulate across switches.",
+            "Automatic layout acceptance is limited to relative, reversible changes. Absolute geometry and grid-column widths remain review decisions.",
+            "HTML localization changes visible prose while preserving comments, scripts, styles, protected nodes, product identifiers, and markup structure.",
+            "Scanner output distinguishes identical duplicate observations from conflicting duplicate keys; conflicts remain visible for correction.",
+            "The diagnostic log records recovery, rejected packs, fallback decisions, deployment rollback, and cancellation without recording provider credentials.",
         ],
     )
 
@@ -1452,7 +1508,29 @@ def build_engineering_guide() -> Path:
         "Engineering Guide",
         "Architecture, Formats, Integration, Security, and Validation",
     )
-    add_toc_section(document, title)
+    add_toc_section(document, title, [
+        ("1. Product Scope and Invariants", 1),
+        ("2. Repository and Build Layout", 1),
+        ("3. System Architecture", 2),
+        ("4. Core Data Model and JSON", 3),
+        ("5. Project Detection and Scanning", 4),
+        ("6. Studio UI and Workflow State", 5),
+        ("7. Provider Settings and Secret Storage", 6),
+        ("8. Provider HTTP Clients", 7),
+        ("9. Automatic Provider Translation and Review", 8),
+        ("10. Validation and Runtime Pack Export", 9),
+        ("11. Runtime Engine", 9),
+        ("12. Component Packages and Integration Modes", 10),
+        ("13. Self-Localization", 12),
+        ("14. Error Handling and Diagnostics", 12),
+        ("15. Test Strategy and Verified Matrix", 12),
+        ("16. Security Review", 14),
+        ("17. Release and Contribution Workflow", 14),
+        ("18. Known Boundaries and Future-Compatible Design", 15),
+        ("19. Documentation Generation", 15),
+        ("20. Source References", 15),
+        ("21. Total Stabilization Contracts", 16),
+    ])
 
     document.add_heading("1. Product Scope and Invariants", level=1)
     add_paragraphs(
@@ -1821,7 +1899,7 @@ def build_engineering_guide() -> Path:
         document,
         ["Test", "Coverage"],
         [
-            ["FoundationSmokeTests", "Detection, scan-to-catalog, schema/provenance round-trip, provider contracts, review/approval, validation, runtime pack, preference, advanced integration, component-kit contents, and SHA-256 non-mutation proof."],
+            ["FoundationSmokeTests", "Detection, deterministic cancellable scan, duplicate/conflict handling, schema/provenance round-trip, atomic persistence/recovery, strict pack admission, saved-preference fallback, provider contracts, review/approval, validation, runtime pack, preference, integration, and Studio responsiveness contracts."],
             ["Language manager suites", "Core guards/generations, FMX before-show lifecycle, VCL discovery/modal boundary, stable identities, instant switching, state preservation, and deterministic cleanup on Win32/Win64."],
             ["Package/selector suites", "Debug and Release runtime/design packages, DFM/FMX streaming, typed manager references, pack discovery, and selector language propagation on Win32/Win64."],
             ["VCLRuntimeSmokeTests", "VCL controls, menu items, locale, generated unit."],
@@ -1829,13 +1907,14 @@ def build_engineering_guide() -> Path:
             ["StudioFormSmokeTests", "Direct FMX stream/create, maximized client-aligned pages, provider-only automatic-translation controls, exact-review controls, linguistic action wiring, and Provider Settings activation."],
             ["RunRuntimeSmokeTests.ps1", "Both compilers, scanner/catalog/provider contracts, disposable integrated VCL/FMX builds, deployed Italian pack, and required Italian launch title."],
             ["RunStudioLaunchSmokeTests.ps1", "Debug/Release Win32/Win64 real main-window title."],
-            ["RunStudioSelfLocalizationSmokeTest.ps1", "Italian Studio title in all four configurations with state restoration."],
+            ["RunStudioSelfLocalizationSmokeTest.ps1", "Source and translated Studio packs, strict compatibility, all four configurations, and state restoration."],
+            ["RunPhase10ReleaseValidation.ps1", "Debug/Release Win32/Win64 packages and Studio builds, runtime suites, streaming, launch, self-localization, deployed pilots, and release guards."],
         ],
     )
     add_paragraphs(
         document,
         [
-            "On August 9, 2026, the complete release harness passed uninterrupted. Debug and Release component packages, Win32/Win64 manager suites, scanner/catalog/provider contracts, component non-mutation, runtime and advanced integration all passed. The Studio built in Debug and Release for both architectures, streamed its FMX form directly, launched normally, and self-localized to Italian in all four configurations. Disposable real-application pilots also built and opened translated first forms on Win32/Win64 for Website Analytics (FMX) and Courier Herald Reader (VCL).",
+            "The August 27, 2026 stabilization gate requires the complete verification harness and Phase 10 release validation to pass without interruption. The gate covers Debug and Release packages, Win32/Win64 manager suites, scanner/catalog/provider contracts, atomic persistence and recovery, strict packs, component non-mutation, runtime and advanced integration, Studio builds, direct FMX form streaming, launch, self-localization, and disposable real-application pilots.",
         ],
     )
     document.add_heading("15.1 Optional live provider testing", level=2)
@@ -1890,7 +1969,7 @@ def build_engineering_guide() -> Path:
             "Only Windows Win32/Win64 Delphi applications are supported.",
             "Google Advanced v3, OAuth/service-account workflows, and other providers are not implemented.",
             "Provider operations are explicit Studio actions; target runtime remains offline.",
-            "No automatic control resizing/reflow is performed.",
+            "Automatic layout acceptance is intentionally limited to relative, reversible adjustments. Absolute geometry, deliberately positioned artwork, and grid-column widths require a reviewed layout decision.",
             "Binary DFM conversion is outside the scanner.",
             "Automatic runtime application covers scanned designer properties. Application-specific strings still require the documented TranslateText wiring.",
             "VCL dynamic modeless forms may paint once in source language before idle discovery; call ApplyToForm before Show when a no-flicker first display is mandatory.",
@@ -1910,12 +1989,37 @@ def build_engineering_guide() -> Path:
     add_bullets(
         document,
         [
-            "Repository source, forms, project metadata, schemas, and smoke tests as of August 10, 2026.",
+            "Repository source, forms, project metadata, schemas, and smoke tests as of August 27, 2026.",
             "Microsoft credential handling: https://learn.microsoft.com/en-us/windows/win32/secbp/handling-passwords",
             "Windows CREDENTIAL structure: https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw",
             "DeepL developer documentation: https://developers.deepl.com/docs/getting-started/auth",
             "Google Cloud Translation documentation: https://docs.cloud.google.com/translate/docs/authentication",
             "Google API-key guidance: https://docs.cloud.google.com/docs/authentication/api-keys-best-practices",
+        ],
+    )
+
+    document.add_heading("21. Total Stabilization Contracts", level=1)
+    add_table(
+        document,
+        ["Contract", "Required behavior", "Primary verification"],
+        [
+            ["Persistence", "Write to staging, validate, atomically replace, retain one recoverable previous file, and quarantine invalid current data.", "AtomicPersistenceSmokeTests and FoundationSmokeTests"],
+            ["Pack admission", "Reject duplicate keys, wrong locale/file name, wrong application/framework/version, checksum failure, and missing compatible source pack.", "LanguageManagerCoreTests and runtime suites"],
+            ["Startup preference", "A stale or incompatible saved locale falls back to the validated source language and repairs the preference.", "FoundationSmokeTests"],
+            ["Lifecycle", "One manager, deterministic registration/removal, FMX before-show, VCL explicit pre-display call where the framework has no universal additive hook, and no post-show replay loop.", "VCL/FMX manager and lifecycle suites"],
+            ["Direction", "Every switch starts from the persisted designer baseline, applies exactly one LTR or RTL transformation, and restores menu, status, input, grid, and container direction.", "Layout contracts plus VCL/FMX runtime tests"],
+            ["Layout", "Only relative and reversible proposals may be auto-accepted; absolute geometry and grid widths remain reviewed decisions.", "Layout contract fixtures"],
+            ["HTML", "Translate visible prose only; preserve markup, comments, protected nodes, scripts, styles, identifiers, and technical tokens.", "Foundation browser-pair fixtures"],
+            ["Scanner", "Deterministic order, pruned output trees, cancellation, identical duplicate suppression, and visible conflicting duplicates.", "Foundation and scanner contract suites"],
+            ["Integration", "Create component kits in staging, validate manifest and hashes, publish atomically, and roll back failed deployment.", "Foundation integration fixtures and package suites"],
+            ["Responsiveness", "Long Studio work executes outside the UI thread, queues progress safely, observes cancellation, and contains no production ProcessMessages loop.", "Studio responsiveness contract and launch tests"],
+        ],
+    )
+    document.add_heading("21.1 Diagnostics boundary", level=2)
+    add_paragraphs(
+        document,
+        [
+            "DAT.Core.Diagnostics is the common boundary for persistence recovery, rejected packs, fallback decisions, scan cancellation/conflicts, package publication, deployment rollback, and runtime lifecycle failures. Messages contain operation, artifact, and corrective context but never provider keys or raw authenticated responses.",
         ],
     )
 

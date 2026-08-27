@@ -32,7 +32,22 @@ implementation
 uses
   System.IOUtils,
   System.JSON,
-  System.SysUtils;
+  System.SysUtils,
+  DAT.Core.AtomicFile,
+  DAT.Core.Diagnostics;
+
+procedure ValidateProviderSettingsText(const AText: string);
+var
+  JsonValue: TJSONValue;
+begin
+  JsonValue := TJSONObject.ParseJSONValue(AText);
+  try
+    if not (JsonValue is TJSONObject) then
+      raise EConvertError.Create('Provider settings are not a JSON object.');
+  finally
+    JsonValue.Free;
+  end;
+end;
 
 constructor TProviderSettings.Create;
 begin
@@ -60,13 +75,20 @@ var
   FileName: string;
   JsonObject: TJSONObject;
   JsonValue: TJSONValue;
+  JsonText: string;
+  Recovered: Boolean;
 begin
   Result := TProviderSettings.Create;
   FileName := DefaultFileName;
   if not TFile.Exists(FileName) then
     Exit;
-  JsonValue := TJSONObject.ParseJSONValue(
-    TFile.ReadAllText(FileName, TEncoding.UTF8));
+  JsonText := TAtomicTextFile.ReadAllText(FileName, TEncoding.UTF8,
+    ValidateProviderSettingsText, Recovered);
+  if Recovered then
+    TDATDiagnostics.Log('DAT-PROVIDER-SETTINGS-RECOVERY-001', 'Load',
+      'Recovered the prior valid provider settings and quarantined the invalid file: ' +
+      FileName, dsWarning);
+  JsonValue := TJSONObject.ParseJSONValue(JsonText);
   if not (JsonValue is TJSONObject) then
   begin
     JsonValue.Free;
@@ -109,8 +131,8 @@ begin
     JsonObject.AddPair('batchSize', TJSONNumber.Create(FBatchSize));
     DirectoryName := TPath.GetDirectoryName(DefaultFileName);
     TDirectory.CreateDirectory(DirectoryName);
-    TFile.WriteAllText(DefaultFileName,
-      JsonObject.ToJSON, TEncoding.UTF8);
+    TAtomicTextFile.WriteAllText(DefaultFileName,
+      JsonObject.ToJSON, TEncoding.UTF8, ValidateProviderSettingsText);
   finally
     JsonObject.Free;
   end;

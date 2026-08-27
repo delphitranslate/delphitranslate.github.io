@@ -263,8 +263,19 @@ begin
   Form := TfrmVCLLifecycle.Create(nil);
   try
     Form.CloseModalAutomatically := True;
+    Require(AManager.ApplyToForm(Form) > 0,
+      'modal: explicit pre-display translation did not apply.');
+    Require(AManager.WasApplied(Form),
+      'modal: explicit pre-display translation was not tracked.');
+    Require(Pos('translated', LowerCase(Form.Caption)) > 0,
+      'modal: caption was not translated before ShowModal.');
+    Require(Pos('translated', LowerCase(Form.lblProbe.Caption)) > 0,
+      'modal: probe text was not translated before ShowModal.');
     Form.ShowModal;
-    AObserver.VerifyScenario(Form, AManager);
+    Require(Pos('translated', LowerCase(Form.Caption)) > 0,
+      'modal: caption lost its translation during ShowModal.');
+    Require(Pos('translated', LowerCase(Form.lblProbe.Caption)) > 0,
+      'modal: probe text lost its translation during ShowModal.');
     AObserver.WriteScenario;
   finally
     Form.Free;

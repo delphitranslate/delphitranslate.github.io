@@ -139,7 +139,37 @@ uses
   System.IOUtils,
   System.JSON,
   System.StrUtils,
-  System.SysUtils;
+  System.SysUtils,
+  DAT.Core.AtomicFile,
+  DAT.Core.Diagnostics;
+
+procedure ValidateMemoryText(const AText: string);
+var
+  Item: TJSONValue;
+  JsonValue: TJSONValue;
+  Root: TJSONObject;
+  Units: TJSONArray;
+begin
+  JsonValue := TJSONObject.ParseJSONValue(AText);
+  if not (JsonValue is TJSONObject) then
+  begin
+    JsonValue.Free;
+    raise EConvertError.Create('The translation memory is not valid JSON.');
+  end;
+  Root := TJSONObject(JsonValue);
+  try
+    Units := Root.GetValue('units') as TJSONArray;
+    if Units = nil then
+      raise EConvertError.Create(
+        'The translation memory is missing its units array.');
+    for Item in Units do
+      if not (Item is TJSONObject) then
+        raise EConvertError.Create(
+          'The translation memory contains an invalid unit.');
+  finally
+    Root.Free;
+  end;
+end;
 
 function TMemoryMatch.Applies: Boolean;
 begin
@@ -335,14 +365,21 @@ var
   Items: TJSONArray;
   Item: TJSONValue;
   Entry: TTranslationMemoryUnit;
+  JsonText: string;
+  Recovered: Boolean;
 begin
   Memory := TTranslationMemory.Create(ALanguageCode);
   try
     Path := FileName(ALanguageCode);
     if not TFile.Exists(Path) then
       Exit(Memory);
-    Root := TJSONObject.ParseJSONValue(
-      TFile.ReadAllText(Path, TEncoding.UTF8)) as TJSONObject;
+    JsonText := TAtomicTextFile.ReadAllText(Path, TEncoding.UTF8,
+      ValidateMemoryText, Recovered);
+    if Recovered then
+      TDATDiagnostics.Log('DAT-MEMORY-RECOVERY-001', 'Load',
+        'Recovered the prior valid translation memory and quarantined the invalid file: ' +
+        Path, dsWarning);
+    Root := TJSONObject.ParseJSONValue(JsonText) as TJSONObject;
     if Root = nil then
       Exit(Memory);
     try
@@ -372,9 +409,14 @@ begin
     Memory.Reindex;
     Result := Memory;
   except
+    on E: Exception do
+    begin
+      TDATDiagnostics.LogException('DAT-MEMORY-READ-001',
+        'Load(' + Path + ')', E);
     { A memory that cannot be read is an empty memory, not a failed run. The
       worst it costs is translating something again. }
-    Result := Memory;
+      Result := Memory;
+    end;
   end;
 end;
 
@@ -401,8 +443,8 @@ begin
       Items.AddElement(Item);
     end;
     Root.AddPair('units', Items);
-    TFile.WriteAllText(FileName(FLanguageCode), Root.Format(2),
-      TEncoding.UTF8);
+    TAtomicTextFile.WriteAllText(FileName(FLanguageCode), Root.Format(2),
+      TEncoding.UTF8, ValidateMemoryText);
   finally
     Root.Free;
   end;

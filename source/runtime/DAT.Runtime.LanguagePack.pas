@@ -114,12 +114,20 @@ type
     FNativeLanguageName: string;
     FTextDirection: string;
     FSourceLanguage: string;
+    FApplicationVersion: string;
+    FFramework: string;
+    FSourceCatalogChecksum: string;
   public
     property FileName: string read FFileName write FFileName;
     property LanguageCode: string read FLanguageCode write FLanguageCode;
     property NativeLanguageName: string read FNativeLanguageName write FNativeLanguageName;
     property TextDirection: string read FTextDirection write FTextDirection;
     property SourceLanguage: string read FSourceLanguage write FSourceLanguage;
+    property ApplicationVersion: string read FApplicationVersion
+      write FApplicationVersion;
+    property Framework: string read FFramework write FFramework;
+    property SourceCatalogChecksum: string read FSourceCatalogChecksum
+      write FSourceCatalogChecksum;
   end;
 
   TLanguagePackDiscovery = class
@@ -143,6 +151,12 @@ function CanonicalNativeLanguageName(const ALanguageCode,
   So it lives here, in the unit the exporter and both applicators already
   share, and nothing else keeps a copy. }
 function IsRuntimeLayoutProperty(const APropertyName: string): Boolean;
+{ Properties that may be accepted in bulk without tying a translated form to
+  one design-time resolution. Absolute geometry remains supported for a
+  developer's explicit, visually reviewed per-control decision, but it is not
+  "safe" merely because both runtimes know how to assign it. }
+function IsAutomaticallySafeLayoutProperty(
+  const APropertyName: string): Boolean;
 
 implementation
 
@@ -150,7 +164,9 @@ uses
   System.Generics.Defaults,
   System.IOUtils,
   System.JSON,
-  System.StrUtils;
+  System.StrUtils,
+  DAT.Core.AtomicFile,
+  DAT.Core.Diagnostics;
 
 function IsRuntimeLayoutProperty(const APropertyName: string): Boolean;
 begin
@@ -181,6 +197,30 @@ begin
     SameText(APropertyName, 'MirrorChildren') or
     { a column names a path into a control rather than a property of it }
     StartsText('Columns[', APropertyName);
+end;
+
+function IsAutomaticallySafeLayoutProperty(
+  const APropertyName: string): Boolean;
+begin
+  Result :=
+    SameText(APropertyName, 'WordWrap') or
+    SameText(APropertyName, 'AutoSize') or
+    SameText(APropertyName, 'FontSize') or
+    SameText(APropertyName, 'Alignment') or
+    SameText(APropertyName, 'TextSettings.HorzAlign') or
+    SameText(APropertyName, 'Align') or
+    SameText(APropertyName, 'Anchors') or
+    SameText(APropertyName, 'TabOrder') or
+    SameText(APropertyName, 'ColumnOrder') or
+    SameText(APropertyName, 'MirrorChildren') or
+    { A grid-column font/alignment rule adapts the text inside the live
+      column. A numeric column Width does not: it freezes one design-time
+      pixel measurement and therefore follows the same explicit-review rule
+      as a control Width. }
+    (StartsText('Columns[', APropertyName) and
+      (EndsText('.FontSize', APropertyName) or
+       EndsText('.Alignment', APropertyName) or
+       EndsText('.Title.Alignment', APropertyName)));
 end;
 
 
@@ -315,6 +355,46 @@ begin
       'The runtime language pack is missing "%s".', [AName]);
 end;
 
+procedure ValidateNoDuplicateKeys(const AValue: TJSONValue;
+  const APath: string);
+var
+  ArrayItem: TJSONValue;
+  JsonArray: TJSONArray;
+  JsonObject: TJSONObject;
+  JsonPair: TJSONPair;
+  Keys: TDictionary<string, Boolean>;
+  PairPath: string;
+begin
+  if AValue is TJSONObject then
+  begin
+    JsonObject := TJSONObject(AValue);
+    Keys := TDictionary<string, Boolean>.Create;
+    try
+      for JsonPair in JsonObject do
+      begin
+        if Keys.ContainsKey(JsonPair.JsonString.Value) then
+          raise ELanguagePackError.CreateFmt(
+            'The runtime language pack contains duplicate JSON key "%s" at %s.',
+            [JsonPair.JsonString.Value, APath]);
+        Keys.Add(JsonPair.JsonString.Value, True);
+        if APath = '' then
+          PairPath := JsonPair.JsonString.Value
+        else
+          PairPath := APath + '.' + JsonPair.JsonString.Value;
+        ValidateNoDuplicateKeys(JsonPair.JsonValue, PairPath);
+      end;
+    finally
+      Keys.Free;
+    end;
+  end
+  else if AValue is TJSONArray then
+  begin
+    JsonArray := TJSONArray(AValue);
+    for ArrayItem in JsonArray do
+      ValidateNoDuplicateKeys(ArrayItem, APath + '[]');
+  end;
+end;
+
 constructor TRuntimeLanguagePack.Create;
 begin
   inherited Create;
@@ -372,6 +452,7 @@ begin
 
   JsonRoot := TJSONObject(JsonValue);
   try
+    ValidateNoDuplicateKeys(JsonRoot, '$');
     Result := TRuntimeLanguagePack.Create;
     try
       Result.FSchemaVersion := JsonRoot.GetValue<Integer>('schemaVersion', 0);
@@ -393,41 +474,44 @@ begin
         JsonString(LanguageObject, 'nativeName', True);
       Result.FTextDirection := JsonString(LanguageObject, 'direction');
 
-      LocaleObject := RequiredObject(JsonRoot, 'locale');
-      Result.FLocale.ShortDateFormat :=
-        JsonString(LocaleObject, 'shortDateFormat');
-      Result.FLocale.LongDateFormat :=
-        JsonString(LocaleObject, 'longDateFormat');
-      Result.FLocale.ShortTimeFormat :=
-        JsonString(LocaleObject, 'shortTimeFormat');
-      Result.FLocale.LongTimeFormat :=
-        JsonString(LocaleObject, 'longTimeFormat');
-      Result.FLocale.DecimalSeparator :=
-        JsonString(LocaleObject, 'decimalSeparator');
-      Result.FLocale.ThousandSeparator :=
-        JsonString(LocaleObject, 'thousandSeparator');
-      Result.FLocale.CurrencySymbol :=
-        JsonString(LocaleObject, 'currencySymbol');
+      LocaleObject := JsonRoot.GetValue('locale') as TJSONObject;
+      if LocaleObject <> nil then
+      begin
+        Result.FLocale.ShortDateFormat :=
+          JsonString(LocaleObject, 'shortDateFormat');
+        Result.FLocale.LongDateFormat :=
+          JsonString(LocaleObject, 'longDateFormat');
+        Result.FLocale.ShortTimeFormat :=
+          JsonString(LocaleObject, 'shortTimeFormat');
+        Result.FLocale.LongTimeFormat :=
+          JsonString(LocaleObject, 'longTimeFormat');
+        Result.FLocale.DecimalSeparator :=
+          JsonString(LocaleObject, 'decimalSeparator');
+        Result.FLocale.ThousandSeparator :=
+          JsonString(LocaleObject, 'thousandSeparator');
+        Result.FLocale.CurrencySymbol :=
+          JsonString(LocaleObject, 'currencySymbol');
+      end;
 
       StringsObject := RequiredObject(JsonRoot, 'strings');
       for JsonPair in StringsObject do
-        Result.FStrings.AddOrSetValue(JsonPair.JsonString.Value,
+        Result.FStrings.Add(JsonPair.JsonString.Value,
           JsonPair.JsonValue.Value);
       TemplatesObject := JsonRoot.GetValue('templates') as TJSONObject;
       if TemplatesObject <> nil then
         for JsonPair in TemplatesObject do
-          Result.FTemplates.AddOrSetValue(JsonPair.JsonString.Value,
+          Result.FTemplates.Add(JsonPair.JsonString.Value,
             JsonPair.JsonValue.Value);
       SourcesObject := JsonRoot.GetValue('sources') as TJSONObject;
       if SourcesObject <> nil then
         for JsonPair in SourcesObject do
-          Result.FSources.AddOrSetValue(JsonPair.JsonString.Value,
+          Result.FSources.Add(JsonPair.JsonString.Value,
             JsonPair.JsonValue.Value);
       SourceStringsObject := JsonRoot.GetValue('sourceStrings') as TJSONObject;
       if SourceStringsObject <> nil then
         for JsonPair in SourceStringsObject do
         begin
-          Result.FSourceStrings.AddOrSetValue(JsonPair.JsonString.Value,
+          Result.FSourceStrings.Add(JsonPair.JsonString.Value,
             JsonPair.JsonValue.Value);
           if JsonPair.JsonValue.Value <> '' then
             Result.FTranslatedStrings.AddOrSetValue(
@@ -436,7 +520,7 @@ begin
       SourceTemplatesObject := JsonRoot.GetValue('sourceTemplates') as TJSONObject;
       if SourceTemplatesObject <> nil then
         for JsonPair in SourceTemplatesObject do
-          Result.FSourceTemplates.AddOrSetValue(JsonPair.JsonString.Value,
+          Result.FSourceTemplates.Add(JsonPair.JsonString.Value,
             JsonPair.JsonValue.Value);
       LayoutArray := JsonRoot.GetValue('layout') as TJSONArray;
       if LayoutArray <> nil then
@@ -461,7 +545,7 @@ begin
       FontColorsObject := JsonRoot.GetValue('fontColors') as TJSONObject;
       if FontColorsObject <> nil then
         for JsonPair in FontColorsObject do
-          Result.FFontColors.AddOrSetValue(JsonPair.JsonString.Value,
+          Result.FFontColors.Add(JsonPair.JsonString.Value,
             JsonPair.JsonValue.Value);
     except
       Result.Free;
@@ -474,11 +558,26 @@ end;
 
 class function TRuntimeLanguagePack.LoadFromFile(
   const AFileName: string): TRuntimeLanguagePack;
+var
+  JsonText: string;
+  Recovered: Boolean;
 begin
   if not TFile.Exists(AFileName) then
     raise ELanguagePackError.CreateFmt(
       'Runtime language pack not found: %s', [AFileName]);
-  Result := LoadFromJson(TFile.ReadAllText(AFileName, TEncoding.UTF8));
+  JsonText := TAtomicTextFile.ReadAllText(AFileName, TEncoding.UTF8,
+    procedure(const AText: string)
+    var
+      ValidationPack: TRuntimeLanguagePack;
+    begin
+      ValidationPack := LoadFromJson(AText);
+      ValidationPack.Free;
+    end, Recovered);
+  if Recovered then
+    TDATDiagnostics.Log('DAT-PACK-RECOVERY-001', 'LoadFromFile',
+      'Recovered the prior valid language pack and quarantined the invalid file: ' +
+      AFileName, dsWarning);
+  Result := LoadFromJson(JsonText);
 end;
 
 function TRuntimeLanguagePack.TryGetText(
@@ -858,6 +957,11 @@ begin
     try
       try
         Pack := TRuntimeLanguagePack.LoadFromFile(FileName);
+        if not SameText(TPath.GetFileNameWithoutExtension(FileName),
+          Pack.LanguageCode) then
+          raise ELanguagePackError.CreateFmt(
+            'Language pack filename "%s" does not match language code "%s".',
+            [TPath.GetFileName(FileName), Pack.LanguageCode]);
         if (((AExpectedApplicationId = '') or
           SameText(Pack.ApplicationId, AExpectedApplicationId))) and
           (Trim(Pack.LanguageCode) <> '') and
@@ -870,14 +974,21 @@ begin
             Pack.LanguageCode, Pack.NativeLanguageName);
           Descriptor.TextDirection := Pack.TextDirection;
           Descriptor.SourceLanguage := Pack.SourceLanguage;
+          Descriptor.ApplicationVersion := Pack.ApplicationVersion;
+          Descriptor.Framework := Pack.Framework;
+          Descriptor.SourceCatalogChecksum := Pack.SourceCatalogChecksum;
           Result.Add(Descriptor);
         end;
       finally
         Pack.Free;
       end;
     except
-      on Exception do
+      on E: Exception do
+      begin
+        TDATDiagnostics.LogException('DAT-PACK-DISCOVERY-001',
+          'Discover(' + FileName + ')', E);
         Continue;
+      end;
     end;
   end;
   RegionalCodes := TDictionary<string, Boolean>.Create;
