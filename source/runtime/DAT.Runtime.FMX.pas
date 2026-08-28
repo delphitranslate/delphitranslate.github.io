@@ -1366,6 +1366,21 @@ var
       Result := TTextControl(AComponent).Font;
   end;
 
+  function IsProseBodyLabel(const AComponent: TComponent;
+    const AControl: TControl; const AText: string): Boolean;
+  begin
+    { Long explanatory copy is not a compact caption.  It must retain the
+      designer's readable type size and use the width deliberately provided
+      by the form.  Treating prose as a heading previously clamped a
+      1180-pixel body label to 420 pixels and then reduced it to 8 points.
+      The contract is deliberately based on content and geometry, never on a
+      language code, so it applies equally to every long translation. }
+    Result := (AComponent is TLabel) and
+      (Length(Trim(AText)) >= 80) and
+      ((AControl.Width >= 360) or (AControl.Height >= 44) or
+       (Pos(sLineBreak, AText) > 0));
+  end;
+
   function HasExplicitLayoutRule(const AComponent: TComponent): Boolean;
   var
     Rule: TRuntimeLayoutRule;
@@ -1498,6 +1513,30 @@ var
     ParentWidth := ParentClientWidth(AControl);
     RightLimitedWidth := NearestSameRowRightEdgeLimit(AControl);
     HasRightNeighbor := RightLimitedWidth < AvailableWidthToParentRight(AControl) - 1;
+
+    if IsProseBodyLabel(AComponent, AControl, AText) then
+    begin
+      { Prose keeps its authored font size.  It wraps within the actual
+        available row width, rather than the compact-label width ceiling. }
+      if DisableAutoSizeIfSupported(AComponent) then
+        Inc(Result);
+      if SetWordWrapIfSupported(AComponent) then
+        Inc(Result);
+      MaxWidth := Max(MinimumLabelWidth, RightLimitedWidth);
+      if AControl.Width > MaxWidth + 2 then
+      begin
+        AControl.Width := MaxWidth;
+        Inc(Result);
+      end;
+      NeededHeight := FitWrappedHeight(AText, Font, AControl.Width,
+        AControl.Height, MaximumLabelHeight);
+      if NeededHeight > AControl.Height + 2 then
+      begin
+        AControl.Height := NeededHeight;
+        Inc(Result);
+      end;
+      Exit;
+    end;
 
     MaxWidth := Min(MaximumLabelWidth, RightLimitedWidth);
     if ParentWidth > 0 then

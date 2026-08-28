@@ -13,6 +13,9 @@ implementation
 uses
   System.IOUtils, System.SysUtils;
 
+resourcestring
+  SConversionProgress = '[%d/%d] Processing: %s';
+
 // A path assembled from literals and a separator. Joined blindly it reads as
 // logsCarillonPlayLog.txt, a file name with its separator missing, which is
 // neither a path nor a caption and slips past a guard looking for either.

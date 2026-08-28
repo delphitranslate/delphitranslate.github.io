@@ -10,6 +10,7 @@ uses
   FMX.Forms,
   FMX.Controls,
   FMX.Grid,
+  FMX.Layouts,
   FMX.StdCtrls,
   FMX.Types,
   System.UITypes,
@@ -54,7 +55,9 @@ const
     '"frmFMXSample.colCustomer.Header":"Kun' + #$00AD + 'de",' +
     '"frmFMXSample.memInstructions.Lines.Strings.0":"Erste Zeile",' +
     '"frmFMXSample.memInstructions.Lines.Strings.1":"Zweite Zeile"},' +
-    '"sourceStrings":{"Close":"Schlie' + #$00DF + 'en","Event":"Evento"},' +
+    '"sourceStrings":{"Close":"Schlie' + #$00DF + 'en","Event":"Evento",' +
+    '"Use Project Scan before every run to confirm the VCL source folder and the FMX output location.":' +
+    '"Use Project Scan before every conversion run to confirm the complete VCL source folder and the separate FMX output location."},' +
     '"sourceTemplates":{"Uptime: %d years":"Laufzeit: %d Jahre"},' +
     { The source text for each key, which is what returning to the original
       language reads. Left empty, the words stay translated however well the
@@ -130,6 +133,8 @@ var
   OriginalHorizontalAlignment: TTextAlign;
   OriginalStyledSettings: TStyledSettings;
   Pack: TRuntimeLanguagePack;
+  ProseContainer: TLayout;
+  ProseLabel: TLabel;
   TemplateLabel: TLabel;
 begin
   try
@@ -147,6 +152,22 @@ begin
     OriginalStyledSettings := DynamicLabel.StyledSettings;
     TemplateLabel := TLabel.Create(frmFMXSample);
     TemplateLabel.Text := 'Uptime: 2 years';
+    ProseContainer := TLayout.Create(frmFMXSample);
+    ProseContainer.Parent := frmFMXSample;
+    ProseContainer.Position.X := 20;
+    ProseContainer.Position.Y := 330;
+    ProseContainer.Width := 720;
+    ProseContainer.Height := 120;
+    ProseLabel := TLabel.Create(ProseContainer);
+    ProseLabel.Parent := ProseContainer;
+    ProseLabel.Position.X := 0;
+    ProseLabel.Position.Y := 0;
+    ProseLabel.Width := 700;
+    ProseLabel.Height := 100;
+    ProseLabel.TextSettings.Font.Size := 15;
+    ProseLabel.TextSettings.WordWrap := True;
+    ProseLabel.Text :=
+      'Use Project Scan before every run to confirm the VCL source folder and the FMX output location.';
     { A data row whose text happens to match something the pack can translate.
       Grid cells are the application's data - song titles, file names, rows
       from a database - and must come through a translation untouched. }
@@ -156,7 +177,7 @@ begin
     try
       AppliedCount := TFMXTranslationApplicator.ApplyToForm(
         frmFMXSample, Pack);
-      Require(AppliedCount = 32, 'Unexpected FMX applied-property count: ' +
+      Require(AppliedCount = 33, 'Unexpected FMX applied-property count: ' +
         IntToStr(AppliedCount));
       Require(frmFMXSample.Caption = 'FMX Beispiel',
         'The FMX form caption was not translated.');
@@ -237,6 +258,10 @@ begin
         'A runtime-created FMX formatted caption was not translated.');
       Require(EventLabel.Text = 'Evento',
         'The FMX runtime source string was not translated.');
+      Require(SameValue(ProseLabel.TextSettings.Font.Size, 15, 0.01),
+        'A prose body label was reduced below its designer-authored size.');
+      Require(Round(ProseLabel.Width) = 700,
+        'A prose body label was clamped to the compact-caption width.');
       { A periodic dynamic-text refresh must not enter the full form/layout
         applicator. Recreate source-language dynamic text after the initial
         apply, then prove that only those words change and the translated
