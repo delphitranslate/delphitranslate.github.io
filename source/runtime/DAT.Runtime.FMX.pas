@@ -284,7 +284,9 @@ begin
       widths to exceed it and use the browser's existing horizontal scroll. }
     'img,svg,canvas{max-inline-size:100%}' +
     'table{min-inline-size:100%;max-inline-size:none;table-layout:auto}' +
-    'th,td{white-space:normal;overflow-wrap:normal;word-break:normal}';
+    'tr{height:auto!important}' +
+    'th,td{height:auto!important;min-block-size:0;white-space:normal;' +
+      'overflow:visible;overflow-wrap:normal;word-break:normal}';
 
   ScriptText := '(function(){var d=' +
     JavaScriptString(LowerCase(Trim(APack.TextDirection))) + ',l=' +
@@ -299,6 +301,8 @@ begin
     'function setPadStart(e,c,v){if("paddingInlineStart" in e.style){' +
       'e.style.paddingInlineStart=v+"px";}else if(c.direction==="rtl"){' +
       'e.style.paddingRight=v+"px";}else{e.style.paddingLeft=v+"px";}}' +
+    'function setLogicalAlign(e,v){if(v==="start"||v==="end"){' +
+      'e.style.textAlign=v;}}' +
     'function cellAt(t,col){var rs=t.tBodies,i,j,p,x,s,first=null;' +
       'for(i=0;i<rs.length;i++){for(j=0;j<rs[i].rows.length;j++){' +
       'p=0;for(x=0;x<rs[i].rows[j].cells.length;x++){' +
@@ -317,22 +321,27 @@ begin
       'if(!overflowing(e)){return;}z=num(getComputedStyle(e).fontSize);' +
       'm=Math.max(8,z*.8);while(z-.5>=m&&overflowing(e)){' +
       'z-=.5;e.style.fontSize=z+"px";}}' +
-    'function alignTable(t){var r,hs,h,c,hc,cc,hp,cp,col=0,i;' +
+    'function alignTable(t){var r,hs,h,c,hc,cc,ha,ca,hp,cp,col=0,i;' +
       'if(!t.tHead||!t.tHead.rows.length||!t.tBodies.length){return;}' +
       'r=t.tHead.rows[t.tHead.rows.length-1];hs=r.cells;' +
       'for(i=0;i<hs.length;i++){h=hs[i];c=cellAt(t,col);col+=h.colSpan||1;' +
       'if(c){hc=getComputedStyle(h);cc=getComputedStyle(c);' +
-      'if(norm(hc)===norm(cc)&&(norm(hc)==="start"||norm(hc)==="end")){' +
+      'ha=norm(hc);ca=norm(cc);if(ca==="start"||ca==="end"){' +
+      'if(ha!==ca){setLogicalAlign(h,ca);hc=getComputedStyle(h);}' +
       'hp=padStart(hc);cp=padStart(cc);if(Math.abs(hp-cp)>.5&&Math.abs(hp-cp)<=32){' +
       'setPadStart(h,hc,cp);}}}fit(h);}}' +
     'function run(){var h=document.documentElement,b=document.body,s,n,i;' +
     'if(!h){return;}h.setAttribute("dir",d);if(l){h.setAttribute("lang",l);}' +
+    'if(h.getAttribute("data-dat-layout-language")!==l){' +
+      'h.setAttribute("data-dat-layout-language",l);h.scrollTop=0;' +
+      'if(b){b.scrollTop=0;}}' +
     'h.style.direction=d;if(b){b.setAttribute("dir",d);b.style.direction=d;' +
     'b.style.textAlign="start";}s=document.getElementById("dat-runtime-layout-contract");' +
     'if(!s&&document.head){s=document.createElement("style");' +
     's.id="dat-runtime-layout-contract";document.head.appendChild(s);}' +
     'if(s){s.textContent=c;}' +
-    'n=document.querySelectorAll("h1,h2,h3,h4,h5,h6,button,[role=button],[role=columnheader]");' +
+    'n=document.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,dt,dd,caption,figcaption,' +
+      'button,[role=button],[role=columnheader],[role=note]");' +
     'for(i=0;i<n.length;i++){fit(n[i]);}' +
     'n=document.querySelectorAll("table");for(i=0;i<n.length;i++){alignTable(n[i]);}}' +
     'if(document.readyState==="loading"){' +
@@ -1218,7 +1227,9 @@ function ApplyConservativeTextFit(const AForm: TCommonCustomForm;
 const
   HorizontalPadding = 10;
   MinimumReadableFontSize = 8;
+  MaximumButtonWidth = 360;
   MinimumLabelWidth = 42;
+  MaximumLabelWidth = 420;
   MinimumLabelHeight = 22;
   MaximumLabelHeight = 120;
 var
@@ -1449,7 +1460,8 @@ var
     Font := ComponentFont(AComponent);
     CaptionWidth := MeasuredTextWidth(AText, Font);
     NeededWidth := CaptionWidth + HorizontalPadding;
-    MaxWidth := NearestSameRowRightEdgeLimit(AControl);
+    MaxWidth := Min(MaximumButtonWidth,
+      NearestSameRowRightEdgeLimit(AControl));
     { Preserve compact designer-authored controls (including media transport
       buttons). Grow only when the measured caption needs it. }
     NewWidth := Min(MaxWidth, Max(AControl.Width, NeededWidth));
@@ -1493,7 +1505,8 @@ var
   begin
     Result := 0;
     NeededWidth := MeasuredTextWidth(AText, ComponentFont(AComponent)) + 22;
-    MaxWidth := NearestSameRowRightEdgeLimit(AControl);
+    MaxWidth := Min(MaximumLabelWidth,
+      NearestSameRowRightEdgeLimit(AControl));
     NewWidth := Min(MaxWidth, Max(AControl.Width, NeededWidth));
     if NewWidth > AControl.Width + 4 then
     begin
@@ -1563,7 +1576,7 @@ var
       Exit;
     end;
 
-    MaxWidth := RightLimitedWidth;
+    MaxWidth := Min(MaximumLabelWidth, RightLimitedWidth);
     if ParentWidth > 0 then
       MaxWidth := Min(MaxWidth, ParentWidth - AControl.Position.X -
         HorizontalPadding);
