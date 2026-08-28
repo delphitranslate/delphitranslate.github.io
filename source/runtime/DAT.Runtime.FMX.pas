@@ -86,6 +86,11 @@ type
     class function RefreshDirectionLayout(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; static;
+    { Applies only the browser document layout contract.  It does not translate
+      DOM text, navigate, or replace application HTML, so it is safe for every
+      embedded browser whether TranslateBrowserContent is enabled or not. }
+    class function RefreshBrowserLayout(const AForm: TCommonCustomForm;
+      const APack: TRuntimeLanguagePack): Integer; static;
     { Adjustments a person made while the application was running, applied
       after every rule the pack carries. They are last on purpose: an
       override is the correction of somebody who looked at the result, and
@@ -247,6 +252,69 @@ begin
     Result := JsonString.ToJSON;
   finally
     JsonString.Free;
+  end;
+end;
+
+function ApplyBrowserLayoutContract(const AComponent: TComponent;
+  const APack: TRuntimeLanguagePack): Integer;
+var
+  CssText: string;
+  ScriptText: string;
+begin
+  Result := 0;
+  if not (AComponent is TCustomWebBrowser) or (APack = nil) then
+    Exit;
+
+  { This stylesheet is deliberately semantic rather than application-specific.
+    It works with ordinary headings and table headers, and adds stronger rules
+    only when a document already identifies metric/summary elements by class.
+    The application remains the owner of its HTML and its visual design. }
+  CssText :=
+    '*,*::before,*::after{box-sizing:border-box}' +
+    'html,body{max-inline-size:100%;overflow-wrap:break-word}' +
+    'h1,h2,h3,h4,h5,h6{max-inline-size:100%;white-space:normal;' +
+      'overflow-wrap:anywhere;word-break:normal;line-height:1.2}' +
+    'thead th,[role="columnheader"]{white-space:normal!important;' +
+      'overflow-wrap:anywhere!important;word-break:normal!important;' +
+      'hyphens:auto;vertical-align:middle!important;line-height:1.18!important;' +
+      'font-size:clamp(8px,.82vw,12px)!important;padding-inline:8px!important}' +
+    '.summary-table{table-layout:fixed!important;width:100%!important}' +
+    '.summary-table tr{height:1px}' +
+    '.summary-table td{min-width:0!important;vertical-align:top!important;' +
+      'height:100%!important}' +
+    '.metric-line{display:grid!important;grid-template-rows:2em minmax(3.2em,1fr);' +
+      'align-content:start;align-items:start;row-gap:.45rem;min-width:0;' +
+      'min-height:104px!important;height:100%!important;text-align:start}' +
+    '.metric-value,.metric-label{display:block!important;min-width:0;' +
+      'max-width:100%!important}' +
+    '.metric-value{line-height:1!important}' +
+    '.metric-label{margin-top:0!important;white-space:normal!important;' +
+      'overflow-wrap:anywhere!important;word-break:normal!important;' +
+      'hyphens:auto;line-height:1.15!important;' +
+      'font-size:clamp(8px,.78vw,12px)!important}' +
+    'button,[role="button"]{white-space:normal;overflow-wrap:anywhere}' +
+    'table,img,svg,canvas{max-inline-size:100%}';
+
+  ScriptText := '(function(){var d=' +
+    JavaScriptString(LowerCase(Trim(APack.TextDirection))) + ',l=' +
+    JavaScriptString(Trim(APack.LanguageCode)) + ',c=' +
+    JavaScriptString(CssText) +
+    ';function run(){var h=document.documentElement,b=document.body,s;' +
+    'if(!h){return;}h.setAttribute("dir",d);if(l){h.setAttribute("lang",l);}' +
+    'h.style.direction=d;if(b){b.setAttribute("dir",d);b.style.direction=d;' +
+    'b.style.textAlign="start";}s=document.getElementById("dat-runtime-layout-contract");' +
+    'if(!s&&document.head){s=document.createElement("style");' +
+    's.id="dat-runtime-layout-contract";document.head.appendChild(s);}' +
+    'if(s){s.textContent=c;}}if(document.readyState==="loading"){' +
+    'document.addEventListener("DOMContentLoaded",run,{once:true});}else{run();}})();';
+  try
+    TCustomWebBrowser(AComponent).EvaluateJavaScript(ScriptText);
+    Result := 1;
+  except
+    on E: Exception do
+      DATRuntimeDebugLog(Format(
+        'Browser layout contract deferred on %s.%s: %s: %s',
+        [AComponent.ClassName, AComponent.Name, E.ClassName, E.Message]));
   end;
 end;
 
@@ -2488,6 +2556,34 @@ begin
   Result := ApplyDirectionMirror(AForm, APack, FormIdentity);
 end;
 
+class function TFMXTranslationApplicator.RefreshBrowserLayout(
+  const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack): Integer;
+var
+  Visited: TDictionary<TComponent, Boolean>;
+
+  procedure Visit(const AComponent: TComponent);
+  var
+    ChildIndex: Integer;
+  begin
+    if (AComponent = nil) or Visited.ContainsKey(AComponent) then
+      Exit;
+    Visited.Add(AComponent, True);
+    Inc(Result, ApplyBrowserLayoutContract(AComponent, APack));
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      Visit(AComponent.Components[ChildIndex]);
+  end;
+begin
+  Result := 0;
+  if (AForm = nil) or (APack = nil) then
+    Exit;
+  Visited := TDictionary<TComponent, Boolean>.Create;
+  try
+    Visit(AForm);
+  finally
+    Visited.Free;
+  end;
+end;
+
 class function TFMXTranslationApplicator.RestoreSourceLanguage(
   const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack;
   const AFormIdentity: string): Integer;
@@ -2676,6 +2772,10 @@ var
           LocalPropertyName, LocalPropertyName + '.Strings', APack,
           APreserveControlState));
       Inc(Result, ApplyGridText(FormIdentity, AComponent, APack));
+      { Browser geometry is a layout concern even when application HTML owns
+        all of its text.  Keep this independent of the opt-in DOM translation
+        pass so tables and headings remain readable in every language. }
+      Inc(Result, ApplyBrowserLayoutContract(AComponent, APack));
       { Evaluating script in a platform browser can block the FMX UI thread for
         seconds, especially when several browser controls have already been
         created on inactive tabs. Generated HTML has the keyed

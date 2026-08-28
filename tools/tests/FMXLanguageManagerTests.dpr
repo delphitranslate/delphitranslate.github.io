@@ -9,6 +9,7 @@ uses
   System.SysUtils,
   Winapi.Windows,
   FMX.Forms,
+  FMX.Layouts,
   FMX.Types,
   DAT.LifecycleSpike.Trace in 'lifecycle\DAT.LifecycleSpike.Trace.pas',
   FMXLifecycle.Form in 'lifecycle\FMXLifecycle.Form.pas'
@@ -129,6 +130,8 @@ var
   ExplicitForm: TfrmFMXLifecycle;
   InheritedForm: TfrmFMXInheritedLifecycle;
   PopupForm: TfrmFMXLifecycle;
+  ScrollContentProbe: TLayout;
+  ScrollProbe: TVertScrollBox;
   StateForm: TfrmFMXSample;
 begin
   TTimer(Sender).Enabled := False;
@@ -199,6 +202,19 @@ begin
     StateForm.memInstructions.OnChange := ControlChanged;
     StateForm.cmbDateRange.OnChange := ControlChanged;
 
+    ScrollProbe := TVertScrollBox.Create(StateForm);
+    ScrollProbe.Parent := StateForm;
+    ScrollProbe.Width := 100;
+    ScrollProbe.Height := 100;
+    ScrollProbe.Position.X := 1000;
+    ScrollProbe.Position.Y := 1000;
+    ScrollContentProbe := TLayout.Create(StateForm);
+    ScrollContentProbe.Parent := ScrollProbe;
+    ScrollContentProbe.Width := 80;
+    ScrollContentProbe.Height := 180;
+    ScrollContentProbe.Align := TAlignLayout.None;
+    ScrollProbe.RealignContent;
+
     Require(FManager.SelectLanguage('en-US'),
       'Instant English selection failed.');
     RequireEnglish(FMainForm, 'Visible main form after instant selection');
@@ -221,6 +237,11 @@ begin
       'FMX writable memo content or selection was not preserved.');
     Require(FControlChangeCount = 0,
       'FMX localization fired a protected control OnChange event.');
+    PumpMessages;
+    Require(ScrollProbe.ContentBounds.Bottom >=
+      ScrollContentProbe.Position.Y + ScrollContentProbe.Height + 17,
+      'The universal FMX scroll viewport contract did not preserve a ' +
+      'bottom reading gutter for unaligned content.');
 
     DuplicateForm.Hide;
     Require(FManager.SelectLanguage('de-DE'),
@@ -258,6 +279,7 @@ begin
     Writeln('FMX_MANAGER_EDITABLE_DATA=PASS');
     Writeln('FMX_MANAGER_FOCUS_AND_SELECTION=PASS');
     Writeln('FMX_MANAGER_EVENT_SUPPRESSION=PASS');
+    Writeln('FMX_MANAGER_SCROLL_BOTTOM_GUTTER=PASS');
     Writeln('FMX_MANAGER_EXPLICIT_APPLY=PASS');
   except
     on E: Exception do

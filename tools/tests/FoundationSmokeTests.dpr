@@ -1126,6 +1126,8 @@ procedure TestFMXBrowserTranslationRemainsBounded;
 var
   ComponentFileName: string;
   ComponentSource: string;
+  CoreFileName: string;
+  CoreSource: string;
   ProjectRoot: string;
   RuntimeFileName: string;
   RuntimeSource: string;
@@ -1139,6 +1141,9 @@ begin
   ComponentFileName := TPath.Combine(ProjectRoot,
     'source\components\DAT.Components.FMX.pas');
   ComponentSource := TFile.ReadAllText(ComponentFileName, TEncoding.UTF8);
+  CoreFileName := TPath.Combine(ProjectRoot,
+    'source\components\DAT.Components.Core.pas');
+  CoreSource := TFile.ReadAllText(CoreFileName, TEncoding.UTF8);
   Require(ContainsText(RuntimeSource, 'if NeedsRetry then') and
     ContainsText(RuntimeSource,
       'TBrowserTranslationRetry.Create(TCustomWebBrowser(AComponent)'),
@@ -1163,6 +1168,35 @@ begin
     'property TranslateBrowserContent: Boolean') and
     ContainsText(ComponentSource, 'default False'),
     'The browser compatibility option is not available in Object Inspector.');
+  Require(ContainsText(RuntimeSource,
+    'ApplyBrowserLayoutContract(AComponent, APack)') and
+    ContainsText(RuntimeSource, 'dat-runtime-layout-contract') and
+    ContainsText(RuntimeSource, '.metric-line') and
+    ContainsText(RuntimeSource, '[role="columnheader"]'),
+    'The always-on semantic browser layout contract is incomplete.');
+  Require(ContainsText(ComponentSource,
+    'procedure TDATFMXLanguageManager.BeginLanguageTransition') and
+    ContainsText(ComponentSource, 'WebBrowser.Visible := False') and
+    ContainsText(ComponentSource,
+      'procedure TDATFMXLanguageManager.EndLanguageTransition') and
+    ContainsText(ComponentSource, 'Browser.Visible := True'),
+    'FMX native browser surfaces are not bracketed across language changes.');
+  Require(ContainsText(ComponentSource, 'FBrowserLayoutAttempts >= 6') and
+    ContainsText(ComponentSource, 'FBrowserLayoutTimer.Interval := 180'),
+    'The post-navigation browser layout refresh is missing or unbounded.');
+  Require(ContainsText(ComponentSource,
+    'TDictionary<TCustomScrollBox, TDATScrollBoundsSubscription>') and
+    ContainsText(ComponentSource,
+      'DesiredBottom := Max(DesiredBottom') and
+    ContainsText(ComponentSource,
+      'ContentBounds.Bottom := DesiredBottom'),
+    'The universal FMX scroll viewport bottom-gutter contract is missing.');
+  Require(ContainsText(CoreSource,
+    'procedure BeginLanguageTransition; virtual') and
+    ContainsText(CoreSource, 'procedure EndLanguageTransition; virtual') and
+    ContainsText(CoreSource, 'BeginLanguageTransition;') and
+    ContainsText(CoreSource, 'EndLanguageTransition;'),
+    'The framework-neutral language-transition transaction hooks are missing.');
 end;
 
 procedure TestExistingIntegrationSourcesAreSynchronized;

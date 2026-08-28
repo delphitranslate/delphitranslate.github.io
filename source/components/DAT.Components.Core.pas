@@ -126,6 +126,12 @@ type
       const AFormIdentity: string): Integer; virtual; abstract;
     procedure CollectOpenManagedObjects(
       const AObjects: TList<TObject>); virtual; abstract;
+    { Frameworks can bracket a language change when native child surfaces need
+      to be hidden while forms are restored, translated, and laid out.  The
+      base implementation is intentionally empty; VCL and nonvisual users pay
+      no cost. }
+    procedure BeginLanguageTransition; virtual;
+    procedure EndLanguageTransition; virtual;
     { The open forms, and the form this manager belongs to whether or not it
       is open.
 
@@ -237,6 +243,14 @@ uses
 
 var
   DATLanguageManagers: TList<TDATCustomLanguageManager>;
+
+procedure TDATCustomLanguageManager.BeginLanguageTransition;
+begin
+end;
+
+procedure TDATCustomLanguageManager.EndLanguageTransition;
+begin
+end;
 
 function CurrentDATLanguageManager: TDATCustomLanguageManager;
 begin
@@ -851,9 +865,11 @@ var
   ManagedObjects: TList<TObject>;
   FormIdentity: string;
   InstanceName: string;
+  TransitionStarted: Boolean;
 begin
   Result := False;
   ManagedObjects := nil;
+  TransitionStarted := False;
   CheckMainThread;
   if not FInitialized then
     if not Initialize then
@@ -875,6 +891,8 @@ begin
   FSelectingLanguage := True;
   try
     try
+      BeginLanguageTransition;
+      TransitionStarted := True;
       if FRuntime.ActivePack <> nil then
       begin
         ManagedObjects := TList<TObject>.Create;
@@ -956,8 +974,13 @@ begin
       end;
     end;
   finally
-    ManagedObjects.Free;
-    FSelectingLanguage := False;
+    try
+      if TransitionStarted then
+        EndLanguageTransition;
+    finally
+      ManagedObjects.Free;
+      FSelectingLanguage := False;
+    end;
   end;
 end;
 

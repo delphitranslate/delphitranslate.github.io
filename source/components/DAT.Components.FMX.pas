@@ -6,12 +6,20 @@ uses
   System.Classes,
   System.Generics.Collections,
   System.Messaging,
+  System.SysUtils,
+  System.Types,
   FMX.Forms,
+  FMX.Layouts,
   FMX.Types,
+  FMX.WebBrowser,
   DAT.Components.Core,
   DAT.Runtime.LanguagePack;
 
 type
+  TDATScrollBoundsSubscription = record
+    OriginalHandler: TOnCalcContentBoundsEvent;
+  end;
+
   TDATFMXLanguageManager = class(TDATCustomLanguageManager)
   private
     FBeforeShownSubscription: TMessageSubscriptionId;
@@ -21,8 +29,22 @@ type
     FDynamicRefreshBusy: Boolean;
     FDynamicTimer: TTimer;
     FTranslateBrowserContent: Boolean;
+    FBrowserLayoutTimer: TTimer;
+    FBrowserLayoutAttempts: Integer;
+    FTransitionForms: TList<TCommonCustomForm>;
+    FTransitionBrowsers: TList<TCustomWebBrowser>;
+    FScrollBoundsSubscriptions:
+      TDictionary<TCustomScrollBox, TDATScrollBoundsSubscription>;
+    procedure ApplyBrowserAndScrollContracts(
+      const AForm: TCommonCustomForm);
+    procedure ApplyScrollBottomGutter(const AForm: TCommonCustomForm);
+    procedure BrowserLayoutTimerTick(Sender: TObject);
     procedure EnsureDynamicTimer;
+    procedure EnsureBrowserLayoutTimer;
     procedure DynamicTimerTick(Sender: TObject);
+    procedure HandleScrollContentBounds(Sender: TObject;
+      var ContentBounds: TRectF);
+    procedure ScheduleBrowserLayoutRefresh;
     procedure SetAutoRefreshDynamicText(const Value: Boolean);
     procedure SetDynamicRefreshInterval(const Value: Cardinal);
     procedure SubscribeToLifecycle;
@@ -32,7 +54,11 @@ type
     procedure HandleReleased(const Sender: TObject;
       const AMessage: TMessage);
   protected
+    procedure BeginLanguageTransition; override;
+    procedure EndLanguageTransition; override;
     procedure Loaded; override;
+    procedure Notification(AComponent: TComponent;
+      Operation: TOperation); override;
     function SupportsManagedObject(
       const AManagedObject: TObject): Boolean; override;
     function ManagedObjectInstanceName(
@@ -66,8 +92,9 @@ type
 implementation
 
 uses
-  System.Types,
+  System.Math,
   System.UITypes,
+  FMX.Controls,
   FMX.Dialogs,
   FMX.Platform,
   DAT.Runtime.SplashTranslation,
@@ -489,6 +516,13 @@ begin
 end;
 
 destructor TDATFMXLanguageManager.Destroy;
+var
+  Browser: TCustomWebBrowser;
+  CurrentHandler: TOnCalcContentBoundsEvent;
+  ExpectedHandler: TOnCalcContentBoundsEvent;
+  Form: TCommonCustomForm;
+  ScrollBox: TCustomScrollBox;
+  Subscription: TDATScrollBoundsSubscription;
 begin
   UnsubscribeFromLifecycle;
   if not (csDesigning in ComponentState) then
@@ -500,7 +534,184 @@ begin
   end;
   FDynamicTimer.Free;
   FDynamicTimer := nil;
+  if FBrowserLayoutTimer <> nil then
+  begin
+    FBrowserLayoutTimer.Enabled := False;
+    FBrowserLayoutTimer.OnTimer := nil;
+  end;
+  FBrowserLayoutTimer.Free;
+  FBrowserLayoutTimer := nil;
+  if FTransitionBrowsers <> nil then
+    for Browser in FTransitionBrowsers do
+      if Browser <> nil then
+        Browser.Visible := True;
+  if FTransitionForms <> nil then
+    for Form in FTransitionForms do
+      if Form <> nil then
+        Form.EndUpdate;
+  FTransitionBrowsers.Free;
+  FTransitionBrowsers := nil;
+  FTransitionForms.Free;
+  FTransitionForms := nil;
+  if FScrollBoundsSubscriptions <> nil then
+  begin
+    ExpectedHandler := HandleScrollContentBounds;
+    for ScrollBox in FScrollBoundsSubscriptions.Keys do
+      if ScrollBox <> nil then
+      begin
+        CurrentHandler := ScrollBox.OnCalcContentBounds;
+        if (TMethod(CurrentHandler).Code = TMethod(ExpectedHandler).Code) and
+          (TMethod(CurrentHandler).Data = TMethod(ExpectedHandler).Data) and
+          FScrollBoundsSubscriptions.TryGetValue(ScrollBox, Subscription) then
+          ScrollBox.OnCalcContentBounds := Subscription.OriginalHandler;
+      end;
+  end;
+  FScrollBoundsSubscriptions.Free;
+  FScrollBoundsSubscriptions := nil;
   inherited Destroy;
+end;
+
+procedure TDATFMXLanguageManager.ApplyBrowserAndScrollContracts(
+  const AForm: TCommonCustomForm);
+begin
+  if (AForm = nil) or (ActivePack = nil) then
+    Exit;
+  TFMXTranslationApplicator.RefreshBrowserLayout(AForm, ActivePack);
+  ApplyScrollBottomGutter(AForm);
+end;
+
+procedure TDATFMXLanguageManager.ApplyScrollBottomGutter(
+  const AForm: TCommonCustomForm);
+const
+  BottomGutter = 18;
+var
+  Visited: TDictionary<TComponent, Boolean>;
+
+  procedure Visit(const AComponent: TComponent);
+  var
+    ChildIndex: Integer;
+    ScrollBox: TCustomScrollBox;
+    Subscription: TDATScrollBoundsSubscription;
+  begin
+    if (AComponent = nil) or Visited.ContainsKey(AComponent) then
+      Exit;
+    Visited.Add(AComponent, True);
+    if AComponent is TCustomScrollBox then
+    begin
+      ScrollBox := TCustomScrollBox(AComponent);
+      { Keep the desired gutter visible in the Object Inspector when the
+        application already exposes this runtime-created control there. }
+      if ScrollBox.Padding.Bottom < BottomGutter then
+        ScrollBox.Padding.Bottom := BottomGutter;
+      if FScrollBoundsSubscriptions = nil then
+        FScrollBoundsSubscriptions :=
+          TDictionary<TCustomScrollBox,
+            TDATScrollBoundsSubscription>.Create;
+      if not FScrollBoundsSubscriptions.ContainsKey(ScrollBox) then
+      begin
+        Subscription.OriginalHandler := ScrollBox.OnCalcContentBounds;
+        FScrollBoundsSubscriptions.Add(ScrollBox, Subscription);
+        ScrollBox.FreeNotification(Self);
+        ScrollBox.OnCalcContentBounds := HandleScrollContentBounds;
+      end;
+      ScrollBox.RealignContent;
+    end;
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      Visit(AComponent.Components[ChildIndex]);
+  end;
+begin
+  if AForm = nil then
+    Exit;
+  Visited := TDictionary<TComponent, Boolean>.Create;
+  try
+    Visit(AForm);
+  finally
+    Visited.Free;
+  end;
+end;
+
+procedure TDATFMXLanguageManager.BeginLanguageTransition;
+var
+  Form: TCommonCustomForm;
+  ManagedObject: TObject;
+  ManagedObjects: TList<TObject>;
+
+  procedure HideBrowserComponents(const AComponent: TComponent);
+  var
+    ChildIndex: Integer;
+    WebBrowser: TCustomWebBrowser;
+  begin
+    if AComponent = nil then
+      Exit;
+    if AComponent is TCustomWebBrowser then
+    begin
+      WebBrowser := TCustomWebBrowser(AComponent);
+      if WebBrowser.Visible then
+      begin
+        WebBrowser.Visible := False;
+        WebBrowser.FreeNotification(Self);
+        FTransitionBrowsers.Add(WebBrowser);
+      end;
+    end;
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      HideBrowserComponents(AComponent.Components[ChildIndex]);
+  end;
+begin
+  if (csDesigning in ComponentState) or
+    (csDestroying in ComponentState) then
+    Exit;
+  if FBrowserLayoutTimer <> nil then
+    FBrowserLayoutTimer.Enabled := False;
+  FreeAndNil(FTransitionBrowsers);
+  FreeAndNil(FTransitionForms);
+  FTransitionBrowsers := TList<TCustomWebBrowser>.Create;
+  FTransitionForms := TList<TCommonCustomForm>.Create;
+  ManagedObjects := TList<TObject>.Create;
+  try
+    try
+      CollectManagedObjects(ManagedObjects);
+      for ManagedObject in ManagedObjects do
+        if ManagedObject is TCommonCustomForm then
+        begin
+          Form := TCommonCustomForm(ManagedObject);
+          Form.BeginUpdate;
+          FTransitionForms.Add(Form);
+          Form.FreeNotification(Self);
+          HideBrowserComponents(Form);
+        end;
+    except
+      { A half-started transition must never leave a form update-locked or a
+        native browser hidden.  Reuse the normal cleanup path, then surface
+        the original exception to the manager's failure policy. }
+      EndLanguageTransition;
+      raise;
+    end;
+  finally
+    ManagedObjects.Free;
+  end;
+end;
+
+procedure TDATFMXLanguageManager.BrowserLayoutTimerTick(Sender: TObject);
+var
+  Form: TObject;
+  Forms: TList<TObject>;
+begin
+  if (ActivePack = nil) or (csDestroying in ComponentState) then
+  begin
+    FBrowserLayoutTimer.Enabled := False;
+    Exit;
+  end;
+  Inc(FBrowserLayoutAttempts);
+  Forms := TList<TObject>.Create;
+  try
+    CollectOpenManagedObjects(Forms);
+    for Form in Forms do
+      ApplyBrowserAndScrollContracts(TCommonCustomForm(Form));
+  finally
+    Forms.Free;
+  end;
+  if FBrowserLayoutAttempts >= 6 then
+    FBrowserLayoutTimer.Enabled := False;
 end;
 
 procedure TDATFMXLanguageManager.DynamicTimerTick(Sender: TObject);
@@ -527,6 +738,46 @@ begin
   FDynamicTimer.Interval := FDynamicRefreshInterval;
   FDynamicTimer.Enabled := FAutoRefreshDynamicText and
     (FDynamicRefreshInterval > 0);
+end;
+
+procedure TDATFMXLanguageManager.EnsureBrowserLayoutTimer;
+begin
+  if (csDesigning in ComponentState) or (csDestroying in ComponentState) then
+    Exit;
+  if FBrowserLayoutTimer = nil then
+  begin
+    FBrowserLayoutTimer := TTimer.Create(nil);
+    FBrowserLayoutTimer.Interval := 180;
+    FBrowserLayoutTimer.OnTimer := BrowserLayoutTimerTick;
+  end;
+end;
+
+procedure TDATFMXLanguageManager.EndLanguageTransition;
+var
+  Browser: TCustomWebBrowser;
+  Form: TCommonCustomForm;
+begin
+  try
+    if FTransitionForms <> nil then
+      for Form in FTransitionForms do
+        if Form <> nil then
+          ApplyBrowserAndScrollContracts(Form);
+  finally
+    if FTransitionBrowsers <> nil then
+      for Browser in FTransitionBrowsers do
+        if Browser <> nil then
+          Browser.Visible := True;
+    if FTransitionForms <> nil then
+      for Form in FTransitionForms do
+        if Form <> nil then
+        begin
+          Form.EndUpdate;
+          Form.Invalidate;
+        end;
+    FreeAndNil(FTransitionBrowsers);
+    FreeAndNil(FTransitionForms);
+  end;
+  ScheduleBrowserLayoutRefresh;
 end;
 
 procedure TDATFMXLanguageManager.Loaded;
@@ -586,6 +837,7 @@ begin
   Result := TFMXTranslationApplicator.ApplyToForm(
     TCommonCustomForm(AManagedObject), APack, AFormIdentity,
     PreserveControlState, True, FTranslateBrowserContent);
+  ApplyScrollBottomGutter(TCommonCustomForm(AManagedObject));
 end;
 
 function TDATFMXLanguageManager.ExpectedFramework: string;
@@ -655,13 +907,90 @@ procedure TDATFMXLanguageManager.HandleReleased(const Sender: TObject;
   const AMessage: TMessage);
 begin
   if Sender is TCommonCustomForm then
+  begin
+    if FTransitionForms <> nil then
+      FTransitionForms.Remove(TCommonCustomForm(Sender));
     RemoveManagedObject(Sender);
+  end;
+end;
+
+procedure TDATFMXLanguageManager.HandleScrollContentBounds(Sender: TObject;
+  var ContentBounds: TRectF);
+const
+  BottomGutter = 18;
+var
+  Child: TControl;
+  ChildIndex: Integer;
+  Content: TScrollContent;
+  DesiredBottom: Single;
+  ScrollBox: TCustomScrollBox;
+  Subscription: TDATScrollBoundsSubscription;
+begin
+  if (Sender is TCustomScrollBox) and
+    (FScrollBoundsSubscriptions <> nil) then
+  begin
+    ScrollBox := TCustomScrollBox(Sender);
+    if FScrollBoundsSubscriptions.TryGetValue(ScrollBox, Subscription) and
+      Assigned(Subscription.OriginalHandler) then
+      Subscription.OriginalHandler(Sender, ContentBounds);
+  end;
+  if not (Sender is TCustomScrollBox) then
+    Exit;
+  ScrollBox := TCustomScrollBox(Sender);
+  Content := nil;
+  if ScrollBox is TScrollBox then
+    Content := TScrollBox(ScrollBox).Content
+  else if ScrollBox is TVertScrollBox then
+    Content := TVertScrollBox(ScrollBox).Content
+  else if ScrollBox is THorzScrollBox then
+    Content := THorzScrollBox(ScrollBox).Content
+  else if ScrollBox is TFramedScrollBox then
+    Content := TFramedScrollBox(ScrollBox).Content;
+  if Content = nil then
+    Exit;
+  DesiredBottom := ContentBounds.Bottom;
+  for ChildIndex := 0 to Content.ControlsCount - 1 do
+  begin
+    Child := Content.Controls[ChildIndex];
+    if Child.Visible then
+      DesiredBottom := Max(DesiredBottom,
+        Child.ConvertLocalPointTo(Child.ParentControl,
+          Child.LocalRect.BottomRight).Y + BottomGutter);
+  end;
+  if ContentBounds.Bottom < DesiredBottom then
+    ContentBounds.Bottom := DesiredBottom;
 end;
 
 function TDATFMXLanguageManager.ManagedObjectInstanceName(
   const AManagedObject: TObject): string;
 begin
   Result := TCommonCustomForm(AManagedObject).Name;
+end;
+
+procedure TDATFMXLanguageManager.Notification(AComponent: TComponent;
+  Operation: TOperation);
+begin
+  inherited;
+  if Operation <> opRemove then
+    Exit;
+  if (FTransitionBrowsers <> nil) and
+    (AComponent is TCustomWebBrowser) then
+    FTransitionBrowsers.Remove(TCustomWebBrowser(AComponent));
+  if (FTransitionForms <> nil) and
+    (AComponent is TCommonCustomForm) then
+    FTransitionForms.Remove(TCommonCustomForm(AComponent));
+  if (FScrollBoundsSubscriptions <> nil) and
+    (AComponent is TCustomScrollBox) then
+    FScrollBoundsSubscriptions.Remove(TCustomScrollBox(AComponent));
+end;
+
+procedure TDATFMXLanguageManager.ScheduleBrowserLayoutRefresh;
+begin
+  EnsureBrowserLayoutTimer;
+  if FBrowserLayoutTimer = nil then
+    Exit;
+  FBrowserLayoutAttempts := 0;
+  FBrowserLayoutTimer.Enabled := True;
 end;
 
 procedure TDATFMXLanguageManager.SubscribeToLifecycle;
