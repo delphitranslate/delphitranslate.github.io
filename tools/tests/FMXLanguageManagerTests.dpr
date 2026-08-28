@@ -10,7 +10,9 @@ uses
   Winapi.Windows,
   FMX.Forms,
   FMX.Layouts,
+  FMX.TabControl,
   FMX.Types,
+  FMX.WebBrowser,
   DAT.LifecycleSpike.Trace in 'lifecycle\DAT.LifecycleSpike.Trace.pas',
   FMXLifecycle.Form in 'lifecycle\FMXLifecycle.Form.pas'
     {frmFMXLifecycle},
@@ -35,6 +37,11 @@ type
     FShowWasGerman: Boolean;
     FPaintWasGerman: Boolean;
     FControlChangeCount: Integer;
+    FBrowserTabChangeCount: Integer;
+    FBrowserA: TWebBrowser;
+    FBrowserB: TWebBrowser;
+    FBrowserTabControl: TTabControl;
+    procedure BrowserTabChanged(Sender: TObject);
     procedure PumpMessages;
     procedure RequireGerman(const AForm: TfrmFMXLifecycle;
       const AContext: string);
@@ -124,12 +131,34 @@ begin
   Inc(FControlChangeCount);
 end;
 
+procedure TFMXManagerTest.BrowserTabChanged(Sender: TObject);
+begin
+  Inc(FBrowserTabChangeCount);
+  if (FBrowserTabControl <> nil) and
+    (FBrowserTabControl.ActiveTab <> nil) then
+  begin
+    if FBrowserTabControl.ActiveTab.Tag = 1 then
+    begin
+      FBrowserB.StartLoading;
+      FBrowserB.Visible := True;
+    end
+    else
+    begin
+      FBrowserA.StartLoading;
+      FBrowserA.Visible := True;
+    end;
+  end;
+end;
+
 procedure TFMXManagerTest.Execute(Sender: TObject);
 var
   DuplicateForm: TfrmFMXLifecycle;
   ExplicitForm: TfrmFMXLifecycle;
+  HoldCheckIndex: Integer;
   InheritedForm: TfrmFMXInheritedLifecycle;
   PopupForm: TfrmFMXLifecycle;
+  BrowserTabA: TTabItem;
+  BrowserTabB: TTabItem;
   ScrollContentProbe: TLayout;
   ScrollProbe: TVertScrollBox;
   StateForm: TfrmFMXSample;
@@ -215,6 +244,29 @@ begin
     ScrollContentProbe.Align := TAlignLayout.None;
     ScrollProbe.RealignContent;
 
+    FBrowserTabControl := TTabControl.Create(StateForm);
+    FBrowserTabControl.Parent := StateForm;
+    FBrowserTabControl.Position.X := 1200;
+    FBrowserTabControl.Position.Y := 1200;
+    FBrowserTabControl.Width := 320;
+    FBrowserTabControl.Height := 220;
+    BrowserTabA := TTabItem.Create(StateForm);
+    BrowserTabA.Parent := FBrowserTabControl;
+    BrowserTabA.Tag := 0;
+    BrowserTabB := TTabItem.Create(StateForm);
+    BrowserTabB.Parent := FBrowserTabControl;
+    BrowserTabB.Tag := 1;
+    FBrowserA := TWebBrowser.Create(StateForm);
+    FBrowserA.Parent := BrowserTabA;
+    FBrowserA.Align := TAlignLayout.Client;
+    FBrowserB := TWebBrowser.Create(StateForm);
+    FBrowserB.Parent := BrowserTabB;
+    FBrowserB.Align := TAlignLayout.Client;
+    FBrowserA.Visible := True;
+    FBrowserB.Visible := True;
+    FBrowserTabControl.ActiveTab := BrowserTabA;
+    FBrowserTabControl.OnChange := BrowserTabChanged;
+
     Require(FManager.SelectLanguage('en-US'),
       'Instant English selection failed.');
     RequireEnglish(FMainForm, 'Visible main form after instant selection');
@@ -237,6 +289,30 @@ begin
       'FMX writable memo content or selection was not preserved.');
     Require(FControlChangeCount = 0,
       'FMX localization fired a protected control OnChange event.');
+    { The manager held the active native browser until its current-generation
+      document announced completion, and never restored the inactive page. }
+    Require(not FBrowserA.Visible and not FBrowserB.Visible,
+      'A native browser escaped the language transition before its current ' +
+      'document completed.');
+    for HoldCheckIndex := 1 to 8 do
+    begin
+      Sleep(180);
+      Application.ProcessMessages;
+    end;
+    Require(not FBrowserA.Visible and not FBrowserB.Visible,
+      'Elapsed time was incorrectly treated as proof that a stale native ' +
+      'browser document belonged to the current language generation.');
+    FBrowserA.FinishLoading;
+    Require(FBrowserA.Visible and not FBrowserB.Visible,
+      'The active current-generation browser was not restored exclusively.');
+    FBrowserTabControl.ActiveTab := BrowserTabB;
+    Require((FBrowserTabChangeCount = 1) and not FBrowserA.Visible and
+      not FBrowserB.Visible,
+      'The tab lifecycle exposed a retained browser document before the new ' +
+      'document completed.');
+    FBrowserB.FinishLoading;
+    Require(FBrowserB.Visible and not FBrowserA.Visible,
+      'The newly loaded browser did not become the sole visible native page.');
     PumpMessages;
     Require(ScrollProbe.ContentBounds.Bottom >=
       ScrollContentProbe.Position.Y + ScrollContentProbe.Height + 17,

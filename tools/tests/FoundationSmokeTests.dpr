@@ -1176,10 +1176,19 @@ begin
     'The always-on semantic browser layout contract is incomplete.');
   Require(ContainsText(ComponentSource,
     'procedure TDATFMXLanguageManager.BeginLanguageTransition') and
-    ContainsText(ComponentSource, 'WebBrowser.Visible := False') and
+    ContainsText(ComponentSource, 'HideFormBrowsers(Form, True)') and
     ContainsText(ComponentSource,
       'procedure TDATFMXLanguageManager.EndLanguageTransition') and
-    ContainsText(ComponentSource, 'Browser.Visible := True'),
+    ContainsText(ComponentSource,
+      'SynchronizeBrowserVisibility(Form)') and
+    ContainsText(ComponentSource,
+      'procedure TDATFMXLanguageManager.HandleTabChanged') and
+    ContainsText(ComponentSource,
+      'procedure TDATFMXLanguageManager.HandleBrowserDidFinishLoad') and
+    ContainsText(ComponentSource,
+      'BrowserSubscription.LoadedGeneration = Generation') and
+    ContainsText(ComponentSource,
+      'BrowserIsOnActiveTab(Browser)'),
     'FMX native browser surfaces are not bracketed across language changes.');
   Require(ContainsText(ComponentSource, 'FBrowserLayoutAttempts >= 6') and
     ContainsText(ComponentSource, 'FBrowserLayoutTimer.Interval := 180'),

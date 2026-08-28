@@ -10,6 +10,7 @@ uses
   System.Types,
   FMX.Forms,
   FMX.Layouts,
+  FMX.TabControl,
   FMX.Types,
   FMX.WebBrowser,
   DAT.Components.Core,
@@ -18,6 +19,21 @@ uses
 type
   TDATScrollBoundsSubscription = record
     OriginalHandler: TOnCalcContentBoundsEvent;
+  end;
+
+  TDATBrowserLifecycleSubscription = record
+    OriginalDidStartLoad: TWebBrowserDidStartLoad;
+    OriginalDidFinishLoad: TWebBrowserDidFinishLoad;
+    OriginalDidFailLoad: TWebBrowserDidFailLoadWithError;
+    RequestedVisible: Boolean;
+    WaitingForLoad: Boolean;
+    LoadStartObserved: Boolean;
+    LoadedGeneration: Cardinal;
+    PendingGeneration: Cardinal;
+  end;
+
+  TDATTabChangeSubscription = record
+    OriginalHandler: TNotifyEvent;
   end;
 
   TDATFMXLanguageManager = class(TDATCustomLanguageManager)
@@ -31,19 +47,39 @@ type
     FTranslateBrowserContent: Boolean;
     FBrowserLayoutTimer: TTimer;
     FBrowserLayoutAttempts: Integer;
+    FTransitionActive: Boolean;
+    FTransitionGeneration: Cardinal;
     FTransitionForms: TList<TCommonCustomForm>;
     FTransitionBrowsers: TList<TCustomWebBrowser>;
+    FBrowserLifecycleSubscriptions:
+      TDictionary<TCustomWebBrowser, TDATBrowserLifecycleSubscription>;
+    FTabChangeSubscriptions:
+      TDictionary<TTabControl, TDATTabChangeSubscription>;
     FScrollBoundsSubscriptions:
       TDictionary<TCustomScrollBox, TDATScrollBoundsSubscription>;
     procedure ApplyBrowserAndScrollContracts(
       const AForm: TCommonCustomForm);
     procedure ApplyScrollBottomGutter(const AForm: TCommonCustomForm);
     procedure BrowserLayoutTimerTick(Sender: TObject);
+    procedure EnsureBrowserLifecycleContracts(
+      const AForm: TCommonCustomForm);
     procedure EnsureDynamicTimer;
     procedure EnsureBrowserLayoutTimer;
     procedure DynamicTimerTick(Sender: TObject);
+    procedure HandleBrowserDidFailLoad(Sender: TObject);
+    procedure HandleBrowserDidFinishLoad(Sender: TObject);
+    procedure HandleBrowserDidStartLoad(Sender: TObject);
     procedure HandleScrollContentBounds(Sender: TObject;
       var ContentBounds: TRectF);
+    procedure HandleTabChanged(Sender: TObject);
+    function BrowserBelongsToForm(const ABrowser: TCustomWebBrowser;
+      const AForm: TCommonCustomForm): Boolean;
+    function BrowserIsOnActiveTab(
+      const ABrowser: TCustomWebBrowser): Boolean;
+    procedure HideFormBrowsers(const AForm: TCommonCustomForm;
+      const ACaptureRequestedVisibility: Boolean);
+    procedure SynchronizeBrowserVisibility(
+      const AForm: TCommonCustomForm);
     procedure ScheduleBrowserLayoutRefresh;
     procedure SetAutoRefreshDynamicText(const Value: Boolean);
     procedure SetDynamicRefreshInterval(const Value: Cardinal);
@@ -503,9 +539,395 @@ begin
     ADefaultValues, ACloseQueryEvent, AContext);
 end;
 
+function TDATFMXLanguageManager.BrowserBelongsToForm(
+  const ABrowser: TCustomWebBrowser;
+  const AForm: TCommonCustomForm): Boolean;
+begin
+  Result := (ABrowser <> nil) and (AForm <> nil) and
+    (ABrowser.Root <> nil) and (ABrowser.Root.GetObject = AForm);
+  if not Result and (ABrowser <> nil) then
+    Result := ABrowser.Owner = AForm;
+end;
+
+function TDATFMXLanguageManager.BrowserIsOnActiveTab(
+  const ABrowser: TCustomWebBrowser): Boolean;
+var
+  Ancestor: TFmxObject;
+  TabItem: TTabItem;
+begin
+  Result := ABrowser <> nil;
+  if not Result then
+    Exit;
+  Ancestor := ABrowser.Parent;
+  while Ancestor <> nil do
+  begin
+    if (Ancestor is TControl) and not TControl(Ancestor).Visible then
+      Exit(False);
+    if Ancestor is TTabItem then
+    begin
+      TabItem := TTabItem(Ancestor);
+      if (TabItem.Parent is TTabControl) and
+        (TTabControl(TabItem.Parent).ActiveTab <> TabItem) then
+        Exit(False);
+    end;
+    Ancestor := Ancestor.Parent;
+  end;
+end;
+
+procedure TDATFMXLanguageManager.EnsureBrowserLifecycleContracts(
+  const AForm: TCommonCustomForm);
+var
+  Visited: TDictionary<TComponent, Boolean>;
+
+  procedure Visit(const AComponent: TComponent);
+  var
+    Browser: TCustomWebBrowser;
+    BrowserSubscription: TDATBrowserLifecycleSubscription;
+    ChildIndex: Integer;
+    FMXObject: TFmxObject;
+    ExpectedFail: TWebBrowserDidFailLoadWithError;
+    ExpectedFinish: TWebBrowserDidFinishLoad;
+    ExpectedStart: TWebBrowserDidStartLoad;
+    ExpectedTabChange: TNotifyEvent;
+    TabControl: TTabControl;
+    TabSubscription: TDATTabChangeSubscription;
+  begin
+    if (AComponent = nil) or Visited.ContainsKey(AComponent) then
+      Exit;
+    Visited.Add(AComponent, True);
+    if AComponent is TCustomWebBrowser then
+    begin
+      Browser := TCustomWebBrowser(AComponent);
+      if not FBrowserLifecycleSubscriptions.TryGetValue(Browser,
+        BrowserSubscription) then
+      begin
+        BrowserSubscription := Default(TDATBrowserLifecycleSubscription);
+        BrowserSubscription.OriginalDidStartLoad := Browser.OnDidStartLoad;
+        BrowserSubscription.OriginalDidFinishLoad := Browser.OnDidFinishLoad;
+        BrowserSubscription.OriginalDidFailLoad :=
+          Browser.OnDidFailLoadWithError;
+        BrowserSubscription.RequestedVisible := Browser.Visible;
+        BrowserSubscription.LoadedGeneration := Generation;
+        FBrowserLifecycleSubscriptions.Add(Browser, BrowserSubscription);
+        Browser.FreeNotification(Self);
+      end;
+      ExpectedStart := HandleBrowserDidStartLoad;
+      if (TMethod(Browser.OnDidStartLoad).Code <>
+          TMethod(ExpectedStart).Code) or
+        (TMethod(Browser.OnDidStartLoad).Data <>
+          TMethod(ExpectedStart).Data) then
+      begin
+        BrowserSubscription.OriginalDidStartLoad := Browser.OnDidStartLoad;
+        Browser.OnDidStartLoad := ExpectedStart;
+      end;
+      ExpectedFinish := HandleBrowserDidFinishLoad;
+      if (TMethod(Browser.OnDidFinishLoad).Code <>
+          TMethod(ExpectedFinish).Code) or
+        (TMethod(Browser.OnDidFinishLoad).Data <>
+          TMethod(ExpectedFinish).Data) then
+      begin
+        BrowserSubscription.OriginalDidFinishLoad := Browser.OnDidFinishLoad;
+        Browser.OnDidFinishLoad := ExpectedFinish;
+      end;
+      ExpectedFail := HandleBrowserDidFailLoad;
+      if (TMethod(Browser.OnDidFailLoadWithError).Code <>
+          TMethod(ExpectedFail).Code) or
+        (TMethod(Browser.OnDidFailLoadWithError).Data <>
+          TMethod(ExpectedFail).Data) then
+      begin
+        BrowserSubscription.OriginalDidFailLoad :=
+          Browser.OnDidFailLoadWithError;
+        Browser.OnDidFailLoadWithError := ExpectedFail;
+      end;
+      FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
+        BrowserSubscription);
+    end
+    else if AComponent is TTabControl then
+    begin
+      TabControl := TTabControl(AComponent);
+      if not FTabChangeSubscriptions.TryGetValue(TabControl,
+        TabSubscription) then
+      begin
+        TabSubscription.OriginalHandler := TabControl.OnChange;
+        FTabChangeSubscriptions.Add(TabControl, TabSubscription);
+        TabControl.FreeNotification(Self);
+      end;
+      ExpectedTabChange := HandleTabChanged;
+      if (TMethod(TabControl.OnChange).Code <>
+          TMethod(ExpectedTabChange).Code) or
+        (TMethod(TabControl.OnChange).Data <>
+          TMethod(ExpectedTabChange).Data) then
+      begin
+        TabSubscription.OriginalHandler := TabControl.OnChange;
+        TabControl.OnChange := ExpectedTabChange;
+        FTabChangeSubscriptions.AddOrSetValue(TabControl,
+          TabSubscription);
+      end;
+    end;
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      Visit(AComponent.Components[ChildIndex]);
+    { Runtime-created FMX controls are not required to share the form's
+      Owner. Walk the visual tree as well as the ownership tree so browser
+      and tab contracts also cover those controls. Visited prevents the two
+      traversals from applying a contract twice. }
+    if AComponent is TFmxObject then
+    begin
+      FMXObject := TFmxObject(AComponent);
+      for ChildIndex := 0 to FMXObject.ChildrenCount - 1 do
+        if FMXObject.Children[ChildIndex] is TComponent then
+          Visit(TComponent(FMXObject.Children[ChildIndex]));
+    end;
+  end;
+begin
+  if (AForm = nil) or (csDestroying in ComponentState) then
+    Exit;
+  Visited := TDictionary<TComponent, Boolean>.Create;
+  try
+    Visit(AForm);
+  finally
+    Visited.Free;
+  end;
+end;
+
+procedure TDATFMXLanguageManager.HideFormBrowsers(
+  const AForm: TCommonCustomForm;
+  const ACaptureRequestedVisibility: Boolean);
+var
+  Browser: TCustomWebBrowser;
+  Browsers: TArray<TCustomWebBrowser>;
+  BrowserSubscription: TDATBrowserLifecycleSubscription;
+begin
+  if FBrowserLifecycleSubscriptions = nil then
+    Exit;
+  Browsers := FBrowserLifecycleSubscriptions.Keys.ToArray;
+  for Browser in Browsers do
+    if BrowserBelongsToForm(Browser, AForm) and
+      FBrowserLifecycleSubscriptions.TryGetValue(Browser,
+        BrowserSubscription) then
+    begin
+      if ACaptureRequestedVisibility and Browser.Visible then
+        BrowserSubscription.RequestedVisible := True;
+      Browser.Visible := False;
+      FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
+        BrowserSubscription);
+      if (FTransitionBrowsers <> nil) and
+        (FTransitionBrowsers.IndexOf(Browser) < 0) then
+        FTransitionBrowsers.Add(Browser);
+    end;
+end;
+
+procedure TDATFMXLanguageManager.HandleBrowserDidStartLoad(
+  Sender: TObject);
+var
+  Browser: TCustomWebBrowser;
+  BrowserSubscription: TDATBrowserLifecycleSubscription;
+  OriginalHandler: TWebBrowserDidStartLoad;
+begin
+  if not (Sender is TCustomWebBrowser) then
+    Exit;
+  Browser := TCustomWebBrowser(Sender);
+  if not FBrowserLifecycleSubscriptions.TryGetValue(Browser,
+    BrowserSubscription) then
+    Exit;
+  OriginalHandler := BrowserSubscription.OriginalDidStartLoad;
+  if Browser.Visible then
+    BrowserSubscription.RequestedVisible := True;
+  BrowserSubscription.WaitingForLoad := True;
+  BrowserSubscription.LoadStartObserved := True;
+  if FTransitionActive then
+    BrowserSubscription.PendingGeneration := FTransitionGeneration
+  else
+    BrowserSubscription.PendingGeneration := Generation;
+  Browser.Visible := False;
+  FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
+    BrowserSubscription);
+  if Assigned(OriginalHandler) then
+    OriginalHandler(Sender);
+end;
+
+procedure TDATFMXLanguageManager.HandleBrowserDidFinishLoad(
+  Sender: TObject);
+var
+  Browser: TCustomWebBrowser;
+  BrowserSubscription: TDATBrowserLifecycleSubscription;
+  OriginalHandler: TWebBrowserDidFinishLoad;
+begin
+  if not (Sender is TCustomWebBrowser) then
+    Exit;
+  Browser := TCustomWebBrowser(Sender);
+  if not FBrowserLifecycleSubscriptions.TryGetValue(Browser,
+    BrowserSubscription) then
+    Exit;
+  OriginalHandler := BrowserSubscription.OriginalDidFinishLoad;
+  if Assigned(OriginalHandler) then
+    OriginalHandler(Sender);
+  if not FBrowserLifecycleSubscriptions.TryGetValue(Browser,
+    BrowserSubscription) then
+    Exit;
+  if BrowserSubscription.PendingGeneration <> 0 then
+    BrowserSubscription.LoadedGeneration :=
+      BrowserSubscription.PendingGeneration
+  else if FTransitionActive then
+    BrowserSubscription.LoadedGeneration := FTransitionGeneration
+  else
+    BrowserSubscription.LoadedGeneration := Generation;
+  BrowserSubscription.PendingGeneration := 0;
+  BrowserSubscription.WaitingForLoad := False;
+  BrowserSubscription.LoadStartObserved := False;
+  Browser.Visible := not FTransitionActive and
+    BrowserSubscription.RequestedVisible and
+    (BrowserSubscription.LoadedGeneration = Generation) and
+    BrowserIsOnActiveTab(Browser);
+  FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
+    BrowserSubscription);
+end;
+
+procedure TDATFMXLanguageManager.HandleBrowserDidFailLoad(
+  Sender: TObject);
+var
+  Browser: TCustomWebBrowser;
+  BrowserSubscription: TDATBrowserLifecycleSubscription;
+  OriginalHandler: TWebBrowserDidFailLoadWithError;
+begin
+  if not (Sender is TCustomWebBrowser) then
+    Exit;
+  Browser := TCustomWebBrowser(Sender);
+  if not FBrowserLifecycleSubscriptions.TryGetValue(Browser,
+    BrowserSubscription) then
+    Exit;
+  OriginalHandler := BrowserSubscription.OriginalDidFailLoad;
+  if Assigned(OriginalHandler) then
+    OriginalHandler(Sender);
+  if not FBrowserLifecycleSubscriptions.TryGetValue(Browser,
+    BrowserSubscription) then
+    Exit;
+  BrowserSubscription.PendingGeneration := 0;
+  BrowserSubscription.WaitingForLoad := False;
+  BrowserSubscription.LoadStartObserved := False;
+  BrowserSubscription.LoadedGeneration := Generation;
+  Browser.Visible := not FTransitionActive and
+    BrowserSubscription.RequestedVisible and
+    BrowserIsOnActiveTab(Browser);
+  FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
+    BrowserSubscription);
+end;
+
+procedure TDATFMXLanguageManager.HandleTabChanged(Sender: TObject);
+var
+  Browser: TCustomWebBrowser;
+  Browsers: TArray<TCustomWebBrowser>;
+  BrowserSubscription: TDATBrowserLifecycleSubscription;
+  Form: TCommonCustomForm;
+  OriginalHandler: TNotifyEvent;
+  TabControl: TTabControl;
+  TabSubscription: TDATTabChangeSubscription;
+begin
+  if not (Sender is TTabControl) then
+    Exit;
+  TabControl := TTabControl(Sender);
+  if not FTabChangeSubscriptions.TryGetValue(TabControl,
+    TabSubscription) then
+    Exit;
+  OriginalHandler := TabSubscription.OriginalHandler;
+  Form := nil;
+  if (TabControl.Root <> nil) and
+    (TabControl.Root.GetObject is TCommonCustomForm) then
+    Form := TCommonCustomForm(TabControl.Root.GetObject);
+  if Form <> nil then
+  begin
+    EnsureBrowserLifecycleContracts(Form);
+    HideFormBrowsers(Form, True);
+  end;
+  if Assigned(OriginalHandler) then
+    OriginalHandler(Sender);
+  if Form = nil then
+    Exit;
+  EnsureBrowserLifecycleContracts(Form);
+  Browsers := FBrowserLifecycleSubscriptions.Keys.ToArray;
+  for Browser in Browsers do
+    if BrowserBelongsToForm(Browser, Form) and
+      FBrowserLifecycleSubscriptions.TryGetValue(Browser,
+        BrowserSubscription) then
+    begin
+      if Browser.Visible then
+        BrowserSubscription.RequestedVisible := True;
+      if BrowserIsOnActiveTab(Browser) then
+      begin
+        if BrowserSubscription.LoadedGeneration = Generation then
+        begin
+          BrowserSubscription.WaitingForLoad := False;
+          Browser.Visible := BrowserSubscription.RequestedVisible;
+        end
+        else
+        begin
+          BrowserSubscription.WaitingForLoad := True;
+          if BrowserSubscription.PendingGeneration = 0 then
+            BrowserSubscription.PendingGeneration := Generation;
+          Browser.Visible := False;
+        end;
+      end
+      else
+        Browser.Visible := False;
+      FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
+        BrowserSubscription);
+    end;
+  ScheduleBrowserLayoutRefresh;
+end;
+
+procedure TDATFMXLanguageManager.SynchronizeBrowserVisibility(
+  const AForm: TCommonCustomForm);
+var
+  Browser: TCustomWebBrowser;
+  Browsers: TArray<TCustomWebBrowser>;
+  BrowserSubscription: TDATBrowserLifecycleSubscription;
+begin
+  if FBrowserLifecycleSubscriptions = nil then
+    Exit;
+  Browsers := FBrowserLifecycleSubscriptions.Keys.ToArray;
+  for Browser in Browsers do
+    if BrowserBelongsToForm(Browser, AForm) and
+      FBrowserLifecycleSubscriptions.TryGetValue(Browser,
+        BrowserSubscription) then
+    begin
+      if not BrowserIsOnActiveTab(Browser) then
+        Browser.Visible := False
+      else if FTransitionActive then
+        Browser.Visible := False
+      else if BrowserSubscription.WaitingForLoad then
+      begin
+        if (BrowserSubscription.LoadedGeneration = Generation) and
+          not BrowserSubscription.LoadStartObserved then
+        begin
+          BrowserSubscription.WaitingForLoad := False;
+          BrowserSubscription.PendingGeneration := 0;
+          Browser.Visible := BrowserSubscription.RequestedVisible;
+        end
+        else
+        begin
+          { Never turn elapsed time into proof that an asynchronous browser
+            contains the current language. If a host does not navigate or
+            does not report completion, keep the native surface hidden. A
+            blank page is recoverable; exposing a stale language frame is
+            the transition defect this contract exists to prevent. }
+          Browser.Visible := False;
+        end;
+      end
+      else
+        Browser.Visible := BrowserSubscription.RequestedVisible and
+          (BrowserSubscription.LoadedGeneration = Generation);
+      FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
+        BrowserSubscription);
+    end;
+end;
+
 constructor TDATFMXLanguageManager.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+  FBrowserLifecycleSubscriptions :=
+    TDictionary<TCustomWebBrowser,
+      TDATBrowserLifecycleSubscription>.Create;
+  FTabChangeSubscriptions :=
+    TDictionary<TTabControl, TDATTabChangeSubscription>.Create;
   if not (csDesigning in ComponentState) then
     AcquireFMXDialogTranslationService;
   FAutoRefreshDynamicText := False;
@@ -518,13 +940,25 @@ end;
 destructor TDATFMXLanguageManager.Destroy;
 var
   Browser: TCustomWebBrowser;
+  BrowserSubscription: TDATBrowserLifecycleSubscription;
   CurrentHandler: TOnCalcContentBoundsEvent;
+  CurrentBrowserFail: TWebBrowserDidFailLoadWithError;
+  CurrentBrowserFinish: TWebBrowserDidFinishLoad;
+  CurrentBrowserStart: TWebBrowserDidStartLoad;
+  CurrentTabChange: TNotifyEvent;
+  ExpectedBrowserFail: TWebBrowserDidFailLoadWithError;
+  ExpectedBrowserFinish: TWebBrowserDidFinishLoad;
+  ExpectedBrowserStart: TWebBrowserDidStartLoad;
   ExpectedHandler: TOnCalcContentBoundsEvent;
+  ExpectedTabChange: TNotifyEvent;
   Form: TCommonCustomForm;
   ScrollBox: TCustomScrollBox;
   Subscription: TDATScrollBoundsSubscription;
+  TabControl: TTabControl;
+  TabSubscription: TDATTabChangeSubscription;
 begin
   UnsubscribeFromLifecycle;
+  FTransitionActive := False;
   if not (csDesigning in ComponentState) then
     ReleaseFMXDialogTranslationService;
   if FDynamicTimer <> nil then
@@ -541,10 +975,6 @@ begin
   end;
   FBrowserLayoutTimer.Free;
   FBrowserLayoutTimer := nil;
-  if FTransitionBrowsers <> nil then
-    for Browser in FTransitionBrowsers do
-      if Browser <> nil then
-        Browser.Visible := True;
   if FTransitionForms <> nil then
     for Form in FTransitionForms do
       if Form <> nil then
@@ -553,6 +983,61 @@ begin
   FTransitionBrowsers := nil;
   FTransitionForms.Free;
   FTransitionForms := nil;
+  if FBrowserLifecycleSubscriptions <> nil then
+  begin
+    ExpectedBrowserStart := HandleBrowserDidStartLoad;
+    ExpectedBrowserFinish := HandleBrowserDidFinishLoad;
+    ExpectedBrowserFail := HandleBrowserDidFailLoad;
+    for Browser in FBrowserLifecycleSubscriptions.Keys do
+      if (Browser <> nil) and
+        FBrowserLifecycleSubscriptions.TryGetValue(Browser,
+          BrowserSubscription) then
+      begin
+        CurrentBrowserStart := Browser.OnDidStartLoad;
+        if (TMethod(CurrentBrowserStart).Code =
+            TMethod(ExpectedBrowserStart).Code) and
+          (TMethod(CurrentBrowserStart).Data =
+            TMethod(ExpectedBrowserStart).Data) then
+          Browser.OnDidStartLoad :=
+            BrowserSubscription.OriginalDidStartLoad;
+        CurrentBrowserFinish := Browser.OnDidFinishLoad;
+        if (TMethod(CurrentBrowserFinish).Code =
+            TMethod(ExpectedBrowserFinish).Code) and
+          (TMethod(CurrentBrowserFinish).Data =
+            TMethod(ExpectedBrowserFinish).Data) then
+          Browser.OnDidFinishLoad :=
+            BrowserSubscription.OriginalDidFinishLoad;
+        CurrentBrowserFail := Browser.OnDidFailLoadWithError;
+        if (TMethod(CurrentBrowserFail).Code =
+            TMethod(ExpectedBrowserFail).Code) and
+          (TMethod(CurrentBrowserFail).Data =
+            TMethod(ExpectedBrowserFail).Data) then
+          Browser.OnDidFailLoadWithError :=
+            BrowserSubscription.OriginalDidFailLoad;
+        Browser.Visible := BrowserSubscription.RequestedVisible and
+          BrowserIsOnActiveTab(Browser);
+      end;
+  end;
+  FBrowserLifecycleSubscriptions.Free;
+  FBrowserLifecycleSubscriptions := nil;
+  if FTabChangeSubscriptions <> nil then
+  begin
+    ExpectedTabChange := HandleTabChanged;
+    for TabControl in FTabChangeSubscriptions.Keys do
+      if (TabControl <> nil) and
+        FTabChangeSubscriptions.TryGetValue(TabControl,
+          TabSubscription) then
+      begin
+        CurrentTabChange := TabControl.OnChange;
+        if (TMethod(CurrentTabChange).Code =
+            TMethod(ExpectedTabChange).Code) and
+          (TMethod(CurrentTabChange).Data =
+            TMethod(ExpectedTabChange).Data) then
+          TabControl.OnChange := TabSubscription.OriginalHandler;
+      end;
+  end;
+  FTabChangeSubscriptions.Free;
+  FTabChangeSubscriptions := nil;
   if FScrollBoundsSubscriptions <> nil then
   begin
     ExpectedHandler := HandleScrollContentBounds;
@@ -576,6 +1061,7 @@ procedure TDATFMXLanguageManager.ApplyBrowserAndScrollContracts(
 begin
   if (AForm = nil) or (ActivePack = nil) then
     Exit;
+  EnsureBrowserLifecycleContracts(AForm);
   TFMXTranslationApplicator.RefreshBrowserLayout(AForm, ActivePack);
   ApplyScrollBottomGutter(AForm);
 end;
@@ -635,27 +1121,6 @@ var
   Form: TCommonCustomForm;
   ManagedObject: TObject;
   ManagedObjects: TList<TObject>;
-
-  procedure HideBrowserComponents(const AComponent: TComponent);
-  var
-    ChildIndex: Integer;
-    WebBrowser: TCustomWebBrowser;
-  begin
-    if AComponent = nil then
-      Exit;
-    if AComponent is TCustomWebBrowser then
-    begin
-      WebBrowser := TCustomWebBrowser(AComponent);
-      if WebBrowser.Visible then
-      begin
-        WebBrowser.Visible := False;
-        WebBrowser.FreeNotification(Self);
-        FTransitionBrowsers.Add(WebBrowser);
-      end;
-    end;
-    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
-      HideBrowserComponents(AComponent.Components[ChildIndex]);
-  end;
 begin
   if (csDesigning in ComponentState) or
     (csDestroying in ComponentState) then
@@ -666,6 +1131,10 @@ begin
   FreeAndNil(FTransitionForms);
   FTransitionBrowsers := TList<TCustomWebBrowser>.Create;
   FTransitionForms := TList<TCommonCustomForm>.Create;
+  FTransitionActive := True;
+  FTransitionGeneration := Generation + 1;
+  if FTransitionGeneration = 0 then
+    Inc(FTransitionGeneration);
   ManagedObjects := TList<TObject>.Create;
   try
     try
@@ -674,10 +1143,14 @@ begin
         if ManagedObject is TCommonCustomForm then
         begin
           Form := TCommonCustomForm(ManagedObject);
+          EnsureBrowserLifecycleContracts(Form);
+          { A native WebView is not painted by the FMX scene graph. Hide it
+            before locking the form so no queued native frame can escape the
+            language transaction. }
+          HideFormBrowsers(Form, True);
           Form.BeginUpdate;
           FTransitionForms.Add(Form);
           Form.FreeNotification(Self);
-          HideBrowserComponents(Form);
         end;
     except
       { A half-started transition must never leave a form update-locked or a
@@ -706,7 +1179,10 @@ begin
   try
     CollectOpenManagedObjects(Forms);
     for Form in Forms do
+    begin
       ApplyBrowserAndScrollContracts(TCommonCustomForm(Form));
+      SynchronizeBrowserVisibility(TCommonCustomForm(Form));
+    end;
   finally
     Forms.Free;
   end;
@@ -755,18 +1231,51 @@ end;
 procedure TDATFMXLanguageManager.EndLanguageTransition;
 var
   Browser: TCustomWebBrowser;
+  BrowserSubscription: TDATBrowserLifecycleSubscription;
   Form: TCommonCustomForm;
 begin
   try
     if FTransitionForms <> nil then
       for Form in FTransitionForms do
         if Form <> nil then
+        begin
+          EnsureBrowserLifecycleContracts(Form);
           ApplyBrowserAndScrollContracts(Form);
+        end;
   finally
-    if FTransitionBrowsers <> nil then
+    { Application callbacks may request a browser visible after starting an
+      asynchronous navigation. Capture that request, but keep the native
+      surface hidden before the FMX scene lock is released, and until the
+      current generation reports completion. }
+    if (FTransitionBrowsers <> nil) and
+      (FBrowserLifecycleSubscriptions <> nil) then
       for Browser in FTransitionBrowsers do
-        if Browser <> nil then
-          Browser.Visible := True;
+        if (Browser <> nil) and
+          FBrowserLifecycleSubscriptions.TryGetValue(Browser,
+            BrowserSubscription) then
+        begin
+          if Browser.Visible then
+            BrowserSubscription.RequestedVisible := True;
+          Browser.Visible := False;
+          if BrowserIsOnActiveTab(Browser) then
+          begin
+            if FTranslateBrowserContent and
+              not BrowserSubscription.LoadStartObserved then
+            begin
+              BrowserSubscription.LoadedGeneration := Generation;
+              BrowserSubscription.WaitingForLoad := False;
+              BrowserSubscription.PendingGeneration := 0;
+            end
+            else if BrowserSubscription.LoadedGeneration <> Generation then
+            begin
+              BrowserSubscription.WaitingForLoad := True;
+              if BrowserSubscription.PendingGeneration = 0 then
+                BrowserSubscription.PendingGeneration := Generation;
+            end;
+          end;
+          FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
+            BrowserSubscription);
+        end;
     if FTransitionForms <> nil then
       for Form in FTransitionForms do
         if Form <> nil then
@@ -774,9 +1283,15 @@ begin
           Form.EndUpdate;
           Form.Invalidate;
         end;
+    FTransitionActive := False;
+    if FTransitionForms <> nil then
+      for Form in FTransitionForms do
+        if Form <> nil then
+          SynchronizeBrowserVisibility(Form);
     FreeAndNil(FTransitionBrowsers);
     FreeAndNil(FTransitionForms);
   end;
+  FTransitionGeneration := 0;
   ScheduleBrowserLayoutRefresh;
 end;
 
@@ -900,6 +1415,11 @@ begin
   begin
     Form := TFormBeforeShownMessage(AMessage).Value;
     ReapplyToManagedObject(Form);
+    EnsureBrowserLifecycleContracts(Form);
+    { FormCreate has completed by this notification, while controls created
+      by FormShow can appear immediately afterward. The bounded refresh finds
+      both groups without polling for the life of the application. }
+    ScheduleBrowserLayoutRefresh;
   end;
 end;
 
@@ -976,6 +1496,12 @@ begin
   if (FTransitionBrowsers <> nil) and
     (AComponent is TCustomWebBrowser) then
     FTransitionBrowsers.Remove(TCustomWebBrowser(AComponent));
+  if (FBrowserLifecycleSubscriptions <> nil) and
+    (AComponent is TCustomWebBrowser) then
+    FBrowserLifecycleSubscriptions.Remove(TCustomWebBrowser(AComponent));
+  if (FTabChangeSubscriptions <> nil) and
+    (AComponent is TTabControl) then
+    FTabChangeSubscriptions.Remove(TTabControl(AComponent));
   if (FTransitionForms <> nil) and
     (AComponent is TCommonCustomForm) then
     FTransitionForms.Remove(TCommonCustomForm(AComponent));
