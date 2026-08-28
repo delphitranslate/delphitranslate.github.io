@@ -205,6 +205,7 @@ type
     procedure ApplyLocaleDefaults;
     procedure BuildReview;
     procedure ExecuteFinalProcessing;
+    procedure ContinueFinalProcessingAfterBackup;
     procedure ContinueFinalProcessing(
       const AEntryIndexes: TArray<Integer>;
       const ATranslatedTexts: TArray<string>;
@@ -256,6 +257,7 @@ uses
   FMX.Platform,
   DAT.Core.AtomicFile,
   DAT.Core.CatalogJson,
+  DAT.Core.LocaleFacts,
   DAT.Core.Glossary,
   DAT.Core.Hyphenation,
   DAT.Scan.DomainProfile,
@@ -292,7 +294,7 @@ begin
   FCurrentStep := 1;
   FHighestStep := 1;
   cboSourceLanguage.ItemIndex := 0;
-  cboTargetLanguage.ItemIndex := 36;
+  cboTargetLanguage.ItemIndex := -1;
   cboProvider.ItemIndex := 0;
   cboDeepLPlan.ItemIndex := 0;
   cboWorkflowMode.ItemIndex := 0;
@@ -301,7 +303,6 @@ begin
   chkCreateBackup.Enabled := False;
   chkTargetProjectClosed.IsChecked := False;
   edtApiKey.Password := True;
-  ApplyLocaleDefaults;
   chkBuildNow.IsChecked := False;
   FBuildCompleted := False;
   FBuildInProgress := False;
@@ -787,6 +788,12 @@ end;
 
 procedure TfrmSetupWizard.btnCancelClick(Sender: TObject);
 begin
+  if FScanInProgress then
+  begin
+    TInterlocked.Exchange(FScanCancelRequested, 1);
+    lblFooterStatus.Text := 'Cancelling project scan...';
+    Exit;
+  end;
   if FFinalProcessing then
   begin
     TInterlocked.Exchange(FFinalCancelRequested, 1);
@@ -852,7 +859,7 @@ end;
 procedure TfrmSetupWizard.UpdateNavigation;
 begin
   btnBack.Enabled := (FCurrentStep > 1) and not FFinalProcessing;
-  btnCancel.Enabled := not FFinalProcessing;
+  btnCancel.Enabled := not FProviderTestInProgress and not FBuildInProgress;
   btnNext.Visible := FCurrentStep < StepCount;
   btnFinish.Visible := FCurrentStep = StepCount;
   btnFinish.Enabled := FCompleted and
@@ -1190,6 +1197,7 @@ procedure TfrmSetupWizard.LoadExistingCatalog;
 var
   ExistingFileName: string;
   LanguageCode: string;
+  LocaleFacts: TLocaleFacts;
   LocaleSettings: TFormatSettings;
 begin
   LanguageCode := SelectedLanguageCode(cboTargetLanguage);
@@ -1206,11 +1214,23 @@ begin
     FCatalog.SourceLanguage := SelectedLanguageCode(cboSourceLanguage);
     FCatalog.Locale.LanguageCode := LanguageCode;
     FCatalog.Locale.NativeLanguageName := edtNativeName.Text;
-    if StartsText('ar-', LanguageCode) or StartsText('fa-', LanguageCode) or
-       StartsText('he-', LanguageCode) or StartsText('ur-', LanguageCode) then
+    LocaleFacts := TLocaleFactsReader.Read(LanguageCode);
+    if SameText(LocaleFacts.TextDirection, 'rtl') then
       FCatalog.Locale.TextDirection := 'rtl'
     else
       FCatalog.Locale.TextDirection := 'ltr';
+    if TLocaleFactsReader.Known(LanguageCode) then
+    begin
+      FCatalog.Locale.ShortDateFormat := LocaleFacts.ShortDateFormat;
+      FCatalog.Locale.LongDateFormat := LocaleFacts.LongDateFormat;
+      FCatalog.Locale.ShortTimeFormat := LocaleFacts.ShortTimeFormat;
+      FCatalog.Locale.LongTimeFormat := LocaleFacts.LongTimeFormat;
+      FCatalog.Locale.DecimalSeparator := LocaleFacts.DecimalSeparator;
+      FCatalog.Locale.ThousandSeparator := LocaleFacts.ThousandSeparator;
+      FCatalog.Locale.CurrencySymbol := LocaleFacts.CurrencySymbol;
+      FCatalogFileName := ExistingFileName;
+      Exit;
+    end;
     try
       LocaleSettings := TFormatSettings.Create(LanguageCode);
       FCatalog.Locale.ShortDateFormat := LocaleSettings.ShortDateFormat;
@@ -1244,7 +1264,7 @@ begin
   RailBackground.Enabled := False;
   btnBack.Enabled := False;
   btnNext.Enabled := False;
-  btnCancel.Enabled := False;
+  btnCancel.Enabled := True;
   btnFinish.Enabled := False;
   lblFooterStatus.Text := 'Scanning project text resources...';
   FScanInProgress := True;
@@ -1266,6 +1286,17 @@ begin
           begin
             Result := TInterlocked.CompareExchange(
               FScanCancelRequested, 0, 0) <> 0;
+          end,
+          procedure(const AStage: string; const AFilesCompleted: Integer)
+          begin
+            TThread.Queue(nil,
+              procedure
+              begin
+                if not (csDestroying in ComponentState) then
+                  lblFooterStatus.Text := Format(
+                    'Scanning %s: %d file(s) completed...',
+                    [AStage, AFilesCompleted]);
+              end);
           end);
       except
         on E: Exception do
@@ -1313,6 +1344,13 @@ begin
                 lblScanSummary.Text := Format(
                   '%d current translatable entries  |  new catalog  |  %d equivalent duplicate occurrence(s) collapsed',
                   [FScanResult.Items.Count, MergeSummary.DuplicateScanKeys]);
+              lblScanSummary.Text := lblScanSummary.Text + sLineBreak + Format(
+                '%d form properties | %d resourcestrings | %d runtime assignments | %d forms | %d source files',
+                [FScanResult.CountByKind(stkFormProperty),
+                 FScanResult.CountByKind(stkResourceString),
+                 FScanResult.CountByKind(stkRuntimeAssignment),
+                 FScanResult.FormFilesScanned,
+                 FScanResult.SourceFilesScanned]);
               FReviewOutputDirectory := TPath.Combine(FindStudioRoot,
                 TPath.Combine('export\localization-review',
                   TPath.Combine(FProjectProfile.ProjectName,
@@ -1707,37 +1745,17 @@ end;
 
 procedure TfrmSetupWizard.ExecuteFinalProcessing;
 var
-  SharedMemory: TTranslationMemory;
-  MemoryCount: Integer;
-  ApiKey: string;
   BackupDirectory: string;
-  Entry: TTranslationEntry;
   ScanItem: TScanItem;
-  EntryIndexes: TArray<Integer>;
-  Index: Integer;
-  MissingCount: Integer;
   MissingSourceFileName: string;
-  Plan: TDeepLPlan;
-  Provider: TTranslationProvider;
-  SourceTexts: TArray<string>;
-  Contexts: TArray<string>;
-  SourceLanguage: string;
-  TargetLanguage: string;
-  ProviderCount: Integer;
-  ResolvedText: string;
-  Glossary: TProjectGlossary;
-  AppliedGlossaryCount: Integer;
-  SharedCount: Integer;
-  ContributedCount: Integer;
-  UnmatchedTermCount: Integer;
-  ProjectGlossaryFileName: string;
+  ProjectDirectory: string;
 begin
   FFinalProcessing := True;
   TInterlocked.Exchange(FFinalCancelRequested, 0);
   FCompleted := False;
   FBuildCompleted := False;
   btnBack.Enabled := False;
-  btnCancel.Enabled := False;
+  btnCancel.Enabled := True;
   btnNext.Enabled := False;
   btnFinish.Enabled := False;
   UpdateBuildChoice;
@@ -1767,13 +1785,80 @@ begin
     BackupDirectory := TPath.Combine(TPath.GetDocumentsPath,
       TPath.Combine('Delphi App Translation Backups',
         FProjectProfile.ProjectName));
-    TDirectory.CreateDirectory(BackupDirectory);
     FBackupFileName := TPath.Combine(BackupDirectory,
       FormatDateTime('yyyy-mm-dd_hhnnss', Now) + '.zip');
-    TZipFile.ZipDirectoryContents(FBackupFileName,
-      TPath.GetDirectoryName(FProjectProfile.ProjectFileName));
-    AddProgress('Backup created: ' + FBackupFileName);
-    AddProgress('Target Pascal and form source files remain unchanged.');
+    ProjectDirectory := TPath.GetDirectoryName(
+      FProjectProfile.ProjectFileName);
+    lblFinishText.Text :=
+      'Creating the required safety backup. You may cancel while this runs.';
+    TThread.CreateAnonymousThread(
+      procedure
+      var
+        ErrorText: string;
+      begin
+        ErrorText := '';
+        try
+          if TInterlocked.CompareExchange(
+            FFinalCancelRequested, 0, 0) <> 0 then
+            raise EAbort.Create('Final processing was cancelled.');
+          TDirectory.CreateDirectory(BackupDirectory);
+          TZipFile.ZipDirectoryContents(FBackupFileName, ProjectDirectory);
+        except
+          on E: Exception do
+            ErrorText := E.Message;
+        end;
+        TThread.Queue(nil,
+          procedure
+          begin
+            if TInterlocked.CompareExchange(
+              FFinalCancelRequested, 0, 0) <> 0 then
+              StopFinalProcessing('Final processing was cancelled.')
+            else if ErrorText <> '' then
+              StopFinalProcessing(ErrorText)
+            else
+            begin
+              AddProgress('Backup created: ' + FBackupFileName);
+              AddProgress(
+                'Target Pascal and form source files remain unchanged.');
+              lblFinishText.Text :=
+                'Safety backup complete. Preparing translations...';
+              ContinueFinalProcessingAfterBackup;
+            end;
+          end);
+      end).Start;
+  except
+    on E: Exception do
+      StopFinalProcessing(E.Message);
+  end;
+end;
+
+procedure TfrmSetupWizard.ContinueFinalProcessingAfterBackup;
+var
+  SharedMemory: TTranslationMemory;
+  MemoryCount: Integer;
+  ApiKey: string;
+  Entry: TTranslationEntry;
+  EntryIndexes: TArray<Integer>;
+  Index: Integer;
+  MissingCount: Integer;
+  Plan: TDeepLPlan;
+  Provider: TTranslationProvider;
+  SourceTexts: TArray<string>;
+  Contexts: TArray<string>;
+  SourceLanguage: string;
+  TargetLanguage: string;
+  ProviderCount: Integer;
+  ResolvedText: string;
+  Glossary: TProjectGlossary;
+  AppliedGlossaryCount: Integer;
+  SharedCount: Integer;
+  ContributedCount: Integer;
+  UnmatchedTermCount: Integer;
+  ProjectGlossaryFileName: string;
+begin
+  try
+    if TInterlocked.CompareExchange(FFinalCancelRequested, 0, 0) <> 0 then
+      raise EAbort.Create('Final processing was cancelled.');
 
     Provider := SelectedProvider;
     ApiKey := EffectiveApiKey;

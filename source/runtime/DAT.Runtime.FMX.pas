@@ -118,6 +118,7 @@ uses
   FMX.Layouts,
   FMX.Memo,
   FMX.Menus,
+  FMX.Objects,
   FMX.Graphics,
   FMX.StdCtrls,
   FMX.TabControl,
@@ -336,7 +337,13 @@ begin
         Script.Append(',');
       Script.Append('[').Append(Candidate).Append(']');
     end;
-    Script.Append('],p=Object.create(null),i;for(i=0;i<a.length;i++){p[a[i][0]]=a[i][1];}function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}function apply(n){var c=0,v,l,r,ch,t;if(!n){return 0;}if(n.nodeType===1&&/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|CODE|PRE|TEXTAREA)$/i.test(n.nodeName)){return 0;}if(n.nodeType===3){v=n.nodeValue;t=trim(v);if(Object.prototype.hasOwnProperty.call(p,t)){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[t]+r;c++;}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}function run(){return document.body?apply(document.body):0;}var tries=0;function retry(){try{if(document.body){run();return;}}catch(e){}tries++;if(tries<20){window.setTimeout(retry,150);}}retry();})();');
+    Script.Append('],p=Object.create(null),i,d=')
+      .Append(JavaScriptString(LowerCase(Trim(APack.TextDirection))))
+      .Append(';for(i=0;i<a.length;i++){p[a[i][0]]=a[i][1];}')
+      .Append('function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}')
+      .Append('function contract(){var h=document.documentElement,b=document.body,s=document.getElementById("dat-runtime-layout-contract");if(h){h.setAttribute("dir",d);h.style.direction=d;}if(b){b.setAttribute("dir",d);b.style.direction=d;b.style.textAlign="start";}if(!s&&document.head){s=document.createElement("style");s.id="dat-runtime-layout-contract";s.textContent="*,*::before,*::after{box-sizing:border-box}button,[role=button]{white-space:normal;overflow-wrap:anywhere;padding-inline:max(.65em,8px)}label,p,li,th,td{overflow-wrap:anywhere;word-break:normal}table,img,svg,canvas{max-inline-size:100%}input,textarea,select{direction:"+d+";text-align:start}";document.head.appendChild(s);}}')
+      .Append('function apply(n){var c=0,v,l,r,ch,t;if(!n){return 0;}if(n.nodeType===1&&/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|CODE|PRE|TEXTAREA)$/i.test(n.nodeName)){return 0;}if(n.nodeType===3){v=n.nodeValue;t=trim(v);if(Object.prototype.hasOwnProperty.call(p,t)){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[t]+r;c++;}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}')
+      .Append('function run(){if(!document.body){return 0;}contract();return apply(document.body);}var tries=0;function retry(){try{if(document.body){run();return;}}catch(e){}tries++;if(tries<20){window.setTimeout(retry,150);}}retry();})();');
     ScriptText := Script.ToString;
     DATRuntimeDebugLog(Format(
       'ApplyBrowserText executing: pairs=%d script length=%d',
@@ -1112,8 +1119,8 @@ function ApplyConservativeTextFit(const AForm: TCommonCustomForm;
   const APack: TRuntimeLanguagePack; const AFormIdentity: string): Integer;
 const
   HorizontalPadding = 10;
-  MinimumButtonWidth = 96;
-  MaximumButtonWidth = 240;
+  MinimumReadableFontSize = 8;
+  MaximumButtonWidth = 360;
   MinimumLabelWidth = 42;
   MaximumLabelWidth = 420;
   MinimumLabelHeight = 22;
@@ -1322,19 +1329,37 @@ var
   function FitButton(const AComponent: TComponent; const AControl: TControl;
     const AText: string): Integer;
   var
+    Font: TFont;
+    FontSize: Single;
     MaxWidth: Single;
     NeededWidth: Single;
     NewHeight: Single;
     NewWidth: Single;
   begin
     Result := 0;
-    NeededWidth := MeasuredTextWidth(AText, ComponentFont(AComponent));
-    MaxWidth := Min(MaximumButtonWidth, AvailableWidthToParentRight(AControl));
-    NewWidth := Min(MaxWidth, Max(MinimumButtonWidth, NeededWidth));
+    Font := ComponentFont(AComponent);
+    NeededWidth := MeasuredTextWidth(AText, Font);
+    MaxWidth := Min(MaximumButtonWidth,
+      NearestSameRowRightEdgeLimit(AControl));
+    { Preserve compact designer-authored controls (including media transport
+      buttons). Grow only when the measured caption needs it. }
+    NewWidth := Min(MaxWidth, Max(AControl.Width, NeededWidth));
     if NewWidth > AControl.Width + 4 then
     begin
       AControl.Width := NewWidth;
       Inc(Result);
+    end;
+    if (NeededWidth > AControl.Width - HorizontalPadding) and
+      (Font <> nil) and (Font.Size > MinimumReadableFontSize) then
+    begin
+      FontSize := Max(MinimumReadableFontSize,
+        Font.Size * ((AControl.Width - HorizontalPadding) / NeededWidth));
+      if ApplyFontSizeSetting(AComponent, FontSize) then
+      begin
+        Inc(Result);
+        NeededWidth := MeasuredTextWidth(AText,
+          ComponentFont(AComponent));
+      end;
     end;
     if NeededWidth > AControl.Width + 8 then
     begin
@@ -1390,6 +1415,8 @@ var
     const AText: string): Integer;
   var
     HasRightNeighbor: Boolean;
+    Font: TFont;
+    FontSize: Single;
     MaxWidth: Single;
     NeededHeight: Single;
     NeededWidth: Single;
@@ -1398,7 +1425,8 @@ var
     RightLimitedWidth: Single;
   begin
     Result := 0;
-    NeededWidth := MeasuredTextWidth(AText, ComponentFont(AComponent));
+    Font := ComponentFont(AComponent);
+    NeededWidth := MeasuredTextWidth(AText, Font);
     ParentWidth := ParentClientWidth(AControl);
     RightLimitedWidth := NearestSameRowRightEdgeLimit(AControl);
     HasRightNeighbor := RightLimitedWidth < AvailableWidthToParentRight(AControl) - 1;
@@ -1428,6 +1456,20 @@ var
     begin
       AControl.Width := NewWidth;
       Inc(Result);
+    end;
+
+    { A heading should first use the width that is safely available and then
+      reduce its type only as far as a readable floor.  Wrapping remains the
+      final fallback.  This contract is based on measured text and neighbours,
+      not on a language name, so every longer translation receives the same
+      treatment. }
+    if (NeededWidth > AControl.Width - HorizontalPadding) and
+      (Font <> nil) and (Font.Size > MinimumReadableFontSize) then
+    begin
+      FontSize := Max(MinimumReadableFontSize,
+        Font.Size * ((AControl.Width - HorizontalPadding) / NeededWidth));
+      if ApplyFontSizeSetting(AComponent, FontSize) then
+        Inc(Result);
     end;
 
     NeededHeight := FitWrappedHeight(AText, ComponentFont(AComponent),
@@ -1650,6 +1692,63 @@ var
       end;
     end;
   end;
+
+  function FitContainer(const AComponent: TComponent): Integer;
+  const
+    BottomPadding = 12;
+  var
+    Child: TFmxObject;
+    ChildControl: TControl;
+    ChildIndex: Integer;
+    Container: TControl;
+    GrowthDelta: Single;
+    MaximumBottom: Single;
+    OldBottom: Single;
+    RequiredHeight: Single;
+    Visited: TList<TControl>;
+  begin
+    Result := 0;
+    if not (AComponent is TControl) then
+      Exit;
+    Container := TControl(AComponent);
+    if (Container.Align <> TAlignLayout.None) or
+      not Container.Visible or (Container.ChildrenCount = 0) or
+      not ((AComponent is TRectangle) or (AComponent is TLayout) or
+        ContainsText(AComponent.ClassName, 'Panel') or
+        ContainsText(AComponent.ClassName, 'GroupBox')) then
+      Exit;
+    MaximumBottom := 0;
+    for ChildIndex := 0 to Container.ChildrenCount - 1 do
+    begin
+      Child := Container.Children[ChildIndex];
+      if not (Child is TControl) then
+        Continue;
+      ChildControl := TControl(Child);
+      if not ChildControl.Visible or
+        (ChildControl.Align in [TAlignLayout.Client, TAlignLayout.Contents]) then
+        Continue;
+      MaximumBottom := Max(MaximumBottom,
+        ChildControl.Position.Y + ChildControl.Height);
+    end;
+    RequiredHeight := MaximumBottom + BottomPadding;
+    if RequiredHeight <= Container.Height + 1 then
+      Exit;
+    OldBottom := BottomEdge(Container);
+    Container.Height := RequiredHeight;
+    Inc(Result);
+    GrowthDelta := BottomEdge(Container) - OldBottom;
+    if GrowthDelta > 1 then
+    begin
+      Visited := TList<TControl>.Create;
+      try
+        Visited.Add(Container);
+        Inc(Result, CascadeStackedGrowth(Container, OldBottom, GrowthDelta,
+          Visited));
+      finally
+        Visited.Free;
+      end;
+    end;
+  end;
 begin
   Result := 0;
   if (AForm = nil) or (APack = nil) then
@@ -1657,6 +1756,13 @@ begin
   for ComponentIndex := 0 to AForm.ComponentCount - 1 do
     Inc(Result, FitComponent(AForm.Components[ComponentIndex]));
   Inc(Result, ApplyLabelInputGuards);
+  { Several passes allow an inner text group to grow its card and that card to
+    grow the outer scrollable content area. The pass count is fixed, so there
+    is no event-driven or language-switch layout loop. }
+  for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+    Inc(Result, FitContainer(AForm.Components[ComponentIndex]));
+  for ComponentIndex := 0 to AForm.ComponentCount - 1 do
+    Inc(Result, FitContainer(AForm.Components[ComponentIndex]));
 end;
 function EditableTextComponent(const AComponent: TComponent): Boolean;
 begin
@@ -2151,10 +2257,33 @@ var
         Snapshot.HasPosition then
         Result := Snapshot.Position.X;
     end;
+
+    function DesignedWidth(const AControl: TControl): Single;
+    var
+      Snapshot: TDATControlSnapshot;
+    begin
+      Result := AControl.Width;
+      if (FOriginalGeometry <> nil) and
+        FOriginalGeometry.TryGetValue(
+          PositionKey(AFormIdentity, AControl), Snapshot) and
+        (Snapshot.Size.X > 0) then
+        Result := Snapshot.Size.X;
+    end;
+
+    function SnapshotWidth(const AObject: TFmxObject): Single;
+    var
+      Snapshot: TDATControlSnapshot;
+    begin
+      Result := 0;
+      if (AObject is TControl) and (FOriginalGeometry <> nil) and
+        FOriginalGeometry.TryGetValue(
+          PositionKey(AFormIdentity, TControl(AObject)), Snapshot) then
+        Result := Snapshot.Size.X;
+    end;
   begin
     if AParent = nil then
       Exit;
-    EffectiveWidth := ASerializedWidth;
+    EffectiveWidth := Max(ASerializedWidth, SnapshotWidth(AParent));
     { A TTabItem can retain its small designer placeholder width while its
       tab control supplies the real client area.  An aligned content parent
       has the same relationship after responsive layout. }
@@ -2164,6 +2293,10 @@ var
       and (TControl(AParent).ParentControl <> nil) and
       (TControl(AParent).ParentControl.Width > EffectiveWidth) then
       EffectiveWidth := TControl(AParent).ParentControl.Width;
+    if (AParent is TControl) and
+      (TControl(AParent).ParentControl <> nil) then
+      EffectiveWidth := Max(EffectiveWidth,
+        SnapshotWidth(TControl(AParent).ParentControl));
 
     { Preserve the visible content gutter when a designer-sized control ends
       on, or a rounding pixel beyond, its parent's opposite edge.  FMX form
@@ -2191,9 +2324,8 @@ var
           (SourceLeft < MinimumPositiveInset) then
           MinimumPositiveInset := SourceLeft;
         if IsApplicationControl(Control) and
-          (Control.Align = TAlignLayout.None) and
-          (SourceLeft + Control.Width > LargestChildRight) then
-          LargestChildRight := SourceLeft + Control.Width;
+          (SourceLeft + DesignedWidth(Control) > LargestChildRight) then
+          LargestChildRight := SourceLeft + DesignedWidth(Control);
       end;
     end;
     if MinimumPositiveInset = MaxSingle then
@@ -2205,24 +2337,18 @@ var
       width from the owning tab control before mirroring or fitting anything.
       This is deliberately based on FMX ownership and measured geometry, not
       on an application or component name. }
-    if (LargestChildRight > EffectiveWidth + 0.5) and
-      not ((AParent is TControl) and
-        IsApplicationControl(TControl(AParent)) and
-        (TControl(AParent).Align = TAlignLayout.None)) then
+    if LargestChildRight > EffectiveWidth + 0.5 then
     begin
       Ancestor := AParent.Parent;
       while Ancestor <> nil do
       begin
         if Ancestor is TTabControl then
         begin
-          if TTabControl(Ancestor).Width > EffectiveWidth then
-            EffectiveWidth := TTabControl(Ancestor).Width;
+          EffectiveWidth := Max(EffectiveWidth,
+            TTabControl(Ancestor).Width);
+          EffectiveWidth := Max(EffectiveWidth, SnapshotWidth(Ancestor));
           Break;
         end;
-        if (Ancestor is TControl) and
-          IsApplicationControl(TControl(Ancestor)) and
-          (TControl(Ancestor).Align = TAlignLayout.None) then
-          Break;
         Ancestor := Ancestor.Parent;
       end;
     end;
@@ -2233,8 +2359,8 @@ var
       transient state into permanent card geometry: retain the designer
       position and width until the manager's post-show pass can resolve the
       real tab client width. }
-    GeometryResolved := LargestChildRight <= EffectiveWidth +
-      MinimumPositiveInset + 1;
+    GeometryResolved := (EffectiveWidth > 1) and
+      (LargestChildRight <= EffectiveWidth + MinimumPositiveInset + 1);
 
     TransportControls := TList<TControl>.Create;
     try
@@ -2257,14 +2383,14 @@ var
         (TransportControls.Count > 0) then
       begin
         GroupLeft := DesignedLeft(TransportControls[0]);
-        GroupRight := GroupLeft + TransportControls[0].Width;
+        GroupRight := GroupLeft + DesignedWidth(TransportControls[0]);
         for Control in TransportControls do
         begin
           SourceLeft := DesignedLeft(Control);
           if SourceLeft < GroupLeft then
             GroupLeft := SourceLeft;
-          if SourceLeft + Control.Width > GroupRight then
-            GroupRight := SourceLeft + Control.Width;
+          if SourceLeft + DesignedWidth(Control) > GroupRight then
+            GroupRight := SourceLeft + DesignedWidth(Control);
         end;
         MirroredGroupLeft := EffectiveWidth - GroupRight;
         for Control in TransportControls do
@@ -2292,8 +2418,9 @@ var
             if (MinimumPositiveInset > 0) and
               (SourceLeft >= MinimumPositiveInset) and
               (EffectiveWidth > 2 * MinimumPositiveInset) and
-              (Control.Width <= EffectiveWidth + MinimumPositiveInset + 1) and
-              (Control.Width > EffectiveWidth -
+              (DesignedWidth(Control) <= EffectiveWidth +
+                MinimumPositiveInset + 1) and
+              (DesignedWidth(Control) > EffectiveWidth -
                 (2 * MinimumPositiveInset)) then
               Control.Width := EffectiveWidth -
                 (2 * MinimumPositiveInset);

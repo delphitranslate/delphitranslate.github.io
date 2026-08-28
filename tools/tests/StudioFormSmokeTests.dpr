@@ -149,6 +149,13 @@ begin
       if a visible entry point is ever added. }
     if Wizard.cboTargetLanguage.Items.Count < 35 then
       raise Exception.Create('The wizard target-language list is incomplete.');
+    if Wizard.cboTargetLanguage.Items.IndexOf(
+       'Pashto (Afghanistan) [ps-AF]') < 0 then
+      raise Exception.Create(
+        'The wizard target-language list omits a supported RTL language.');
+    if Wizard.cboTargetLanguage.ItemIndex <> -1 then
+      raise Exception.Create(
+        'The wizard must not silently default a new project to one target language.');
     if not Wizard.edtApiKey.Password then
       raise Exception.Create('The wizard API-key field is not masked.');
     if not Assigned(Wizard.btnBrowseProject.OnClick) or
@@ -229,6 +236,12 @@ begin
       if (frmTranslationStudio.cboSourceLanguage.Items.Count < 40) or
          (frmTranslationStudio.cboTargetLanguage.Items.Count < 40) then
         raise Exception.Create('The built-in language selection list is incomplete.');
+      if (frmTranslationStudio.cboSourceLanguage.Items.IndexOf(
+          'Pashto (Afghanistan) [ps-AF]') < 0) or
+         (frmTranslationStudio.cboTargetLanguage.Items.IndexOf(
+          'Pashto (Afghanistan) [ps-AF]') < 0) then
+        raise Exception.Create(
+          'The built-in language lists omit a supported RTL language.');
       if not frmTranslationStudio.edtProviderApiKey.Password then
         raise Exception.Create('The provider API key field is not masked.');
       if frmTranslationStudio.cboTranslationProvider.Items.Count <> 2 then
@@ -239,6 +252,13 @@ begin
       if not Assigned(frmTranslationStudio.btnGuidedSetup.OnClick) or
          (frmTranslationStudio.btnGuidedSetup.Text <> 'Start Setup Wizard') then
         raise Exception.Create('The recommended Setup Wizard action is unavailable.');
+      if not Assigned(frmTranslationStudio.mnuFileExit.OnClick) or
+         not Assigned(frmTranslationStudio.btnOperationCancel.OnClick) then
+        raise Exception.Create(
+          'Exit or visible operation cancellation is not designer-wired.');
+      if frmTranslationStudio.OperationCard.Visible then
+        raise Exception.Create(
+          'The operation progress card must start hidden.');
       if not Assigned(
         frmTranslationStudio.chkRuntimeWiringConfirmed.OnChange) then
         raise Exception.Create(

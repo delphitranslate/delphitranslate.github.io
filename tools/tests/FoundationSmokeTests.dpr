@@ -1318,6 +1318,57 @@ begin
   finally
     Catalog.Free;
   end;
+
+  Catalog := TTranslationCatalog.Create;
+  try
+    Catalog.Locale.LanguageCode := 'de-DE';
+    Entry := TTranslationEntry.Create;
+    Entry.SourceText := 'On';
+    Entry.TranslatedText := 'Auf';
+    Entry.Status := tsMachineTranslated;
+    Entry.TranslationOrigin := torDeepL;
+    Catalog.Entries.Add(Entry);
+    Require(TTerminologyResolver.ApplyAuthoritativeTerms(Catalog) = 1,
+      'German software-state On was not repaired.');
+    Require(Catalog.Entries[0].TranslatedText = 'Ein',
+      'German software-state On must be Ein, not a spatial preposition.');
+  finally
+    Catalog.Free;
+  end;
+
+  Catalog := TTranslationCatalog.Create;
+  try
+    Catalog.Locale.LanguageCode := 'pl-PL';
+    Entry := TTranslationEntry.Create;
+    Entry.SourceText := 'On';
+    Entry.TranslatedText := 'W';
+    Entry.Status := tsMachineTranslated;
+    Entry.TranslationOrigin := torGoogle;
+    Catalog.Entries.Add(Entry);
+    Require(TTerminologyResolver.ApplyAuthoritativeTerms(Catalog) = 1,
+      'Polish software-state On was not repaired.');
+    Require(Catalog.Entries[0].TranslatedText = 'Włączone',
+      'Polish software-state On must be Włączone.');
+  finally
+    Catalog.Free;
+  end;
+
+  Catalog := TTranslationCatalog.Create;
+  try
+    Catalog.Locale.LanguageCode := 'ru-RU';
+    Entry := TTranslationEntry.Create;
+    Entry.SourceText := 'On';
+    Entry.TranslatedText := 'На';
+    Entry.Status := tsMachineTranslated;
+    Entry.TranslationOrigin := torGoogle;
+    Catalog.Entries.Add(Entry);
+    Require(TTerminologyResolver.ApplyAuthoritativeTerms(Catalog) = 1,
+      'Russian software-state On was not repaired.');
+    Require(Catalog.Entries[0].TranslatedText = 'Включено',
+      'Russian software-state On must be Включено.');
+  finally
+    Catalog.Free;
+  end;
 end;
 
 procedure TestCatalogCsvRoundTrip;

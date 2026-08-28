@@ -271,6 +271,36 @@ begin
       Exit(False);
     Exit(True);
   end
+  else if ALanguage = 'de' then
+  begin
+    if SameText(TextValue, 'On') then
+      ATranslation := 'Ein'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'Aus'
+    else
+      Exit(False);
+    Exit(True);
+  end
+  else if ALanguage = 'pl' then
+  begin
+    if SameText(TextValue, 'On') then
+      ATranslation := 'Włączone'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'Wyłączone'
+    else
+      Exit(False);
+    Exit(True);
+  end
+  else if ALanguage = 'ru' then
+  begin
+    if SameText(TextValue, 'On') then
+      ATranslation := 'Включено'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'Выключено'
+    else
+      Exit(False);
+    Exit(True);
+  end
   else if ALanguage = 'ar' then
   begin
     { These short state and rule labels are UI terminology, not prose. A

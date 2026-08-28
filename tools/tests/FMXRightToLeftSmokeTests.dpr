@@ -317,8 +317,8 @@ begin
         (Abs((PlayButton.Position.X - RewindButton.Position.X) - 70) < 1) and
         (Abs((StopButton.Position.X - PlayButton.Position.X) - 70) < 1),
         'Transport buttons move as one block without reversing their machine order.');
-      Check(Abs(CloseButton.Position.X - 16) < 1,
-        'A trailing form button preserves the designer content gutter.');
+      Check(Abs(CloseButton.Position.X - 25) < 1,
+        'A trailing form button preserves its exact designer content gutter.');
       Check((Abs(Heading.Position.X - 100) < 1) and
         (Abs(Heading.Width - 200) < 1),
         'A large centred heading is centred after its translated width changes.');

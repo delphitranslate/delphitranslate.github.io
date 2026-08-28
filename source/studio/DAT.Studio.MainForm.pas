@@ -25,6 +25,8 @@ uses
 type
   TfrmTranslationStudio = class(TForm)
     MainMenuBar: TMenuBar;
+    mnuFile: TMenuItem;
+    mnuFileExit: TMenuItem;
     mnuLanguage: TMenuItem;
     datLanguage_en_US: TMenuItem;
     RootLayout: TLayout;
@@ -175,6 +177,11 @@ type
     dlgImportCatalogCsv: TOpenDialog;
     dlgExportCatalogCsv: TSaveDialog;
     rectWizardBackdrop: TRectangle;
+    OperationCard: TRectangle;
+    lblOperationTitle: TLabel;
+    lblOperationProgress: TLabel;
+    prgOperation: TProgressBar;
+    btnOperationCancel: TButton;
     procedure btnOpenProjectClick(Sender: TObject);
     procedure btnGuidedSetupClick(Sender: TObject);
     procedure btnIntroMaintenanceClick(Sender: TObject);
@@ -223,6 +230,8 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure datLanguageMenuItemClick(Sender: TObject);
+    procedure mnuFileExitClick(Sender: TObject);
+    procedure btnOperationCancelClick(Sender: TObject);
   private
     FProjectProfile: TProjectProfile;
     FScanResult: TProjectScanResult;
@@ -242,6 +251,7 @@ type
     FProviderOperationInProgress: Boolean;
     FProviderCancelRequested: Integer;
     FCloseAfterProviderOperation: Boolean;
+    FUpdatingTargetLanguage: Boolean;
     procedure ClearProjectSummary;
     procedure ClearScanSummary;
     procedure ResetCatalog;
@@ -272,6 +282,9 @@ type
     procedure SelectLanguageCode(AComboBox: TComboBox;
       const ALanguageCode: string);
     procedure ApplyTargetLanguageDefaults;
+    procedure ShowOperation(const ATitle, AStatus: string;
+      const ACanCancel: Boolean);
+    procedure HideOperation;
   public
     destructor Destroy; override;
   end;
@@ -295,6 +308,7 @@ uses
   Winapi.Windows,
   FMX.DialogService.Sync,
   DAT.Core.CatalogJson,
+  DAT.Core.LocaleFacts,
   DAT.Core.ProjectDetection,
   DAT.Core.RuntimePack,
   DAT.Core.Terminology,
@@ -317,6 +331,7 @@ var
   SetupWizard: TfrmSetupWizard;
   WizardResult: TModalResult;
 begin
+  OperationCard.Visible := False;
   rectWizardBackdrop.Visible := True;
   rectWizardBackdrop.BringToFront;
   rectWizardBackdrop.Repaint;
@@ -365,6 +380,41 @@ begin
   UpdateIntegrationModeUI;
   LoadProviderSettings;
   SetWorkflowStep(1);
+end;
+
+procedure TfrmTranslationStudio.ShowOperation(const ATitle,
+  AStatus: string; const ACanCancel: Boolean);
+begin
+  lblOperationTitle.Text := ATitle;
+  lblOperationProgress.Text := AStatus;
+  prgOperation.Value := 0;
+  btnOperationCancel.Enabled := ACanCancel;
+  rectWizardBackdrop.Visible := True;
+  rectWizardBackdrop.BringToFront;
+  OperationCard.Visible := True;
+  OperationCard.BringToFront;
+  OperationCard.Repaint;
+end;
+
+procedure TfrmTranslationStudio.HideOperation;
+begin
+  OperationCard.Visible := False;
+  rectWizardBackdrop.Visible := False;
+end;
+
+procedure TfrmTranslationStudio.btnOperationCancelClick(Sender: TObject);
+begin
+  if FScanInProgress then
+    TInterlocked.Exchange(FScanCancelRequested, 1);
+  if FProviderOperationInProgress then
+    TInterlocked.Exchange(FProviderCancelRequested, 1);
+  btnOperationCancel.Enabled := False;
+  lblOperationProgress.Text := 'Cancelling safely...';
+end;
+
+procedure TfrmTranslationStudio.mnuFileExitClick(Sender: TObject);
+begin
+  Close;
 end;
 
 procedure TfrmTranslationStudio.FormCloseQuery(Sender: TObject;
@@ -549,6 +599,7 @@ procedure TfrmTranslationStudio.ApplyTargetLanguageDefaults;
 var
   DisplayText: string;
   LanguageCode: string;
+  LocaleFacts: TLocaleFacts;
   LocaleSettings: TFormatSettings;
   OpeningBracket: Integer;
 begin
@@ -560,11 +611,22 @@ begin
   if OpeningBracket > 0 then
     edtNativeLanguageName.Text := CanonicalNativeLanguageName(LanguageCode,
       Trim(Copy(DisplayText, 1, OpeningBracket)));
-  if StartsText('ar-', LanguageCode) or StartsText('fa-', LanguageCode) or
-     StartsText('he-', LanguageCode) or StartsText('ur-', LanguageCode) then
+  LocaleFacts := TLocaleFactsReader.Read(LanguageCode);
+  if SameText(LocaleFacts.TextDirection, 'rtl') then
     cboTextDirection.ItemIndex := 1
   else
     cboTextDirection.ItemIndex := 0;
+  if TLocaleFactsReader.Known(LanguageCode) then
+  begin
+    edtShortDateFormat.Text := LocaleFacts.ShortDateFormat;
+    edtLongDateFormat.Text := LocaleFacts.LongDateFormat;
+    edtShortTimeFormat.Text := LocaleFacts.ShortTimeFormat;
+    edtLongTimeFormat.Text := LocaleFacts.LongTimeFormat;
+    edtDecimalSeparator.Text := LocaleFacts.DecimalSeparator;
+    edtThousandSeparator.Text := LocaleFacts.ThousandSeparator;
+    edtCurrencySymbol.Text := LocaleFacts.CurrencySymbol;
+    Exit;
+  end;
   try
     LocaleSettings := TFormatSettings.Create(LanguageCode);
     edtShortDateFormat.Text := LocaleSettings.ShortDateFormat;
@@ -700,6 +762,8 @@ end;
 
 procedure TfrmTranslationStudio.cboTargetLanguageChange(Sender: TObject);
 begin
+  if FUpdatingTargetLanguage then
+    Exit;
   ApplyTargetLanguageDefaults;
   InvalidateValidation;
 end;
@@ -753,10 +817,14 @@ begin
   lblScanSummaryValue.Text := Format('%d translatable entries in %d ms',
     [AResult.Items.Count, AResult.ElapsedMilliseconds]);
   lblScanBreakdown.Text := Format(
-    '%d form properties | %d resourcestrings | %d files' + sLineBreak +
+    '%d form properties | %d resourcestrings | %d runtime assignments' +
+    sLineBreak + '%d forms | %d source files | %d files total' + sLineBreak +
     'Ownership: %d designer | %d runtime | %d data | %d suspicious | %d excluded',
     [AResult.CountByKind(stkFormProperty),
-     AResult.CountByKind(stkResourceString), AResult.FilesScanned,
+     AResult.CountByKind(stkResourceString),
+     AResult.CountByKind(stkRuntimeAssignment),
+     AResult.FormFilesScanned, AResult.SourceFilesScanned,
+     AResult.FilesScanned,
      DesignerCount, RuntimeCount, DataCount, SuspiciousCount, ExcludedCount]);
 
   lstScanResults.BeginUpdate;
@@ -928,10 +996,15 @@ procedure TfrmTranslationStudio.DisplayCatalogLanguage;
 begin
   if FTranslationCatalog = nil then
     Exit;
-  SelectLanguageCode(cboSourceLanguage,
-    FTranslationCatalog.SourceLanguage);
-  SelectLanguageCode(cboTargetLanguage,
-    FTranslationCatalog.Locale.LanguageCode);
+  FUpdatingTargetLanguage := True;
+  try
+    SelectLanguageCode(cboSourceLanguage,
+      FTranslationCatalog.SourceLanguage);
+    SelectLanguageCode(cboTargetLanguage,
+      FTranslationCatalog.Locale.LanguageCode);
+  finally
+    FUpdatingTargetLanguage := False;
+  end;
   edtNativeLanguageName.Text := CanonicalNativeLanguageName(
     FTranslationCatalog.Locale.LanguageCode,
     FTranslationCatalog.Locale.NativeLanguageName);
@@ -1310,6 +1383,8 @@ begin
   FScanInProgress := True;
   FCloseAfterScan := False;
   TInterlocked.Exchange(FScanCancelRequested, 0);
+  ShowOperation('Scanning project',
+    'Discovering forms and source files...', True);
   Profile := FProjectProfile;
   TThread.CreateAnonymousThread(
     procedure
@@ -1326,6 +1401,17 @@ begin
           begin
             Result := TInterlocked.CompareExchange(
               FScanCancelRequested, 0, 0) <> 0;
+          end,
+          procedure(const AStage: string; const AFilesCompleted: Integer)
+          begin
+            TThread.Queue(nil,
+              procedure
+              begin
+                if not (csDestroying in ComponentState) then
+                  lblOperationProgress.Text := Format(
+                    'Scanning %s: %d file(s) completed...',
+                    [AStage, AFilesCompleted]);
+              end);
           end);
       except
         on E: Exception do
@@ -1375,6 +1461,7 @@ begin
           end;
           FScanInProgress := False;
           btnScanProject.Enabled := FProjectProfile.Framework <> tfUnknown;
+          HideOperation;
           if FCloseAfterScan then
           begin
             FCloseAfterScan := False;
@@ -2280,6 +2367,18 @@ begin
     SetLength(SourceTexts, ProviderCount);
     SetLength(Contexts, ProviderCount);
 
+    if ProviderCount = 0 then
+    begin
+      TTerminologyResolver.ApplyAuthoritativeTerms(FTranslationCatalog);
+      DisplayCatalogEntries;
+      InvalidateValidation;
+      SaveCatalog;
+      lblStatus.Text := Format(
+        '%d entries resolved locally and saved. Review the results before export.',
+        [MissingCount]);
+      Exit;
+    end;
+
     btnTranslateMissing.Enabled := False;
     BodyLayout.Enabled := False;
     NavigationCard.Enabled := False;
@@ -2288,6 +2387,9 @@ begin
     TInterlocked.Exchange(FProviderCancelRequested, 0);
     lblStatus.Text := Format('Translating %d provider strings with %s...',
       [ProviderCount, TranslationProviderDisplayName(Provider)]);
+    ShowOperation('Translating catalog', Format(
+      'Preparing %d string(s) for %s...',
+      [ProviderCount, TranslationProviderDisplayName(Provider)]), True);
     TThread.CreateAnonymousThread(
       procedure
       var
@@ -2309,6 +2411,22 @@ begin
               begin
                 Result := TInterlocked.CompareExchange(
                   FProviderCancelRequested, 0, 0) <> 0;
+              end,
+              procedure(const ACompleted, ATotal: Integer)
+              begin
+                TThread.Queue(nil,
+                  procedure
+                  begin
+                    if not (csDestroying in ComponentState) then
+                    begin
+                      lblOperationProgress.Text := Format(
+                        'Translated %d of %d string(s)...',
+                        [ACompleted, ATotal]);
+                      if ATotal > 0 then
+                        prgOperation.Value :=
+                          (ACompleted * prgOperation.Max) / ATotal;
+                    end;
+                  end);
               end);
           finally
             LocalClient.Free;
@@ -2375,6 +2493,7 @@ begin
                 lblStatus.Text := 'Bulk translation failed: ' + E.Message;
             end;
             FProviderOperationInProgress := False;
+            HideOperation;
             BodyLayout.Enabled := True;
             NavigationCard.Enabled := True;
             btnTranslateMissing.Enabled := True;

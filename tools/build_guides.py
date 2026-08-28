@@ -991,11 +991,24 @@ def build_user_guide() -> Path:
     add_bullets(
         document,
         [
-            "RTL/LTR state is reapplied from a stable baseline whenever the language changes; direction does not accumulate across switches.",
-            "Automatic layout acceptance is limited to relative, reversible changes. Absolute geometry and grid-column widths remain review decisions.",
-            "HTML localization changes visible prose while preserving comments, scripts, styles, protected nodes, product identifiers, and markup structure.",
+            "RTL/LTR state is reapplied from the immutable designer baseline whenever the language changes; direction does not accumulate across switches. Inactive FMX tab pages resolve their layout from the live tab client or its saved designer width rather than from temporary 8- or 50-pixel framework placeholders.",
+            "Automatic fitting is language-neutral and measurement-driven. Buttons retain their designer width when the caption already fits, then grow only into verified free space, reduce the font only to the readable floor, and wrap only as a final fallback. Headings, labels, check boxes, grids, and cards use the same available-space contract in every language.",
+            "Cards and other designer-authored containers retain outer gutters and at least 12 pixels below their visible content. Container growth uses a fixed number of passes and never starts a layout replay loop.",
+            "Automatic layout acceptance is limited to relative, reversible changes. Absolute geometry and grid-column widths remain review decisions. Grid headings may reduce font size to fit, and reviewed column plans balance the available width without language-specific exceptions.",
+            "HTML localization changes exact visible prose while preserving comments, scripts, styles, protected nodes, product identifiers, technical tokens, and markup structure. The browser contract also applies the pack direction and safe wrapping/padding rules to the document.",
             "Scanner output distinguishes identical duplicate observations from conflicting duplicate keys; conflicts remain visible for correction.",
             "The diagnostic log records recovery, rejected packs, fallback decisions, deployment rollback, and cancellation without recording provider credentials.",
+        ],
+    )
+    document.add_heading("17.4 Language selection, progress, and external text", level=2)
+    add_bullets(
+        document,
+        [
+            "A new project does not silently default to German or any other target language. Select the intended locale explicitly. Reopening a development catalog restores its saved source language, target locale, native name, direction, and locale formats without firing a change event that overwrites them.",
+            "Arabic, Hebrew, Persian, Urdu, Pashto, and any locale Windows identifies as RTL use the same locale-facts and runtime-direction path. Language-specific vocabulary repairs are restricted to exact semantic states, such as On and Off, and never substitute for geometry rules.",
+            "Long scans and provider translations show a blocking operation card with the current stage, progress, and a safe Cancel action. File > Exit provides the normal application exit path. During the mandatory ZIP backup, cancellation is accepted immediately by the interface and completed after the current archive call returns.",
+            "The scan summary separates form properties, Delphi resourcestrings, runtime UI assignments, form files, and source files. A larger count therefore has an auditable source instead of appearing as one unexplained total.",
+            "Operator-facing prose stored in project JSON is scanned only when the project root contains dat-translatable-resources.json. The manifest names a project-contained directory, a file-name pattern, and the exact JSON property names that carry visible prose. Arbitrary JSON is never scanned because it may contain identifiers, settings, or user data.",
         ],
     )
 
@@ -2010,9 +2023,11 @@ def build_engineering_guide() -> Path:
             ["Direction", "Every switch starts from the persisted designer baseline, applies exactly one LTR or RTL transformation, and restores menu, status, input, grid, and container direction.", "Layout contracts plus VCL/FMX runtime tests"],
             ["Layout", "Only relative and reversible proposals may be auto-accepted; absolute geometry and grid widths remain reviewed decisions.", "Layout contract fixtures"],
             ["HTML", "Translate visible prose only; preserve markup, comments, protected nodes, scripts, styles, identifiers, and technical tokens.", "Foundation browser-pair fixtures"],
-            ["Scanner", "Deterministic order, pruned output trees, cancellation, identical duplicate suppression, and visible conflicting duplicates.", "Foundation and scanner contract suites"],
+            ["Scanner", "Deterministic order, pruned output trees, category counts, cancellation, identical duplicate suppression, visible conflicting duplicates, and explicit manifest-only external JSON prose.", "Foundation and scanner contract suites"],
             ["Integration", "Create component kits in staging, validate manifest and hashes, publish atomically, and roll back failed deployment.", "Foundation integration fixtures and package suites"],
-            ["Responsiveness", "Long Studio work executes outside the UI thread, queues progress safely, observes cancellation, and contains no production ProcessMessages loop.", "Studio responsiveness contract and launch tests"],
+            ["Responsiveness", "Long Studio work executes outside the UI thread, queues visible progress safely, observes cancellation, exposes File > Exit, and contains no production ProcessMessages loop.", "Studio form, responsiveness, and launch tests"],
+            ["Locale selection", "New projects require an explicit target locale; reopening a catalog restores saved locale facts without a programmatic combo-box change overwriting them.", "StudioFormSmokeTests and locale-facts tests"],
+            ["Semantic states", "Exact UI-state concepts such as On and Off use authoritative per-locale terminology; directional words and unrelated uses remain untouched.", "FoundationSmokeTests terminology matrix"],
         ],
     )
     document.add_heading("21.1 Diagnostics boundary", level=2)
@@ -2020,6 +2035,22 @@ def build_engineering_guide() -> Path:
         document,
         [
             "DAT.Core.Diagnostics is the common boundary for persistence recovery, rejected packs, fallback decisions, scan cancellation/conflicts, package publication, deployment rollback, and runtime lifecycle failures. Messages contain operation, artifact, and corrective context but never provider keys or raw authenticated responses.",
+        ],
+    )
+    document.add_heading("21.2 Universal FMX geometry and fitting", level=2)
+    add_paragraphs(
+        document,
+        [
+            "DAT.Runtime.FMX snapshots designer geometry before translation and restores that snapshot before every subsequent direction change. Mirroring resolves the effective width from the immediate parent, saved parent geometry, and an owning tab control when FMX reports inactive-page placeholders. Near-full-width cards preserve the measured content gutter on both sides; transport controls move as a block without reversing machine order.",
+            "The conservative fitting pass is independent of language codes. It measures rendered text, protects the nearest same-row neighbor, preserves a button that already fits, grows into available space, lowers font size only to the readable floor, and wraps only when required. A bounded two-pass container check adds bottom padding and cascades only directly stacked siblings, preventing clipping without creating a recurring layout loop.",
+        ],
+    )
+    document.add_heading("21.3 Declared external resource text", level=2)
+    add_paragraphs(
+        document,
+        [
+            "Project-owned JSON is data until the project explicitly declares otherwise. A schema-version 1 dat-translatable-resources.json manifest may name only directories inside the selected project, file-name patterns without path traversal, and non-empty JSON property names. The scanner validates duplicate members, rejects malformed JSON and missing/outside directories, scans only declared string properties, and leaves every undeclared field untouched.",
+            "This boundary is required for generated HTML reference pages and other data-driven interfaces: the host project declares exactly which note, caption, or description properties are operator-facing. The Translation Studio never guesses that every string in an arbitrary JSON file is safe to translate.",
         ],
     )
 

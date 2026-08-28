@@ -567,6 +567,7 @@ object frmSetupWizard: TfrmSetupWizard
                 'Latvian [lv-LV]'
                 'Lithuanian [lt-LT]'
                 'Norwegian Bokmal [nb-NO]'
+                'Pashto (Afghanistan) [ps-AF]'
                 'Persian [fa-IR]'
                 'Polish [pl-PL]'
                 'Portuguese (Brazil) [pt-BR]'
@@ -772,7 +773,7 @@ object frmSetupWizard: TfrmSetupWizard
               Position.X = 8.000000000000000000
               Position.Y = 122.000000000000000000
               Size.Width = 670.000000000000000000
-              Size.Height = 34.000000000000000000
+              Size.Height = 54.000000000000000000
               Size.PlatformDefault = False
               TextSettings.Font.Size = 15.000000000000000000
               TextSettings.Font.StyleExt = {00070000000000000004000000}
@@ -781,9 +782,9 @@ object frmSetupWizard: TfrmSetupWizard
             end
             object memScanResults: TMemo
               Position.X = 8.000000000000000000
-              Position.Y = 164.000000000000000000
+              Position.Y = 184.000000000000000000
               Size.Width = 670.000000000000000000
-              Size.Height = 218.000000000000000000
+              Size.Height = 198.000000000000000000
               Size.PlatformDefault = False
               ReadOnly = True
               ShowScrollBars = True
@@ -953,7 +954,7 @@ object frmSetupWizard: TfrmSetupWizard
               TextSettings.Font.Size = 14.000000000000000000
               TextSettings.Font.StyleExt = {00070000000000000004000000}
               TextSettings.FontColor = xFFB25400
-              Text = 'After Begin Final Processing is clicked, Back, Cancel, and the step rail are disabled. The Wizard translates, opens Localization Review, then automatically resumes validation, export, and kit generation.'
+              Text = 'After Begin Final Processing is clicked, Back and the step rail are disabled. Cancel remains available. The Wizard shows backup and translation progress, opens Localization Review, then resumes validation, export, and kit generation.'
             end
           end
           object tabFinish: TTabItem

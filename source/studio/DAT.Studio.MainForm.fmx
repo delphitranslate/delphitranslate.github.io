@@ -20,8 +20,15 @@ object frmTranslationStudio: TfrmTranslationStudio
     Size.Height = 24.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 0
+    object mnuFile: TMenuItem
+      Text = 'File'
+      object mnuFileExit: TMenuItem
+        Text = 'Exit'
+        OnClick = mnuFileExitClick
+      end
+    end
     object mnuLanguage: TMenuItem
-      Text = 'Language'
+      Text = 'Studio Interface Language'
       object datLanguage_en_US: TMenuItem
         Text = 'English'
         OnClick = datLanguageMenuItemClick
@@ -636,6 +643,7 @@ object frmTranslationStudio: TfrmTranslationStudio
               'Latvian [lv-LV]'
               'Lithuanian [lt-LT]'
               'Norwegian Bokmal [nb-NO]'
+              'Pashto (Afghanistan) [ps-AF]'
               'Persian [fa-IR]'
               'Polish [pl-PL]'
               'Portuguese (Brazil) [pt-BR]'
@@ -697,6 +705,7 @@ object frmTranslationStudio: TfrmTranslationStudio
               'Latvian [lv-LV]'
               'Lithuanian [lt-LT]'
               'Norwegian Bokmal [nb-NO]'
+              'Pashto (Afghanistan) [ps-AF]'
               'Persian [fa-IR]'
               'Polish [pl-PL]'
               'Portuguese (Brazil) [pt-BR]'
@@ -1756,6 +1765,59 @@ object frmTranslationStudio: TfrmTranslationStudio
     Size.PlatformDefault = False
     Stroke.Kind = None
     Visible = False
+  end
+  object OperationCard: TRectangle
+    Align = Center
+    Fill.Color = xFFFFFFFF
+    HitTest = True
+    Size.Width = 480.000000000000000000
+    Size.Height = 184.000000000000000000
+    Size.PlatformDefault = False
+    Stroke.Color = xFFD7E5F6
+    XRadius = 16.000000000000000000
+    YRadius = 16.000000000000000000
+    Visible = False
+    object lblOperationTitle: TLabel
+      StyledSettings = []
+      Position.X = 24.000000000000000000
+      Position.Y = 18.000000000000000000
+      Size.Width = 432.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 20.000000000000000000
+      TextSettings.Font.Style = [fsBold]
+      TextSettings.FontColor = xFF163A63
+      Text = 'Working'
+    end
+    object lblOperationProgress: TLabel
+      StyledSettings = []
+      WordWrap = True
+      Position.X = 24.000000000000000000
+      Position.Y = 56.000000000000000000
+      Size.Width = 432.000000000000000000
+      Size.Height = 42.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 13.000000000000000000
+      TextSettings.FontColor = xFF365674
+      Text = 'Preparing the operation...'
+    end
+    object prgOperation: TProgressBar
+      Position.X = 24.000000000000000000
+      Position.Y = 104.000000000000000000
+      Size.Width = 292.000000000000000000
+      Size.Height = 20.000000000000000000
+      Size.PlatformDefault = False
+      Max = 100.000000000000000000
+    end
+    object btnOperationCancel: TButton
+      Position.X = 332.000000000000000000
+      Position.Y = 98.000000000000000000
+      Size.Width = 124.000000000000000000
+      Size.Height = 40.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'Cancel'
+      OnClick = btnOperationCancelClick
+    end
   end
   object dlgOpenProject: TOpenDialog
     DefaultExt = 'dproj'
