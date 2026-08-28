@@ -1171,9 +1171,19 @@ begin
   Require(ContainsText(RuntimeSource,
     'ApplyBrowserLayoutContract(AComponent, APack)') and
     ContainsText(RuntimeSource, 'dat-runtime-layout-contract') and
-    ContainsText(RuntimeSource, '.metric-line') and
-    ContainsText(RuntimeSource, '[role="columnheader"]'),
-    'The always-on semantic browser layout contract is incomplete.');
+    ContainsText(RuntimeSource, 'function alignTable(t)') and
+    ContainsText(RuntimeSource, 'function cellAt(t,col)') and
+    ContainsText(RuntimeSource, 'setPadStart(h,hc,cp)') and
+    ContainsText(RuntimeSource, '[role=columnheader]'),
+    'The measured, application-neutral browser layout contract is incomplete.');
+  Require(not ContainsText(RuntimeSource,
+      'padding-inline:8px!important') and
+    not ContainsText(RuntimeSource,
+      'font-size:clamp(8px,.82vw,12px)!important') and
+    not ContainsText(RuntimeSource, '.summary-table{') and
+    not ContainsText(RuntimeSource, '.metric-line{'),
+    'The browser contract again contains target-shaped fixed CSS instead of ' +
+    'measuring the application document.');
   Require(ContainsText(ComponentSource,
     'procedure TDATFMXLanguageManager.BeginLanguageTransition') and
     ContainsText(ComponentSource, 'HideFormBrowsers(Form, True)') and
@@ -1185,6 +1195,8 @@ begin
       'procedure TDATFMXLanguageManager.HandleTabChanged') and
     ContainsText(ComponentSource,
       'procedure TDATFMXLanguageManager.HandleBrowserDidFinishLoad') and
+    ContainsText(ComponentSource,
+      'TFMXTranslationApplicator.RefreshBrowserLayout(Form, ActivePack)') and
     ContainsText(ComponentSource,
       'BrowserSubscription.LoadedGeneration = Generation') and
     ContainsText(ComponentSource,

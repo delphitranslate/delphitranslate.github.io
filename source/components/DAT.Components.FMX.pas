@@ -750,6 +750,7 @@ procedure TDATFMXLanguageManager.HandleBrowserDidFinishLoad(
 var
   Browser: TCustomWebBrowser;
   BrowserSubscription: TDATBrowserLifecycleSubscription;
+  Form: TCommonCustomForm;
   OriginalHandler: TWebBrowserDidFinishLoad;
 begin
   if not (Sender is TCustomWebBrowser) then
@@ -764,6 +765,18 @@ begin
   if not FBrowserLifecycleSubscriptions.TryGetValue(Browser,
     BrowserSubscription) then
     Exit;
+  { OnDidFinishLoad is the first point at which the document's actual cells,
+    computed padding and overflow are available.  Apply the measured contract
+    before exposing the native browser surface.  This is independent of the
+    host application's form names, CSS classes and coordinates. }
+  Form := nil;
+  if (Browser.Root <> nil) and
+    (Browser.Root.GetObject is TCommonCustomForm) then
+    Form := TCommonCustomForm(Browser.Root.GetObject)
+  else if Browser.Owner is TCommonCustomForm then
+    Form := TCommonCustomForm(Browser.Owner);
+  if (Form <> nil) and (ActivePack <> nil) then
+    TFMXTranslationApplicator.RefreshBrowserLayout(Form, ActivePack);
   if BrowserSubscription.PendingGeneration <> 0 then
     BrowserSubscription.LoadedGeneration :=
       BrowserSubscription.PendingGeneration
@@ -780,6 +793,7 @@ begin
     BrowserIsOnActiveTab(Browser);
   FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
     BrowserSubscription);
+  ScheduleBrowserLayoutRefresh;
 end;
 
 procedure TDATFMXLanguageManager.HandleBrowserDidFailLoad(

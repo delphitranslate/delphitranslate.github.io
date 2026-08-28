@@ -265,48 +265,71 @@ begin
   if not (AComponent is TCustomWebBrowser) or (APack = nil) then
     Exit;
 
-  { This stylesheet is deliberately semantic rather than application-specific.
-    It works with ordinary headings and table headers, and adds stronger rules
-    only when a document already identifies metric/summary elements by class.
-    The application remains the owner of its HTML and its visual design. }
+  { The browser document remains the application's UI.  This contract therefore
+    carries no application class names, coordinates, fixed padding or fixed text
+    sizes.  It observes the rendered document and changes only two demonstrated
+    failure states: text which actually overflows its box, and a start-aligned
+    table heading whose content inset differs from the data cells beneath it. }
   CssText :=
-    '*,*::before,*::after{box-sizing:border-box}' +
-    'html,body{max-inline-size:100%;overflow-wrap:break-word}' +
-    'h1,h2,h3,h4,h5,h6{max-inline-size:100%;white-space:normal;' +
-      'overflow-wrap:anywhere;word-break:normal;line-height:1.2}' +
-    'thead th,[role="columnheader"]{white-space:normal!important;' +
-      'overflow-wrap:anywhere!important;word-break:normal!important;' +
-      'hyphens:auto;vertical-align:middle!important;line-height:1.18!important;' +
-      'font-size:clamp(8px,.82vw,12px)!important;padding-inline:8px!important}' +
-    '.summary-table{table-layout:fixed!important;width:100%!important}' +
-    '.summary-table tr{height:1px}' +
-    '.summary-table td{min-width:0!important;vertical-align:top!important;' +
-      'height:100%!important}' +
-    '.metric-line{display:grid!important;grid-template-rows:2em minmax(3.2em,1fr);' +
-      'align-content:start;align-items:start;row-gap:.45rem;min-width:0;' +
-      'min-height:104px!important;height:100%!important;text-align:start}' +
-    '.metric-value,.metric-label{display:block!important;min-width:0;' +
-      'max-width:100%!important}' +
-    '.metric-value{line-height:1!important}' +
-    '.metric-label{margin-top:0!important;white-space:normal!important;' +
-      'overflow-wrap:anywhere!important;word-break:normal!important;' +
-      'hyphens:auto;line-height:1.15!important;' +
-      'font-size:clamp(8px,.78vw,12px)!important}' +
-    'button,[role="button"]{white-space:normal;overflow-wrap:anywhere}' +
+    'html,body{max-inline-size:100%}' +
+    '[data-dat-fit="wrap"]{max-inline-size:100%;white-space:normal!important;' +
+      'overflow-wrap:anywhere!important;word-break:normal!important}' +
     'table,img,svg,canvas{max-inline-size:100%}';
 
   ScriptText := '(function(){var d=' +
     JavaScriptString(LowerCase(Trim(APack.TextDirection))) + ',l=' +
     JavaScriptString(Trim(APack.LanguageCode)) + ',c=' +
     JavaScriptString(CssText) +
-    ';function run(){var h=document.documentElement,b=document.body,s;' +
+    ';function num(v){v=parseFloat(v);return isFinite(v)?v:0;}' +
+    'function norm(c){var a=c.textAlign,q=c.direction;' +
+      'if(a==="start"||a==="end"||a==="center"){return a;}' +
+      'if(a==="left"){return q==="rtl"?"end":"start";}' +
+      'if(a==="right"){return q==="rtl"?"start":"end";}return a;}' +
+    'function padStart(c){return num(c.direction==="rtl"?c.paddingRight:c.paddingLeft);}' +
+    'function setPadStart(e,c,v){if("paddingInlineStart" in e.style){' +
+      'e.style.paddingInlineStart=v+"px";}else if(c.direction==="rtl"){' +
+      'e.style.paddingRight=v+"px";}else{e.style.paddingLeft=v+"px";}}' +
+    'function cellAt(t,col){var rs=t.tBodies,i,j,p,x,s,first=null;' +
+      'for(i=0;i<rs.length;i++){for(j=0;j<rs[i].rows.length;j++){' +
+      'p=0;for(x=0;x<rs[i].rows[j].cells.length;x++){' +
+      's=rs[i].rows[j].cells[x].colSpan||1;if(col>=p&&col<p+s){' +
+      'if(!first){first=rs[i].rows[j].cells[x];}' +
+      'if(String(rs[i].rows[j].cells[x].textContent||"").trim()){return rs[i].rows[j].cells[x];}' +
+      'break;}p+=s;}}}return first;}' +
+    'function resetFont(e){var a="data-dat-original-inline-font",v;' +
+      'if(!e.hasAttribute(a)){v=e.style.fontSize;e.setAttribute(a,v?v:"!");}' +
+      'v=e.getAttribute(a);if(v==="!"){e.style.removeProperty("font-size");}' +
+      'else{e.style.fontSize=v;}}' +
+    'function overflowing(e){return e.clientWidth>0&&e.clientHeight>0&&' +
+      '(e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1);}' +
+    'function fit(e){var z,m;resetFont(e);e.removeAttribute("data-dat-fit");' +
+      'if(!overflowing(e)){return;}e.setAttribute("data-dat-fit","wrap");' +
+      'if(!overflowing(e)){return;}z=num(getComputedStyle(e).fontSize);' +
+      'm=Math.max(8,z*.8);while(z-.5>=m&&overflowing(e)){' +
+      'z-=.5;e.style.fontSize=z+"px";}}' +
+    'function alignTable(t){var r,hs,h,c,hc,cc,hp,cp,col=0,i;' +
+      'if(!t.tHead||!t.tHead.rows.length||!t.tBodies.length){return;}' +
+      'r=t.tHead.rows[t.tHead.rows.length-1];hs=r.cells;' +
+      'for(i=0;i<hs.length;i++){h=hs[i];c=cellAt(t,col);col+=h.colSpan||1;' +
+      'if(c){hc=getComputedStyle(h);cc=getComputedStyle(c);' +
+      'if(norm(hc)===norm(cc)&&(norm(hc)==="start"||norm(hc)==="end")){' +
+      'hp=padStart(hc);cp=padStart(cc);if(Math.abs(hp-cp)>.5&&Math.abs(hp-cp)<=32){' +
+      'setPadStart(h,hc,cp);}}}fit(h);}}' +
+    'function run(){var h=document.documentElement,b=document.body,s,n,i;' +
     'if(!h){return;}h.setAttribute("dir",d);if(l){h.setAttribute("lang",l);}' +
     'h.style.direction=d;if(b){b.setAttribute("dir",d);b.style.direction=d;' +
     'b.style.textAlign="start";}s=document.getElementById("dat-runtime-layout-contract");' +
     'if(!s&&document.head){s=document.createElement("style");' +
     's.id="dat-runtime-layout-contract";document.head.appendChild(s);}' +
-    'if(s){s.textContent=c;}}if(document.readyState==="loading"){' +
-    'document.addEventListener("DOMContentLoaded",run,{once:true});}else{run();}})();';
+    'if(s){s.textContent=c;}' +
+    'n=document.querySelectorAll("h1,h2,h3,h4,h5,h6,button,[role=button],[role=columnheader]");' +
+    'for(i=0;i<n.length;i++){fit(n[i]);}' +
+    'n=document.querySelectorAll("table");for(i=0;i<n.length;i++){alignTable(n[i]);}}' +
+    'if(document.readyState==="loading"){' +
+    'document.addEventListener("DOMContentLoaded",function(){run();' +
+    'requestAnimationFrame(run);window.setTimeout(run,120);window.setTimeout(run,450);},' +
+    '{once:true});}else{run();requestAnimationFrame(run);window.setTimeout(run,120);' +
+    'window.setTimeout(run,450);}})();';
   try
     TCustomWebBrowser(AComponent).EvaluateJavaScript(ScriptText);
     Result := 1;
@@ -409,7 +432,7 @@ begin
       .Append(JavaScriptString(LowerCase(Trim(APack.TextDirection))))
       .Append(';for(i=0;i<a.length;i++){p[a[i][0]]=a[i][1];}')
       .Append('function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}')
-      .Append('function contract(){var h=document.documentElement,b=document.body,s=document.getElementById("dat-runtime-layout-contract");if(h){h.setAttribute("dir",d);h.style.direction=d;}if(b){b.setAttribute("dir",d);b.style.direction=d;b.style.textAlign="start";}if(!s&&document.head){s=document.createElement("style");s.id="dat-runtime-layout-contract";s.textContent="*,*::before,*::after{box-sizing:border-box}button,[role=button]{white-space:normal;overflow-wrap:anywhere;padding-inline:max(.65em,8px)}label,p,li,th,td{overflow-wrap:anywhere;word-break:normal}table,img,svg,canvas{max-inline-size:100%}input,textarea,select{direction:"+d+";text-align:start}";document.head.appendChild(s);}}')
+      .Append('function contract(){var h=document.documentElement,b=document.body;if(h){h.setAttribute("dir",d);h.style.direction=d;}if(b){b.setAttribute("dir",d);b.style.direction=d;b.style.textAlign="start";}}')
       .Append('function apply(n){var c=0,v,l,r,ch,t;if(!n){return 0;}if(n.nodeType===1&&/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|CODE|PRE|TEXTAREA)$/i.test(n.nodeName)){return 0;}if(n.nodeType===3){v=n.nodeValue;t=trim(v);if(Object.prototype.hasOwnProperty.call(p,t)){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[t]+r;c++;}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}')
       .Append('function run(){if(!document.body){return 0;}contract();return apply(document.body);}var tries=0;function retry(){try{if(document.body){run();return;}}catch(e){}tries++;if(tries<20){window.setTimeout(retry,150);}}retry();})();');
     ScriptText := Script.ToString;
