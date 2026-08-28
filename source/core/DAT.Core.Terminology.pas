@@ -41,8 +41,6 @@ class function TTerminologyResolver.ApplyAuthoritativeTerms(
   const ACatalog: TTranslationCatalog): Integer;
 var
   Entry: TTranslationEntry;
-  MandatoryText: string;
-  IsMandatory: Boolean;
   ResolvedText: string;
 begin
   Result := 0;
@@ -52,11 +50,11 @@ begin
   begin
     if Entry.Status in [tsExcluded, tsObsolete, tsEdited] then
       Continue;
-    IsMandatory := ExactSourceTranslation(BaseLanguage(
-      ACatalog.Locale.LanguageCode), Entry.SourceText, MandatoryText);
-    if not IsMandatory and
-      ((Entry.TranslationOrigin = torProjectGlossary) or
-       (Entry.Status in [tsReviewed, tsApproved])) then
+    { A project glossary and an explicit human decision always outrank the
+      product's general UI terminology. No built-in term is allowed to impose
+      wording on an arbitrary application's reviewed text. }
+    if (Entry.TranslationOrigin = torProjectGlossary) or
+      (Entry.Status in [tsReviewed, tsApproved]) then
       Continue;
     if ((Entry.TranslationOrigin in [torUnknown, torGoogle, torDeepL,
       torSuggestion, torTerminology, torProjectGlossary]) or
@@ -250,28 +248,7 @@ begin
   Result := False;
   ATranslation := '';
   TextValue := Trim(StringReplace(ASourceText, '&', '', [rfReplaceAll]));
-  if ALanguage = 'es' then
-  begin
-    if SameText(TextValue, 'Time') then
-      ATranslation := 'Hora'
-    else if SameText(TextValue, 'Type') then
-      ATranslation := 'Tipo'
-    else if SameText(TextValue, 'Song') then
-      ATranslation := 'Canci' + #$00F3 + 'n'
-    else if SameText(TextValue, 'Song/Purpose') then
-      ATranslation := 'Canci' + #$00F3 + 'n/Motivo'
-    else if SameText(TextValue, 'Play Date From') then
-      ATranslation := 'Fecha inicial'
-    else if SameText(TextValue, 'Play Date To') then
-      ATranslation := 'Fecha final'
-    else if MatchText(TextValue, ['Play Time', 'Play Time(s)', 'Time(s)',
-      'Hours of play', 'Playback hours']) then
-      ATranslation := 'Hora(s)'
-    else
-      Exit(False);
-    Exit(True);
-  end
-  else if ALanguage = 'de' then
+  if ALanguage = 'de' then
   begin
     if SameText(TextValue, 'On') then
       ATranslation := 'Ein'
@@ -303,28 +280,16 @@ begin
   end
   else if ALanguage = 'ar' then
   begin
-    { These short state and rule labels are UI terminology, not prose. A
+    { These short state labels are UI terminology, not prose. A
       general provider sees "On" without context and commonly returns the
       Arabic preposition meaning "in/on", which is grammatically valid but
       wrong for a switch. Keep the software-state meaning authoritative for
-      every project. Technical product tokens such as VCL, FMX and WinAPI are
-      intentionally not translated here. }
+      unresolved machine translations while still respecting project
+      glossaries and human review. }
     if SameText(TextValue, 'On') then
       ATranslation := 'مفعّل'
     else if SameText(TextValue, 'Off') then
       ATranslation := 'معطّل'
-    else if SameText(TextValue, 'Data Aware') then
-      ATranslation := 'مراعي للبيانات'
-    else if SameText(TextValue, 'Critical Areas') then
-      ATranslation := 'المجالات الحرجة'
-    else if SameText(TextValue, '3rd Party') then
-      ATranslation := 'جهات خارجية'
-    else if SameText(TextValue, 'Project Scan') then
-      ATranslation := 'فحص المشروع'
-    else if SameText(TextValue, 'Conversion Output') then
-      ATranslation := 'مخرجات التحويل'
-    else if SameText(TextValue, 'Rules') then
-      ATranslation := 'القواعد'
     else
       Exit(False);
     Exit(True);

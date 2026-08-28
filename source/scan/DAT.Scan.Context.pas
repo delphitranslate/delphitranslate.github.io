@@ -102,10 +102,10 @@ begin
     AItem.SemanticConcept := 'command.closeAll'
   else if SameText(TextValue, 'play') then
   begin
-    if ContainsAny(Identity, ['music', 'audio', 'song', 'bell', 'carillon',
+    if ContainsAny(Identity, ['music', 'audio', 'song', 'bell',
       'media', 'playlist', 'sound']) then
       AItem.SemanticConcept := 'media.play'
-    else if ContainsAny(Identity, ['game', 'player', 'poker']) then
+    else if ContainsAny(Identity, ['game', 'player']) then
       AItem.SemanticConcept := 'game.play'
     else if ContainsAny(Identity, ['instrument', 'piano', 'organ']) then
       AItem.SemanticConcept := 'instrument.play'

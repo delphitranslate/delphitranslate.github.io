@@ -286,6 +286,32 @@ const
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
 
+function WindowsPowerShellFileName: string;
+var
+  SystemRoot: string;
+  WindowsDirectoryBuffer: array[0..MAX_PATH] of Char;
+  WindowsDirectoryLength: UINT;
+begin
+  SystemRoot := Trim(GetEnvironmentVariable('SystemRoot'));
+  if SystemRoot = '' then
+  begin
+    WindowsDirectoryLength := GetWindowsDirectory(WindowsDirectoryBuffer,
+      Length(WindowsDirectoryBuffer));
+    if (WindowsDirectoryLength > 0) and
+      (WindowsDirectoryLength < UINT(Length(WindowsDirectoryBuffer))) then
+      SetString(SystemRoot, WindowsDirectoryBuffer, WindowsDirectoryLength);
+  end;
+  if SystemRoot <> '' then
+    Result := TPath.Combine(SystemRoot,
+      TPath.Combine('System32',
+        TPath.Combine('WindowsPowerShell',
+          TPath.Combine('v1.0', 'powershell.exe'))))
+  else
+    Result := 'powershell.exe';
+  if TPath.IsPathRooted(Result) and not TFile.Exists(Result) then
+    Result := 'powershell.exe';
+end;
+
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
 begin
   Caption := 'Translation Setup Wizard - ' + StudioBuildDescription;
@@ -1546,10 +1572,12 @@ var
   Configuration: string;
   OutputDirectory: string;
   Platform: string;
+  PowerShellFileName: string;
   ScriptName: string;
   UniqueDirectories: TStringList;
 begin
   memCommands.Lines.Clear;
+  PowerShellFileName := WindowsPowerShellFileName;
   ScriptName := TPath.Combine(FKitDirectory, 'Deploy-LanguagePacks.ps1');
   UniqueDirectories := TStringList.Create;
   try
@@ -1567,8 +1595,8 @@ begin
       end;
     for OutputDirectory in UniqueDirectories do
       memCommands.Lines.Add(Format(
-        '& "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%s" -ApplicationDirectory "%s"',
-        [ScriptName, OutputDirectory]));
+        '& "%s" -NoProfile -ExecutionPolicy Bypass -File "%s" -ApplicationDirectory "%s"',
+        [PowerShellFileName, ScriptName, OutputDirectory]));
   finally
     UniqueDirectories.Free;
   end;
@@ -2386,6 +2414,7 @@ function TfrmSetupWizard.RunDeploymentScript(
 var
   ExitCode: Cardinal;
   Parameters: string;
+  PowerShellFileName: string;
   ShellInfo: TShellExecuteInfo;
   WaitResult: Cardinal;
 begin
@@ -2395,8 +2424,8 @@ begin
   ShellInfo.fMask := SEE_MASK_NOCLOSEPROCESS or SEE_MASK_FLAG_NO_UI;
   ShellInfo.Wnd := 0;
   ShellInfo.lpVerb := 'open';
-  ShellInfo.lpFile :=
-    'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe';
+  PowerShellFileName := WindowsPowerShellFileName;
+  ShellInfo.lpFile := PChar(PowerShellFileName);
   Parameters := Format(
     '-NoProfile -ExecutionPolicy Bypass -File "%s" -ApplicationDirectory "%s" -ProjectDirectory "%s"',
     [TPath.Combine(FKitDirectory, 'Deploy-LanguagePacks.ps1'),

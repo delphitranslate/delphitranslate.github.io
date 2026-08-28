@@ -280,11 +280,11 @@ end;
   together regardless of what sat between them, this produced strings that
   exist nowhere in the program and that no guard downstream could recognise.
 
-    Result := 'logs' + PathDelim + 'CarillonPlayLog.txt';
+    Result := 'logs' + PathDelim + 'ApplicationActivity.log';
 
-  yields logsCarillonPlayLog.txt, a file name with its separator missing, which
+  yields logsApplicationActivity.log, a file name with its separator missing, which
   then passes the very test that rejects paths and file names because it is
-  neither any more. Carillon's play log was translated on the strength of it.
+  neither any more. The activity-log path was translated on the strength of it.
 
   The same fault at scale swallowed the best part of five thousand characters
   of Pascal - every literal in a long run of code, glued end to end - and sent
@@ -641,8 +641,8 @@ end;
 
   The blanket refusal to read Items.Add and Lines.Add is right about what it
   refuses: rows, logs, file names and generated HTML. A heading is none of
-  those, and an application writes one exactly the same way - Carillon's
-  schedule dialog opens with
+  those, and an application writes one exactly the same way - a schedule
+  dialog can open with
 
     ScheduleStr.Add('Remaining events for Today:' + sLineBreak);
 
@@ -1015,7 +1015,7 @@ begin
     a person sees are the assembled whole, not any one piece of it, and the
     pieces are frequently not words at all.
 
-      Result := 'logs' + PathDelim + 'CarillonPlayLog.txt';
+      Result := 'logs' + PathDelim + 'ApplicationActivity.log';
       Result := 'Total: ' + IntToStr(ACount) + ' items';
 
     Claiming the first literal of either gives a path fragment and a dangling
@@ -1347,7 +1347,7 @@ end;
 { The line with its comments taken out, so that what remains is program text.
 
   The collector had no notion of comments at all. An apostrophe inside one -
-  Carillon's log, don't, the developer's choice - opens a string literal as far
+  an activity-log comment, don't, the developer's choice - opens a string literal as far
   as a naive reader is concerned, and it never closes, so every statement after
   that point in the file is swallowed into one unterminated literal and nothing
   further is scanned. Nothing announces it: the unit simply yields fewer
@@ -1581,7 +1581,7 @@ begin
         drawing calls. In real applications these are commonly data rows,
         logs, filenames, generated HTML, or owner-drawn runtime values rather
         than stable UI captions. Collecting them caused thousands of false
-        "translatable" strings in Carillon and made the runtime try to
+        "translatable" strings in a production application and made the runtime try to
         translate behavior/data. Designer-authored Items/Lines are still
         scanned from .fmx/.dfm files; intentional runtime UI text should use
         explicit visual property assignment, resourcestring, or a dialog call. }

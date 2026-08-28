@@ -627,11 +627,9 @@ var
         control lays its text out. }
       if Snapshot.HasAutoSize then
         WriteBoolean(AComponent, 'AutoSize', False);
-      { Size only. Colour is never something this applicator sets, so putting
-        one back can only undo what the application itself did: Carillon paints
-        its own colours from a Colors menu after the form is up, and restoring
-        the design-time colour stamped a maroon heading over a white one and
-        turned captions black. What we never changed, we never restore. }
+      { Size only. Colour is never something this applicator sets, so restoring
+        it could undo an application's own runtime theme. What we never changed,
+        we never restore. }
       if Snapshot.HasFont and TryGetFont(AComponent, Font) then
       begin
         Font.Size := Snapshot.FontSize;
@@ -1236,9 +1234,8 @@ end;
   A window catches its caption in transit because everything routed through
   it passes as WM_SETTEXT; a collection item such as a TStatusPanel is not a
   window and sends no message, so there is nothing to intercept there. What
-  Carillon does with its status bar is set the panel text once when the form
-  is created and again after each song, always in English, always after this
-  product has already run.
+  An application can set panel text when a form is created and again after a
+  later event, always after this product has already run.
 
   So this does not intercept anything. It re-asserts. A short timer owned by
   the form re-applies the same collection-text rules ApplyToForm already
@@ -2305,9 +2302,9 @@ end;
 
   Some headings are placed by the program rather than by the designer, and the
   analyser is required to leave those alone - moving one overwrites a decision
-  the application makes once at start-up and never makes again. Carillon does
-  exactly this with its main heading: it sets Left to half the difference
-  between the screen and the label, in code, before any translation happens.
+  the application makes once at start-up and never makes again. A main heading
+  can set Left to half the difference between the screen and the label, in code,
+  before any translation happens.
 
   Leaving the position alone is right. Leaving it alone while the width changes
   underneath it is not: the arithmetic that produced the position used the

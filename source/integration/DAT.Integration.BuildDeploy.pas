@@ -27,14 +27,97 @@ uses
   System.RegularExpressions,
   System.StrUtils,
   System.SysUtils,
+  System.Win.Registry,
   DAT.Runtime.LanguagePack,
   Winapi.Windows;
 
 const
-  DelphiEnvironmentFile =
-    'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat';
   BuildProcessTimeout = 1800000;
   ProcessTerminationWait = 5000;
+
+function FindDelphiEnvironmentFile: string;
+const
+  RegistryBaseKey = '\Software\Embarcadero\BDS';
+var
+  BestVersion: Double;
+  Candidate: string;
+  ConfiguredRoot: string;
+  Index: Integer;
+  ParsedVersion: Double;
+  Registry: TRegistry;
+  RegistryRoot: HKEY;
+  RegistryRootIndex: Integer;
+  RootDirectory: string;
+  VersionName: string;
+  VersionNames: TStringList;
+begin
+  Result := '';
+
+  { A developer may select a specific installation without changing a project
+    file or this product. RAD Studio's own BDS environment variable is the
+    next choice when the Studio was launched from its configured environment. }
+  ConfiguredRoot := Trim(GetEnvironmentVariable('DAT_RAD_STUDIO_ROOT'));
+  if ConfiguredRoot = '' then
+    ConfiguredRoot := Trim(GetEnvironmentVariable('BDS'));
+  if ConfiguredRoot <> '' then
+  begin
+    Candidate := TPath.Combine(ConfiguredRoot,
+      TPath.Combine('bin', 'rsvars.bat'));
+    if TFile.Exists(Candidate) then
+      Exit(Candidate);
+  end;
+
+  { Otherwise use the newest installed RAD Studio registered on this machine.
+    No Delphi release number or installation drive is assumed. }
+  BestVersion := -1;
+  VersionNames := TStringList.Create;
+  Registry := TRegistry.Create(KEY_READ or KEY_WOW64_32KEY);
+  try
+    for RegistryRootIndex := 0 to 1 do
+    begin
+      if RegistryRootIndex = 0 then
+        RegistryRoot := HKEY_CURRENT_USER
+      else
+        RegistryRoot := HKEY_LOCAL_MACHINE;
+      Registry.RootKey := RegistryRoot;
+      VersionNames.Clear;
+      if not Registry.OpenKeyReadOnly(RegistryBaseKey) then
+        Continue;
+      try
+        Registry.GetKeyNames(VersionNames);
+      finally
+        Registry.CloseKey;
+      end;
+      for Index := 0 to VersionNames.Count - 1 do
+      begin
+        VersionName := VersionNames[Index];
+        if not TryStrToFloat(VersionName, ParsedVersion,
+          TFormatSettings.Invariant) then
+          Continue;
+        if not Registry.OpenKeyReadOnly(RegistryBaseKey + '\' +
+          VersionName) then
+          Continue;
+        try
+          if not Registry.ValueExists('RootDir') then
+            Continue;
+          RootDirectory := Trim(Registry.ReadString('RootDir'));
+        finally
+          Registry.CloseKey;
+        end;
+        Candidate := TPath.Combine(RootDirectory,
+          TPath.Combine('bin', 'rsvars.bat'));
+        if TFile.Exists(Candidate) and (ParsedVersion > BestVersion) then
+        begin
+          BestVersion := ParsedVersion;
+          Result := Candidate;
+        end;
+      end;
+    end;
+  finally
+    Registry.Free;
+    VersionNames.Free;
+  end;
+end;
 
 function FilesHaveEqualBytes(const ALeftFileName,
   ARightFileName: string): Boolean;
@@ -280,7 +363,7 @@ begin
 end;
 
 procedure RunHiddenBuild(const AProjectFileName, APlatform,
-  AConfiguration, APackageDirectory: string);
+  AConfiguration, APackageDirectory, AEnvironmentFile: string);
 var
   CommandLine: string;
   ComponentSourceDirectory: string;
@@ -310,7 +393,7 @@ begin
     Format('dat-build-%s-%s.log', [APlatform, AConfiguration]));
   CommandLine := Format(
     'cmd.exe /d /s /c ""%s" && msbuild "%s" /t:Build /p:Platform=%s /p:Config=%s%s > "%s" 2>&1"',
-    [DelphiEnvironmentFile, AProjectFileName, APlatform, AConfiguration,
+    [AEnvironmentFile, AProjectFileName, APlatform, AConfiguration,
      SearchPathProperty, LogFileName]);
   WorkDirectory := TPath.GetDirectoryName(AProjectFileName);
   ZeroMemory(@StartupInfo, SizeOf(StartupInfo));
@@ -469,6 +552,7 @@ var
   BuildProjectFileName: string;
   DestinationDirectory: string;
   DestinationLanguageDirectory: string;
+  DelphiEnvironmentFileName: string;
   ExecutableFileName: string;
   ProjectDirectory: string;
   SourceLanguageDirectory: string;
@@ -477,10 +561,11 @@ begin
   if not TFile.Exists(AProjectFileName) then
     raise EFileNotFoundException.CreateFmt(
       'The target project was not found: %s', [AProjectFileName]);
-  if not TFile.Exists(DelphiEnvironmentFile) then
-    raise EFileNotFoundException.CreateFmt(
-      'The Delphi environment file was not found: %s',
-      [DelphiEnvironmentFile]);
+  DelphiEnvironmentFileName := FindDelphiEnvironmentFile;
+  if DelphiEnvironmentFileName = '' then
+    raise EFileNotFoundException.Create(
+      'No RAD Studio environment was found. Set DAT_RAD_STUDIO_ROOT to the ' +
+      'installed RAD Studio root directory and try again.');
   ProjectDirectory := TPath.GetDirectoryName(AProjectFileName);
   BuildProjectFileName := AProjectFileName;
   if SameText(TPath.GetExtension(BuildProjectFileName), '.dpr') and
@@ -490,7 +575,7 @@ begin
   SynchronizedSourceCount := SynchronizeExistingIntegrationSources(
     BuildProjectFileName, APackageDirectory);
   RunHiddenBuild(BuildProjectFileName, APlatform, AConfiguration,
-    APackageDirectory);
+    APackageDirectory, DelphiEnvironmentFileName);
   DestinationDirectory := FindBuildOutputDirectory(BuildProjectFileName,
     AProjectName, APlatform, AConfiguration, True);
   if DestinationDirectory = '' then

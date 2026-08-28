@@ -15,7 +15,7 @@ unit DAT.Core.TranslationMemory;
 
   Where it lives, beside the dictionaries, for the same reason:
 
-    C:\Users\Public\Documents\Delphi App Translation\Memory
+    %PUBLIC%\Documents\Delphi App Translation\Memory
 
   One file per language. Every unit is readable and writable by every account
   on the machine without elevation, which is what "shared" has to mean.

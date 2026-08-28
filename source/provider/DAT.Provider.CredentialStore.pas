@@ -64,7 +64,7 @@ procedure CredFree(Buffer: Pointer); stdcall; external 'advapi32.dll';
 class function TProviderCredentialStore.TargetName(
   const AProvider: TTranslationProvider): string;
 begin
-  Result := 'TMartinDub/DelphiAppTranslationStudio/' +
+  Result := 'DelphiAppTranslationStudio/Providers/' +
     TranslationProviderDisplayName(AProvider);
 end;
 

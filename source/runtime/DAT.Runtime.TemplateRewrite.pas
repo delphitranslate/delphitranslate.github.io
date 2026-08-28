@@ -6,7 +6,7 @@ unit DAT.Runtime.TemplateRewrite;
   assembled in code and assigned, often on a timer:
 
     DisplayText := Format('     Uptime:  %d years  %d months ...', [...]);
-    Self.Caption := 'Westminster Chimes ... Portable Edition   ' + DisplayText;
+    Self.Caption := 'Application title   ' + DisplayText;
 
   The format string is scanned and translated - it ships in the pack as a
   template - but a template only helps when the application asks for one, and
@@ -295,8 +295,8 @@ begin
   WorkingText := AText;
   AppliedTemplates := TDictionary<string, Boolean>.Create;
   try
-    { One caption can contain another runtime template: Carillon's window
-      title contains its uptime string. Apply every matching template once so
+    { One caption can contain another runtime template: a window title can
+      contain a live status string. Apply every matching template once so
       the outer title and inner live status are both translated, regardless
       of dictionary enumeration order. Once-only also prevents a translation
       that happens to contain its source phrase from growing indefinitely. }

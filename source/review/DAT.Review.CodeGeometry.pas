@@ -2,7 +2,7 @@ unit DAT.Review.CodeGeometry;
 
 { Which controls the application positions or sizes itself.
 
-  Carillon centres its main heading in code, once, at start-up:
+  An application may centre its main heading in code, once, at start-up:
 
     lblMainHeader.Left := (Screen.Width - lblMainHeader.Width) div 2;
 

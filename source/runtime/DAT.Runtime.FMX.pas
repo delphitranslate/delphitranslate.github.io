@@ -151,18 +151,21 @@ type
   end;
 
 const
-  DATRuntimeDebugLogFileName = 'C:\Downloads\DAT_Translation_Debug_Log.txt';
+  DATRuntimeDebugLogFileName = 'DAT_Translation_Debug_Log.txt';
 
 procedure DATRuntimeDebugLog(const AMessage: string);
 {$IFDEF DAT_RUNTIME_DEBUG_LOG}
 var
+  LogFileName: string;
   LogDirectory: string;
 begin
   try
-    LogDirectory := TPath.GetDirectoryName(DATRuntimeDebugLogFileName);
+    LogFileName := TPath.Combine(TPath.GetTempPath,
+      DATRuntimeDebugLogFileName);
+    LogDirectory := TPath.GetDirectoryName(LogFileName);
     if (LogDirectory <> '') and not TDirectory.Exists(LogDirectory) then
       TDirectory.CreateDirectory(LogDirectory);
-    TFile.AppendAllText(DATRuntimeDebugLogFileName,
+    TFile.AppendAllText(LogFileName,
       FormatDateTime('yyyy-mm-dd hh:nn:ss.zzz', Now) + ' ' + AMessage +
       sLineBreak, TEncoding.UTF8);
   except
@@ -416,7 +419,6 @@ begin
     end;
     LogKnownBrowserTerm('Time');
     LogKnownBrowserTerm('Type');
-    LogKnownBrowserTerm('Song/Purpose');
     for Candidate in PairMap.Keys do
       Pairs.Add(JavaScriptString(Candidate) + ',' +
         JavaScriptString(PairMap[Candidate]));
@@ -1200,11 +1202,9 @@ begin
 
       A column heading is interface text: the application chose those words and
       they mean the same thing in every language. What sits under the heading is
-      the application's data - song titles, file names, durations, rows read
-      from a database - and it belongs to whoever entered it, not to us. A song
-      called Angelus is called Angelus in Spanish, and a row reading
-      "--Random Music Generator-1--Do Not Delete--" is a marker the application
-      matches on by name.
+      the application's data - user-entered values, file names, identifiers and
+      rows read from a database - and it belongs to whoever entered it, not to
+      us. A stored value can also be a marker the application matches by name.
 
       Translating them corrupted the grid twice over. The words on screen were
       wrong, and because the substitution has no reliable inverse the rows did
@@ -1218,9 +1218,7 @@ function ApplyConservativeTextFit(const AForm: TCommonCustomForm;
 const
   HorizontalPadding = 10;
   MinimumReadableFontSize = 8;
-  MaximumButtonWidth = 360;
   MinimumLabelWidth = 42;
-  MaximumLabelWidth = 420;
   MinimumLabelHeight = 22;
   MaximumLabelHeight = 120;
 var
@@ -1451,8 +1449,7 @@ var
     Font := ComponentFont(AComponent);
     CaptionWidth := MeasuredTextWidth(AText, Font);
     NeededWidth := CaptionWidth + HorizontalPadding;
-    MaxWidth := Min(MaximumButtonWidth,
-      NearestSameRowRightEdgeLimit(AControl));
+    MaxWidth := NearestSameRowRightEdgeLimit(AControl);
     { Preserve compact designer-authored controls (including media transport
       buttons). Grow only when the measured caption needs it. }
     NewWidth := Min(MaxWidth, Max(AControl.Width, NeededWidth));
@@ -1496,7 +1493,7 @@ var
   begin
     Result := 0;
     NeededWidth := MeasuredTextWidth(AText, ComponentFont(AComponent)) + 22;
-    MaxWidth := Min(MaximumLabelWidth, NearestSameRowRightEdgeLimit(AControl));
+    MaxWidth := NearestSameRowRightEdgeLimit(AControl);
     NewWidth := Min(MaxWidth, Max(AControl.Width, NeededWidth));
     if NewWidth > AControl.Width + 4 then
     begin
@@ -1566,7 +1563,7 @@ var
       Exit;
     end;
 
-    MaxWidth := Min(MaximumLabelWidth, RightLimitedWidth);
+    MaxWidth := RightLimitedWidth;
     if ParentWidth > 0 then
       MaxWidth := Min(MaxWidth, ParentWidth - AControl.Position.X -
         HorizontalPadding);

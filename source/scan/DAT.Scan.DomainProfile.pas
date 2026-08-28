@@ -4,7 +4,8 @@ unit DAT.Scan.DomainProfile;
 
   The first attempt at this recognised six subjects - music, scheduling,
   business records, clinical records, email, backups - by looking for keywords.
-  It read Carillon correctly and would have failed almost everything else. A
+  It read the application used during its development correctly and would have
+  failed almost everything else. A
   file utility, a CAD package, a laboratory system, a point of sale, a database
   administration tool: none of them are on that list, and no list anyone writes
   will hold them all. A recogniser can only ever recognise what somebody
@@ -16,15 +17,14 @@ unit DAT.Scan.DomainProfile;
   application actually uses, once the words every program uses - File, Edit,
   Cancel, Save - are set aside. What remains is what this program is about, in
   its own words, and it works as well for a file renamer (rename, mask,
-  extension, prefix) as for Carillon (song, playlist, chime, bell).
+  extension, prefix) as for a media scheduler (song, playlist, chime, bell).
 
   The second matters more. Most mistranslations are not domain mistakes, they
   are word-sense mistakes: one English word that means two things, and the
-  translator picking the wrong one. "Play Date From" became Spielverabredungen -
-  an afternoon arranged between children - because "play" and "date" were both
-  read in their social sense. Spanish "Close" became cerca, meaning nearby,
-  rather than cerrar, to shut. And "Volume" is loudness in Carillon but a disk
-  in a file utility, so no single answer to it is right.
+  translator picking the wrong one. A short scheduling label can be read in a
+  social rather than temporal sense. Spanish "Close" can become cerca, meaning
+  nearby, rather than cerrar, to shut. And "Volume" can mean loudness or a disk,
+  so no single answer to it is right.
 
   A word's sense is settled by the company it keeps. That is the whole idea
   here: a shared list says which English words are ambiguous in a user
@@ -35,7 +35,7 @@ unit DAT.Scan.DomainProfile;
   The list lives beside the shared terminology and hyphenation dictionaries and
   is editable by hand:
 
-    C:\Users\Public\Documents\Delphi App Translation\Terms\ambiguous-terms.json
+    %PUBLIC%\Documents\Delphi App Translation\Terms\ambiguous-terms.json
 
   It is about English, the source language, so there is one of it rather than
   one per target language. }

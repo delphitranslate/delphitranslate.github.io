@@ -10,8 +10,8 @@ unit DAT.Provider.Batching;
   means "he helps".
 
   Billing is per translated character, not per request. Sending each string on
-  its own therefore costs exactly what batching costs: the whole of Carillon is
-  6,471 characters either way. What it buys is a context that actually belongs
+  its own therefore costs exactly what batching costs for the same catalog.
+  What it buys is a context that actually belongs
   to the string it is attached to. The price is round trips - a minute for an
   application, once per language, for a result that is then stored for ever.
 

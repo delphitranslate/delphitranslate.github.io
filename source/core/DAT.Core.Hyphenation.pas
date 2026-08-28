@@ -17,7 +17,7 @@ unit DAT.Core.Hyphenation;
   Each language gets its own dictionary file, installed beside the shared
   terminology dictionaries and editable by hand:
 
-    C:\Users\Public\Documents\Delphi App Translation\Hyphenation\de-DE.json
+    %PUBLIC%\Documents\Delphi App Translation\Hyphenation\de-DE.json
 
   A dictionary says which letters are vowels in that language, which consonant
   pairs must never be split, how much of the word must be left whole at each

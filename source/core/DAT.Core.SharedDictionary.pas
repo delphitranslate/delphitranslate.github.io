@@ -11,7 +11,7 @@ unit DAT.Core.SharedDictionary;
 
   The dictionaries live where anything can reach them:
 
-    C:\Users\Public\Documents\Delphi App Translation\Dictionaries
+    %PUBLIC%\Documents\Delphi App Translation\Dictionaries
 
   Public Documents is readable and writable by every account on the machine
   without elevation, which is what "shared" has to mean in practice. One file
