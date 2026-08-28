@@ -20,6 +20,8 @@ type
     procedure UpdateFormatSettings;
     procedure ValidatePackHeader(const APack: TRuntimeLanguagePack;
       const AFileName, AExpectedLanguageCode: string);
+    function IsCompatibleSourceSubset(const APack,
+      ASourcePack: TRuntimeLanguagePack): Boolean;
     procedure ValidatePackAgainstSource(const APack,
       ASourcePack: TRuntimeLanguagePack; const AFileName: string);
   public
@@ -98,6 +100,7 @@ end;
 function TTranslationRuntime.AvailableLanguages:
   TObjectList<TLanguagePackDescriptor>;
 var
+  CandidatePack: TRuntimeLanguagePack;
   Descriptor: TLanguagePackDescriptor;
   Index: Integer;
   SourceFileName: string;
@@ -118,19 +121,70 @@ begin
       if not SameText(Descriptor.SourceLanguage, FSourceLanguageCode) or
         (CanonicalFramework(Descriptor.Framework) <>
           CanonicalFramework(SourcePack.Framework)) or
-        (Descriptor.ApplicationVersion <> SourcePack.ApplicationVersion) or
-        (Descriptor.SourceCatalogChecksum <>
-          SourcePack.SourceCatalogChecksum) then
+        (Descriptor.ApplicationVersion <> SourcePack.ApplicationVersion) then
       begin
         TDATDiagnostics.Log('DAT-PACK-COMPAT-001',
           'AvailableLanguages',
           'Excluded incompatible pack: ' + Descriptor.FileName, dsWarning);
         Result.Delete(Index);
+        Continue;
+      end;
+      if Descriptor.SourceCatalogChecksum <>
+        SourcePack.SourceCatalogChecksum then
+      begin
+        CandidatePack := nil;
+        try
+          CandidatePack := TRuntimeLanguagePack.LoadFromFile(
+            Descriptor.FileName);
+          ValidatePackHeader(CandidatePack, Descriptor.FileName,
+            Descriptor.LanguageCode);
+          ValidatePackAgainstSource(CandidatePack, SourcePack,
+            Descriptor.FileName);
+          TDATDiagnostics.Log('DAT-PACK-COMPAT-002',
+            'AvailableLanguages',
+            'Included compatible partial pack after source catalog growth: ' +
+              Descriptor.FileName, dsWarning);
+        except
+          on E: Exception do
+          begin
+            TDATDiagnostics.Log('DAT-PACK-COMPAT-001',
+              'AvailableLanguages',
+              'Excluded incompatible pack: ' + Descriptor.FileName +
+                ' (' + E.Message + ')', dsWarning);
+            Result.Delete(Index);
+          end;
+        end;
+        CandidatePack.Free;
       end;
     end;
   finally
     SourcePack.Free;
   end;
+end;
+
+function TTranslationRuntime.IsCompatibleSourceSubset(const APack,
+  ASourcePack: TRuntimeLanguagePack): Boolean;
+var
+  CurrentSource: string;
+  Pair: TPair<string, string>;
+  SharedSourceCount: Integer;
+begin
+  Result := False;
+  if (APack = nil) or (ASourcePack = nil) then
+    Exit;
+  SharedSourceCount := 0;
+  for Pair in APack.Sources do
+    if ASourcePack.TryGetSource(Pair.Key, CurrentSource) then
+    begin
+      Inc(SharedSourceCount);
+      if CurrentSource <> Pair.Value then
+        Exit;
+    end;
+  { A prior pack may omit entries added by a later scan; missing keys safely
+    fall back to source text.  It may not, however, translate a key whose
+    source text has changed.  Requiring a shared source also prevents an
+    unrelated or empty catalog from being accepted accidentally. }
+  Result := SharedSourceCount > 0;
 end;
 
 procedure TTranslationRuntime.ValidatePackHeader(
@@ -172,7 +226,8 @@ begin
     raise ELanguagePackError.CreateFmt(
       'Language pack "%s" targets framework "%s"; the installed source pack targets "%s".',
       [AFileName, APack.Framework, ASourcePack.Framework]);
-  if APack.SourceCatalogChecksum <> ASourcePack.SourceCatalogChecksum then
+  if (APack.SourceCatalogChecksum <> ASourcePack.SourceCatalogChecksum) and
+    not IsCompatibleSourceSubset(APack, ASourcePack) then
     raise ELanguagePackError.CreateFmt(
       'Language pack "%s" was built for a different source catalog.',
       [AFileName]);

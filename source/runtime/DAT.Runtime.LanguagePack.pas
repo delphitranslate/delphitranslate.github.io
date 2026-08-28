@@ -203,9 +203,9 @@ function IsAutomaticallySafeLayoutProperty(
   const APropertyName: string): Boolean;
 begin
   Result :=
-    SameText(APropertyName, 'WordWrap') or
-    SameText(APropertyName, 'AutoSize') or
-    SameText(APropertyName, 'FontSize') or
+    { Wrapping, automatic sizing and font size are content measurements, not
+      direction constants.  They must be reviewed (or decided by the measured
+      run-time fitter) rather than bulk-accepted for every translated control. }
     SameText(APropertyName, 'Alignment') or
     SameText(APropertyName, 'TextSettings.HorzAlign') or
     SameText(APropertyName, 'Align') or

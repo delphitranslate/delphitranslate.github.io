@@ -107,10 +107,12 @@ begin
     'Width was incorrectly classified as safe for bulk acceptance.');
   Require(not IsAutomaticallySafeLayoutProperty('Columns[0].Width'),
     'A fixed grid-column width was incorrectly classified as resolution-independent.');
-  Require(IsAutomaticallySafeLayoutProperty('WordWrap'),
-    'WordWrap should remain safe for bulk acceptance.');
-  Require(IsAutomaticallySafeLayoutProperty('FontSize'),
-    'FontSize should remain safe for bulk acceptance.');
+  Require(not IsAutomaticallySafeLayoutProperty('WordWrap'),
+    'Control wrapping was incorrectly classified as safe for bulk acceptance.');
+  Require(not IsAutomaticallySafeLayoutProperty('AutoSize'),
+    'Control automatic sizing was incorrectly classified as safe for bulk acceptance.');
+  Require(not IsAutomaticallySafeLayoutProperty('FontSize'),
+    'Control font size was incorrectly classified as safe for bulk acceptance.');
   Require(IsAutomaticallySafeLayoutProperty('Columns[0].FontSize'),
     'A grid-column font fit should remain safe for bulk acceptance.');
   Require(IsAutomaticallySafeLayoutProperty('ColumnOrder'),
@@ -2135,11 +2137,16 @@ begin
     Runtime.Free;
   end;
 
-  { A target pack from an older or different source scan is stale even when
-    its application and language names still look correct. }
+  { A target pack is stale when a key it translates has changed source text.
+    A checksum difference alone may represent safe catalog growth, but it must
+    never conceal changed meaning for an existing key. }
   TFile.WriteAllText(PackFileName,
-    StringReplace(PackText, SourceChecksum,
-      StringOfChar('0', Length(SourceChecksum)), []), TEncoding.UTF8);
+    StringReplace(
+      StringReplace(PackText, SourceChecksum,
+        StringOfChar('0', Length(SourceChecksum)), []),
+      '"MainForm.Greeting.Text":"Hello %s"',
+      '"MainForm.Greeting.Text":"Changed hello %s"', []),
+    TEncoding.UTF8);
   Runtime := TTranslationRuntime.Create('OfflineWorkflowTest',
     LanguageDirectory, PreferenceFileName, 'en-US', 'FireMonkey');
   try
@@ -2151,7 +2158,7 @@ begin
         Rejected := True;
     end;
     Require(Rejected,
-      'A runtime pack for a different source-catalog checksum was accepted.');
+      'A runtime pack with changed source text was accepted.');
   finally
     Runtime.Free;
   end;

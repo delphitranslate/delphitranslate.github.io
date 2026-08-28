@@ -274,7 +274,14 @@ begin
     'html,body{max-inline-size:100%}' +
     '[data-dat-fit="wrap"]{max-inline-size:100%;white-space:normal!important;' +
       'overflow-wrap:anywhere!important;word-break:normal!important}' +
-    'table,img,svg,canvas{max-inline-size:100%}';
+    { Tables are data, not pictures.  Constraining a wide translated table to
+      the viewport makes the browser squeeze the final columns until Hebrew,
+      Arabic and other longer headings become one-character strips.  Keep the
+      table at least as wide as its viewport, but allow its intrinsic column
+      widths to exceed it and use the browser's existing horizontal scroll. }
+    'img,svg,canvas{max-inline-size:100%}' +
+    'table{min-inline-size:100%;max-inline-size:none;table-layout:auto}' +
+    'th,td{white-space:normal;overflow-wrap:normal;word-break:normal}';
 
   ScriptText := '(function(){var d=' +
     JavaScriptString(LowerCase(Trim(APack.TextDirection))) + ',l=' +
@@ -1411,30 +1418,28 @@ var
     Result := False;
     if (APack = nil) or (AComponent = nil) or (Trim(AComponent.Name) = '') then
       Exit;
-    { Any rule at all, not only the four that name a size or a place.
-
-      This guard exists so the fitting below leaves alone any control the
-      analyser has already decided about. Counting only geometry meant a
-      control the analyser had spoken about in other terms looked untouched:
-      a caption given wrapping, or a button given a size, still fell to the
-      fitting, which measures the text afresh and reaches its own conclusion.
-
-      The two disagree, and the fitting runs second. A caption told to stay on
-      one line was clamped to the gap between it and the box overlapping its
-      row - twenty seven pixels - and wrapped into a column one word wide. A
-      button told to take a smaller size was widened instead until it covered
-      the caption beside it. In both cases the plan was right and was quietly
-      overruled, which is why correcting the plan changed nothing on screen. }
+    { Only an accepted geometry/wrapping decision suppresses measured fitting.
+      Direction-only and legacy font rules do not prove that translated text
+      fits.  In particular, they must not prevent buttons from acquiring the
+      padding their rendered caption requires. }
     for Rule in APack.LayoutRules do
       if SameText(Rule.FormName, AFormIdentity) and
         SameText(Rule.ComponentName, AComponent.Name) and
-        IsRuntimeLayoutProperty(Rule.PropertyName) then
+        not SameText(Trim(Rule.OriginalValue),
+          Trim(Rule.TranslatedValue)) and
+        (SameText(Rule.PropertyName, 'Width') or
+         SameText(Rule.PropertyName, 'Height') or
+         SameText(Rule.PropertyName, 'Position.X') or
+         SameText(Rule.PropertyName, 'Position.Y') or
+         (SameText(Rule.PropertyName, 'WordWrap') and
+          SameText(Trim(Rule.TranslatedValue), 'True'))) then
         Exit(True);
   end;
 
   function FitButton(const AComponent: TComponent; const AControl: TControl;
     const AText: string): Integer;
   var
+    CaptionWidth: Single;
     Font: TFont;
     FontSize: Single;
     MaxWidth: Single;
@@ -1444,7 +1449,8 @@ var
   begin
     Result := 0;
     Font := ComponentFont(AComponent);
-    NeededWidth := MeasuredTextWidth(AText, Font);
+    CaptionWidth := MeasuredTextWidth(AText, Font);
+    NeededWidth := CaptionWidth + HorizontalPadding;
     MaxWidth := Min(MaximumButtonWidth,
       NearestSameRowRightEdgeLimit(AControl));
     { Preserve compact designer-authored controls (including media transport
@@ -1455,19 +1461,18 @@ var
       AControl.Width := NewWidth;
       Inc(Result);
     end;
-    if (NeededWidth > AControl.Width - HorizontalPadding) and
+    if (CaptionWidth > AControl.Width - HorizontalPadding) and
       (Font <> nil) and (Font.Size > MinimumReadableFontSize) then
     begin
       FontSize := Max(MinimumReadableFontSize,
-        Font.Size * ((AControl.Width - HorizontalPadding) / NeededWidth));
+        Font.Size * ((AControl.Width - HorizontalPadding) / CaptionWidth));
       if ApplyFontSizeSetting(AComponent, FontSize) then
       begin
         Inc(Result);
-        NeededWidth := MeasuredTextWidth(AText,
-          ComponentFont(AComponent));
+        CaptionWidth := MeasuredTextWidth(AText, ComponentFont(AComponent));
       end;
     end;
-    if NeededWidth > AControl.Width + 8 then
+    if CaptionWidth > AControl.Width - HorizontalPadding then
     begin
       if SetWordWrapIfSupported(AComponent) then
         Inc(Result);
@@ -1677,8 +1682,31 @@ var
     Control: TControl;
     CurrentText: string;
     GrowthDelta: Single;
+    Key: string;
     OldBottom: Single;
+    PackText: string;
     Visited: TList<TControl>;
+
+    function TextCameFromPack: Boolean;
+    var
+      SourcePair: TPair<string, string>;
+    begin
+      Result := False;
+      if Trim(AComponent.Name) <> '' then
+      begin
+        Key := AFormIdentity + '.' + AComponent.Name + '.Text';
+        if APack.TryGetText(Key, PackText) and
+          (Trim(PackText) = CurrentText) then
+          Exit(True);
+        Key := AFormIdentity + '.' + AComponent.Name + '.Caption';
+        if APack.TryGetText(Key, PackText) and
+          (Trim(PackText) = CurrentText) then
+          Exit(True);
+      end;
+      for SourcePair in APack.SourceStrings do
+        if Trim(SourcePair.Value) = CurrentText then
+          Exit(True);
+    end;
   begin
     Result := 0;
     if not (AComponent is TControl) then
@@ -1689,10 +1717,12 @@ var
     if not ((AComponent is TLabel) or (AComponent is TButton) or
       (AComponent is TCheckBox) or (AComponent is TTextControl)) then
       Exit;
-    if HasExplicitLayoutRule(AComponent) then
+    if HasExplicitLayoutRule(AComponent) and not (AComponent is TButton) then
       Exit;
     CurrentText := Trim(ComponentDisplayText(AComponent));
     if CurrentText = '' then
+      Exit;
+    if not TextCameFromPack then
       Exit;
 
     OldBottom := BottomEdge(Control);
@@ -3076,6 +3106,20 @@ var
   begin
     Result := IsRuntimeLayoutProperty(APropertyName);
   end;
+
+  function HasEnablingWrapRule(const AComponentName: string): Boolean;
+  var
+    WrapRule: TRuntimeLayoutRule;
+  begin
+    Result := False;
+    for WrapRule in APack.LayoutRules do
+      if SameText(WrapRule.FormName, AFormIdentity) and
+        SameText(WrapRule.ComponentName, AComponentName) and
+        SameText(WrapRule.PropertyName, 'WordWrap') and
+        SameText(Trim(WrapRule.OriginalValue), 'False') and
+        SameText(Trim(WrapRule.TranslatedValue), 'True') then
+        Exit(True);
+  end;
 begin
   Result := 0;
   if (AForm = nil) or (APack = nil) then
@@ -3124,6 +3168,48 @@ begin
       Component := AForm.FindComponent(Rule.ComponentName);
     if Component = nil then
       Continue;
+    { Compatibility contract for packs produced before layout stabilization.
+      These automatic rules are not authoritative user layout decisions:
+      - never disable wrapping requested by the designer;
+      - never apply a blanket translated font reduction;
+      - never edge-align a push-button caption;
+      - never freeze geometry owned by an aligned framework control. }
+    if AUseTranslatedValues then
+    begin
+      if SameText(Rule.PropertyName, 'WordWrap') and
+        SameText(Trim(Rule.OriginalValue), 'True') and
+        SameText(Trim(Rule.TranslatedValue), 'False') then
+        Continue;
+      if SameText(Rule.PropertyName, 'AutoSize') and
+        SameText(Trim(Rule.OriginalValue), 'True') and
+        SameText(Trim(Rule.TranslatedValue), 'False') and
+        not HasEnablingWrapRule(Rule.ComponentName) then
+        Continue;
+      if SameText(Rule.PropertyName, 'FontSize') then
+      begin
+        { A generated reduction is never a universal layout decision.  A
+          reviewed increase may accompany an explicit wrap plan, for example
+          an accessibility layout that deliberately uses larger type. }
+        if not HasEnablingWrapRule(Rule.ComponentName) then
+          Continue;
+        if TryStrToFloat(Rule.OriginalValue, CurrentNumber,
+          TFormatSettings.Invariant) and
+          TryStrToFloat(Rule.TranslatedValue, CandidateNumber,
+          TFormatSettings.Invariant) and
+          (CandidateNumber < CurrentNumber) then
+          Continue;
+      end;
+      if (Component is TButton) and
+        SameText(Rule.PropertyName, 'TextSettings.HorzAlign') then
+        Continue;
+      if (Component is TControl) and
+        (TControl(Component).Align <> TAlignLayout.None) and
+        (SameText(Rule.PropertyName, 'Width') or
+         SameText(Rule.PropertyName, 'Height') or
+         SameText(Rule.PropertyName, 'Position.X') or
+         SameText(Rule.PropertyName, 'Position.Y')) then
+        Continue;
+    end;
     if AUseTranslatedValues and (Component <> AForm) then
     begin
       TextKey := AFormIdentity + '.' + Component.Name + '.Text';

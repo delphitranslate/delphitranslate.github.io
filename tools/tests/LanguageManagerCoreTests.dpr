@@ -115,7 +115,32 @@ begin
     '"strings":{"frmMock.Text":"' + AText + '",' +
     '"Messages.Dynamic":"Dynamic ' + ALanguageCode + '",' +
     '"Document.Title":"Document ' + ALanguageCode + '"},' +
-    '"templates":{"Document.Count":"Count ' + ALanguageCode + ': %d"}}';
+    '"templates":{"Document.Count":"Count ' + ALanguageCode + ': %d"},' +
+    '"sources":{"frmMock.Text":"Source catalog text"}}';
+  TFile.WriteAllText(AFileName, JsonText, TEncoding.UTF8);
+end;
+
+procedure WriteExpandedSourcePack(const AFileName: string);
+const
+  JsonText =
+    '{"schemaVersion":1,"applicationId":"CoreTestApp",' +
+    '"applicationVersion":"1.0","framework":"Neutral",' +
+    '"sourceLanguage":"en-US",' +
+    '"sourceCatalogChecksum":"core-test-expanded",' +
+    '"language":{"code":"en-US","nativeName":"English",' +
+    '"direction":"ltr"},' +
+    '"locale":{"shortDateFormat":"M/d/yyyy","longDateFormat":"",' +
+    '"shortTimeFormat":"HH:mm","longTimeFormat":"HH:mm:ss",' +
+    '"decimalSeparator":".","thousandSeparator":",",' +
+    '"currencySymbol":"USD"},' +
+    '"strings":{"frmMock.Text":"English catalog text",' +
+    '"Messages.Dynamic":"Dynamic en-US",' +
+    '"Document.Title":"Document en-US",' +
+    '"frmNew.Text":"New source text"},' +
+    '"templates":{"Document.Count":"Count en-US: %d"},' +
+    '"sources":{"frmMock.Text":"Source catalog text",' +
+    '"frmNew.Text":"New source text"}}';
+begin
   TFile.WriteAllText(AFileName, JsonText, TEncoding.UTF8);
 end;
 
@@ -494,6 +519,25 @@ begin
     finally
       Available.Free;
     end;
+
+    { Rescanning an application may add keys without changing any source text
+      already translated.  Existing language packs must remain selectable;
+      only the new keys fall back to their source text until translated. }
+    WriteExpandedSourcePack(TPath.Combine(LanguagesDirectory, 'en-US.json'));
+    Available := Manager.AvailableLanguages;
+    try
+      Require(Available.Count = 2,
+        'Compatible language pack disappeared after source catalog growth.');
+    finally
+      Available.Free;
+    end;
+    Require(Manager.SelectLanguage('de-DE'),
+      'Compatible prior language pack could not load after catalog growth.');
+    Require(Manager.Translate('frmNew.Text', 'New source text') =
+      'New source text',
+      'A newly added untranslated key did not retain its source fallback.');
+    Require(Manager.SelectLanguage('en-US'),
+      'Source language could not be restored after catalog-growth testing.');
 
     ConfigurationBlocked := False;
     try

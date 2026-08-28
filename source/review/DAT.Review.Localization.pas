@@ -2501,6 +2501,18 @@ var
     value. }
   function DefaultTextAlign(const AControl: TLayoutControl): string;
   begin
+    { Push buttons are centred by both frameworks even when the designer does
+      not serialize an alignment property.  Treating an omitted value as
+      leading produced RTL rules which jammed every caption against one edge. }
+    if ContainsText(AControl.ComponentClassName, 'Button') and
+      not ContainsText(AControl.ComponentClassName, 'RadioButton') and
+      not ContainsText(AControl.ComponentClassName, 'CheckBox') then
+    begin
+      if SameText(TextAlignPropertyName(AControl), 'Alignment') then
+        Exit('taCenter')
+      else
+        Exit('Center');
+    end;
     if SameText(TextAlignPropertyName(AControl), 'Alignment') then
       Result := 'taLeftJustify'
     else
@@ -2574,14 +2586,10 @@ begin
     Control.PlannedTop := Control.Top;
     Control.PlannedWidth := Control.Width;
     Control.PlannedHeight := Control.Height;
-    { The plan starts from not wrapping, whatever the framework would do left
-      to itself. Wrapping is something the passes below decide to ask for when
-      the text needs it; seeding the plan with the framework default would mean
-      every FireMonkey caption began life asking to wrap, and be granted the
-      height of two lines it does not need. Control.WordWrap still records what
-      the framework really does, which is what decides whether a rule has to be
-      written. }
-    Control.PlannedWordWrap := False;
+    { The designer's wrapping is an authored constraint.  Translation may turn
+      wrapping on when measured text needs it, but it must never silently turn
+      an existing wrapping contract off. }
+    Control.PlannedWordWrap := Control.WordWrap;
     Control.PlannedFontSize := Control.FontSize;
     Control.PlannedHorzAlign := '';
   end;
@@ -5165,13 +5173,7 @@ begin
           'Width measured from the translated text and clamped to the space actually available.');
       if Control.PlannedWordWrap and not Control.WordWrap then
         AddProposal(AReview, Control, 'WordWrap', 'False', 'True',
-          'Wrap the translated text instead of expanding across neighboring controls.')
-      else if Control.WordWrap and not Control.PlannedWordWrap then
-        { Switching wrapping off has to be stated too. A control left wrapping
-          because nobody said otherwise will break its line wherever the text
-          happens to reach, into whatever height it already had. }
-        AddProposal(AReview, Control, 'WordWrap', 'True', 'False',
-          'Keep the translated text on the single line the control was drawn for.');
+          'Wrap the translated text instead of expanding across neighboring controls.');
       { Any control that sizes itself has to be pinned once its text changes.
         Left alone it grows around the new string at run time, to whatever
         width that takes, across whatever is beside it. }

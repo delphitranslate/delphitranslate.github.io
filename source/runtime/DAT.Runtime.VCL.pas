@@ -2258,6 +2258,8 @@ procedure ApplyAutoSizeRulesFirst(const AForm: TCustomForm;
 var
   Component: TComponent;
   Rule: TRuntimeLayoutRule;
+  WrapRule: TRuntimeLayoutRule;
+  HasEnablingWrap: Boolean;
 begin
   if (AForm = nil) or (APack = nil) then
     Exit;
@@ -2275,6 +2277,26 @@ begin
       Component := AForm.FindComponent(Rule.ComponentName);
     if Component = nil then
       Continue;
+    { Legacy bulk-generated AutoSize=False rules are measurements, not safe
+      direction metadata.  Preserve the designer setting; reviewed geometry is
+      still applied by the normal ordered layout pass. }
+    if SameText(Trim(Rule.OriginalValue), 'True') and
+      SameText(Trim(Rule.TranslatedValue), 'False') then
+    begin
+      HasEnablingWrap := False;
+      for WrapRule in APack.LayoutRules do
+        if SameText(WrapRule.FormName, AFormIdentity) and
+          SameText(WrapRule.ComponentName, Rule.ComponentName) and
+          SameText(WrapRule.PropertyName, 'WordWrap') and
+          SameText(Trim(WrapRule.OriginalValue), 'False') and
+          SameText(Trim(WrapRule.TranslatedValue), 'True') then
+        begin
+          HasEnablingWrap := True;
+          Break;
+        end;
+      if not HasEnablingWrap then
+        Continue;
+    end;
     TrySetLayoutProperty(Component, Rule.PropertyName, Rule.TranslatedValue);
   end;
 end;
@@ -2594,6 +2616,20 @@ var
   TextPropertyInfo: PPropInfo;
   TranslatedText: string;
   Value: string;
+
+  function HasEnablingWrapRule(const AComponentName: string): Boolean;
+  var
+    WrapRule: TRuntimeLayoutRule;
+  begin
+    Result := False;
+    for WrapRule in APack.LayoutRules do
+      if SameText(WrapRule.FormName, AFormIdentity) and
+        SameText(WrapRule.ComponentName, AComponentName) and
+        SameText(WrapRule.PropertyName, 'WordWrap') and
+        SameText(Trim(WrapRule.OriginalValue), 'False') and
+        SameText(Trim(WrapRule.TranslatedValue), 'True') then
+        Exit(True);
+  end;
 begin
   Result := 0;
   if (AForm = nil) or (APack = nil) then
@@ -2641,6 +2677,41 @@ begin
       Component := AForm.FindComponent(Rule.ComponentName);
     if Component = nil then
       Continue;
+    if AUseTranslatedValues then
+    begin
+      if SameText(Rule.PropertyName, 'WordWrap') and
+        SameText(Trim(Rule.OriginalValue), 'True') and
+        SameText(Trim(Rule.TranslatedValue), 'False') then
+        Continue;
+      if SameText(Rule.PropertyName, 'AutoSize') and
+        SameText(Trim(Rule.OriginalValue), 'True') and
+        SameText(Trim(Rule.TranslatedValue), 'False') and
+        not HasEnablingWrapRule(Rule.ComponentName) then
+        Continue;
+      if SameText(Rule.PropertyName, 'FontSize') then
+      begin
+        if not HasEnablingWrapRule(Rule.ComponentName) then
+          Continue;
+        if TryStrToFloat(Rule.OriginalValue, CurrentNumber,
+          TFormatSettings.Invariant) and
+          TryStrToFloat(Rule.TranslatedValue, CandidateNumber,
+          TFormatSettings.Invariant) and
+          (CandidateNumber < CurrentNumber) then
+          Continue;
+      end;
+      if ContainsText(Component.ClassName, 'Button') and
+        not ContainsText(Component.ClassName, 'RadioButton') and
+        not ContainsText(Component.ClassName, 'CheckBox') and
+        SameText(Rule.PropertyName, 'Alignment') then
+        Continue;
+      if (Component is TControl) and
+        (TControl(Component).Align <> alNone) and
+        (SameText(Rule.PropertyName, 'Width') or
+         SameText(Rule.PropertyName, 'Height') or
+         SameText(Rule.PropertyName, 'Left') or
+         SameText(Rule.PropertyName, 'Top')) then
+        Continue;
+    end;
     { A splash or other demand-created form may replace its designer
       placeholder before localization runs. Its text and the size computed
       for that live value belong to the application; layout planned for the
