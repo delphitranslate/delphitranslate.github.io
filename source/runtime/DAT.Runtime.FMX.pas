@@ -298,11 +298,14 @@ begin
       'if(a==="left"){return q==="rtl"?"end":"start";}' +
       'if(a==="right"){return q==="rtl"?"start":"end";}return a;}' +
     'function padStart(c){return num(c.direction==="rtl"?c.paddingRight:c.paddingLeft);}' +
-    'function setPadStart(e,c,v){if("paddingInlineStart" in e.style){' +
-      'e.style.paddingInlineStart=v+"px";}else if(c.direction==="rtl"){' +
-      'e.style.paddingRight=v+"px";}else{e.style.paddingLeft=v+"px";}}' +
-    'function setLogicalAlign(e,v){if(v==="start"||v==="end"){' +
-      'e.style.textAlign=v;}}' +
+    'function setPadStart(e,c,v){var p=c.direction==="rtl"?' +
+      '"padding-right":"padding-left";' +
+      'e.style.setProperty(p,v+"px","important");}' +
+    'function setLogicalAlign(e,c,v){if(v==="start"){' +
+      'v=c.direction==="rtl"?"right":"left";}else if(v==="end"){' +
+      'v=c.direction==="rtl"?"left":"right";}' +
+      'if(v==="left"||v==="right"||v==="center"){' +
+      'e.style.setProperty("text-align",v,"important");}}' +
     'function cellAt(t,col){var rs=t.tBodies,i,j,p,x,s,first=null;' +
       'for(i=0;i<rs.length;i++){for(j=0;j<rs[i].rows.length;j++){' +
       'p=0;for(x=0;x<rs[i].rows[j].cells.length;x++){' +
@@ -321,15 +324,15 @@ begin
       'if(!overflowing(e)){return;}z=num(getComputedStyle(e).fontSize);' +
       'm=Math.max(8,z*.8);while(z-.5>=m&&overflowing(e)){' +
       'z-=.5;e.style.fontSize=z+"px";}}' +
-    'function alignTable(t){var r,hs,h,c,hc,cc,ha,ca,hp,cp,col=0,i;' +
+    'function alignTable(t){var r,hs,h,c,hc,cc,ca,hp,cp,col=0,i;' +
       'if(!t.tHead||!t.tHead.rows.length||!t.tBodies.length){return;}' +
       'r=t.tHead.rows[t.tHead.rows.length-1];hs=r.cells;' +
       'for(i=0;i<hs.length;i++){h=hs[i];c=cellAt(t,col);col+=h.colSpan||1;' +
       'if(c){hc=getComputedStyle(h);cc=getComputedStyle(c);' +
-      'ha=norm(hc);ca=norm(cc);if(ca==="start"||ca==="end"){' +
-      'if(ha!==ca){setLogicalAlign(h,ca);hc=getComputedStyle(h);}' +
+      'ca=norm(cc);if(ca==="start"||ca==="end"){' +
+      'setLogicalAlign(h,cc,ca);hc=getComputedStyle(h);' +
       'hp=padStart(hc);cp=padStart(cc);if(Math.abs(hp-cp)>.5&&Math.abs(hp-cp)<=32){' +
-      'setPadStart(h,hc,cp);}}}fit(h);}}' +
+      'setPadStart(h,cc,cp);}}}fit(h);}}' +
     'function run(){var h=document.documentElement,b=document.body,s,n,i;' +
     'if(!h){return;}h.setAttribute("dir",d);if(l){h.setAttribute("lang",l);}' +
     'if(h.getAttribute("data-dat-layout-language")!==l){' +
@@ -2409,6 +2412,7 @@ var
     Ancestor: TFmxObject;
     EffectiveWidth: Single;
     GeometryResolved: Boolean;
+    HasEdgeChild: Boolean;
     LargestChildRight: Single;
     MinimumPositiveInset: Single;
     MirroredLeft: Single;
@@ -2463,10 +2467,11 @@ var
       and (TControl(AParent).ParentControl <> nil) and
       (TControl(AParent).ParentControl.Width > EffectiveWidth) then
       EffectiveWidth := TControl(AParent).ParentControl.Width;
-    if (AParent is TControl) and
-      (TControl(AParent).ParentControl <> nil) then
-      EffectiveWidth := Max(EffectiveWidth,
-        SnapshotWidth(TControl(AParent).ParentControl));
+    { Every child position is expressed in its immediate visual parent's
+      coordinate space.  Never widen an ordinary nested parent to an
+      ancestor's snapshot width: doing that mirrors the nested children into
+      coordinates outside their own container.  The two measured fallbacks
+      below remain responsible for framework-managed tab placeholders. }
 
     { Preserve the visible content gutter when a designer-sized control ends
       on, or a rounding pixel beyond, its parent's opposite edge.  FMX form
@@ -2480,6 +2485,7 @@ var
       that themselves began at or beyond that gutter; true edge-to-edge
       controls at X=0 remain edge-to-edge. }
     MinimumPositiveInset := MaxSingle;
+    HasEdgeChild := False;
     LargestChildRight := 0;
     for ChildIndex := 0 to AParent.ChildrenCount - 1 do
     begin
@@ -2490,6 +2496,10 @@ var
         SourceLeft := DesignedLeft(Control);
         if IsApplicationControl(Control) and
           (Control.Align = TAlignLayout.None) and
+          (SourceLeft <= 0.5) then
+          HasEdgeChild := True;
+        if IsApplicationControl(Control) and
+          (Control.Align = TAlignLayout.None) and
           (SourceLeft > 0.5) and
           (SourceLeft < MinimumPositiveInset) then
           MinimumPositiveInset := SourceLeft;
@@ -2498,7 +2508,7 @@ var
           LargestChildRight := SourceLeft + DesignedWidth(Control);
       end;
     end;
-    if MinimumPositiveInset = MaxSingle then
+    if HasEdgeChild or (MinimumPositiveInset = MaxSingle) then
       MinimumPositiveInset := 0;
 
     { A run-time scroll box on an inactive tab can still report the tab's
@@ -2596,10 +2606,6 @@ var
                 (2 * MinimumPositiveInset);
             MirroredLeft := EffectiveWidth -
               (SourceLeft + Control.Width);
-            if (MinimumPositiveInset > 0) and
-              (SourceLeft >= MinimumPositiveInset) and
-              (MirroredLeft < MinimumPositiveInset) then
-              MirroredLeft := MinimumPositiveInset;
             Control.Position.X := MirroredLeft;
             Inc(Result);
           end;

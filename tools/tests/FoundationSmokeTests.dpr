@@ -1175,9 +1175,25 @@ begin
     ContainsText(RuntimeSource, 'dat-runtime-layout-contract') and
     ContainsText(RuntimeSource, 'function alignTable(t)') and
     ContainsText(RuntimeSource, 'function cellAt(t,col)') and
-    ContainsText(RuntimeSource, 'setPadStart(h,hc,cp)') and
+    ContainsText(RuntimeSource, 'function setLogicalAlign(e,c,v)') and
+    ContainsText(RuntimeSource,
+      'e.style.setProperty("text-align",v,"important")') and
+    ContainsText(RuntimeSource,
+      'e.style.setProperty(p,v+"px","important")') and
+    ContainsText(RuntimeSource, 'setPadStart(h,cc,cp)') and
+    ContainsText(RuntimeSource, 'tr{height:auto!important}') and
+    ContainsText(RuntimeSource, 'overflow:visible') and
+    ContainsText(RuntimeSource, 'data-dat-layout-language') and
     ContainsText(RuntimeSource, '[role=columnheader]'),
     'The measured, application-neutral browser layout contract is incomplete.');
+  Require(not ContainsText(RuntimeSource,
+      'SnapshotWidth(TControl(AParent).ParentControl)'),
+    'Nested FMX controls can still be mirrored against an ancestor width.');
+  Require(ContainsText(RuntimeSource, 'MaximumButtonWidth = 360') and
+    ContainsText(RuntimeSource, 'MaximumLabelWidth = 420') and
+    ContainsText(RuntimeSource, 'MaxWidth := Min(MaximumButtonWidth,') and
+    ContainsText(RuntimeSource, 'MaxWidth := Min(MaximumLabelWidth,'),
+    'The framework-wide native control growth bounds were removed.');
   Require(not ContainsText(RuntimeSource,
       'padding-inline:8px!important') and
     not ContainsText(RuntimeSource,

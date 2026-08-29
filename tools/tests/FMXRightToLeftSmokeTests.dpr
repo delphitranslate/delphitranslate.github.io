@@ -24,6 +24,7 @@ uses
   FMX.Forms,
   FMX.Controls,
   FMX.StdCtrls,
+  FMX.ListBox,
   FMX.Layouts,
   FMX.Edit,
   FMX.Grid,
@@ -108,6 +109,9 @@ var
   GridColumn: TStringColumn;
   Nav: TLayout;
   CenteredLayout: TLayout;
+  SelectorGroup: TLayout;
+  SelectorLabel: TLabel;
+  SelectorCombo: TComboBox;
   Tabs: TTabControl;
   Page: TTabItem;
   InactivePage: TTabItem;
@@ -169,6 +173,23 @@ begin
       CenteredLayout.Parent := Form;
       CenteredLayout.Name := 'lytCentered';
       CenteredLayout.SetBounds(150, 84, 100, 28);
+
+      { An ordinary nested layout owns its own coordinate space.  A language
+        selector is representative: its label and combo must mirror inside the
+        320-pixel group, never against the wider form which contains it. }
+      SelectorGroup := TLayout.Create(Form);
+      SelectorGroup.Parent := Form;
+      SelectorGroup.Name := 'lytLanguageSelector';
+      SelectorGroup.SetBounds(40, 118, 320, 38);
+      SelectorLabel := TLabel.Create(Form);
+      SelectorLabel.Parent := SelectorGroup;
+      SelectorLabel.Name := 'lblLanguageSelector';
+      SelectorLabel.SetBounds(0, 10, 96, 18);
+      SelectorLabel.Text := 'Language:';
+      SelectorCombo := TComboBox.Create(Form);
+      SelectorCombo.Parent := SelectorGroup;
+      SelectorCombo.Name := 'cboLanguageSelector';
+      SelectorCombo.SetBounds(106, 4, 190, 30);
 
       { A live tab page is substantially wider than the placeholder written
         to an FMX file. This is the exact geometry that previously sent cards
@@ -294,6 +315,13 @@ begin
         'A framework-placed layout is mirrored by its edge.');
       Check(Abs(CenteredLayout.Position.X - 150) < 1,
         'A container centred by the application remains centred after RTL layout.');
+      Writeln(Format('        selector group=%.0f label=%.0f combo=%.0f',
+        [SelectorGroup.Position.X, SelectorLabel.Position.X,
+         SelectorCombo.Position.X]));
+      Check((Abs(SelectorGroup.Position.X - 40) < 1) and
+        (Abs(SelectorLabel.Position.X - 224) < 1) and
+        (Abs(SelectorCombo.Position.X - 24) < 1),
+        'Nested language controls mirror inside their immediate container.');
       Check(Abs(PageCard.Position.X - 288) < 1,
         Format('A tab-page card uses the live 400-pixel parent width: %.0f, expected 288.',
           [PageCard.Position.X]));
@@ -350,6 +378,9 @@ begin
       Check((Abs(StartupEdgeCard.Position.X - 12) < 1) and
         (Abs(StartupEdgeCard.Width - 376) < 1),
         'The idempotent post-show pass fits the card to the live tab width.');
+      Check((Abs(SelectorLabel.Position.X - 224) < 1) and
+        (Abs(SelectorCombo.Position.X - 24) < 1),
+        'A repeated RTL refresh leaves the nested selector in place.');
 
       { The numbers match the VCL test exactly. That is the point: the mirror
         is one implementation, not two that happen to agree today. }
@@ -375,6 +406,10 @@ begin
         Format('and so is the box: %.0f, expected 104.', [Box.Position.X]));
       Check(Nav.Align = TAlignLayout.Left,
         'The layout returns to its designed edge.');
+      Check((Abs(SelectorGroup.Position.X - 40) < 1) and
+        (Abs(SelectorLabel.Position.X) < 1) and
+        (Abs(SelectorCombo.Position.X - 106) < 1),
+        'The nested language controls return to their designed LTR positions.');
       Check(Abs(PageCard.Position.X - 12) < 1,
         'The tab-page card returns to its designed inset in an LTR language.');
       Check((Abs(EdgeCard.Position.X - 12) < 1) and
