@@ -28,7 +28,6 @@ $ReleaseFiles = @(
     'docs/guides/In-Place AI Translation Plan.md',
     'docs/guides/Release Notes 1.0.md',
     'source/core/DAT.Core.AITranslation.pas',
-    'source/integration/DAT.Integration.Reset.pas',
     'tools/build_source_distribution.ps1'
 )
 

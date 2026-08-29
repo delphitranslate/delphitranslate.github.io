@@ -1173,48 +1173,34 @@ begin
   Require(ContainsText(RuntimeSource,
     'ApplyBrowserLayoutContract(AComponent, APack)') and
     ContainsText(RuntimeSource, 'dat-runtime-layout-contract') and
-    ContainsText(RuntimeSource, 'function alignTable(t)') and
-    ContainsText(RuntimeSource, 'function cellAt(t,col)') and
-    ContainsText(RuntimeSource, 'function setLogicalAlign(e,c,v)') and
     ContainsText(RuntimeSource,
-      'e.style.setProperty("text-align",v,"important")') and
-    ContainsText(RuntimeSource, 'function firstTextBox(e)') and
-    ContainsText(RuntimeSource, 'function firstTextEdge(e,c)') and
-    ContainsText(RuntimeSource, 'function setPhysicalEdge(e,x)') and
-    ContainsText(RuntimeSource, 'function wrapHeading(h)') and
-    ContainsText(RuntimeSource, 'data-dat-heading-wrapper') and
-    ContainsText(RuntimeSource, 'data-dat-heading-source') and
-    ContainsText(RuntimeSource, 'data-dat-heading-original') and
-    ContainsText(RuntimeSource, 'data-dat-heading-word') and
-    ContainsText(RuntimeSource, '[data-dat-heading-word]{display:block') and
-    ContainsText(RuntimeSource, 'ps=t.split(/\s+/)') and
-    ContainsText(RuntimeSource, 'function fitHeadingWords(h)') and
+      'table-layout:auto!important') and
     ContainsText(RuntimeSource,
-      'm=Math.min(z,Math.max(10,z*.82))') and
+      'min-inline-size:100%!important') and
     ContainsText(RuntimeSource,
-      'while(z-.5>=m&&w.scrollWidth>a+.5)') and
-    ContainsText(RuntimeSource, 'fitHeadingWords(h)') and
-    ContainsText(RuntimeSource, 'fit(h,10)') and
-    ContainsText(RuntimeSource, 'while(h.firstChild){') and
-    ContainsText(RuntimeSource, 'src.appendChild(h.firstChild);') and
-    ContainsText(RuntimeSource, 'h.appendChild(w);h.appendChild(src)') and
+      'white-space:normal!important') and
     ContainsText(RuntimeSource,
-      'n.hasAttribute("data-dat-heading-source")') and
+      'overflow-wrap:normal!important') and
+    ContainsText(RuntimeSource, 'word-break:normal!important') and
+    ContainsText(RuntimeSource, 'th{text-align:start!important') and
     ContainsText(RuntimeSource, 'hyphens:auto!important') and
-    ContainsText(RuntimeSource, 'ce=firstTextEdge(c,cc)') and
-    ContainsText(RuntimeSource, 'he=firstTextEdge(h,hc)') and
-    ContainsText(RuntimeSource,
-      'h.style.setProperty(p,Math.max(0,v)+"px","important")') and
     ContainsText(RuntimeSource, 'tr{height:auto!important}') and
-    ContainsText(RuntimeSource, 'overflow:visible') and
+    ContainsText(RuntimeSource, 'overflow:visible!important') and
     ContainsText(RuntimeSource, 'data-dat-layout-language') and
     ContainsText(RuntimeSource, 'FMXObject := TFmxObject(AComponent)') and
     ContainsText(RuntimeSource,
       'for ChildIndex := 0 to FMXObject.ChildrenCount - 1 do') and
     ContainsText(RuntimeSource,
       'Visit(TComponent(FMXObject.Children[ChildIndex]))') and
-    ContainsText(RuntimeSource, '[role=columnheader]'),
-    'The measured, application-neutral browser layout contract is incomplete.');
+    not ContainsText(RuntimeSource, 'function alignTable(t)') and
+    not ContainsText(RuntimeSource, 'function firstTextBox(e)') and
+    not ContainsText(RuntimeSource, 'function firstTextEdge(e,c)') and
+    not ContainsText(RuntimeSource, 'function setPhysicalEdge(e,x)') and
+    not ContainsText(RuntimeSource, 'function wrapHeading(h)') and
+    not ContainsText(RuntimeSource, 'function fitHeadingWords(h)') and
+    not ContainsText(RuntimeSource, 'data-dat-heading-wrapper') and
+    not ContainsText(RuntimeSource, 'data-dat-heading-word'),
+    'The shared-grid, application-neutral browser layout contract is incomplete.');
   Require(not ContainsText(RuntimeSource,
       'SnapshotWidth(TControl(AParent).ParentControl)'),
     'Nested FMX controls can still be mirrored against an ancestor width.');

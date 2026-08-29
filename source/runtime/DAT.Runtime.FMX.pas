@@ -268,102 +268,40 @@ begin
   if not (AComponent is TCustomWebBrowser) or (APack = nil) then
     Exit;
 
-  { The browser document remains the application's UI.  This contract therefore
-    carries no application class names, coordinates, fixed padding or fixed text
-    sizes.  It observes the rendered document and changes only demonstrated
-    failure states: text which actually overflows its box, a table heading whose
-    rendered text start differs from the data beneath it, and a multiword heading
-    which remains unnecessarily crowded on one line. }
+  { The browser document remains the application's UI.  Its tables must also
+    remain tables: one browser-computed column grid shared by THEAD and TBODY.
+    Do not measure or reposition individual headings.  That splits one stable
+    table layout into two independent layouts and makes a heading drift away
+    from the data cell which defines the same column.
+
+    The contract supplies only the universal browser defaults a translated data
+    table needs: automatic column sizing, normal wrapping, and logical-start
+    headings.  It carries no application class names, column widths, coordinates,
+    padding, or fixed text sizes.  The application's own HTML continues to own
+    those design decisions. }
   CssText :=
     'html,body{max-inline-size:100%}' +
     '[data-dat-fit="wrap"]{max-inline-size:100%;white-space:normal!important;' +
       'overflow-wrap:anywhere!important;word-break:normal!important}' +
-    { Tables are data, not pictures.  Constraining a wide translated table to
-      the viewport makes the browser squeeze the final columns until Hebrew,
-      Arabic and other longer headings become one-character strips.  Keep the
-      table at least as wide as its viewport, but allow its intrinsic column
-      widths to exceed it and use the browser's existing horizontal scroll. }
+    { A more-specific application rule may request a fixed table.  The runtime
+      contract has to win that one property or translated intrinsic widths are
+      never considered.  Width, per-column proportions, padding and scrolling
+      remain application-owned. }
     'img,svg,canvas{max-inline-size:100%}' +
-    'table{min-inline-size:100%;max-inline-size:none;table-layout:auto}' +
+    'table{min-inline-size:100%!important;max-inline-size:none!important;' +
+      'table-layout:auto!important}' +
     'tr{height:auto!important}' +
-    'th,td{height:auto!important;min-block-size:0;white-space:normal;' +
-      'overflow:visible;overflow-wrap:normal;word-break:normal}' +
-    'th{hyphens:auto!important;-webkit-hyphens:auto!important}' +
-    '[data-dat-heading-wrapper]{display:inline-block;box-sizing:border-box;' +
-      'max-inline-size:100%;max-width:100%;margin:0;padding:0;border:0;' +
-      'white-space:normal!important;text-align:inherit;vertical-align:top}' +
-    '[data-dat-heading-word]{display:block;max-inline-size:100%;max-width:100%;' +
-      'white-space:normal!important;overflow-wrap:break-word!important;' +
-      'word-break:normal!important;hyphens:auto!important;' +
-      '-webkit-hyphens:auto!important}' +
-    '[data-dat-heading-source]{position:absolute!important;inline-size:1px!important;' +
-      'block-size:1px!important;margin:-1px!important;padding:0!important;' +
-      'overflow:hidden!important;clip:rect(0,0,0,0)!important;' +
-      'clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important}';
+    'th,td{height:auto!important;min-block-size:0;white-space:normal!important;' +
+      'overflow:visible!important;overflow-wrap:normal!important;' +
+      'word-break:normal!important}' +
+    'th{text-align:start!important;hyphens:auto!important;' +
+      '-webkit-hyphens:auto!important}';
 
   ScriptText := '(function(){var d=' +
     JavaScriptString(LowerCase(Trim(APack.TextDirection))) + ',l=' +
     JavaScriptString(Trim(APack.LanguageCode)) + ',c=' +
     JavaScriptString(CssText) +
     ';function num(v){v=parseFloat(v);return isFinite(v)?v:0;}' +
-    'function norm(c){var a=c.textAlign,q=c.direction;' +
-      'if(a==="start"||a==="end"||a==="center"){return a;}' +
-      'if(a==="left"){return q==="rtl"?"end":"start";}' +
-      'if(a==="right"){return q==="rtl"?"start":"end";}return a;}' +
-    'function setLogicalAlign(e,c,v){if(v==="start"){' +
-      'v=c.direction==="rtl"?"right":"left";}else if(v==="end"){' +
-      'v=c.direction==="rtl"?"left":"right";}' +
-      'if(v==="left"||v==="right"||v==="center"){' +
-      'e.style.setProperty("text-align",v,"important");}}' +
-    'function firstTextBox(e){var w,n,s,k,r,b;' +
-      'if(!e){return null;}' +
-      'try{w=document.createTreeWalker(e,4,null,false);while(n=w.nextNode()){' +
-      's=String(n.nodeValue||"");k=s.search(/\S/);if(k<0){continue;}' +
-      'r=document.createRange();r.setStart(n,k);r.setEnd(n,Math.min(k+1,s.length));' +
-      'b=r.getBoundingClientRect();if(b.width||b.height){return b;}}}catch(q){}' +
-      'return null;}' +
-    'function firstTextEdge(e,c){var x,b,l,r;if(!e){return {side:"left",inset:0};}' +
-      'x=e.getBoundingClientRect();b=firstTextBox(e);if(!b){return c.direction==="rtl"?' +
-      '{side:"right",inset:num(c.paddingRight)}:{side:"left",inset:num(c.paddingLeft)};}' +
-      'l=Math.max(0,b.left-x.left);r=Math.max(0,x.right-b.right);' +
-      'return l<=r?{side:"left",inset:l}:{side:"right",inset:r};}' +
-    'function setPhysicalEdge(e,x){var p=x.side==="right"?' +
-      '"padding-right":"padding-left";e.style.setProperty("text-align",x.side,"important");' +
-      'e.style.setProperty(p,x.inset+"px","important");}' +
-    'function wrapHeading(h){var a="data-dat-heading-wrapped",w,src,t,ps,i,word;' +
-      'if(!h){return;}src=h.querySelector("[data-dat-heading-source]");' +
-      'w=h.querySelector("[data-dat-heading-wrapper]");if(!src){' +
-      't=String(h.textContent||"").trim();if(!t||h.querySelector(' +
-      '"button,a,input,select,textarea")){return;}src=document.createElement("span");' +
-      'src.setAttribute("data-dat-heading-source","");' +
-      'src.setAttribute("data-dat-heading-original",t);while(h.firstChild){' +
-      'src.appendChild(h.firstChild);}w=document.createElement("span");' +
-      'w.setAttribute("data-dat-heading-wrapper","");w.setAttribute("aria-hidden","true");' +
-      'h.appendChild(w);h.appendChild(src);h.setAttribute(a,"1");}else{' +
-      't=String(src.textContent||"").trim();if(!w){w=document.createElement("span");' +
-      'w.setAttribute("data-dat-heading-wrapper","");w.setAttribute("aria-hidden","true");' +
-      'h.insertBefore(w,src);}}t=String(src.textContent||"").trim();if(!t||' +
-      'w.getAttribute("data-dat-heading-text")===t){return;}w.textContent="";' +
-      'ps=t.split(/\s+/);for(i=0;i<ps.length;i++){word=document.createElement("span");' +
-      'word.setAttribute("data-dat-heading-word","");word.textContent=ps[i];' +
-      'w.appendChild(word);}w.setAttribute("data-dat-heading-text",t);}' +
-    'function fitHeadingWords(h){var n,hc,a,i,w,z,m;' +
-      'if(!h){return;}n=h.querySelectorAll("[data-dat-heading-word]");' +
-      'if(!n.length){return;}hc=getComputedStyle(h);' +
-      'a=h.clientWidth-num(hc.paddingLeft)-num(hc.paddingRight);if(a<=0){return;}' +
-      'for(i=0;i<n.length;i++){w=n[i];w.style.removeProperty("font-size");' +
-      'z=num(getComputedStyle(w).fontSize);m=Math.min(z,Math.max(10,z*.82));' +
-      'w.style.setProperty("white-space","nowrap","important");' +
-      'while(z-.5>=m&&w.scrollWidth>a+.5){z-=.5;' +
-      'w.style.setProperty("font-size",z+"px","important");}' +
-      'w.style.removeProperty("white-space");}}' +
-    'function cellAt(t,col){var rs=t.tBodies,i,j,p,x,s,first=null;' +
-      'for(i=0;i<rs.length;i++){for(j=0;j<rs[i].rows.length;j++){' +
-      'p=0;for(x=0;x<rs[i].rows[j].cells.length;x++){' +
-      's=rs[i].rows[j].cells[x].colSpan||1;if(col>=p&&col<p+s){' +
-      'if(!first){first=rs[i].rows[j].cells[x];}' +
-      'if(String(rs[i].rows[j].cells[x].textContent||"").trim()){return rs[i].rows[j].cells[x];}' +
-      'break;}p+=s;}}}return first;}' +
     'function resetFont(e){var a="data-dat-original-inline-font",v;' +
       'if(!e.hasAttribute(a)){v=e.style.fontSize;e.setAttribute(a,v?v:"!");}' +
       'v=e.getAttribute(a);if(v==="!"){e.style.removeProperty("font-size");}' +
@@ -375,18 +313,6 @@ begin
       'if(!overflowing(e)){return;}z=num(getComputedStyle(e).fontSize);' +
       'm=Math.max(min||8,z*.8);while(z-.5>=m&&overflowing(e)){' +
       'z-=.5;e.style.fontSize=z+"px";}}' +
-    'function alignTable(t){var r,hs,h,c,hc,cc,ca,ce,he,p,v,col=0,i;' +
-      'if(!t.tHead||!t.tHead.rows.length||!t.tBodies.length){return;}' +
-      'r=t.tHead.rows[t.tHead.rows.length-1];hs=r.cells;' +
-      'for(i=0;i<hs.length;i++){h=hs[i];c=cellAt(t,col);col+=h.colSpan||1;' +
-      'if(c){cc=getComputedStyle(c);' +
-      'ca=norm(cc);if(ca==="center"){setLogicalAlign(h,cc,ca);ce=null;}else{' +
-      'ce=firstTextEdge(c,cc);setPhysicalEdge(h,ce);}' +
-      'wrapHeading(h);fitHeadingWords(h);if(ce){hc=getComputedStyle(h);' +
-      'he=firstTextEdge(h,hc);p=ce.side==="right"?' +
-      '"padding-right":"padding-left";v=num(ce.side==="right"?' +
-      'hc.paddingRight:hc.paddingLeft)+ce.inset-he.inset;' +
-      'h.style.setProperty(p,Math.max(0,v)+"px","important");}}fit(h,10);}}' +
     'function run(){var h=document.documentElement,b=document.body,s,n,i;' +
     'if(!h){return;}h.setAttribute("dir",d);if(l){h.setAttribute("lang",l);}' +
     'if(h.getAttribute("data-dat-layout-language")!==l){' +
@@ -398,9 +324,8 @@ begin
     's.id="dat-runtime-layout-contract";document.head.appendChild(s);}' +
     'if(s){s.textContent=c;}' +
     'n=document.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,dt,dd,caption,figcaption,' +
-      'button,[role=button],[role=columnheader],[role=note]");' +
-    'for(i=0;i<n.length;i++){fit(n[i]);}' +
-    'n=document.querySelectorAll("table");for(i=0;i<n.length;i++){alignTable(n[i]);}}' +
+      'button,[role=button],[role=note]");' +
+    'for(i=0;i<n.length;i++){fit(n[i]);}}' +
     'if(document.readyState==="loading"){' +
     'document.addEventListener("DOMContentLoaded",function(){run();' +
     'requestAnimationFrame(run);window.setTimeout(run,120);window.setTimeout(run,450);},' +
