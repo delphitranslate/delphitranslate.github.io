@@ -1180,7 +1180,15 @@ begin
       'e.style.setProperty("text-align",v,"important")') and
     ContainsText(RuntimeSource,
       'e.style.setProperty(p,v+"px","important")') and
-    ContainsText(RuntimeSource, 'setPadStart(h,cc,cp)') and
+    ContainsText(RuntimeSource, 'function firstTextStart(e,c)') and
+    ContainsText(RuntimeSource, 'function wrapHeading(h)') and
+    ContainsText(RuntimeSource, 'data-dat-heading-wrapper') and
+    ContainsText(RuntimeSource, 't.split(/\s+/)') and
+    ContainsText(RuntimeSource, 'hyphens:auto!important') and
+    ContainsText(RuntimeSource, 'cp=firstTextStart(c,cc)') and
+    ContainsText(RuntimeSource, 'hp=firstTextStart(h,hc)') and
+    ContainsText(RuntimeSource,
+      'setPadStart(h,cc,Math.max(0,padStart(hc)+cp-hp))') and
     ContainsText(RuntimeSource, 'tr{height:auto!important}') and
     ContainsText(RuntimeSource, 'overflow:visible') and
     ContainsText(RuntimeSource, 'data-dat-layout-language') and
