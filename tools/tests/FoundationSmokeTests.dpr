@@ -1183,10 +1183,16 @@ begin
     ContainsText(RuntimeSource, 'function firstTextStart(e,c)') and
     ContainsText(RuntimeSource, 'function wrapHeading(h)') and
     ContainsText(RuntimeSource, 'data-dat-heading-wrapper') and
-    ContainsText(RuntimeSource,
-      'inline-size:min-content!important;width:min-content!important') and
+    ContainsText(RuntimeSource, 'data-dat-heading-source') and
+    ContainsText(RuntimeSource, 'data-dat-heading-original') and
+    ContainsText(RuntimeSource, 'data-dat-heading-word') and
+    ContainsText(RuntimeSource, '[data-dat-heading-word]{display:block') and
+    ContainsText(RuntimeSource, 'ps=t.split(/\s+/)') and
     ContainsText(RuntimeSource, 'while(h.firstChild){') and
-    ContainsText(RuntimeSource, 'w.appendChild(h.firstChild);') and
+    ContainsText(RuntimeSource, 'src.appendChild(h.firstChild);') and
+    ContainsText(RuntimeSource, 'h.appendChild(w);h.appendChild(src)') and
+    ContainsText(RuntimeSource,
+      'n.hasAttribute("data-dat-heading-source")') and
     ContainsText(RuntimeSource, 'hyphens:auto!important') and
     ContainsText(RuntimeSource, 'cp=firstTextStart(c,cc)') and
     ContainsText(RuntimeSource, 'hp=firstTextStart(h,hc)') and
