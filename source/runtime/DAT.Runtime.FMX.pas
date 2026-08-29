@@ -290,6 +290,7 @@ begin
       'overflow:visible;overflow-wrap:normal;word-break:normal}' +
     'th{hyphens:auto!important;-webkit-hyphens:auto!important}' +
     '[data-dat-heading-wrapper]{display:inline-block;box-sizing:border-box;' +
+      'inline-size:min-content!important;width:min-content!important;' +
       'max-inline-size:100%;max-width:100%;margin:0;padding:0;border:0;' +
       'white-space:normal!important;overflow-wrap:break-word!important;' +
       'word-break:normal!important;hyphens:auto!important;' +
@@ -320,22 +321,14 @@ begin
       'r=document.createRange();r.setStart(n,k);r.setEnd(n,Math.min(k+1,s.length));' +
       'b=r.getBoundingClientRect();if(b.width||b.height){return c.direction==="rtl"?' +
       'x.right-b.right:b.left-x.left;}}}catch(q){}return padStart(c);}' +
-    'function wrapHeading(h){var a="data-dat-heading-wrapped",w,t,p,ps,m=0,' +
-      'av,hc,i;if(!h){return;}t=String(h.textContent||"").trim();' +
+    'function wrapHeading(h){var a="data-dat-heading-wrapped",w,t;' +
+      'if(!h){return;}t=String(h.textContent||"").trim();' +
       'w=h.querySelector("[data-dat-heading-wrapper]");' +
-      'if(!/\S\s+\S/.test(t)){if(w){w.style.removeProperty("width");}' +
-      'return;}if(!w&&h.childElementCount===0){w=document.createElement("span");' +
+      'if(!/\S\s+\S/.test(t)){return;}if(!w&&!h.querySelector(' +
+      '"button,a,input,select,textarea")){w=document.createElement("span");' +
       'w.setAttribute("data-dat-heading-wrapper","");while(h.firstChild){' +
       'w.appendChild(h.firstChild);}h.appendChild(w);h.setAttribute(a,"1");}' +
-      'if(!w){return;}p=document.createElement("span");p.setAttribute("aria-hidden","true");' +
-      'p.style.cssText="position:absolute;visibility:hidden;white-space:nowrap;' +
-      'inline-size:auto;width:auto;max-inline-size:none;max-width:none";' +
-      'h.appendChild(p);ps=t.split(/\s+/);for(i=0;i<ps.length;i++){' +
-      'p.textContent=ps[i];m=Math.max(m,p.getBoundingClientRect().width);}' +
-      'h.removeChild(p);hc=getComputedStyle(h);av=h.clientWidth-' +
-      'num(hc.paddingLeft)-num(hc.paddingRight);if(m>0&&av>0){' +
-      'w.style.setProperty("width",Math.max(1,Math.min(Math.ceil(m+1),' +
-      'Math.floor(av)))+"px","important");}}' +
+      '}' +
     'function cellAt(t,col){var rs=t.tBodies,i,j,p,x,s,first=null;' +
       'for(i=0;i<rs.length;i++){for(j=0;j<rs[i].rows.length;j++){' +
       'p=0;for(x=0;x<rs[i].rows[j].cells.length;x++){' +
