@@ -1208,6 +1208,11 @@ begin
     ContainsText(RuntimeSource, 'tr{height:auto!important}') and
     ContainsText(RuntimeSource, 'overflow:visible') and
     ContainsText(RuntimeSource, 'data-dat-layout-language') and
+    ContainsText(RuntimeSource, 'FMXObject := TFmxObject(AComponent)') and
+    ContainsText(RuntimeSource,
+      'for ChildIndex := 0 to FMXObject.ChildrenCount - 1 do') and
+    ContainsText(RuntimeSource,
+      'Visit(TComponent(FMXObject.Children[ChildIndex]))') and
     ContainsText(RuntimeSource, '[role=columnheader]'),
     'The measured, application-neutral browser layout contract is incomplete.');
   Require(not ContainsText(RuntimeSource,

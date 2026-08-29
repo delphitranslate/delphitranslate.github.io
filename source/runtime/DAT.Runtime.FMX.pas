@@ -2726,6 +2726,7 @@ var
   procedure Visit(const AComponent: TComponent);
   var
     ChildIndex: Integer;
+    FMXObject: TFmxObject;
   begin
     if (AComponent = nil) or Visited.ContainsKey(AComponent) then
       Exit;
@@ -2733,6 +2734,16 @@ var
     Inc(Result, ApplyBrowserLayoutContract(AComponent, APack));
     for ChildIndex := 0 to AComponent.ComponentCount - 1 do
       Visit(AComponent.Components[ChildIndex]);
+    { Runtime-created FMX browsers are often parented into the visual tree
+      without being owned by the form.  The layout pass must follow both
+      trees or it never reaches the HTML document that is actually visible. }
+    if AComponent is TFmxObject then
+    begin
+      FMXObject := TFmxObject(AComponent);
+      for ChildIndex := 0 to FMXObject.ChildrenCount - 1 do
+        if FMXObject.Children[ChildIndex] is TComponent then
+          Visit(TComponent(FMXObject.Children[ChildIndex]));
+    end;
   end;
 begin
   Result := 0;
