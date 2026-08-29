@@ -1178,9 +1178,9 @@ begin
     ContainsText(RuntimeSource, 'function setLogicalAlign(e,c,v)') and
     ContainsText(RuntimeSource,
       'e.style.setProperty("text-align",v,"important")') and
-    ContainsText(RuntimeSource,
-      'e.style.setProperty(p,v+"px","important")') and
-    ContainsText(RuntimeSource, 'function firstTextStart(e,c)') and
+    ContainsText(RuntimeSource, 'function firstTextBox(e)') and
+    ContainsText(RuntimeSource, 'function firstTextEdge(e,c)') and
+    ContainsText(RuntimeSource, 'function setPhysicalEdge(e,x)') and
     ContainsText(RuntimeSource, 'function wrapHeading(h)') and
     ContainsText(RuntimeSource, 'data-dat-heading-wrapper') and
     ContainsText(RuntimeSource, 'data-dat-heading-source') and
@@ -1188,16 +1188,23 @@ begin
     ContainsText(RuntimeSource, 'data-dat-heading-word') and
     ContainsText(RuntimeSource, '[data-dat-heading-word]{display:block') and
     ContainsText(RuntimeSource, 'ps=t.split(/\s+/)') and
+    ContainsText(RuntimeSource, 'function fitHeadingWords(h)') and
+    ContainsText(RuntimeSource,
+      'm=Math.min(z,Math.max(10,z*.82))') and
+    ContainsText(RuntimeSource,
+      'while(z-.5>=m&&w.scrollWidth>a+.5)') and
+    ContainsText(RuntimeSource, 'fitHeadingWords(h)') and
+    ContainsText(RuntimeSource, 'fit(h,10)') and
     ContainsText(RuntimeSource, 'while(h.firstChild){') and
     ContainsText(RuntimeSource, 'src.appendChild(h.firstChild);') and
     ContainsText(RuntimeSource, 'h.appendChild(w);h.appendChild(src)') and
     ContainsText(RuntimeSource,
       'n.hasAttribute("data-dat-heading-source")') and
     ContainsText(RuntimeSource, 'hyphens:auto!important') and
-    ContainsText(RuntimeSource, 'cp=firstTextStart(c,cc)') and
-    ContainsText(RuntimeSource, 'hp=firstTextStart(h,hc)') and
+    ContainsText(RuntimeSource, 'ce=firstTextEdge(c,cc)') and
+    ContainsText(RuntimeSource, 'he=firstTextEdge(h,hc)') and
     ContainsText(RuntimeSource,
-      'setPadStart(h,cc,Math.max(0,padStart(hc)+cp-hp))') and
+      'h.style.setProperty(p,Math.max(0,v)+"px","important")') and
     ContainsText(RuntimeSource, 'tr{height:auto!important}') and
     ContainsText(RuntimeSource, 'overflow:visible') and
     ContainsText(RuntimeSource, 'data-dat-layout-language') and
@@ -1237,8 +1244,16 @@ begin
     ContainsText(ComponentSource,
       'BrowserIsOnActiveTab(Browser)'),
     'FMX native browser surfaces are not bracketed across language changes.');
-  Require(ContainsText(ComponentSource, 'FBrowserLayoutAttempts >= 6') and
-    ContainsText(ComponentSource, 'FBrowserLayoutTimer.Interval := 180'),
+  Require(ContainsText(ComponentSource,
+      'BrowserLayoutMaximumAttempts = 48') and
+    ContainsText(ComponentSource,
+      'BrowserLayoutRefreshInterval = 250') and
+    ContainsText(ComponentSource,
+      'FBrowserLayoutAttempts >= BrowserLayoutMaximumAttempts') and
+    ContainsText(ComponentSource,
+      'FBrowserLayoutTimer.Interval := BrowserLayoutRefreshInterval') and
+    ContainsText(ComponentSource, 'if BrowserDiscovered then') and
+    ContainsText(ComponentSource, 'ScheduleBrowserLayoutRefresh;'),
     'The post-navigation browser layout refresh is missing or unbounded.');
   Require(ContainsText(ComponentSource,
     'TDictionary<TCustomScrollBox, TDATScrollBoundsSubscription>') and

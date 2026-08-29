@@ -145,6 +145,13 @@ uses
   DAT.Runtime.TemplateRewrite.FMX,
   DAT.Runtime.FMX;
 
+const
+  { WebView2 can accept script before its final document exists, especially
+    when the browser control is created during FormShow. Keep the retry window
+    bounded, but long enough to reach a normally delayed native browser. }
+  BrowserLayoutRefreshInterval = 250;
+  BrowserLayoutMaximumAttempts = 48;
+
 type
   { FireMonkey sends TDialogService text straight to a platform service.  No
     form or text control exists for the normal form applicator to translate,
@@ -577,6 +584,7 @@ end;
 procedure TDATFMXLanguageManager.EnsureBrowserLifecycleContracts(
   const AForm: TCommonCustomForm);
 var
+  BrowserDiscovered: Boolean;
   Visited: TDictionary<TComponent, Boolean>;
 
   procedure Visit(const AComponent: TComponent);
@@ -610,6 +618,7 @@ var
         BrowserSubscription.LoadedGeneration := Generation;
         FBrowserLifecycleSubscriptions.Add(Browser, BrowserSubscription);
         Browser.FreeNotification(Self);
+        BrowserDiscovered := True;
       end;
       ExpectedStart := HandleBrowserDidStartLoad;
       if (TMethod(Browser.OnDidStartLoad).Code <>
@@ -681,12 +690,19 @@ var
 begin
   if (AForm = nil) or (csDestroying in ComponentState) then
     Exit;
+  BrowserDiscovered := False;
   Visited := TDictionary<TComponent, Boolean>.Create;
   try
     Visit(AForm);
   finally
     Visited.Free;
   end;
+  { A browser created after the form's initial lifecycle notification needs
+    its own complete refresh window. Without this reset, it inherits only the
+    few attempts left from the form and its first document can miss the
+    layout contract permanently. }
+  if BrowserDiscovered then
+    ScheduleBrowserLayoutRefresh;
 end;
 
 procedure TDATFMXLanguageManager.HideFormBrowsers(
@@ -1200,7 +1216,7 @@ begin
   finally
     Forms.Free;
   end;
-  if FBrowserLayoutAttempts >= 6 then
+  if FBrowserLayoutAttempts >= BrowserLayoutMaximumAttempts then
     FBrowserLayoutTimer.Enabled := False;
 end;
 
@@ -1237,7 +1253,7 @@ begin
   if FBrowserLayoutTimer = nil then
   begin
     FBrowserLayoutTimer := TTimer.Create(nil);
-    FBrowserLayoutTimer.Interval := 180;
+    FBrowserLayoutTimer.Interval := BrowserLayoutRefreshInterval;
     FBrowserLayoutTimer.OnTimer := BrowserLayoutTimerTick;
   end;
 end;
