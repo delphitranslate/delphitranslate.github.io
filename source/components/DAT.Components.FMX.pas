@@ -1626,7 +1626,6 @@ begin
     Exit;
   EnsureBrowserLifecycleContracts(AForm);
   ApplyScrollBottomGutter(AForm);
-  RefreshActiveTabLayouts(AForm);
 end;
 
 procedure TDATFMXLanguageManager.RefreshActiveTabLayouts(
@@ -1894,6 +1893,10 @@ begin
         begin
           EnsureBrowserLifecycleContracts(Form);
           ApplyBrowserAndScrollContracts(Form);
+          { Rebuild the selected tab once, at the completed language-change
+            boundary.  Doing this from the recurring browser lifecycle pass
+            steals popup focus and immediately closes an open combo box. }
+          RefreshActiveTabLayouts(Form);
         end;
   finally
     { Application callbacks may request a browser visible after starting an

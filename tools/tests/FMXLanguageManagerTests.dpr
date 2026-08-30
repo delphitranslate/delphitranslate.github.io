@@ -12,6 +12,7 @@ uses
   Winapi.Windows,
   FMX.Forms,
   FMX.Layouts,
+  FMX.ListBox,
   FMX.StdCtrls,
   FMX.TabControl,
   FMX.Types,
@@ -163,6 +164,7 @@ var
   PopupForm: TfrmFMXLifecycle;
   BrowserTabA: TTabItem;
   BrowserTabB: TTabItem;
+  SelectorProbe: TComboBox;
   ScrollContentProbe: TLayout;
   ScrollProbe: TVertScrollBox;
   RuntimeStatusProbe: TLabel;
@@ -283,6 +285,25 @@ begin
 
     Require(FManager.SelectLanguage('en-US'),
       'Instant English selection failed.');
+    SelectorProbe := TComboBox.Create(StateForm);
+    SelectorProbe.Parent := StateForm;
+    SelectorProbe.Position.X := 16;
+    SelectorProbe.Position.Y := 16;
+    SelectorProbe.Width := 180;
+    SelectorProbe.Items.Add('English');
+    SelectorProbe.Items.Add('Japanese');
+    SelectorProbe.ItemIndex := 0;
+    SelectorProbe.DropDown;
+    Require(SelectorProbe.DroppedDown,
+      'The language selector test popup did not open.');
+    for HoldCheckIndex := 1 to 70 do
+    begin
+      Application.ProcessMessages;
+      Sleep(5);
+    end;
+    Require(SelectorProbe.DroppedDown,
+      'A recurring browser lifecycle pass closed the language selector popup.');
+    SelectorProbe.DropDown;
     Require(RuntimeStatusProbe.Text = 'Runtime only status',
       'A semantic runtime-only value did not restore before language change.');
     RequireEnglish(FMainForm, 'Visible main form after instant selection');
@@ -392,6 +413,7 @@ begin
     Writeln('FMX_MANAGER_SCROLL_BOTTOM_GUTTER=PASS');
     Writeln('FMX_MANAGER_SCROLL_HORIZONTAL_RESET=PASS');
     Writeln('FMX_MANAGER_ACTIVE_TAB_REFRESH=PASS');
+    Writeln('FMX_MANAGER_SELECTOR_POPUP_STABILITY=PASS');
     Writeln('FMX_MANAGER_EXPLICIT_APPLY=PASS');
   except
     on E: Exception do
