@@ -226,7 +226,8 @@ begin
     StateForm.edtCustomerName.SelStart := 1;
     StateForm.edtCustomerName.SelLength := 4;
     StateForm.memInstructions.ReadOnly := False;
-    StateForm.memInstructions.Lines.Text := 'Private user notes';
+    StateForm.memInstructions.Lines.Text :=
+      'Private Dynamischer Status notes';
     StateForm.memInstructions.SelStart := 2;
     StateForm.memInstructions.SelLength := 5;
     StateForm.edtCustomerName.SetFocus;
@@ -296,7 +297,7 @@ begin
       StateForm.edtCustomerName.IsFocused,
       'FMX editable text, selection, or focus was not preserved.');
     Require((Trim(StateForm.memInstructions.Lines.Text) =
-      'Private user notes') and
+      'Private Dynamischer Status notes') and
       (StateForm.memInstructions.SelStart = 2) and
       (StateForm.memInstructions.SelLength = 5),
       'FMX writable memo content or selection was not preserved.');

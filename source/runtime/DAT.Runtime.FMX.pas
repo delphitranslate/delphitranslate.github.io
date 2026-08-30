@@ -164,9 +164,19 @@ end;
 function PositionKey(const AFormIdentity: string;
   const AComponent: TComponent): string;
 begin
-  if (AComponent = nil) or (Trim(AComponent.Name) = '') then
+  if AComponent = nil then
     Exit('');
-  Result := AFormIdentity + '.' + AComponent.Name;
+  if Trim(AComponent.Name) <> '' then
+    Result := AFormIdentity + '.' + AComponent.Name
+  else if AComponent.Owner <> nil then
+    { Runtime controls are allowed to be unnamed.  Their owner identity and
+      component index give the live instance a deterministic snapshot key
+      without confusing it with unnamed FMX style children owned elsewhere. }
+    Result := AFormIdentity + '.@' + AComponent.Owner.ClassName + '.' +
+      AComponent.Owner.Name + '.' + AComponent.ClassName + '.' +
+      AComponent.ComponentIndex.ToString
+  else
+    Result := '';
 end;
 
 { Text settings, reached the way FireMonkey means them to be reached.
@@ -1674,14 +1684,19 @@ var
   TranslatedText: string;
 begin
   Result := False;
-  if APreserveControlState and SameText(APropertyName, 'Text') and
-    EditableTextComponent(AComponent) then
-    Exit;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName,
     [tkString, tkLString, tkWString, tkUString]);
   if PropertyInfo = nil then
     Exit;
   CurrentText := GetStrProp(AComponent, PropertyInfo);
+  if APreserveControlState and SameText(APropertyName, 'Text') and
+    EditableTextComponent(AComponent) and
+    not (APack.SourceStrings.ContainsKey(CurrentText) or
+      APack.SourceTemplates.ContainsKey(CurrentText)) then
+    { Preserve arbitrary user input.  An exact catalog source, however, is
+      application-owned startup/status text even when shown by an editable
+      memo control. }
+    Exit;
   Key := ComponentKey(AFormIdentity, AForm, AComponent, APropertyName);
   if APack.TryGetText(Key, TranslatedText) then
   begin
@@ -1730,9 +1745,6 @@ var
   StringObject: TObject;
 begin
   Result := 0;
-  if APreserveControlState and SameText(APropertyName, 'Lines') and
-    EditableTextComponent(AComponent) then
-    Exit;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName, [tkClass]);
   if PropertyInfo = nil then
     Exit;
@@ -1757,7 +1769,9 @@ begin
     try
       Result := APack.ReadIndexedStrings(
         ComponentKey(AFormIdentity, AForm, AComponent, AKeyPropertyName),
-        TStrings(StringObject));
+        TStrings(StringObject),
+        not (APreserveControlState and SameText(APropertyName, 'Lines') and
+          EditableTextComponent(AComponent)));
       if APreserveControlState and (Result > 0) and
         (ItemIndexInfo <> nil) and
         (SavedItemIndex >= -1) and
@@ -1824,17 +1838,19 @@ var
   SavedChangeEvent: TMethod;
   SavedItemIndex: NativeInt;
   StringObject: TObject;
+  SourceCandidate: string;
   SourceText: string;
+  ProtectEditableLines: Boolean;
 begin
   Result := 0;
-  if SameText(APropertyName, 'Lines') and EditableTextComponent(AComponent) then
-    Exit;
   PropertyInfo := GetPropInfo(AComponent.ClassInfo, APropertyName, [tkClass]);
   if PropertyInfo = nil then
     Exit;
   StringObject := GetObjectProp(AComponent, PropertyInfo);
   if not (StringObject is TStrings) then
     Exit;
+  ProtectEditableLines := SameText(APropertyName, 'Lines') and
+    EditableTextComponent(AComponent);
   ItemIndexInfo := GetPropInfo(AComponent.ClassInfo, 'ItemIndex',
     [tkInteger, tkInt64]);
   if ItemIndexInfo <> nil then
@@ -1857,7 +1873,32 @@ begin
       for Index := 0 to TStrings(StringObject).Count - 1 do
       begin
         Key := Prefix + Index.ToString;
-        if APack.TryGetSource(Key, SourceText) and
+        SourceText := '';
+        if ProtectEditableLines then
+        begin
+          { Forward translation of writable memo lines accepts exact catalog
+            values only. Reverse with the same boundary so a private note that
+            merely contains a translated UI term is never rewritten. }
+          for SourceCandidate in APack.SourceTemplates.Keys do
+            if SameText(APack.SourceTemplates[SourceCandidate],
+              TStrings(StringObject)[Index]) then
+            begin
+              SourceText := SourceCandidate;
+              Break;
+            end;
+          if SourceText = '' then
+            for SourceCandidate in APack.SourceStrings.Keys do
+              if SameText(APack.SourceStrings[SourceCandidate],
+                TStrings(StringObject)[Index]) then
+              begin
+                SourceText := SourceCandidate;
+                Break;
+              end;
+        end
+        else if not APack.TryGetSource(Key, SourceText) then
+          APack.TryRestoreDynamicText(TStrings(StringObject)[Index],
+            SourceText);
+        if (SourceText <> '') and
           (TStrings(StringObject)[Index] <> SourceText) then
         begin
           TStrings(StringObject)[Index] := SourceText;
@@ -1937,6 +1978,7 @@ var
       not overwrite it, or the original would quietly become whichever
       translation happened to run first. }
     if (Key <> '') and (AComponent is TControl) and
+      ((Trim(AComponent.Name) <> '') or (AComponent.Owner = AForm)) and
       not FOriginalGeometry.ContainsKey(Key) then
     begin
       Control := TControl(AComponent);
@@ -1993,6 +2035,7 @@ var
       Exit;
     Key := PositionKey(AFormIdentity, AComponent);
     if (Key <> '') and (AComponent is TControl) and
+      ((Trim(AComponent.Name) <> '') or (AComponent.Owner = AForm)) and
       FOriginalGeometry.TryGetValue(Key, Snapshot) then
     begin
       Control := TControl(AComponent);
@@ -2070,8 +2113,14 @@ var
 
   function IsApplicationControl(const AControl: TControl): Boolean;
   begin
-    Result := (AControl <> nil) and (Trim(AControl.Name) <> '') and
-      (AForm.FindComponent(AControl.Name) = AControl) and
+    Result := (AControl <> nil) and
+      (((Trim(AControl.Name) <> '') and
+        (AForm.FindComponent(AControl.Name) = AControl)) or
+       { Controls an application creates with the form as owner are genuine
+         application UI even when it leaves Name empty. FMX style children
+         are owned by their styled control, not by the form, so they remain
+         outside the layout mirror. }
+       (AControl.Owner = AForm)) and
       { A tab item is a page selected and positioned by its tab control. Its
         contents mirror, but moving the page itself fights the framework. }
       not ContainsText(AControl.ClassName, 'TabItem');
@@ -2675,15 +2724,17 @@ const
       Exit;
     for PropertyName in TextProperties do
     begin
-      if SameText(PropertyName, 'Text') and
-        EditableTextComponent(AComponent) then
-        Continue;
       PropertyInfo := GetPropInfo(AComponent.ClassInfo, PropertyName,
         [tkString, tkLString, tkWString, tkUString]);
       if PropertyInfo = nil then
         Continue;
       CurrentText := GetStrProp(AComponent, PropertyInfo);
       if CurrentText = '' then
+        Continue;
+      if SameText(PropertyName, 'Text') and
+        EditableTextComponent(AComponent) and
+        not (APack.SourceStrings.ContainsKey(CurrentText) or
+          APack.SourceTemplates.ContainsKey(CurrentText)) then
         Continue;
       TranslatedText := CurrentText;
       for Pass := 1 to 64 do

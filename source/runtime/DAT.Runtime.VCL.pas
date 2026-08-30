@@ -428,7 +428,10 @@ begin
       for Index := 0 to TStrings(StringObject).Count - 1 do
       begin
         Key := Prefix + Index.ToString;
-        if APack.TryGetSource(Key, SourceText) and
+        if not APack.TryGetSource(Key, SourceText) then
+          APack.TryRestoreDynamicText(TStrings(StringObject)[Index],
+            SourceText);
+        if (SourceText <> '') and
           (TStrings(StringObject)[Index] <> SourceText) then
         begin
           TStrings(StringObject)[Index] := SourceText;

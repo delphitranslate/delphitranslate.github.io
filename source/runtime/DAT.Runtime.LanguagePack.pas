@@ -87,7 +87,8 @@ type
     function FormatTemplate(const AKey, AFallbackText: string;
       const AArgs: array of const): string;
     function ReadIndexedStrings(const AKeyPrefix: string;
-      const AValues: TStrings): Integer;
+      const AValues: TStrings;
+      const AUseIndexedKeys: Boolean = True): Integer;
     property SchemaVersion: Integer read FSchemaVersion;
     property ApplicationId: string read FApplicationId;
     property ApplicationVersion: string read FApplicationVersion;
@@ -660,6 +661,27 @@ var
 begin
   Result := False;
   ASourceText := '';
+  { Runtime templates also carry exact application-owned state text.  Restore
+    that exact text before attempting the broader term replacement below. }
+  for Candidate in FSourceTemplates.Keys do
+    if SameText(FSourceTemplates[Candidate], ATranslatedText) then
+    begin
+      ASourceText := Candidate;
+      Exit(True);
+    end;
+  { A generated value can be the same semantic label without its display
+    colon: "Pack" in a table and "Pack:" beside a field.  The forward pass
+    shares that translation; make the reverse pass symmetrical. }
+  if not EndsText(':', ATranslatedText) then
+    for Candidate in FSourceStrings.Keys do
+      if EndsText(':', Candidate) and
+         EndsText(':', FSourceStrings[Candidate]) and
+         SameText(Copy(FSourceStrings[Candidate], 1,
+           Length(FSourceStrings[Candidate]) - 1), ATranslatedText) then
+      begin
+        ASourceText := Copy(Candidate, 1, Length(Candidate) - 1);
+        Exit(True);
+      end;
   LongestTranslation := '';
   for Candidate in FSourceStrings.Values do
     if (Trim(Candidate) <> '') and
@@ -894,6 +916,16 @@ begin
       ATranslatedText := FSourceTemplates[SourceTemplate];
       Exit(ATranslatedText <> ASourceText);
     end;
+  { Reuse a catalogued field label for the same generated value without its
+    terminal colon.  This is exact and punctuation-bound, so it cannot turn a
+    technical substring into interface text. }
+  if not EndsText(':', ASourceText) and
+     FSourceStrings.TryGetValue(ASourceText + ':', ATranslatedText) and
+     EndsText(':', ATranslatedText) then
+  begin
+    Delete(ATranslatedText, Length(ATranslatedText), 1);
+    Exit(ATranslatedText <> ASourceText);
+  end;
   { A formatted semantic template must run before shorter literal terms can
     translate pieces of its source text. Once a label such as Critical Areas
     has changed independently, the complete template no longer matches and
@@ -988,16 +1020,40 @@ begin
 end;
 
 function TRuntimeLanguagePack.ReadIndexedStrings(
-  const AKeyPrefix: string; const AValues: TStrings): Integer;
+  const AKeyPrefix: string; const AValues: TStrings;
+  const AUseIndexedKeys: Boolean): Integer;
 var
+  CurrentText: string;
   Index: Integer;
   TextValue: string;
   TranslatedValues: TStringList;
 begin
   if AValues = nil then
     raise EArgumentNilException.Create('A string collection is required.');
-  if not TryGetText(AKeyPrefix + '.0', TextValue) then
-    Exit(0);
+  if not AUseIndexedKeys or not TryGetText(AKeyPrefix + '.0', TextValue) then
+  begin
+    { Runtime-populated combo boxes and lists have no designer index keys.
+      Translate only complete values that the catalog knows exactly; unknown
+      application data and user-entered values remain untouched. }
+    Result := 0;
+    AValues.BeginUpdate;
+    try
+      for Index := 0 to AValues.Count - 1 do
+      begin
+        CurrentText := AValues[Index];
+        if FSourceStrings.TryGetValue(CurrentText, TextValue) or
+           FSourceTemplates.TryGetValue(CurrentText, TextValue) then
+          if (TextValue <> '') and (TextValue <> CurrentText) then
+          begin
+            AValues[Index] := TextValue;
+            Inc(Result);
+          end;
+      end;
+    finally
+      AValues.EndUpdate;
+    end;
+    Exit;
+  end;
   TranslatedValues := TStringList.Create;
   try
     TranslatedValues.Add(TextValue);

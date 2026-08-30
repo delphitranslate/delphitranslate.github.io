@@ -24,6 +24,7 @@ uses
   FMX.Forms,
   FMX.Controls,
   FMX.StdCtrls,
+  FMX.Memo,
   FMX.ListBox,
   FMX.Layouts,
   FMX.Edit,
@@ -77,7 +78,18 @@ const
     '"shortTimeFormat":"HH:mm","longTimeFormat":"HH:mm:ss",' +
     '"decimalSeparator":",","thousandSeparator":".","currencySymbol":"NIS"},' +
     '"strings":{"frmRtl.lblName.Text":"\u05E9\u05DD"},' +
-    '"sources":{},' +
+    '"templates":{"State.Conversion.Instructions":' +
+    '"\u05D1\u05D7\u05E8 \u05EA\u05D9\u05E7\u05D9\u05D9\u05EA \u05DE\u05E7\u05D5\u05E8 \u05D5\u05D9\u05E2\u05D3",' +
+    '"State.FileTypes.PasOnly":"\u05E7\u05D5\u05D1\u05E6\u05D9 PAS \u05D1\u05DC\u05D1\u05D3",' +
+    '"State.FileTypes.Both":"PAS \u05D5-DFM"},' +
+    '"sources":{"State.Conversion.Instructions":' +
+    '"Choose a source and target folder",' +
+    '"State.FileTypes.PasOnly":"PAS files only",' +
+    '"State.FileTypes.Both":"Both PAS and DFM"},' +
+    '"sourceTemplates":{"Choose a source and target folder":' +
+    '"\u05D1\u05D7\u05E8 \u05EA\u05D9\u05E7\u05D9\u05D9\u05EA \u05DE\u05E7\u05D5\u05E8 \u05D5\u05D9\u05E2\u05D3",' +
+    '"PAS files only":"\u05E7\u05D5\u05D1\u05E6\u05D9 PAS \u05D1\u05DC\u05D1\u05D3",' +
+    '"Both PAS and DFM":"PAS \u05D5-DFM"},' +
     '"layout":[' +
     '{"formName":"frmRtl","componentName":"frmRtl",' +
     '"propertyName":"MirrorChildren","originalValue":"False",' +
@@ -112,6 +124,12 @@ var
   SelectorGroup: TLayout;
   SelectorLabel: TLabel;
   SelectorCombo: TComboBox;
+  RuntimeMemo: TMemo;
+  RuntimeCombo: TComboBox;
+  RuntimeUnnamedCheck: TCheckBox;
+  ExpectedRuntimeMemo: string;
+  ExpectedRuntimePasOnly: string;
+  ExpectedRuntimeBoth: string;
   Tabs: TTabControl;
   Page: TTabItem;
   InactivePage: TTabItem;
@@ -168,6 +186,25 @@ begin
       EmailBox.Name := 'edtEmailAddress';
       EmailBox.SetBounds(104, 52, 200, 28);
       EmailBox.Text := 'user@example.com';
+
+      RuntimeMemo := TMemo.Create(Form);
+      RuntimeMemo.Parent := Form;
+      RuntimeMemo.Name := 'memRuntimeStatus';
+      RuntimeMemo.SetBounds(16, 220, 180, 34);
+      RuntimeMemo.Text := 'Choose a source and target folder';
+
+      RuntimeCombo := TComboBox.Create(Form);
+      RuntimeCombo.Parent := Form;
+      RuntimeCombo.Name := 'cmbRuntimeChoices';
+      RuntimeCombo.SetBounds(210, 220, 170, 28);
+      RuntimeCombo.Items.Add('PAS files only');
+      RuntimeCombo.Items.Add('Both PAS and DFM');
+      RuntimeCombo.ItemIndex := 1;
+
+      RuntimeUnnamedCheck := TCheckBox.Create(Form);
+      RuntimeUnnamedCheck.Parent := Form;
+      RuntimeUnnamedCheck.SetBounds(210, 260, 100, 28);
+      RuntimeUnnamedCheck.Text := 'Runtime option';
 
       CenteredLayout := TLayout.Create(Form);
       CenteredLayout.Parent := Form;
@@ -290,6 +327,10 @@ begin
 
       Pack := HebrewPack;
       try
+        ExpectedRuntimeMemo := Pack.SourceTemplates[
+          'Choose a source and target folder'];
+        ExpectedRuntimePasOnly := Pack.SourceTemplates['PAS files only'];
+        ExpectedRuntimeBoth := Pack.SourceTemplates['Both PAS and DFM'];
         TFMXTranslationApplicator.ApplyToForm(Form, Pack, 'frmRtl', True);
       finally
         Pack.Free;
@@ -360,6 +401,16 @@ begin
         'An email address keeps its technical left-to-right ordering inside the RTL form.');
       Check(GridColumn.HorzAlign = TTextAlign.Trailing,
         'A future FireMonkey grid editor copies right-to-left alignment from its column.');
+      Check(RuntimeMemo.Text = ExpectedRuntimeMemo,
+        'Exact application-owned text in an editable memo is translated: ' +
+        RuntimeMemo.Text);
+      Check((RuntimeCombo.Items[0] = ExpectedRuntimePasOnly) and
+        (RuntimeCombo.Items[1] = ExpectedRuntimeBoth) and
+        (RuntimeCombo.ItemIndex = 1),
+        Format('Runtime-populated combo items translate without changing the selection: "%s", "%s", %d.',
+          [RuntimeCombo.Items[0], RuntimeCombo.Items[1], RuntimeCombo.ItemIndex]));
+      Check(Abs(RuntimeUnnamedCheck.Position.X - 90) < 1,
+        'An unnamed runtime control owned by the form participates in RTL mirroring.');
       Check(not (TStyledSetting.Other in Name_.StyledSettings),
         'and the style has given up its claim on it, so it survives a repaint.');
 
@@ -387,6 +438,13 @@ begin
       Writeln('  (the same numbers as the VCL test, from the same pass)');
       Writeln;
 
+      Pack := HebrewPack;
+      try
+        TFMXTranslationApplicator.RestoreSourceLanguage(Form, Pack,
+          'frmRtl');
+      finally
+        Pack.Free;
+      end;
       Pack := EnglishPack;
       try
         TFMXTranslationApplicator.ApplyToForm(Form, Pack, 'frmRtl', True);
@@ -410,6 +468,15 @@ begin
         (Abs(SelectorLabel.Position.X) < 1) and
         (Abs(SelectorCombo.Position.X - 106) < 1),
         'The nested language controls return to their designed LTR positions.');
+      Check(RuntimeMemo.Text = 'Choose a source and target folder',
+        'The application-owned memo text returns to its source language.');
+      Check((RuntimeCombo.Items[0] = 'PAS files only') and
+        (RuntimeCombo.Items[1] = 'Both PAS and DFM') and
+        (RuntimeCombo.ItemIndex = 1),
+        Format('Runtime-populated combo items return to source without losing selection: "%s", "%s", %d.',
+          [RuntimeCombo.Items[0], RuntimeCombo.Items[1], RuntimeCombo.ItemIndex]));
+      Check(Abs(RuntimeUnnamedCheck.Position.X - 210) < 1,
+        'An unnamed runtime control returns to its designed LTR position.');
       Check(Abs(PageCard.Position.X - 12) < 1,
         'The tab-page card returns to its designed inset in an LTR language.');
       Check((Abs(EdgeCard.Position.X - 12) < 1) and

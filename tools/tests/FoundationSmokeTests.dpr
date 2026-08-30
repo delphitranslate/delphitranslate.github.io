@@ -1978,6 +1978,7 @@ end;
 procedure TestRuntimeLoadingAndPreference;
 var
   Catalog: TTranslationCatalog;
+  LabelPack: TRuntimeLanguagePack;
   LanguageDirectory: string;
   Pack: TRuntimeLanguagePack;
   PackFileName: string;
@@ -1986,6 +1987,7 @@ var
   RuntimeText: string;
   SourceCatalog: TTranslationCatalog;
   SourcePackFileName: string;
+  Values: TStringList;
 begin
   LanguageDirectory := TPath.Combine(TPath.GetFullPath(GetCurrentDir),
     'export\RuntimeLoaderTest\Languages');
@@ -2034,6 +2036,39 @@ begin
       (RuntimeText =
         'Verwendet eine explizite Ereignisregel. Updated at 10:30'),
       'A literal semantic template inside a compound text node was not translated.');
+    LabelPack := TRuntimeLanguagePack.LoadFromJson(
+      '{"schemaVersion":3,"applicationId":"LabelTest",' +
+      '"applicationVersion":"1","framework":"FireMonkey",' +
+      '"sourceLanguage":"en-US","sourceCatalogChecksum":"label",' +
+      '"language":{"code":"de-DE","nativeName":"Deutsch",' +
+      '"direction":"ltr"},"locale":{},' +
+      '"strings":{"Report.Label.Pack":"Paket:"},' +
+      '"sources":{"Report.Label.Pack":"Pack:"},' +
+      '"sourceStrings":{"Pack:":"Paket:"},' +
+      '"sourceTemplates":{"Runtime choice":"Laufzeitwahl"}}');
+    try
+      Require(LabelPack.TryTranslateDynamicText('Pack', RuntimeText) and
+        (RuntimeText = 'Paket'),
+        'A generated value did not reuse its catalogued colon-label translation.');
+      Require(LabelPack.TryRestoreDynamicText('Paket', RuntimeText) and
+        (RuntimeText = 'Pack'),
+        'A generated value translated from a colon label was not reversible.');
+      Values := TStringList.Create;
+      try
+        Values.Add('Runtime choice');
+        Values.Add('Uncatalogued user value');
+        Require(LabelPack.ReadIndexedStrings(
+          'Missing.Runtime.Items.Strings', Values) = 1,
+          'An exact runtime-populated item was not translated.');
+        Require((Values[0] = 'Laufzeitwahl') and
+          (Values[1] = 'Uncatalogued user value'),
+          'Runtime string collection translation changed an unknown value.');
+      finally
+        Values.Free;
+      end;
+    finally
+      LabelPack.Free;
+    end;
   finally
     Pack.Free;
   end;
