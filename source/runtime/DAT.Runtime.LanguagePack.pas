@@ -64,6 +64,8 @@ type
     FSources: TDictionary<string, string>;
     FSourceStrings: TDictionary<string, string>;
     FSourceTemplates: TDictionary<string, string>;
+    FSourceByTranslatedString: TDictionary<string, string>;
+    FSourceByTranslatedTemplate: TDictionary<string, string>;
     FTranslatedStrings: TDictionary<string, Boolean>;
     FLayoutRules: TObjectList<TRuntimeLayoutRule>;
     FFontColors: TDictionary<string, string>;
@@ -82,6 +84,7 @@ type
       out ASourceText: string): Boolean;
     function TryTranslateDynamicText(const ASourceText: string;
       out ATranslatedText: string): Boolean;
+    function IsKnownTranslatedText(const AText: string): Boolean;
     function GetTemplate(const AKey, AFallbackText: string): string;
     function GetAnyText(const AKey, AFallbackText: string): string;
     function FormatTemplate(const AKey, AFallbackText: string;
@@ -405,7 +408,13 @@ begin
   FSources := TDictionary<string, string>.Create;
   FSourceStrings := TDictionary<string, string>.Create;
   FSourceTemplates := TDictionary<string, string>.Create;
-  FTranslatedStrings := TDictionary<string, Boolean>.Create;
+  FSourceByTranslatedString := TDictionary<string, string>.Create;
+  FSourceByTranslatedTemplate := TDictionary<string, string>.Create;
+  { Display controls may normalize caption case. Keep the ownership check
+    constant-time without losing the established case-insensitive restore
+    fallback. }
+  FTranslatedStrings := TDictionary<string, Boolean>.Create(
+    TIStringComparer.Ordinal);
   FLayoutRules := TObjectList<TRuntimeLayoutRule>.Create(True);
   FFontColors := TDictionary<string, string>.Create;
 end;
@@ -415,6 +424,8 @@ begin
   FLayoutRules.Free;
   FFontColors.Free;
   FTranslatedStrings.Free;
+  FSourceByTranslatedTemplate.Free;
+  FSourceByTranslatedString.Free;
   FSourceTemplates.Free;
   FSourceStrings.Free;
   FSources.Free;
@@ -515,8 +526,14 @@ begin
           Result.FSourceStrings.Add(JsonPair.JsonString.Value,
             JsonPair.JsonValue.Value);
           if JsonPair.JsonValue.Value <> '' then
+          begin
             Result.FTranslatedStrings.AddOrSetValue(
               JsonPair.JsonValue.Value, True);
+            if not Result.FSourceByTranslatedString.ContainsKey(
+              JsonPair.JsonValue.Value) then
+              Result.FSourceByTranslatedString.Add(JsonPair.JsonValue.Value,
+                JsonPair.JsonString.Value);
+          end;
         end;
       SourceTemplatesObject := JsonRoot.GetValue('sourceTemplates') as TJSONObject;
       if SourceTemplatesObject <> nil then
@@ -525,8 +542,14 @@ begin
           Result.FSourceTemplates.Add(JsonPair.JsonString.Value,
             JsonPair.JsonValue.Value);
           if JsonPair.JsonValue.Value <> '' then
+          begin
             Result.FTranslatedStrings.AddOrSetValue(
               JsonPair.JsonValue.Value, True);
+            if not Result.FSourceByTranslatedTemplate.ContainsKey(
+              JsonPair.JsonValue.Value) then
+              Result.FSourceByTranslatedTemplate.Add(JsonPair.JsonValue.Value,
+                JsonPair.JsonString.Value);
+          end;
         end;
       LayoutArray := JsonRoot.GetValue('layout') as TJSONArray;
       if LayoutArray <> nil then
@@ -618,12 +641,28 @@ begin
     (ATranslatedText <> '');
 end;
 
+function TRuntimeLanguagePack.IsKnownTranslatedText(
+  const AText: string): Boolean;
+begin
+  Result := FTranslatedStrings.ContainsKey(AText);
+end;
+
+function TryApplyFormatTemplate(const ACurrentText, ASourceTemplate,
+  ATranslatedTemplate: string;
+  const ASourceTranslations: TDictionary<string, string>;
+  AWholeTextOnly: Boolean;
+  out ATranslatedText: string): Boolean; forward;
+
 function TRuntimeLanguagePack.TryRestoreDynamicText(
   const ATranslatedText: string; out ASourceText: string): Boolean;
 var
   Candidate: string;
   LongestTranslation: string;
+  ProcessedTranslations: TDictionary<string, Boolean>;
   Replacement: string;
+  ReplacementSource: string;
+  SourceTemplate: string;
+  WorkingText: string;
 
   function IsWordCharacter(const AValue: Char): Boolean;
   begin
@@ -661,14 +700,17 @@ var
 begin
   Result := False;
   ASourceText := '';
-  { Runtime templates also carry exact application-owned state text.  Restore
-    that exact text before attempting the broader term replacement below. }
-  for Candidate in FSourceTemplates.Keys do
-    if SameText(FSourceTemplates[Candidate], ATranslatedText) then
-    begin
-      ASourceText := Candidate;
-      Exit(True);
-    end;
+  if ATranslatedText = '' then
+    Exit;
+  { Exact reverse indexes make the normal language-change path constant time.
+    They also avoid repeatedly walking a complete application catalog for
+    every control on every open form. }
+  if FSourceByTranslatedTemplate.TryGetValue(ATranslatedText,
+    ASourceText) then
+    Exit(True);
+  if FSourceByTranslatedString.TryGetValue(ATranslatedText,
+    ASourceText) then
+    Exit(True);
   { A generated value can be the same semantic label without its display
     colon: "Pack" in a table and "Pack:" beside a field.  The forward pass
     shares that translation; make the reverse pass symmetrical. }
@@ -682,24 +724,77 @@ begin
         ASourceText := Copy(Candidate, 1, Length(Candidate) - 1);
         Exit(True);
       end;
-  LongestTranslation := '';
-  for Candidate in FSourceStrings.Values do
-    if (Trim(Candidate) <> '') and
-      (ContainsText(ATranslatedText, Candidate)) and
-      (Length(Candidate) > Length(LongestTranslation)) then
-      LongestTranslation := Candidate;
-  if LongestTranslation = '' then
-    Exit;
-  for Candidate in FSourceStrings.Keys do
-    if SameText(FSourceStrings[Candidate], LongestTranslation) then
+
+  { A rendered formatted template must be reversed as one unit before its
+    individual translated terms are considered.  Placeholder values that are
+    semantic UI states (for example On and Off) are reversed through the same
+    exact index. }
+  for SourceTemplate in FSourceTemplates.Keys do
+    if (Pos('%', SourceTemplate) > 0) and
+      TryApplyFormatTemplate(ATranslatedText,
+        FSourceTemplates[SourceTemplate], SourceTemplate,
+        FSourceByTranslatedString, True, Replacement) then
     begin
-      Replacement := ReplaceWholeTerm(ATranslatedText, LongestTranslation,
-        Candidate);
-      if Replacement <> ATranslatedText then
-      begin
-        ASourceText := Replacement;
-        Exit(True);
-      end;
+      ASourceText := Replacement;
+      Exit(True);
+    end;
+
+  { Dynamic text can contain several independently translated phrases.  A
+    language transition must restore every one of them, longest first, before
+    the next pack is applied.  Restoring only the first match leaves a hybrid
+    of the old and new languages on screen. }
+  WorkingText := ATranslatedText;
+  ProcessedTranslations := TDictionary<string, Boolean>.Create;
+  try
+    repeat
+      LongestTranslation := '';
+      for Candidate in FSourceByTranslatedTemplate.Keys do
+        if not ProcessedTranslations.ContainsKey(Candidate) and
+          (Trim(Candidate) <> '') and (Pos('%', Candidate) = 0) and
+          (Candidate <> FSourceByTranslatedTemplate[Candidate]) and
+          ContainsStr(WorkingText, Candidate) and
+          (Length(Candidate) > Length(LongestTranslation)) then
+          LongestTranslation := Candidate;
+      for Candidate in FSourceByTranslatedString.Keys do
+        if not ProcessedTranslations.ContainsKey(Candidate) and
+          (Trim(Candidate) <> '') and
+          (Candidate <> FSourceByTranslatedString[Candidate]) and
+          ContainsStr(WorkingText, Candidate) and
+          (Length(Candidate) > Length(LongestTranslation)) then
+          LongestTranslation := Candidate;
+      if LongestTranslation = '' then
+        Break;
+      ProcessedTranslations.Add(LongestTranslation, True);
+      if FSourceByTranslatedTemplate.TryGetValue(LongestTranslation,
+        ReplacementSource) then
+        Replacement := ReplacementSource
+      else
+        Replacement := FSourceByTranslatedString[LongestTranslation];
+      WorkingText := ReplaceWholeTerm(WorkingText, LongestTranslation,
+        Replacement);
+    until False;
+    if WorkingText <> ATranslatedText then
+    begin
+      ASourceText := WorkingText;
+      Exit(True);
+    end;
+  finally
+    ProcessedTranslations.Free;
+  end;
+
+  { Preserve the established case-insensitive exact fallback for applications
+    that normalize caption case at runtime. }
+  for Candidate in FSourceTemplates.Keys do
+    if SameText(FSourceTemplates[Candidate], ATranslatedText) then
+    begin
+      ASourceText := Candidate;
+      Exit(True);
+    end;
+  for Candidate in FSourceStrings.Keys do
+    if SameText(FSourceStrings[Candidate], ATranslatedText) then
+    begin
+      ASourceText := Candidate;
+      Exit(True);
     end;
 end;
 
@@ -924,6 +1019,8 @@ begin
      EndsText(':', ATranslatedText) then
   begin
     Delete(ATranslatedText, Length(ATranslatedText), 1);
+    if ATranslatedText <> '' then
+      FTranslatedStrings.AddOrSetValue(ATranslatedText, True);
     Exit(ATranslatedText <> ASourceText);
   end;
   { A formatted semantic template must run before shorter literal terms can
@@ -935,7 +1032,10 @@ begin
       TryApplyFormatTemplate(ASourceText, SourceTemplate,
         FSourceTemplates[SourceTemplate], FSourceStrings, True,
         ATranslatedText) then
+    begin
+      FTranslatedStrings.AddOrSetValue(ATranslatedText, True);
       Exit(True);
+    end;
   WorkingText := ASourceText;
   ProcessedTemplates := TDictionary<string, Boolean>.Create;
   ProcessedSources := TDictionary<string, Boolean>.Create;
@@ -984,6 +1084,7 @@ begin
     if WorkingText <> ASourceText then
     begin
       ATranslatedText := WorkingText;
+      FTranslatedStrings.AddOrSetValue(ATranslatedText, True);
       Exit(True);
     end;
   finally
@@ -994,7 +1095,10 @@ begin
     if TryApplyFormatTemplate(ASourceText, SourceTemplate,
       FSourceTemplates[SourceTemplate], FSourceStrings, False,
       ATranslatedText) then
+    begin
+      FTranslatedStrings.AddOrSetValue(ATranslatedText, True);
       Exit(True);
+    end;
   ATranslatedText := ASourceText;
   Result := False;
 end;

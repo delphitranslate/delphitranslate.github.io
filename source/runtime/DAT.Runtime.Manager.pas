@@ -16,6 +16,7 @@ type
     FSourceLanguageCode: string;
     FExpectedFramework: string;
     FActivePack: TRuntimeLanguagePack;
+    FHtmlTranslationCache: TDictionary<string, string>;
     FFormatSettings: TFormatSettings;
     procedure UpdateFormatSettings;
     procedure ValidatePackHeader(const APack: TRuntimeLanguagePack;
@@ -87,11 +88,13 @@ begin
   FPreferenceFileName := APreferenceFileName;
   FSourceLanguageCode := ASourceLanguageCode;
   FExpectedFramework := CanonicalFramework(AExpectedFramework);
+  FHtmlTranslationCache := TDictionary<string, string>.Create;
   FFormatSettings := TFormatSettings.Create;
 end;
 
 destructor TTranslationRuntime.Destroy;
 begin
+  FHtmlTranslationCache.Free;
   FActivePack.Free;
   inherited Destroy;
 end;
@@ -240,6 +243,7 @@ var
   SourceFileName: string;
   SourcePack: TRuntimeLanguagePack;
 begin
+  FHtmlTranslationCache.Clear;
   CandidateFileName := TPath.Combine(
     FLanguagesDirectory, ALanguageCode + '.json');
   if not TFile.Exists(CandidateFileName) then
@@ -353,6 +357,7 @@ var
 begin
   if not TFile.Exists(FPreferenceFileName) then
   begin
+    FHtmlTranslationCache.Clear;
     FreeAndNil(FActivePack);
     FFormatSettings := TFormatSettings.Create;
     Exit(True);
@@ -410,6 +415,13 @@ var
     if ExactText = '' then
       Exit(AText);
 
+    LeftWhitespace := Copy(AText, 1,
+      Length(AText) - Length(TrimLeft(AText)));
+    RightWhitespace := Copy(AText,
+      Length(TrimRight(AText)) + 1, MaxInt);
+    if FHtmlTranslationCache.TryGetValue(ExactText, TranslatedText) then
+      Exit(LeftWhitespace + TranslatedText + RightWhitespace);
+
     { The overwhelming majority of report cells are an exact source string,
       an exact semantic template, or a one-word identifier. Resolve those in
       constant time before invoking compound dynamic matching. Large reports
@@ -421,20 +433,24 @@ var
       begin
         if (Pos(' ', ExactText) = 0) and (Pos(#9, ExactText) = 0) and
           (Pos(#10, ExactText) = 0) and (Pos(#13, ExactText) = 0) then
+        begin
+          FHtmlTranslationCache.AddOrSetValue(ExactText, ExactText);
           Exit(AText);
+        end;
         if not FActivePack.TryTranslateDynamicText(ExactText,
           TranslatedText) then
+        begin
+          FHtmlTranslationCache.AddOrSetValue(ExactText, ExactText);
           Exit(AText);
+        end;
       end;
 
     if TranslatedText <> '' then
     begin
-      LeftWhitespace := Copy(AText, 1,
-        Length(AText) - Length(TrimLeft(AText)));
-      RightWhitespace := Copy(AText,
-        Length(TrimRight(AText)) + 1, MaxInt);
+      FHtmlTranslationCache.AddOrSetValue(ExactText, TranslatedText);
       Exit(LeftWhitespace + TranslatedText + RightWhitespace);
     end;
+    FHtmlTranslationCache.AddOrSetValue(ExactText, ExactText);
     Result := AText;
   end;
 

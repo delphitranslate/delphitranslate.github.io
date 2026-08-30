@@ -243,7 +243,9 @@ type
     for byte, with no JavaScript and no DOM or target-application changes. }
   IDATFMXTranslatedBrowser = interface(IInterface)
     ['{FEBE0A2D-A815-446E-A46D-9B8CBFA67379}']
+    function BrowserControl: TCustomWebBrowser;
     function InnerBrowser: ICustomBrowser;
+    procedure MarkTranslationStale;
     procedure RefreshTranslatedContent;
     procedure RetryPendingContent;
   end;
@@ -256,6 +258,7 @@ type
     FContentEncoding: TEncoding;
     FHasSourceContent: Boolean;
     FInner: ICustomBrowser;
+    FWebBrowserControl: TCustomWebBrowser;
     FWindowsBrowserProperties: IWindowsBrowserProperties;
     FSourceContent: string;
     procedure ClearSourceContent;
@@ -266,6 +269,7 @@ type
     function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
   public
     constructor Create(const AInner: ICustomBrowser);
+    function BrowserControl: TCustomWebBrowser;
     function CaptureBitmap: TBitmap;
     procedure EvaluateJavaScript(const JavaScript: string);
     function GetCanGoBack: Boolean;
@@ -285,6 +289,7 @@ type
       const AContentEncoding: TEncoding;
       const ABaseUrl: string); overload;
     procedure Navigate;
+    procedure MarkTranslationStale;
     procedure RefreshTranslatedContent;
     procedure Reload;
     procedure SetEnableCaching(const Value: Boolean);
@@ -305,7 +310,10 @@ type
     function CreateWebBrowser: ICustomBrowser;
     procedure DestroyWebBrowser(const AWebBrowser: ICustomBrowser);
     procedure RealignBrowsers;
+    procedure MarkAllStale;
     procedure RefreshAll;
+    procedure RefreshBrowser(const ABrowser: TCustomWebBrowser);
+    procedure RetryBrowser(const ABrowser: TCustomWebBrowser);
     procedure RetryPending;
   end;
 
@@ -352,6 +360,11 @@ begin
   FContentEncoding := nil;
   FHasSourceContent := False;
   FSourceContent := '';
+end;
+
+function TDATFMXTranslatedBrowser.BrowserControl: TCustomWebBrowser;
+begin
+  Result := FWebBrowserControl;
 end;
 
 function TDATFMXTranslatedBrowser.NativeBrowserReady: Boolean;
@@ -517,6 +530,12 @@ begin
   RetryPendingContent;
 end;
 
+procedure TDATFMXTranslatedBrowser.MarkTranslationStale;
+begin
+  if FHasSourceContent then
+    FContentDelivered := False;
+end;
+
 procedure TDATFMXTranslatedBrowser.Reload;
 begin
   FInner.Reload;
@@ -536,6 +555,7 @@ end;
 procedure TDATFMXTranslatedBrowser.SetWebBrowserControl(
   const AValue: TCustomWebBrowser);
 begin
+  FWebBrowserControl := AValue;
   FInner.SetWebBrowserControl(AValue);
 end;
 
@@ -601,6 +621,16 @@ begin
   FOriginal.RealignBrowsers;
 end;
 
+procedure TDATFMXBrowserTranslationService.MarkAllStale;
+var
+  Browser: IDATFMXTranslatedBrowser;
+  Snapshot: TArray<IDATFMXTranslatedBrowser>;
+begin
+  Snapshot := FWrappers.ToArray;
+  for Browser in Snapshot do
+    Browser.MarkTranslationStale;
+end;
+
 procedure TDATFMXBrowserTranslationService.RefreshAll;
 var
   Browser: IDATFMXTranslatedBrowser;
@@ -609,6 +639,40 @@ begin
   Snapshot := FWrappers.ToArray;
   for Browser in Snapshot do
     Browser.RefreshTranslatedContent;
+end;
+
+procedure TDATFMXBrowserTranslationService.RefreshBrowser(
+  const ABrowser: TCustomWebBrowser);
+var
+  Browser: IDATFMXTranslatedBrowser;
+  Snapshot: TArray<IDATFMXTranslatedBrowser>;
+begin
+  if ABrowser = nil then
+    Exit;
+  Snapshot := FWrappers.ToArray;
+  for Browser in Snapshot do
+    if Browser.BrowserControl = ABrowser then
+    begin
+      Browser.RefreshTranslatedContent;
+      Exit;
+    end;
+end;
+
+procedure TDATFMXBrowserTranslationService.RetryBrowser(
+  const ABrowser: TCustomWebBrowser);
+var
+  Browser: IDATFMXTranslatedBrowser;
+  Snapshot: TArray<IDATFMXTranslatedBrowser>;
+begin
+  if ABrowser = nil then
+    Exit;
+  Snapshot := FWrappers.ToArray;
+  for Browser in Snapshot do
+    if Browser.BrowserControl = ABrowser then
+    begin
+      Browser.RetryPendingContent;
+      Exit;
+    end;
 end;
 
 procedure TDATFMXBrowserTranslationService.RetryPending;
@@ -641,10 +705,30 @@ begin
     DATFMXProxyBrowserService);
 end;
 
+procedure MarkFMXBrowserTranslationsStale;
+begin
+  if DATFMXBrowserTranslationServiceObject <> nil then
+    DATFMXBrowserTranslationServiceObject.MarkAllStale;
+end;
+
 procedure RefreshFMXBrowserTranslations;
 begin
   if DATFMXBrowserTranslationServiceObject <> nil then
     DATFMXBrowserTranslationServiceObject.RefreshAll;
+end;
+
+procedure RefreshFMXBrowserTranslation(
+  const ABrowser: TCustomWebBrowser);
+begin
+  if DATFMXBrowserTranslationServiceObject <> nil then
+    DATFMXBrowserTranslationServiceObject.RefreshBrowser(ABrowser);
+end;
+
+procedure RetryFMXBrowserTranslation(
+  const ABrowser: TCustomWebBrowser);
+begin
+  if DATFMXBrowserTranslationServiceObject <> nil then
+    DATFMXBrowserTranslationServiceObject.RetryBrowser(ABrowser);
 end;
 
 procedure UninstallFMXBrowserTranslationService;
@@ -1313,6 +1397,10 @@ begin
         BrowserSubscription.RequestedVisible := True;
       if BrowserIsOnActiveTab(Browser) then
       begin
+        { Hidden reports remain marked stale after a language change. Refresh
+          only the report the user has just activated; an application handler
+          that already supplied a new source document makes this a no-op. }
+        RetryFMXBrowserTranslation(Browser);
         if BrowserSubscription.LoadedGeneration = Generation then
         begin
           BrowserSubscription.WaitingForLoad := False;
@@ -1638,6 +1726,8 @@ end;
 
 procedure TDATFMXLanguageManager.BrowserLifecycleTimerTick(Sender: TObject);
 var
+  Browser: TCustomWebBrowser;
+  Browsers: TArray<TCustomWebBrowser>;
   Form: TObject;
   FormIdentity: string;
   Forms: TList<TObject>;
@@ -1649,8 +1739,6 @@ begin
     Exit;
   end;
   Inc(FBrowserLifecycleAttempts);
-  if DATFMXBrowserTranslationServiceObject <> nil then
-    DATFMXBrowserTranslationServiceObject.RetryPending;
   Forms := TList<TObject>.Create;
   try
     CollectOpenManagedObjects(Forms);
@@ -1670,6 +1758,14 @@ begin
           ActivePack, FormIdentity);
       end;
       ApplyBrowserAndScrollContracts(ManagedForm);
+      if FBrowserLifecycleSubscriptions <> nil then
+      begin
+        Browsers := FBrowserLifecycleSubscriptions.Keys.ToArray;
+        for Browser in Browsers do
+          if BrowserBelongsToForm(Browser, ManagedForm) and
+            BrowserIsOnActiveTab(Browser) then
+            RetryFMXBrowserTranslation(Browser);
+      end;
       SynchronizeBrowserVisibility(ManagedForm);
     end;
   finally
@@ -1724,10 +1820,12 @@ var
   Form: TCommonCustomForm;
 begin
   try
-    { Reload each browser from the original source document through the newly
-      active pack before the native surface is revealed.  The document's HTML
-      structure and CSS never leave the application-authored version. }
-    RefreshFMXBrowserTranslations;
+    { Mark every captured source document for the new generation, but do not
+      synchronously translate hidden reports. The active report is refreshed
+      below; each hidden report refreshes when its tab becomes active. This
+      keeps language selection proportional to what the user can see while
+      preserving the application-authored HTML and CSS byte for byte. }
+    MarkFMXBrowserTranslationsStale;
     if FTransitionForms <> nil then
       for Form in FTransitionForms do
         if Form <> nil then
@@ -1753,6 +1851,7 @@ begin
           Browser.Visible := False;
           if BrowserIsOnActiveTab(Browser) then
           begin
+            RetryFMXBrowserTranslation(Browser);
             if BrowserSubscription.LoadedGeneration <> Generation then
             begin
               BrowserSubscription.WaitingForLoad := True;

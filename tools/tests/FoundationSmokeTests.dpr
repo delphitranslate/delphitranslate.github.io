@@ -1987,6 +1987,8 @@ var
   RuntimeText: string;
   SourceCatalog: TTranslationCatalog;
   SourcePackFileName: string;
+  SwitchPack: TRuntimeLanguagePack;
+  RestoredText: string;
   Values: TStringList;
 begin
   LanguageDirectory := TPath.Combine(TPath.GetFullPath(GetCurrentDir),
@@ -2068,6 +2070,39 @@ begin
       end;
     finally
       LabelPack.Free;
+    end;
+    SwitchPack := TRuntimeLanguagePack.LoadFromJson(
+      '{"schemaVersion":3,"applicationId":"SwitchTest",' +
+      '"applicationVersion":"1","framework":"FireMonkey",' +
+      '"sourceLanguage":"en-US","sourceCatalogChecksum":"switch",' +
+      '"language":{"code":"de-DE","nativeName":"Deutsch",' +
+      '"direction":"ltr"},"locale":{},"strings":{},"sources":{},' +
+      '"sourceStrings":{"Critical Areas":"Kritische Bereiche",' +
+      '"Data Aware":"Datenbewusst","3rd Party":"Drittanbieter",' +
+      '"On":"Aktiv","Off":"Inaktiv"},' +
+      '"sourceTemplates":{' +
+      '"Critical Areas = %s\r\nData Aware = %s\r\n3rd Party = %s":' +
+      '"Kritische Bereiche = %s\r\nDatenbewusst = %s\r\nDrittanbieter = %s"}}');
+    try
+      Require(SwitchPack.TryTranslateDynamicText(
+        'Critical Areas = On' + sLineBreak +
+        'Data Aware = Off' + sLineBreak + '3rd Party = On', RuntimeText) and
+        (RuntimeText = 'Kritische Bereiche = Aktiv' + sLineBreak +
+        'Datenbewusst = Inaktiv' + sLineBreak +
+        'Drittanbieter = Aktiv'),
+        'A structured runtime template did not translate completely.');
+      Require(SwitchPack.TryRestoreDynamicText(RuntimeText, RestoredText) and
+        (RestoredText = 'Critical Areas = On' + sLineBreak +
+        'Data Aware = Off' + sLineBreak + '3rd Party = On'),
+        'A formatted runtime block did not restore completely before a language switch.');
+      RuntimeText := 'Kritische Bereiche = Aktiv' + sLineBreak +
+        'Datenbewusst = Inaktiv';
+      Require(SwitchPack.TryRestoreDynamicText(RuntimeText, RestoredText) and
+        (RestoredText = 'Critical Areas = On' + sLineBreak +
+        'Data Aware = Off'),
+        'A compound runtime block restored only one translated fragment.');
+    finally
+      SwitchPack.Free;
     end;
   finally
     Pack.Free;

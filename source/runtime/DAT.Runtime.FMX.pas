@@ -1104,6 +1104,36 @@ var
       Result := TTextControl(AComponent).Font;
   end;
 
+  function IsCompactMultilineText(const AText: string): Boolean;
+  var
+    Index: Integer;
+    LineCount: Integer;
+    LineLength: Integer;
+    MaximumLineLength: Integer;
+    SawBlankLine: Boolean;
+  begin
+    LineCount := 1;
+    LineLength := 0;
+    MaximumLineLength := 0;
+    SawBlankLine := False;
+    for Index := 1 to Length(AText) do
+      if CharInSet(AText[Index], [#10, #13]) then
+      begin
+        if (AText[Index] = #10) and (Index > 1) and
+          (AText[Index - 1] = #13) then
+          Continue;
+        SawBlankLine := SawBlankLine or (LineLength = 0);
+        MaximumLineLength := Max(MaximumLineLength, LineLength);
+        LineLength := 0;
+        Inc(LineCount);
+      end
+      else
+        Inc(LineLength);
+    MaximumLineLength := Max(MaximumLineLength, LineLength);
+    Result := (LineCount >= 2) and (LineCount <= 10) and
+      not SawBlankLine and (MaximumLineLength <= 64);
+  end;
+
   function IsProseBodyLabel(const AComponent: TComponent;
     const AControl: TControl; const AText: string): Boolean;
   begin
@@ -1111,12 +1141,14 @@ var
       designer's readable type size and use the width deliberately provided
       by the form.  Treating prose as a heading previously clamped a
       1180-pixel body label to 420 pixels and then reduced it to 8 points.
-      The contract is deliberately based on content and geometry, never on a
-      language code, so it applies equally to every long translation. }
+      A short, dense set of lines is instead a status/value block and uses the
+      safe width available in its card.  Both decisions depend only on content
+      and geometry, never on an application or language. }
     Result := (AComponent is TLabel) and
       (Length(Trim(AText)) >= 80) and
       ((AControl.Width >= 360) or (AControl.Height >= 44) or
-       (Pos(sLineBreak, AText) > 0));
+       (Pos(sLineBreak, AText) > 0)) and
+      not IsCompactMultilineText(AText);
   end;
 
   function HasExplicitLayoutRule(const AComponent: TComponent): Boolean;
@@ -1126,7 +1158,7 @@ var
     Result := False;
     if (APack = nil) or (AComponent = nil) or (Trim(AComponent.Name) = '') then
       Exit;
-    { Only an accepted geometry/wrapping decision suppresses measured fitting.
+    { Only an accepted geometry/wrapping change suppresses measured fitting.
       Direction-only and legacy font rules do not prove that translated text
       fits.  In particular, they must not prevent buttons from acquiring the
       padding their rendered caption requires. }
@@ -1141,6 +1173,21 @@ var
          SameText(Rule.PropertyName, 'Position.Y') or
          (SameText(Rule.PropertyName, 'WordWrap') and
           SameText(Trim(Rule.TranslatedValue), 'True'))) then
+        Exit(True);
+  end;
+
+  function HasAcceptedWidthBoundary(const AComponent: TComponent): Boolean;
+  var
+    Rule: TRuntimeLayoutRule;
+  begin
+    Result := False;
+    if (APack = nil) or (AComponent = nil) or
+      (Trim(AComponent.Name) = '') then
+      Exit;
+    for Rule in APack.LayoutRules do
+      if SameText(Rule.FormName, AFormIdentity) and
+        SameText(Rule.ComponentName, AComponent.Name) and
+        SameText(Rule.PropertyName, 'Width') then
         Exit(True);
   end;
 
@@ -1234,6 +1281,7 @@ var
   function FitLabel(const AComponent: TComponent; const AControl: TControl;
     const AText: string): Integer;
   var
+    CompactMultiline: Boolean;
     HasRightNeighbor: Boolean;
     Font: TFont;
     FontSize: Single;
@@ -1247,8 +1295,18 @@ var
     Result := 0;
     Font := ComponentFont(AComponent);
     NeededWidth := MeasuredTextWidth(AText, Font);
+    CompactMultiline := IsCompactMultilineText(AText);
     ParentWidth := ParentClientWidth(AControl);
     RightLimitedWidth := NearestSameRowRightEdgeLimit(AControl);
+    { A contract width that deliberately remains equal to the designer width
+      is still a trustworthy lower boundary.  A prior RTL mirror can leave a
+      transient live neighbour on the opposite side while the next language
+      is being laid out; that neighbour must not collapse this control below
+      its accepted boundary.  It may still grow into genuinely free parent
+      space when the new caption needs it. }
+    if HasAcceptedWidthBoundary(AComponent) then
+      RightLimitedWidth := Max(RightLimitedWidth,
+        Min(MaximumLabelWidth, AvailableWidthToParentRight(AControl)));
     HasRightNeighbor := RightLimitedWidth < AvailableWidthToParentRight(AControl) - 1;
 
     if IsProseBodyLabel(AComponent, AControl, AText) then
@@ -1281,7 +1339,7 @@ var
         HorizontalPadding);
     MaxWidth := Max(MinimumLabelWidth, MaxWidth);
 
-    if (NeededWidth <= AControl.Width + 6) and
+    if not CompactMultiline and (NeededWidth <= AControl.Width + 6) and
       (RightEdge(AControl) <= AControl.Position.X + MaxWidth + 1) then
       Exit;
 
@@ -1290,7 +1348,7 @@ var
     if SetWordWrapIfSupported(AComponent) then
       Inc(Result);
 
-    if HasRightNeighbor then
+    if CompactMultiline or HasRightNeighbor then
       NewWidth := MaxWidth
     else
       NewWidth := Min(MaxWidth, Max(AControl.Width, NeededWidth));
@@ -1397,10 +1455,7 @@ var
     Visited: TList<TControl>;
 
     function TextCameFromPack: Boolean;
-    var
-      SourcePair: TPair<string, string>;
     begin
-      Result := False;
       if Trim(AComponent.Name) <> '' then
       begin
         Key := AFormIdentity + '.' + AComponent.Name + '.Text';
@@ -1412,9 +1467,7 @@ var
           (Trim(PackText) = CurrentText) then
           Exit(True);
       end;
-      for SourcePair in APack.SourceStrings do
-        if Trim(SourcePair.Value) = CurrentText then
-          Exit(True);
+      Result := APack.IsKnownTranslatedText(CurrentText);
     end;
   begin
     Result := 0;
@@ -1810,10 +1863,12 @@ begin
       (StringReplace(CurrentText, SoftHyphenMark, '', [rfReplaceAll]) =
        StringReplace(TranslatedText, SoftHyphenMark, '', [rfReplaceAll])) then
       RestoredText := SourceText
-    else if not APack.TryRestoreDynamicText(CurrentText, RestoredText) then
+    else if not APack.IsKnownTranslatedText(CurrentText) or
+      not APack.TryRestoreDynamicText(CurrentText, RestoredText) then
       Exit;
   end
-  else if not APack.TryRestoreDynamicText(CurrentText, RestoredText) then
+  else if not APack.IsKnownTranslatedText(CurrentText) or
+    not APack.TryRestoreDynamicText(CurrentText, RestoredText) then
     { Runtime-written labels can be deliberately excluded from designer-key
       translation while still having stable semantic runtime entries.  They
       have no form-property source key to restore through, so use only the
@@ -1838,7 +1893,6 @@ var
   SavedChangeEvent: TMethod;
   SavedItemIndex: NativeInt;
   StringObject: TObject;
-  SourceCandidate: string;
   SourceText: string;
   ProtectEditableLines: Boolean;
 begin
@@ -1879,23 +1933,12 @@ begin
           { Forward translation of writable memo lines accepts exact catalog
             values only. Reverse with the same boundary so a private note that
             merely contains a translated UI term is never rewritten. }
-          for SourceCandidate in APack.SourceTemplates.Keys do
-            if SameText(APack.SourceTemplates[SourceCandidate],
-              TStrings(StringObject)[Index]) then
-            begin
-              SourceText := SourceCandidate;
-              Break;
-            end;
-          if SourceText = '' then
-            for SourceCandidate in APack.SourceStrings.Keys do
-              if SameText(APack.SourceStrings[SourceCandidate],
-                TStrings(StringObject)[Index]) then
-              begin
-                SourceText := SourceCandidate;
-                Break;
-              end;
+          if APack.IsKnownTranslatedText(TStrings(StringObject)[Index]) then
+            APack.TryRestoreDynamicText(TStrings(StringObject)[Index],
+              SourceText);
         end
-        else if not APack.TryGetSource(Key, SourceText) then
+        else if not APack.TryGetSource(Key, SourceText) and
+          APack.IsKnownTranslatedText(TStrings(StringObject)[Index]) then
           APack.TryRestoreDynamicText(TStrings(StringObject)[Index],
             SourceText);
         if (SourceText <> '') and
@@ -2451,7 +2494,8 @@ var
       for ColumnIndex := 0 to TCustomGrid(AComponent).ColumnCount - 1 do
       begin
         CurrentText := TCustomGrid(AComponent).Columns[ColumnIndex].Header;
-        if APack.TryRestoreDynamicText(CurrentText, SourceText) then
+        if APack.IsKnownTranslatedText(CurrentText) and
+          APack.TryRestoreDynamicText(CurrentText, SourceText) then
         begin
           TCustomGrid(AComponent).Columns[ColumnIndex].Header := SourceText;
           Inc(Result);

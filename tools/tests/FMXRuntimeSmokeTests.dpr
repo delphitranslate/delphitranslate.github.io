@@ -56,9 +56,12 @@ const
     '"frmFMXSample.memInstructions.Lines.Strings.0":"Erste Zeile",' +
     '"frmFMXSample.memInstructions.Lines.Strings.1":"Zweite Zeile"},' +
     '"sourceStrings":{"Close":"Schlie' + #$00DF + 'en","Event":"Evento",' +
+    '"On":"Aktiv","Off":"Inaktiv",' +
     '"Use Project Scan before every run to confirm the VCL source folder and the FMX output location.":' +
     '"Use Project Scan before every conversion run to confirm the complete VCL source folder and the separate FMX output location."},' +
-    '"sourceTemplates":{"Uptime: %d years":"Laufzeit: %d Jahre"},' +
+    '"sourceTemplates":{"Uptime: %d years":"Laufzeit: %d Jahre",' +
+    '"Critical Areas = %s\r\nData Aware = %s\r\n3rd Party = %s\r\nWinAPI = %s\r\nDry-run preview = %s":' +
+    '"Kritische Bereiche = %s\r\nDatenbewusst = %s\r\nDrittanbieter = %s\r\nWinAPI = %s\r\nTestvorschau = %s"},' +
     { The source text for each key, which is what returning to the original
       language reads. Left empty, the words stay translated however well the
       geometry is put back. }
@@ -135,6 +138,8 @@ var
   Pack: TRuntimeLanguagePack;
   ProseContainer: TLayout;
   ProseLabel: TLabel;
+  StatusContainer: TLayout;
+  StatusLabel: TLabel;
   TemplateLabel: TLabel;
 begin
   try
@@ -168,6 +173,24 @@ begin
     ProseLabel.TextSettings.WordWrap := True;
     ProseLabel.Text :=
       'Use Project Scan before every run to confirm the VCL source folder and the FMX output location.';
+    StatusContainer := TLayout.Create(frmFMXSample);
+    StatusContainer.Parent := frmFMXSample;
+    StatusContainer.Position.X := 20;
+    StatusContainer.Position.Y := 470;
+    StatusContainer.Width := 438;
+    StatusContainer.Height := 170;
+    StatusLabel := TLabel.Create(frmFMXSample);
+    StatusLabel.Name := 'lblStructuredStatus';
+    StatusLabel.Parent := StatusContainer;
+    StatusLabel.Position.X := 24;
+    StatusLabel.Position.Y := 12;
+    StatusLabel.Width := 220;
+    StatusLabel.Height := 120;
+    StatusLabel.TextSettings.Font.Size := 18;
+    StatusLabel.TextSettings.WordWrap := True;
+    StatusLabel.Text := 'Critical Areas = On' + sLineBreak +
+      'Data Aware = On' + sLineBreak + '3rd Party = On' + sLineBreak +
+      'WinAPI = On' + sLineBreak + 'Dry-run preview = Off';
     { A data row whose text happens to match something the pack can translate.
       Grid cells are the application's data - song titles, file names, rows
       from a database - and must come through a translation untouched. }
@@ -253,6 +276,14 @@ begin
         'A prose body label was reduced below its designer-authored size.');
       Require(Round(ProseLabel.Width) = 700,
         'A prose body label was clamped to the compact-caption width.');
+      Require(StatusLabel.Text = 'Kritische Bereiche = Aktiv' + sLineBreak +
+        'Datenbewusst = Aktiv' + sLineBreak +
+        'Drittanbieter = Aktiv' + sLineBreak + 'WinAPI = Aktiv' +
+        sLineBreak + 'Testvorschau = Inaktiv',
+        'A structured multiline runtime label was not translated completely.');
+      Require((StatusLabel.Width > 220) and
+        (StatusLabel.Width <= StatusContainer.Width - StatusLabel.Position.X),
+        'A translated structured multiline label did not use the safe width available in its card.');
       { A periodic dynamic-text refresh must not enter the full form/layout
         applicator. Recreate source-language dynamic text after the initial
         apply, then prove that only those words change and the translated
