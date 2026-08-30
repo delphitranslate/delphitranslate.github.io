@@ -29,6 +29,10 @@ type
     class function RecoverStableSemanticContracts(
       const ACatalog: TTranslationCatalog;
       const AScanResult: TProjectScanResult): Integer; static;
+    class function RecoverWorkspaceSemanticContracts(
+      const ADevelopmentDirectory, AApplicationId, ASourceLanguage: string;
+      const AFramework: TTargetFramework;
+      const AScanResult: TProjectScanResult): Integer; static;
     class function Merge(const AScanResult: TProjectScanResult;
       const ACatalog: TTranslationCatalog): TCatalogMergeSummary; static;
   end;
@@ -39,7 +43,8 @@ uses
   System.Generics.Collections,
   System.Hash,
   System.IOUtils,
-  System.StrUtils;
+  System.StrUtils,
+  DAT.Core.CatalogJson;
 
 class function TScanCatalogMerger.SourceChecksum(
   const ASourceText: string): string;
@@ -388,6 +393,47 @@ begin
     end;
   finally
     SourceFileCache.Free;
+  end;
+end;
+
+class function TScanCatalogMerger.RecoverWorkspaceSemanticContracts(
+  const ADevelopmentDirectory, AApplicationId, ASourceLanguage: string;
+  const AFramework: TTargetFramework;
+  const AScanResult: TProjectScanResult): Integer;
+var
+  Catalog: TTranslationCatalog;
+  CatalogFileName: string;
+begin
+  Result := 0;
+  if AScanResult = nil then
+    raise EArgumentNilException.Create('A project scan result is required.');
+  if not TDirectory.Exists(ADevelopmentDirectory) then
+    Exit;
+
+  { Every language is generated from one canonical source contract. A helper
+    call can be understood by an earlier reviewed catalog even when the
+    conservative source scanner cannot infer that call's UI meaning. Recover
+    the verified union before any one target catalog is merged, so processing
+    a single language cannot silently discard contracts retained by the other
+    languages in the same application workspace. }
+  for CatalogFileName in TDirectory.GetFiles(ADevelopmentDirectory,
+    '*.translation-project.json', TSearchOption.soTopDirectoryOnly) do
+  begin
+    Catalog := nil;
+    try
+      try
+        Catalog := TCatalogJson.LoadFromFile(CatalogFileName);
+        if SameText(Catalog.ApplicationId, AApplicationId) and
+          SameText(Catalog.SourceLanguage, ASourceLanguage) and
+          (Catalog.Framework = AFramework) then
+          Inc(Result, RecoverStableSemanticContracts(Catalog, AScanResult));
+      except
+        { A stale or interrupted catalog must not prevent a clean rescan.
+          Validation will still report that file when it is opened directly. }
+      end;
+    finally
+      Catalog.Free;
+    end;
   end;
 end;
 

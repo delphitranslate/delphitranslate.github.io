@@ -59,7 +59,6 @@ uses
 {$IFDEF MSWINDOWS}
   Winapi.Windows,
 {$ENDIF}
-  System.Classes,
   System.IOUtils,
   System.StrUtils,
   DAT.Core.Diagnostics,
@@ -393,64 +392,42 @@ end;
 
 function TTranslationRuntime.TranslateHtmlText(const AHtmlText: string): string;
 var
-  Candidate: string;
   InTag: Boolean;
-  I: Integer;
-  J: Integer;
-  Keys: TStringList;
+  Output: TStringBuilder;
   ProtectedDepth: Integer;
   Segment: string;
-  SwapText: string;
   TagText: string;
   TextIndex: Integer;
-
-  function IsWordCharacter(const AValue: Char): Boolean;
-  begin
-    Result := CharInSet(AValue, ['A'..'Z', 'a'..'z', '0'..'9', '_']) or
-      (Ord(AValue) > 127);
-  end;
-
-  function ReplaceWholeTerm(const AText, ASource,
-    AReplacement: string): string;
-  var
-    AfterIsWord: Boolean;
-    At: Integer;
-    BeforeIsWord: Boolean;
-    SearchFrom: Integer;
-  begin
-    Result := AText;
-    SearchFrom := 1;
-    while SearchFrom <= Length(Result) do
-    begin
-      At := PosEx(ASource, Result, SearchFrom);
-      if At = 0 then
-        Break;
-      BeforeIsWord := (At > 1) and IsWordCharacter(Result[At - 1]);
-      AfterIsWord := (At + Length(ASource) <= Length(Result)) and
-        IsWordCharacter(Result[At + Length(ASource)]);
-      if not BeforeIsWord and not AfterIsWord then
-      begin
-        Delete(Result, At, Length(ASource));
-        Insert(AReplacement, Result, At);
-        SearchFrom := At + Length(AReplacement);
-      end
-      else
-        SearchFrom := At + Length(ASource);
-    end;
-  end;
 
   function TranslateVisibleSegment(const AText: string): string;
   var
     ExactText: string;
-    KeyIndex: Integer;
     LeftWhitespace: string;
     RightWhitespace: string;
-    SourceText: string;
     TranslatedText: string;
   begin
     ExactText := Trim(AText);
-    if (ExactText <> '') and
-      FActivePack.TryTranslateDynamicText(ExactText, TranslatedText) then
+    if ExactText = '' then
+      Exit(AText);
+
+    { The overwhelming majority of report cells are an exact source string,
+      an exact semantic template, or a one-word identifier. Resolve those in
+      constant time before invoking compound dynamic matching. Large reports
+      contain thousands of identifiers; sending every one through every
+      source phrase was the cause of multi-second language changes. }
+    if not FActivePack.TryTranslateSource(ExactText, TranslatedText) then
+      if not (FActivePack.SourceTemplates.TryGetValue(ExactText,
+        TranslatedText) and (TranslatedText <> '')) then
+      begin
+        if (Pos(' ', ExactText) = 0) and (Pos(#9, ExactText) = 0) and
+          (Pos(#10, ExactText) = 0) and (Pos(#13, ExactText) = 0) then
+          Exit(AText);
+        if not FActivePack.TryTranslateDynamicText(ExactText,
+          TranslatedText) then
+          Exit(AText);
+      end;
+
+    if TranslatedText <> '' then
     begin
       LeftWhitespace := Copy(AText, 1,
         Length(AText) - Length(TrimLeft(AText)));
@@ -458,22 +435,7 @@ var
         Length(TrimRight(AText)) + 1, MaxInt);
       Exit(LeftWhitespace + TranslatedText + RightWhitespace);
     end;
-    { A single identifier, number, property name, or class name cannot
-      contain a longer natural-language phrase.  The exact lookup above is
-      sufficient for genuinely translatable one-word captions and avoids an
-      O(visible-segments x catalog-entries) scan across large report tables. }
-    if (Pos(' ', ExactText) = 0) and (Pos(#9, ExactText) = 0) and
-      (Pos(#10, ExactText) = 0) and (Pos(#13, ExactText) = 0) then
-      Exit(AText);
     Result := AText;
-    for KeyIndex := 0 to Keys.Count - 1 do
-    begin
-      SourceText := Keys[KeyIndex];
-      TranslatedText := FActivePack.SourceStrings[SourceText];
-      if (Trim(SourceText) <> '') and (Trim(TranslatedText) <> '') and
-        not SameText(SourceText, TranslatedText) then
-        Result := ReplaceWholeTerm(Result, SourceText, TranslatedText);
-    end;
   end;
 
   function TagName(const ATag: string): string;
@@ -506,9 +468,9 @@ var
     if Segment = '' then
       Exit;
     if ProtectedDepth = 0 then
-      Result := Result + TranslateVisibleSegment(Segment)
+      Output.Append(TranslateVisibleSegment(Segment))
     else
-      Result := Result + Segment;
+      Output.Append(Segment);
     Segment := '';
   end;
 
@@ -525,7 +487,7 @@ var
     SelfClosingTag := EndsText('/>', TrimRight(TagText));
     if ClosingTag and IsProtectedTag(Name) and (ProtectedDepth > 0) then
       Dec(ProtectedDepth);
-    Result := Result + TagText;
+    Output.Append(TagText);
     if not ClosingTag and not SelfClosingTag and IsProtectedTag(Name) then
       Inc(ProtectedDepth);
     TagText := '';
@@ -536,25 +498,8 @@ begin
   if (FActivePack = nil) or (AHtmlText = '') or
     SameText(FActivePack.LanguageCode, FActivePack.SourceLanguage) then
     Exit;
-  Keys := TStringList.Create;
+  Output := TStringBuilder.Create(Length(AHtmlText));
   try
-    for Candidate in FActivePack.SourceStrings.Keys do
-      if Trim(Candidate) <> '' then
-        Keys.Add(Candidate);
-    for I := 0 to Keys.Count - 2 do
-      for J := I + 1 to Keys.Count - 1 do
-      begin
-        if (Length(Keys[J]) > Length(Keys[I])) or
-          ((Length(Keys[J]) = Length(Keys[I])) and
-           (CompareText(Keys[J], Keys[I]) < 0)) then
-        begin
-          SwapText := Keys[I];
-          Keys[I] := Keys[J];
-          Keys[J] := SwapText;
-        end;
-      end;
-
-    Result := '';
     Segment := '';
     TagText := '';
     InTag := False;
@@ -584,10 +529,11 @@ begin
         Segment := Segment + AHtmlText[TextIndex];
     end;
     if TagText <> '' then
-      Result := Result + TagText;
+      Output.Append(TagText);
     AppendSegment;
+    Result := Output.ToString;
   finally
-    Keys.Free;
+    Output.Free;
   end;
 end;
 

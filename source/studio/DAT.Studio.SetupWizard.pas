@@ -1349,6 +1349,11 @@ begin
               FScanResult := NewScanResult;
               NewScanResult := nil;
               FLastScanCompletedAt := Now;
+              TScanCatalogMerger.RecoverWorkspaceSemanticContracts(
+                TTranslationWorkspace.DevelopmentDirectory(FProjectProfile),
+                FProjectProfile.ProjectName,
+                SelectedLanguageCode(cboSourceLanguage),
+                FProjectProfile.Framework, FScanResult);
               LoadExistingCatalog;
               MergeSummary := TScanCatalogMerger.Merge(FScanResult, FCatalog);
               memScanResults.Lines.BeginUpdate;

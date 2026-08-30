@@ -859,6 +859,11 @@ begin
   { Runtime templates are exact or format-aware UI strings. Resolve them
     before looking for shorter terms inside the text; otherwise a term such
     as Schedule can corrupt Scheduled or a longer dialog title. }
+  if FSourceTemplates.TryGetValue(ASourceText, ATranslatedText) then
+    Exit(ATranslatedText <> ASourceText);
+  { Source text normally retains its original case, so the dictionary lookup
+    above is the common path. Preserve the established case-insensitive
+    fallback for applications that normalize caption case at runtime. }
   for SourceTemplate in FSourceTemplates.Keys do
     if SameText(ASourceText, SourceTemplate) then
     begin

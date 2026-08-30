@@ -1130,6 +1130,8 @@ var
   ComponentSource: string;
   CoreFileName: string;
   CoreSource: string;
+  ManagerFileName: string;
+  ManagerSource: string;
   ProjectRoot: string;
   RuntimeFileName: string;
   RuntimeSource: string;
@@ -1146,6 +1148,9 @@ begin
   CoreFileName := TPath.Combine(ProjectRoot,
     'source\components\DAT.Components.Core.pas');
   CoreSource := TFile.ReadAllText(CoreFileName, TEncoding.UTF8);
+  ManagerFileName := TPath.Combine(ProjectRoot,
+    'source\runtime\DAT.Runtime.Manager.pas');
+  ManagerSource := TFile.ReadAllText(ManagerFileName, TEncoding.UTF8);
   Require(not ContainsText(RuntimeSource, 'EvaluateJavaScript') and
     not ContainsText(RuntimeSource, 'TBrowserTranslationRetry') and
     not ContainsText(RuntimeSource, 'ApplyBrowserText') and
@@ -1193,6 +1198,12 @@ begin
     ContainsText(RuntimeSource,
       'layout is owned entirely by the complete HTML document'),
     'The FMX runtime again mutates application browser layout through JavaScript.');
+  Require(ContainsText(ManagerSource,
+      'FActivePack.SourceTemplates.TryGetValue(ExactText') and
+    ContainsText(ManagerSource,
+      'Output := TStringBuilder.Create(Length(AHtmlText))') and
+    not ContainsText(ManagerSource, 'for I := 0 to Keys.Count - 2'),
+    'Complete HTML translation again performs catalog-wide work for every report cell.');
   Require(not ContainsText(RuntimeSource,
       'SnapshotWidth(TControl(AParent).ParentControl)'),
     'Nested FMX controls can still be mirrored against an ancestor width.');
@@ -2095,6 +2106,8 @@ end;
 procedure TestStableSemanticContractRecovery;
 var
   Catalog: TTranslationCatalog;
+  CatalogDirectory: string;
+  CatalogFileName: string;
   Entry: TTranslationEntry;
   MergeSummary: TCatalogMergeSummary;
   PascalFileName: string;
@@ -2104,6 +2117,10 @@ var
 begin
   PascalFileName := TPath.Combine(TPath.GetTempPath,
     'DATSemanticContract-' + TGUID.NewGuid.ToString + '.pas');
+  CatalogDirectory := TPath.Combine(TPath.GetTempPath,
+    'DATSemanticCatalog-' + TGUID.NewGuid.ToString);
+  CatalogFileName := TPath.Combine(CatalogDirectory,
+    'SemanticContractApp.de-DE.translation-project.json');
   TFile.WriteAllText(PascalFileName,
     'unit SemanticContract;' + sLineBreak +
     'procedure BuildReport;' + sLineBreak +
@@ -2113,6 +2130,8 @@ begin
   Catalog := TTranslationCatalog.Create;
   ScanResult := TProjectScanResult.Create;
   try
+    Catalog.ApplicationId := 'SemanticContractApp';
+    Catalog.Framework := tfFireMonkey;
     Catalog.SourceLanguage := 'en-US';
     Catalog.Locale.LanguageCode := 'de-DE';
     Entry := TTranslationEntry.Create;
@@ -2126,7 +2145,10 @@ begin
     Entry.Status := tsObsolete;
     Catalog.Entries.Add(Entry);
 
-    Recovered := TScanCatalogMerger.RecoverStableSemanticContracts(Catalog,
+    TDirectory.CreateDirectory(CatalogDirectory);
+    TCatalogJson.SaveToFile(Catalog, CatalogFileName);
+    Recovered := TScanCatalogMerger.RecoverWorkspaceSemanticContracts(
+      CatalogDirectory, 'SemanticContractApp', 'en-US', tfFireMonkey,
       ScanResult);
     Require(Recovered = 1,
       'The stable semantic contract was not added to the canonical scan.');
@@ -2159,6 +2181,8 @@ begin
     ScanResult.Free;
     Catalog.Free;
     TFile.Delete(PascalFileName);
+    if TDirectory.Exists(CatalogDirectory) then
+      TDirectory.Delete(CatalogDirectory, True);
   end;
 end;
 

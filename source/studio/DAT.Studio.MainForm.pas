@@ -1445,6 +1445,11 @@ begin
                 FTranslationCatalog.SourceLanguage :=
                   SelectedLanguageCode(cboSourceLanguage);
               end;
+              TScanCatalogMerger.RecoverWorkspaceSemanticContracts(
+                TTranslationWorkspace.DevelopmentDirectory(FProjectProfile),
+                FProjectProfile.ProjectName,
+                SelectedLanguageCode(cboSourceLanguage),
+                FProjectProfile.Framework, FScanResult);
               MergeSummary := TScanCatalogMerger.Merge(FScanResult,
                 FTranslationCatalog);
               DisplayCatalogEntries;
