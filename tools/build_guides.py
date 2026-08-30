@@ -37,6 +37,13 @@ def set_cell_shading(cell, fill: str) -> None:
         properties.append(shading)
     shading.set(qn("w:fill"), fill)
 
+
+def set_picture_alt_text(inline_shape, description: str) -> None:
+    """Add accessible alternative text to a python-docx inline picture."""
+    document_properties = inline_shape._inline.docPr
+    document_properties.set("descr", description)
+    document_properties.set("title", description)
+
 def set_table_geometry(table, widths: list[int], indent: int = 120) -> None:
     if sum(widths) != 9360:
         raise ValueError("Table widths must total 9360 DXA.")
@@ -230,7 +237,11 @@ def add_cover(document: Document, title: str, subtitle: str) -> None:
     logo = document.add_paragraph()
     logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     if ICON.exists():
-        logo.add_run().add_picture(str(ICON), width=Inches(1.5))
+        icon = logo.add_run().add_picture(str(ICON), width=Inches(1.5))
+        set_picture_alt_text(
+            icon,
+            "Delphi App Translation Studio application icon",
+        )
 
     heading = document.add_paragraph(style="Title")
     heading.alignment = WD_ALIGN_PARAGRAPH.CENTER

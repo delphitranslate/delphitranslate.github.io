@@ -149,8 +149,18 @@ Step 'Harnesses' {
       # fixtures relative to the working directory, so running them
       # from anywhere else fails on a missing file rather than on
       # anything they were written to test.
+      $runArguments = @()
+      if ($name -eq 'ScannerSmokeTests') {
+        $runArguments = @(
+          (Join-Path $ProjectRoot 'samples\VCLBasic\SampleVCL.MainForm.pas'))
+      }
+      elseif ($name -eq 'VCLDiscoverySmokeTests') {
+        $runArguments = @(
+          (Join-Path $ProjectRoot `
+            'samples\VCLTranslationTestApp\Win32\Debug\Localization\Languages'))
+      }
       Push-Location $ProjectRoot
-      try { $null = & (Join-Path $output "$name.exe") }
+      try { $null = & (Join-Path $output "$name.exe") @runArguments }
       finally { Pop-Location }
       # 2 means the harness said it could not run here - a sample application
       # that has not been built, a language Windows does not have. That is not

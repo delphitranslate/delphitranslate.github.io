@@ -37,8 +37,11 @@ type
     ActiveFormSeen: string;
     ActiveIsDialog: Boolean;
     FormCount: Integer;
+    ErrorCount: Integer;
     Dialog: TForm;
     procedure Tick(Sender: TObject);
+    procedure TranslationError(Sender: TObject; const AContext,
+      AMessage: string; var AHandled: Boolean);
   end;
 
 procedure TModalProbe.Tick(Sender: TObject);
@@ -84,8 +87,19 @@ end;
 
 function PackFolder: string;
 begin
-  Result := TPath.GetFullPath(TPath.Combine(ExtractFilePath(ParamStr(0)),
-    '..\..\..\samples\VCLTranslationTestApp\Win32\Debug\Localization\Languages'));
+  if ParamCount >= 1 then
+    Result := TPath.GetFullPath(ParamStr(1))
+  else
+    Result := TPath.GetFullPath(TPath.Combine(ExtractFilePath(ParamStr(0)),
+      '..\..\..\samples\VCLTranslationTestApp\Win32\Debug\Localization\Languages'));
+end;
+
+procedure TModalProbe.TranslationError(Sender: TObject; const AContext,
+  AMessage: string; var AHandled: Boolean);
+begin
+  Inc(ErrorCount);
+  Writeln('        translation error : ', AContext, ' - ', AMessage);
+  AHandled := True;
 end;
 
 var
@@ -202,10 +216,15 @@ begin
       Application.CreateForm(TfrmVCLTestDetails, frmVCLTestDetails);
       Check(frmVCLTestMain.DATManager.Initialized,
         'The real manager initialised as its form loaded.');
+      frmVCLTestMain.DATManager.OnTranslationError :=
+        RealProbe.TranslationError;
       Check(frmVCLTestMain.DATManager.SelectLanguage('es-ES'),
         'The real manager selected Spanish.');
       frmVCLTestMain.Show;
-      Pump(5);
+      { VCL's nonexclusive discovery contract is the bounded idle scan. Give
+        it one complete configured interval rather than treating a 100 ms
+        message pump as though it were that lifecycle boundary. }
+      Pump(60);
       Check(frmVCLTestMain.Caption = 'Aplicaci' + #243 + 'n de prueba de traducci' + #243 + 'n VCL',
         'The main form is translated: "' + frmVCLTestMain.Caption + '".');
 
@@ -276,6 +295,9 @@ begin
       Check(frmVCLTestMain.lblIntro.Font.Size = 9,
         Format('and at its designed font size of 9, not %d.',
           [frmVCLTestMain.lblIntro.Font.Size]));
+      Check(RealProbe.ErrorCount = 0,
+        Format('No translation error was swallowed during real-form testing; ' +
+          '%d error(s) were reported.', [RealProbe.ErrorCount]));
 
       frmVCLTestMain.Free;
     finally

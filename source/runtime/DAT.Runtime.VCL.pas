@@ -177,7 +177,7 @@ begin
     if not TryStrToFloat(AValue, FloatValue, TFormatSettings.Invariant) or
       (FloatValue <= 0) or (FloatValue > 400) then
       Exit;
-    PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'Font');
+    PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'Font', [tkClass]);
     if PropertyInfo = nil then
       Exit;
     FontObject := GetObjectProp(AComponent, PropertyInfo);
@@ -959,7 +959,7 @@ begin
     Exit;
   { Then the heading, for a grid with no data behind it. Title is an object of
     its own, so its Caption is a second hop rather than a dotted name. }
-  PropertyInfo := GetPropInfo(AItem.ClassInfo, 'Title');
+  PropertyInfo := GetPropInfo(AItem.ClassInfo, 'Title', [tkClass]);
   if PropertyInfo <> nil then
   begin
     TitleObject := GetObjectProp(AItem, PropertyInfo);
@@ -982,7 +982,7 @@ begin
   ACollection := nil;
   if AComponent = nil then
     Exit;
-  PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'Columns');
+  PropertyInfo := GetPropInfo(AComponent.ClassInfo, 'Columns', [tkClass]);
   if PropertyInfo = nil then
     Exit;
   CollectionObject := GetObjectProp(AComponent, PropertyInfo);
@@ -1744,7 +1744,8 @@ var
       Exit;
     for Index := 0 to Collection.Count - 1 do
     begin
-      PropertyInfo := GetPropInfo(Collection.Items[Index].ClassInfo, 'Title');
+      PropertyInfo := GetPropInfo(Collection.Items[Index].ClassInfo, 'Title',
+        [tkClass]);
       if PropertyInfo = nil then
         Continue;
       TitleObject := GetObjectProp(Collection.Items[Index], PropertyInfo);
