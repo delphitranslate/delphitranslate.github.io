@@ -86,9 +86,9 @@ type
     class function RefreshDirectionLayout(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack;
       const AFormIdentity: string): Integer; static;
-    { Applies only the browser document layout contract.  It does not translate
-      DOM text, navigate, or replace application HTML, so it is safe for every
-      embedded browser whether TranslateBrowserContent is enabled or not. }
+    { Compatibility entry point retained for existing applications. Browser
+      documents are now complete application-owned HTML/CSS and this method
+      intentionally performs no runtime DOM work. }
     class function RefreshBrowserLayout(const AForm: TCommonCustomForm;
       const APack: TRuntimeLanguagePack): Integer; static;
     { Adjustments a person made while the application was running, applied
@@ -111,7 +111,6 @@ uses
   System.Classes,
   System.Generics.Defaults,
   System.IOUtils,
-  System.JSON,
   System.Math,
   System.SysUtils,
   System.StrUtils,
@@ -127,28 +126,11 @@ uses
   FMX.Graphics,
   FMX.StdCtrls,
   FMX.TabControl,
-  FMX.TextLayout,
-  FMX.WebBrowser;
+  FMX.TextLayout;
 
 const
   { U+00AD, the break offered inside a word. }
   SoftHyphenMark = #$00AD;
-
-type
-  TBrowserTranslationRetry = class(TComponent)
-  private
-    FAttempts: Integer;
-    FBrowser: TCustomWebBrowser;
-    FScript: string;
-    FTimer: TTimer;
-    procedure TimerTick(Sender: TObject);
-  protected
-    procedure Notification(AComponent: TComponent;
-      Operation: TOperation); override;
-  public
-    constructor Create(ABrowser: TCustomWebBrowser;
-      const AScript: string); reintroduce;
-  end;
 
 const
   DATRuntimeDebugLogFileName = 'DAT_Translation_Debug_Log.txt';
@@ -185,281 +167,6 @@ begin
   if (AComponent = nil) or (Trim(AComponent.Name) = '') then
     Exit('');
   Result := AFormIdentity + '.' + AComponent.Name;
-end;
-
-constructor TBrowserTranslationRetry.Create(ABrowser: TCustomWebBrowser;
-  const AScript: string);
-begin
-  inherited Create(ABrowser);
-  FBrowser := ABrowser;
-  FScript := AScript;
-  if FBrowser <> nil then
-    FBrowser.FreeNotification(Self);
-  FTimer := TTimer.Create(Self);
-  FTimer.Interval := 175;
-  FTimer.OnTimer := TimerTick;
-  FTimer.Enabled := True;
-end;
-
-procedure TBrowserTranslationRetry.Notification(AComponent: TComponent;
-  Operation: TOperation);
-begin
-  inherited;
-  if (Operation = opRemove) and (AComponent = FBrowser) then
-  begin
-    FBrowser := nil;
-    if FTimer <> nil then
-      FTimer.Enabled := False;
-  end;
-end;
-
-procedure TBrowserTranslationRetry.TimerTick(Sender: TObject);
-begin
-  Inc(FAttempts);
-  if FBrowser = nil then
-  begin
-    FTimer.Enabled := False;
-    Exit;
-  end;
-  try
-    DATRuntimeDebugLog(Format(
-      'Browser retry attempt %d on %s.%s; script length=%d',
-      [FAttempts, FBrowser.ClassName, FBrowser.Name, Length(FScript)]));
-    FBrowser.EvaluateJavaScript(FScript);
-    { EvaluateJavaScript returning means the platform accepted the script.
-      The script owns its small document-readiness wait from here; repeatedly
-      reinjecting it creates overlapping retry trees and stalls the UI. }
-    FTimer.Enabled := False;
-  except
-    on E: Exception do
-      DATRuntimeDebugLog(Format(
-        'Browser retry attempt %d failed on %s.%s: %s: %s',
-        [FAttempts, FBrowser.ClassName, FBrowser.Name, E.ClassName,
-        E.Message]));
-  end;
-  if FAttempts >= 12 then
-    FTimer.Enabled := False;
-end;
-
-{ Browser text is translated inside the document because it is not exposed
-  as an FMX Text or Caption property. The work must remain bounded: embedded
-  browsers can contain thousands of text nodes, and a language change runs on
-  the UI thread. }
-
-function JavaScriptString(const AValue: string): string;
-var
-  JsonString: TJSONString;
-begin
-  JsonString := TJSONString.Create(AValue);
-  try
-    Result := JsonString.ToJSON;
-  finally
-    JsonString.Free;
-  end;
-end;
-
-function ApplyBrowserLayoutContract(const AComponent: TComponent;
-  const APack: TRuntimeLanguagePack): Integer;
-var
-  CssText: string;
-  ScriptText: string;
-begin
-  Result := 0;
-  if not (AComponent is TCustomWebBrowser) or (APack = nil) then
-    Exit;
-
-  { The browser document remains the application's UI.  Its tables must also
-    remain tables: one browser-computed column grid shared by THEAD and TBODY.
-    Do not measure or reposition individual headings.  That splits one stable
-    table layout into two independent layouts and makes a heading drift away
-    from the data cell which defines the same column.
-
-    The contract supplies only the universal browser defaults a translated data
-    table needs: automatic column sizing, normal wrapping, and logical-start
-    headings.  It carries no application class names, column widths, coordinates,
-    padding, or fixed text sizes.  The application's own HTML continues to own
-    those design decisions. }
-  CssText :=
-    'html,body{max-inline-size:100%}' +
-    '[data-dat-fit="wrap"]{max-inline-size:100%;white-space:normal!important;' +
-      'overflow-wrap:anywhere!important;word-break:normal!important}' +
-    { A more-specific application rule may request a fixed table.  The runtime
-      contract has to win that one property or translated intrinsic widths are
-      never considered.  Width, per-column proportions, padding and scrolling
-      remain application-owned. }
-    'img,svg,canvas{max-inline-size:100%}' +
-    'table{min-inline-size:100%!important;max-inline-size:none!important;' +
-      'table-layout:auto!important}' +
-    'tr{height:auto!important}' +
-    'th,td{height:auto!important;min-block-size:0;white-space:normal!important;' +
-      'overflow:visible!important;overflow-wrap:normal!important;' +
-      'word-break:normal!important}' +
-    'th{text-align:start!important;hyphens:auto!important;' +
-      '-webkit-hyphens:auto!important}';
-
-  ScriptText := '(function(){var d=' +
-    JavaScriptString(LowerCase(Trim(APack.TextDirection))) + ',l=' +
-    JavaScriptString(Trim(APack.LanguageCode)) + ',c=' +
-    JavaScriptString(CssText) +
-    ';function num(v){v=parseFloat(v);return isFinite(v)?v:0;}' +
-    'function resetFont(e){var a="data-dat-original-inline-font",v;' +
-      'if(!e.hasAttribute(a)){v=e.style.fontSize;e.setAttribute(a,v?v:"!");}' +
-      'v=e.getAttribute(a);if(v==="!"){e.style.removeProperty("font-size");}' +
-      'else{e.style.fontSize=v;}}' +
-    'function overflowing(e){return e.clientWidth>0&&e.clientHeight>0&&' +
-      '(e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1);}' +
-    'function fit(e,min){var z,m;resetFont(e);e.removeAttribute("data-dat-fit");' +
-      'if(!overflowing(e)){return;}e.setAttribute("data-dat-fit","wrap");' +
-      'if(!overflowing(e)){return;}z=num(getComputedStyle(e).fontSize);' +
-      'm=Math.max(min||8,z*.8);while(z-.5>=m&&overflowing(e)){' +
-      'z-=.5;e.style.fontSize=z+"px";}}' +
-    'function run(){var h=document.documentElement,b=document.body,s,n,i;' +
-    'if(!h){return;}h.setAttribute("dir",d);if(l){h.setAttribute("lang",l);}' +
-    'if(h.getAttribute("data-dat-layout-language")!==l){' +
-      'h.setAttribute("data-dat-layout-language",l);h.scrollTop=0;' +
-      'if(b){b.scrollTop=0;}}' +
-    'h.style.direction=d;if(b){b.setAttribute("dir",d);b.style.direction=d;' +
-    'b.style.textAlign="start";}s=document.getElementById("dat-runtime-layout-contract");' +
-    'if(!s&&document.head){s=document.createElement("style");' +
-    's.id="dat-runtime-layout-contract";document.head.appendChild(s);}' +
-    'if(s){s.textContent=c;}' +
-    'n=document.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,dt,dd,caption,figcaption,' +
-      'button,[role=button],[role=note]");' +
-    'for(i=0;i<n.length;i++){fit(n[i]);}}' +
-    'if(document.readyState==="loading"){' +
-    'document.addEventListener("DOMContentLoaded",function(){run();' +
-    'requestAnimationFrame(run);window.setTimeout(run,120);window.setTimeout(run,450);},' +
-    '{once:true});}else{run();requestAnimationFrame(run);window.setTimeout(run,120);' +
-    'window.setTimeout(run,450);}})();';
-  try
-    TCustomWebBrowser(AComponent).EvaluateJavaScript(ScriptText);
-    Result := 1;
-  except
-    on E: Exception do
-      DATRuntimeDebugLog(Format(
-        'Browser layout contract deferred on %s.%s: %s: %s',
-        [AComponent.ClassName, AComponent.Name, E.ClassName, E.Message]));
-  end;
-end;
-
-function ApplyBrowserText(const AComponent: TComponent;
-  const APack: TRuntimeLanguagePack): Integer;
-var
-  Candidate: string;
-  Key: string;
-  NeedsRetry: Boolean;
-  Pairs: TStringList;
-  PairMap: TDictionary<string, string>;
-  Script: TStringBuilder;
-  ScriptText: string;
-  SourceText: string;
-  TranslatedText: string;
-
-  procedure LogKnownBrowserTerm(const ASourceText: string);
-  var
-    LogTranslation: string;
-  begin
-    LogTranslation := '';
-    if APack.TryTranslateSource(ASourceText, LogTranslation) or
-      APack.TryTranslateDynamicText(ASourceText, LogTranslation) then
-      DATRuntimeDebugLog(Format('Browser term "%s" -> "%s"',
-        [ASourceText, LogTranslation]))
-    else
-      DATRuntimeDebugLog(Format('Browser term "%s" has no runtime translation',
-        [ASourceText]));
-  end;
-
-  procedure AddBrowserPair(const ASourceText, ATranslatedText: string);
-  begin
-    if (Trim(ASourceText) = '') or (Trim(ATranslatedText) = '') or
-      SameText(ASourceText, ATranslatedText) then
-      Exit;
-    if not PairMap.ContainsKey(ASourceText) then
-      PairMap.Add(ASourceText, ATranslatedText);
-  end;
-begin
-  Result := 0;
-  if not (AComponent is TCustomWebBrowser) then
-    Exit;
-  PairMap := TDictionary<string, string>.Create;
-  Pairs := TStringList.Create;
-  Pairs.Sorted := True;
-  Pairs.Duplicates := dupIgnore;
-  Script := TStringBuilder.Create;
-  try
-    DATRuntimeDebugLog(Format('ApplyBrowserText start: %s.%s language=%s',
-      [AComponent.ClassName, AComponent.Name, APack.LanguageCode]));
-    for Key in APack.Sources.Keys do
-      if APack.Strings.TryGetValue(Key, TranslatedText) then
-      begin
-        SourceText := APack.Sources[Key];
-        AddBrowserPair(SourceText, TranslatedText);
-      end;
-    for Candidate in APack.SourceStrings.Keys do
-    begin
-      TranslatedText := APack.SourceStrings[Candidate];
-      AddBrowserPair(Candidate, TranslatedText);
-    end;
-    for Candidate in APack.SourceTemplates.Keys do
-    begin
-      TranslatedText := APack.SourceTemplates[Candidate];
-      { Format strings belong to code, not browser text nodes. }
-      if (Pos('%', Candidate) = 0) and (Pos('%', TranslatedText) = 0) and
-        (Trim(Candidate) <> '') and (Trim(TranslatedText) <> '') then
-        AddBrowserPair(Candidate, TranslatedText);
-    end;
-    LogKnownBrowserTerm('Time');
-    LogKnownBrowserTerm('Type');
-    for Candidate in PairMap.Keys do
-      Pairs.Add(JavaScriptString(Candidate) + ',' +
-        JavaScriptString(PairMap[Candidate]));
-    if Pairs.Count = 0 then
-    begin
-      DATRuntimeDebugLog('ApplyBrowserText stopped: no browser text pairs.');
-      Exit;
-    end;
-    { Build a dictionary once, then each DOM text node is one lookup. The old
-      nested loop compared every node with every pack string and multiplied
-      that work again through two independent forty-pass retry loops. }
-    Script.Append('(function(){var a=[');
-    for Candidate in Pairs do
-    begin
-      if Script.Chars[Script.Length - 1] <> '[' then
-        Script.Append(',');
-      Script.Append('[').Append(Candidate).Append(']');
-    end;
-    Script.Append('],p=Object.create(null),i,d=')
-      .Append(JavaScriptString(LowerCase(Trim(APack.TextDirection))))
-      .Append(';for(i=0;i<a.length;i++){p[a[i][0]]=a[i][1];}')
-      .Append('function trim(s){return String(s).replace(/^\\s+|\\s+$/g,"");}')
-      .Append('function contract(){var h=document.documentElement,b=document.body;if(h){h.setAttribute("dir",d);h.style.direction=d;}if(b){b.setAttribute("dir",d);b.style.direction=d;b.style.textAlign="start";}}')
-      .Append('function apply(n){var c=0,v,l,r,ch,t,s;if(!n){return 0;}if(n.nodeType===1&&/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|CODE|PRE|TEXTAREA)$/i.test(n.nodeName)){return 0;}if(n.nodeType===1&&n.hasAttribute&&n.hasAttribute("data-dat-heading-source")){s=n.getAttribute("data-dat-heading-original")||trim(n.textContent);if(Object.prototype.hasOwnProperty.call(p,s)){n.textContent=p[s];c++;}return c;}if(n.nodeType===3){v=n.nodeValue;t=trim(v);if(Object.prototype.hasOwnProperty.call(p,t)){l=(v.match(/^\\s*/)||[""])[0];r=(v.match(/\\s*$/)||[""])[0];n.nodeValue=l+p[t]+r;c++;}return c;}ch=n.firstChild;while(ch){c+=apply(ch);ch=ch.nextSibling;}return c;}')
-      .Append('function run(){if(!document.body){return 0;}contract();return apply(document.body);}var tries=0;function retry(){try{if(document.body){run();return;}}catch(e){}tries++;if(tries<20){window.setTimeout(retry,150);}}retry();})();');
-    ScriptText := Script.ToString;
-    DATRuntimeDebugLog(Format(
-      'ApplyBrowserText executing: pairs=%d script length=%d',
-      [Pairs.Count, Length(ScriptText)]));
-    NeedsRetry := False;
-    try
-      TCustomWebBrowser(AComponent).EvaluateJavaScript(ScriptText);
-    except
-      on E: Exception do
-      begin
-        NeedsRetry := True;
-        DATRuntimeDebugLog(Format(
-          'ApplyBrowserText immediate EvaluateJavaScript failed on %s.%s: %s: %s',
-          [AComponent.ClassName, AComponent.Name, E.ClassName, E.Message]));
-      end;
-    end;
-    if NeedsRetry then
-      TBrowserTranslationRetry.Create(TCustomWebBrowser(AComponent),
-        ScriptText);
-    Result := Pairs.Count;
-  finally
-    Script.Free;
-    Pairs.Free;
-    PairMap.Free;
-  end;
 end;
 
 { Text settings, reached the way FireMonkey means them to be reached.
@@ -2079,17 +1786,25 @@ begin
     [tkString, tkLString, tkWString, tkUString]);
   if PropertyInfo = nil then
     Exit;
-  Key := ComponentKey(AFormIdentity, AForm, AComponent, APropertyName);
-  if not APack.TryGetSource(Key, SourceText) then
-    Exit;
   CurrentText := GetStrProp(AComponent, PropertyInfo);
-  if CurrentText = SourceText then
-    Exit;
-  if APack.TryGetText(Key, TranslatedText) and
-    (StringReplace(CurrentText, SoftHyphenMark, '', [rfReplaceAll]) =
-     StringReplace(TranslatedText, SoftHyphenMark, '', [rfReplaceAll])) then
-    RestoredText := SourceText
+  Key := ComponentKey(AFormIdentity, AForm, AComponent, APropertyName);
+  if APack.TryGetSource(Key, SourceText) then
+  begin
+    if CurrentText = SourceText then
+      Exit;
+    if APack.TryGetText(Key, TranslatedText) and
+      (StringReplace(CurrentText, SoftHyphenMark, '', [rfReplaceAll]) =
+       StringReplace(TranslatedText, SoftHyphenMark, '', [rfReplaceAll])) then
+      RestoredText := SourceText
+    else if not APack.TryRestoreDynamicText(CurrentText, RestoredText) then
+      Exit;
+  end
   else if not APack.TryRestoreDynamicText(CurrentText, RestoredText) then
+    { Runtime-written labels can be deliberately excluded from designer-key
+      translation while still having stable semantic runtime entries.  They
+      have no form-property source key to restore through, so use only the
+      active pack's exact reverse map.  Unknown live application data remains
+      untouched. }
     Exit;
   SetStrProp(AComponent, PropertyInfo, RestoredText);
   Result := True;
@@ -2645,41 +2360,12 @@ end;
 
 class function TFMXTranslationApplicator.RefreshBrowserLayout(
   const AForm: TCommonCustomForm; const APack: TRuntimeLanguagePack): Integer;
-var
-  Visited: TDictionary<TComponent, Boolean>;
-
-  procedure Visit(const AComponent: TComponent);
-  var
-    ChildIndex: Integer;
-    FMXObject: TFmxObject;
-  begin
-    if (AComponent = nil) or Visited.ContainsKey(AComponent) then
-      Exit;
-    Visited.Add(AComponent, True);
-    Inc(Result, ApplyBrowserLayoutContract(AComponent, APack));
-    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
-      Visit(AComponent.Components[ChildIndex]);
-    { Runtime-created FMX browsers are often parented into the visual tree
-      without being owned by the form.  The layout pass must follow both
-      trees or it never reaches the HTML document that is actually visible. }
-    if AComponent is TFmxObject then
-    begin
-      FMXObject := TFmxObject(AComponent);
-      for ChildIndex := 0 to FMXObject.ChildrenCount - 1 do
-        if FMXObject.Children[ChildIndex] is TComponent then
-          Visit(TComponent(FMXObject.Children[ChildIndex]));
-    end;
-  end;
 begin
   Result := 0;
-  if (AForm = nil) or (APack = nil) then
-    Exit;
-  Visited := TDictionary<TComponent, Boolean>.Create;
-  try
-    Visit(AForm);
-  finally
-    Visited.Free;
-  end;
+  { Compatibility entry point retained for existing applications. Browser
+    layout is owned entirely by the complete HTML document and its ordinary
+    CSS before it is loaded; the translation runtime performs no DOM or
+    JavaScript layout mutation. }
 end;
 
 class function TFMXTranslationApplicator.RestoreSourceLanguage(
@@ -2870,18 +2556,11 @@ var
           LocalPropertyName, LocalPropertyName + '.Strings', APack,
           APreserveControlState));
       Inc(Result, ApplyGridText(FormIdentity, AComponent, APack));
-      { Browser geometry is a layout concern even when application HTML owns
-        all of its text.  Keep this independent of the opt-in DOM translation
-        pass so tables and headings remain readable in every language. }
-      Inc(Result, ApplyBrowserLayoutContract(AComponent, APack));
-      { Evaluating script in a platform browser can block the FMX UI thread for
-        seconds, especially when several browser controls have already been
-        created on inactive tabs. Generated HTML has the keyed
-        DATTranslateText/DATTranslateHtmlText contract, so DOM post-processing
-        is an explicit compatibility option rather than a cost every
-        application pays on every language switch. }
-      if ATranslateBrowserContent then
-        Inc(Result, ApplyBrowserText(AComponent, APack));
+      { Browser documents are complete application-owned HTML. Browser text is
+        translated before loading through DATTranslateText or
+        DATTranslateHtmlText; the FMX runtime never mutates the DOM. The
+        ATranslateBrowserContent parameter remains only for source and binary
+        compatibility with existing applications. }
       for ChildIndex := 0 to AComponent.ComponentCount - 1 do
         ApplyComponentTree(AComponent.Components[ChildIndex]);
     finally

@@ -50,6 +50,7 @@ uses
   DAT.Core.LocaleFacts in '..\source\core\DAT.Core.LocaleFacts.pas',
   DAT.Core.BuildInfo in '..\source\core\DAT.Core.BuildInfo.pas',
   DAT.Core.AITranslation in '..\source\core\DAT.Core.AITranslation.pas',
+  DAT.Runtime.LanguagePack in '..\source\runtime\DAT.Runtime.LanguagePack.pas',
   DAT.Scan.Types in '..\source\scan\DAT.Scan.Types.pas',
   DAT.Scan.Project in '..\source\scan\DAT.Scan.Project.pas',
   DAT.Scan.CatalogMerge in '..\source\scan\DAT.Scan.CatalogMerge.pas',
@@ -77,6 +78,7 @@ type
     ApiKey: string;
     OutputDirectory: string;
     KitDirectory: string;
+    ImportDirectory: string;
     Translate: Boolean;
     Valid: Boolean;
     Problem: string;
@@ -102,6 +104,7 @@ begin
   Say('  --key <apikey>              the key for that service');
   Say('  --out <folder>              where to write the packs');
   Say('  --kit <folder>              also generate the component kit there');
+  Say('  --import <folder>           reuse translations from prior runtime packs');
   Say('  --no-translate              plan and export from existing catalogs only');
   Say('');
   Say('The target project is read and never written to.');
@@ -192,6 +195,7 @@ begin
   ArgumentValue('--key', Result.ApiKey);
   ArgumentValue('--out', Result.OutputDirectory);
   ArgumentValue('--kit', Result.KitDirectory);
+  ArgumentValue('--import', Result.ImportDirectory);
 
   if Result.Translate and (Trim(Result.ApiKey) = '') then
   begin
@@ -203,6 +207,58 @@ begin
   end;
 
   Result.Valid := True;
+end;
+
+function ImportPriorRuntimePack(const ACatalog: TTranslationCatalog;
+  const AProfile: TProjectProfile; const AImportDirectory,
+  ALanguageCode: string): Integer;
+var
+  Entry: TTranslationEntry;
+  FileName: string;
+  Pack: TRuntimeLanguagePack;
+  SourceText: string;
+  TranslatedText: string;
+begin
+  Result := 0;
+  if Trim(AImportDirectory) = '' then
+    Exit;
+  FileName := TPath.Combine(AImportDirectory, ALanguageCode + '.json');
+  if not TFile.Exists(FileName) then
+    Exit;
+  Pack := TRuntimeLanguagePack.LoadFromFile(FileName);
+  try
+    if not SameText(Pack.ApplicationId, AProfile.ProjectName) or
+      not SameText(Pack.SourceLanguage, ACatalog.SourceLanguage) or
+      not SameText(Pack.LanguageCode, ALanguageCode) or
+      not SameText(Pack.Framework,
+        TargetFrameworkToString(AProfile.Framework)) then
+      raise Exception.CreateFmt(
+        'Prior pack is not compatible with this application: %s',
+        [FileName]);
+    for Entry in ACatalog.Entries do
+    begin
+      if (Entry.Status in [tsExcluded, tsObsolete, tsError]) or
+        ((Trim(Entry.TranslatedText) <> '') and
+         (Entry.Status <> tsSourceChanged)) then
+        Continue;
+      TranslatedText := '';
+      if Pack.Sources.TryGetValue(Entry.Key, SourceText) and
+        (SourceText = Entry.SourceText) then
+      begin
+        if not Pack.Strings.TryGetValue(Entry.Key, TranslatedText) then
+          Pack.Templates.TryGetValue(Entry.Key, TranslatedText);
+      end;
+      if (TranslatedText = '') then
+        Pack.TryTranslateDynamicText(Entry.SourceText, TranslatedText);
+      if TranslatedText = '' then
+        Continue;
+      Entry.TranslatedText := TranslatedText;
+      Entry.Status := tsImported;
+      Inc(Result);
+    end;
+  finally
+    Pack.Free;
+  end;
 end;
 
 { One language, start to finish. Answers True when a pack was written. }
@@ -275,9 +331,15 @@ begin
 
   try
     Merge := TScanCatalogMerger.Merge(AScanResult, Catalog);
-    Say(Format('  scanned: %d added, %d changed, %d obsolete, %d in all',
-      [Merge.NewEntries, Merge.ChangedEntries, Merge.ObsoleteEntries,
-       Catalog.Entries.Count]));
+    Say(Format('  scanned: %d added, %d migrated, %d changed, %d obsolete, %d in all',
+      [Merge.NewEntries, Merge.MigratedEntries, Merge.ChangedEntries,
+       Merge.ObsoleteEntries, Catalog.Entries.Count]));
+
+    Reused := ImportPriorRuntimePack(Catalog, AProfile,
+      AOptions.ImportDirectory, ALanguageCode);
+    if Reused > 0 then
+      Say(Format('  reused %d unchanged entry(ies) from prior runtime pack',
+        [Reused]));
 
     { Keep headless regeneration equivalent to the Studio. Authoritative UI
       terminology is deliberately allowed to repair an older provider result;
@@ -433,6 +495,9 @@ var
   Options: TBatchOptions;
   Profile: TProjectProfile;
   ScanResult: TProjectScanResult;
+  RecoveryCatalog: TTranslationCatalog;
+  RecoveryCatalogFileName: string;
+  RecoveredContracts: Integer;
   Language: string;
   Written: Integer;
   KitPath: string;
@@ -489,6 +554,37 @@ begin
     try
       Say(Format('Scanned : %d item(s) from %d file(s)',
         [ScanResult.Items.Count, ScanResult.FilesScanned]));
+
+      { Every target must be built from one source contract. Older catalogs
+        may contain different subsets of explicit semantic keys, so recover
+        the verified union into the shared scan before merging any target.
+        Translation text remains language-local and is never copied here. }
+      RecoveredContracts := 0;
+      for Language in Options.Languages do
+      begin
+        RecoveryCatalogFileName :=
+          TTranslationWorkspace.DevelopmentCatalogFileName(Profile,
+            Language);
+        if not TFile.Exists(RecoveryCatalogFileName) then
+          Continue;
+        RecoveryCatalog := TCatalogJson.LoadFromFile(
+          RecoveryCatalogFileName);
+        try
+          if SameText(RecoveryCatalog.ApplicationId,
+            Profile.ProjectName) and
+            SameText(RecoveryCatalog.SourceLanguage,
+              Options.SourceLanguage) and
+            (RecoveryCatalog.Framework = Profile.Framework) then
+            Inc(RecoveredContracts,
+              TScanCatalogMerger.RecoverStableSemanticContracts(
+                RecoveryCatalog, ScanResult));
+        finally
+          RecoveryCatalog.Free;
+        end;
+      end;
+      if RecoveredContracts > 0 then
+        Say(Format('Recovered: %d stable semantic contract(s); %d canonical item(s)',
+          [RecoveredContracts, ScanResult.Items.Count]));
 
       Written := 0;
       for Language in Options.Languages do

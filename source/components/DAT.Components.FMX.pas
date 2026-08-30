@@ -45,8 +45,9 @@ type
     FDynamicRefreshBusy: Boolean;
     FDynamicTimer: TTimer;
     FTranslateBrowserContent: Boolean;
-    FBrowserLayoutTimer: TTimer;
-    FBrowserLayoutAttempts: Integer;
+    FBrowserTranslationRegistered: Boolean;
+    FBrowserLifecycleTimer: TTimer;
+    FBrowserLifecycleAttempts: Integer;
     FTransitionActive: Boolean;
     FTransitionGeneration: Cardinal;
     FTransitionForms: TList<TCommonCustomForm>;
@@ -60,11 +61,11 @@ type
     procedure ApplyBrowserAndScrollContracts(
       const AForm: TCommonCustomForm);
     procedure ApplyScrollBottomGutter(const AForm: TCommonCustomForm);
-    procedure BrowserLayoutTimerTick(Sender: TObject);
+    procedure BrowserLifecycleTimerTick(Sender: TObject);
     procedure EnsureBrowserLifecycleContracts(
       const AForm: TCommonCustomForm);
     procedure EnsureDynamicTimer;
-    procedure EnsureBrowserLayoutTimer;
+    procedure EnsureBrowserLifecycleTimer;
     procedure DynamicTimerTick(Sender: TObject);
     procedure HandleBrowserDidFailLoad(Sender: TObject);
     procedure HandleBrowserDidFinishLoad(Sender: TObject);
@@ -80,9 +81,10 @@ type
       const ACaptureRequestedVisibility: Boolean);
     procedure SynchronizeBrowserVisibility(
       const AForm: TCommonCustomForm);
-    procedure ScheduleBrowserLayoutRefresh;
+    procedure ScheduleBrowserLifecycleRefresh;
     procedure SetAutoRefreshDynamicText(const Value: Boolean);
     procedure SetDynamicRefreshInterval(const Value: Cardinal);
+    procedure SetTranslateBrowserContent(const Value: Boolean);
     procedure SubscribeToLifecycle;
     procedure UnsubscribeFromLifecycle;
     procedure HandleBeforeShown(const Sender: TObject;
@@ -118,11 +120,11 @@ type
     procedure RefreshDynamicText;
   published
     property AutoRefreshDynamicText: Boolean read FAutoRefreshDynamicText
-      write SetAutoRefreshDynamicText default False;
+      write SetAutoRefreshDynamicText default True;
     property DynamicRefreshInterval: Cardinal read FDynamicRefreshInterval
       write SetDynamicRefreshInterval default 1000;
     property TranslateBrowserContent: Boolean read FTranslateBrowserContent
-      write FTranslateBrowserContent default False;
+      write SetTranslateBrowserContent default True;
   end;
 
 implementation
@@ -132,6 +134,7 @@ uses
   System.UITypes,
   FMX.Controls,
   FMX.Dialogs,
+  FMX.Graphics,
   FMX.Platform,
   DAT.Runtime.SplashTranslation,
   { Named so it is linked at all.
@@ -146,11 +149,11 @@ uses
   DAT.Runtime.FMX;
 
 const
-  { WebView2 can accept script before its final document exists, especially
-    when the browser control is created during FormShow. Keep the retry window
-    bounded, but long enough to reach a normally delayed native browser. }
-  BrowserLayoutRefreshInterval = 250;
-  BrowserLayoutMaximumAttempts = 48;
+  { A browser control can be created during FormShow. Keep the lifecycle
+    discovery window bounded, but long enough to find a normally delayed
+    native browser and connect its load/visibility events. }
+  BrowserLifecycleRefreshInterval = 250;
+  BrowserLifecycleMaximumAttempts = 48;
 
 type
   { FireMonkey sends TDialogService text straight to a platform service.  No
@@ -230,7 +233,84 @@ type
       const AContext: TObject = nil); overload;
   end;
 
+  { TWebBrowser sends LoadFromStrings directly to a platform-created
+    ICustomBrowser.  Decorating that factory gives the translation runtime the
+    complete original HTML before it is rendered.  Only visible text nodes are
+    translated by DATTranslateHtmlText; tags and CSS are passed through byte
+    for byte, with no JavaScript and no DOM or target-application changes. }
+  IDATFMXTranslatedBrowser = interface(IInterface)
+    ['{FEBE0A2D-A815-446E-A46D-9B8CBFA67379}']
+    function InnerBrowser: ICustomBrowser;
+    procedure RefreshTranslatedContent;
+    procedure RetryPendingContent;
+  end;
+
+  TDATFMXTranslatedBrowser = class(TInterfacedObject, ICustomBrowser,
+    IDATFMXTranslatedBrowser)
+  private
+    FBaseUrl: string;
+    FContentDelivered: Boolean;
+    FContentEncoding: TEncoding;
+    FHasSourceContent: Boolean;
+    FInner: ICustomBrowser;
+    FWindowsBrowserProperties: IWindowsBrowserProperties;
+    FSourceContent: string;
+    procedure ClearSourceContent;
+    function NativeBrowserReady: Boolean;
+    procedure RetryPendingContent;
+    function TranslatedContent: string;
+  protected
+    function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
+  public
+    constructor Create(const AInner: ICustomBrowser);
+    function CaptureBitmap: TBitmap;
+    procedure EvaluateJavaScript(const JavaScript: string);
+    function GetCanGoBack: Boolean;
+    function GetCanGoForward: Boolean;
+    function GetEnableCaching: Boolean;
+    function GetParent: TFmxObject;
+    function GetURL: string;
+    function GetVisible: Boolean;
+    procedure GoBack;
+    procedure GoForward;
+    procedure GoHome;
+    procedure Hide;
+    function InnerBrowser: ICustomBrowser;
+    procedure LoadFromStrings(const AContent: string;
+      const ABaseUrl: string); overload;
+    procedure LoadFromStrings(const AContent: string;
+      const AContentEncoding: TEncoding;
+      const ABaseUrl: string); overload;
+    procedure Navigate;
+    procedure RefreshTranslatedContent;
+    procedure Reload;
+    procedure SetEnableCaching(const Value: Boolean);
+    procedure SetURL(const AValue: string);
+    procedure SetWebBrowserControl(const AValue: TCustomWebBrowser);
+    procedure Show;
+    procedure Stop;
+    procedure UpdateContentFromControl;
+  end;
+
+  TDATFMXBrowserTranslationService = class(TInterfacedObject, IFMXWBService)
+  private
+    FOriginal: IFMXWBService;
+    FWrappers: TList<IDATFMXTranslatedBrowser>;
+  public
+    constructor Create(const AOriginal: IFMXWBService);
+    destructor Destroy; override;
+    function CreateWebBrowser: ICustomBrowser;
+    procedure DestroyWebBrowser(const AWebBrowser: ICustomBrowser);
+    procedure RealignBrowsers;
+    procedure RefreshAll;
+    procedure RetryPending;
+  end;
+
 var
+  DATFMXBrowserTranslationEnabledCount: Integer;
+  DATFMXBrowserTranslationServiceObject: TDATFMXBrowserTranslationService;
+  DATFMXOriginalBrowserService: IFMXWBService;
+  DATFMXProxyBrowserService: IFMXWBService;
   DATFMXDialogManagerCount: Integer;
   DATFMXOriginalLegacyService: IFMXDialogService;
   DATFMXOriginalSyncService: IFMXDialogServiceSync;
@@ -238,6 +318,351 @@ var
   DATFMXProxyLegacyService: IFMXDialogService;
   DATFMXProxySyncService: IFMXDialogServiceSync;
   DATFMXProxyAsyncService: IFMXDialogServiceAsync;
+
+constructor TDATFMXTranslatedBrowser.Create(const AInner: ICustomBrowser);
+begin
+  inherited Create;
+  if AInner = nil then
+    raise EArgumentNilException.Create('An FMX browser implementation is required.');
+  FInner := AInner;
+  { TWinWBMediator forwards this interface from its owned native service.
+    Retain it for the proxy lifetime, exactly as TCustomWebBrowser does; a
+    short-lived Supports local can release that service prematurely. }
+  Supports(FInner, IWindowsBrowserProperties, FWindowsBrowserProperties);
+end;
+
+function TDATFMXTranslatedBrowser.QueryInterface(const IID: TGUID;
+  out Obj): HResult;
+begin
+  Result := inherited QueryInterface(IID, Obj);
+  { Preserve every optional native browser interface (including Edge engine
+    selection and asynchronous script evaluation) without implementing or
+    invoking it ourselves. }
+  if (Result <> 0) and (FInner <> nil) then
+    Result := FInner.QueryInterface(IID, Obj);
+end;
+
+procedure TDATFMXTranslatedBrowser.ClearSourceContent;
+begin
+  FBaseUrl := '';
+  FContentDelivered := False;
+  FContentEncoding := nil;
+  FHasSourceContent := False;
+  FSourceContent := '';
+end;
+
+function TDATFMXTranslatedBrowser.NativeBrowserReady: Boolean;
+begin
+  { WebView2 accepts NavigateToString only after its asynchronous native view
+    exists.  Before that point FireMonkey silently discards the document.
+    Other platforms do not expose this Windows-only readiness contract and
+    retain their normal immediate handoff. }
+  if FWindowsBrowserProperties <> nil then
+    Result := not (FWindowsBrowserProperties.GetWindowsActiveEngine in
+      [TWindowsActiveEngine.None, TWindowsActiveEngine.NoneYet])
+  else
+    Result := True;
+end;
+
+procedure TDATFMXTranslatedBrowser.RetryPendingContent;
+var
+  Content: string;
+begin
+  if not FHasSourceContent or FContentDelivered or
+    not NativeBrowserReady then
+    Exit;
+  Content := TranslatedContent;
+  if FContentEncoding = nil then
+    FInner.LoadFromStrings(Content, FBaseUrl)
+  else
+    FInner.LoadFromStrings(Content, FContentEncoding, FBaseUrl);
+  FContentDelivered := True;
+end;
+
+function TDATFMXTranslatedBrowser.TranslatedContent: string;
+begin
+  if DATFMXBrowserTranslationEnabledCount > 0 then
+    Result := DATTranslateHtmlText(FSourceContent)
+  else
+    Result := FSourceContent;
+end;
+
+function TDATFMXTranslatedBrowser.CaptureBitmap: TBitmap;
+begin
+  Result := FInner.CaptureBitmap;
+end;
+
+procedure TDATFMXTranslatedBrowser.EvaluateJavaScript(
+  const JavaScript: string);
+begin
+  FInner.EvaluateJavaScript(JavaScript);
+end;
+
+function TDATFMXTranslatedBrowser.GetCanGoBack: Boolean;
+begin
+  Result := FInner.GetCanGoBack;
+end;
+
+function TDATFMXTranslatedBrowser.GetCanGoForward: Boolean;
+begin
+  Result := FInner.GetCanGoForward;
+end;
+
+function TDATFMXTranslatedBrowser.GetEnableCaching: Boolean;
+begin
+  Result := FInner.GetEnableCaching;
+end;
+
+function TDATFMXTranslatedBrowser.GetParent: TFmxObject;
+begin
+  Result := FInner.GetParent;
+end;
+
+function TDATFMXTranslatedBrowser.GetURL: string;
+begin
+  Result := FInner.GetURL;
+end;
+
+function TDATFMXTranslatedBrowser.GetVisible: Boolean;
+begin
+  Result := FInner.GetVisible;
+end;
+
+procedure TDATFMXTranslatedBrowser.GoBack;
+begin
+  ClearSourceContent;
+  FInner.GoBack;
+end;
+
+procedure TDATFMXTranslatedBrowser.GoForward;
+begin
+  ClearSourceContent;
+  FInner.GoForward;
+end;
+
+procedure TDATFMXTranslatedBrowser.GoHome;
+begin
+  ClearSourceContent;
+  FInner.GoHome;
+end;
+
+procedure TDATFMXTranslatedBrowser.Hide;
+begin
+  FInner.Hide;
+end;
+
+function TDATFMXTranslatedBrowser.InnerBrowser: ICustomBrowser;
+begin
+  Result := FInner;
+end;
+
+procedure TDATFMXTranslatedBrowser.LoadFromStrings(const AContent,
+  ABaseUrl: string);
+var
+  Content: string;
+begin
+  FSourceContent := AContent;
+  FBaseUrl := ABaseUrl;
+  FContentEncoding := nil;
+  FHasSourceContent := True;
+  FContentDelivered := False;
+  if NativeBrowserReady then
+  begin
+    { Keep the managed string in a named local across the interface call. }
+    Content := TranslatedContent;
+    FInner.LoadFromStrings(Content, ABaseUrl);
+    FContentDelivered := True;
+  end;
+end;
+
+procedure TDATFMXTranslatedBrowser.LoadFromStrings(const AContent: string;
+  const AContentEncoding: TEncoding; const ABaseUrl: string);
+var
+  Content: string;
+begin
+  FSourceContent := AContent;
+  FBaseUrl := ABaseUrl;
+  { TEncoding instances passed by an application can be process-owned
+    singletons such as TEncoding.UTF8. Retain the non-owning reference for a
+    delayed handoff; never reconstruct and free an encoding by code page. }
+  FContentEncoding := AContentEncoding;
+  FHasSourceContent := True;
+  FContentDelivered := False;
+  if NativeBrowserReady then
+  begin
+    Content := TranslatedContent;
+    if AContentEncoding = nil then
+      FInner.LoadFromStrings(Content, ABaseUrl)
+    else
+      FInner.LoadFromStrings(Content, AContentEncoding, ABaseUrl);
+    FContentDelivered := True;
+  end;
+end;
+
+procedure TDATFMXTranslatedBrowser.Navigate;
+begin
+  if Trim(FInner.GetURL) <> '' then
+    ClearSourceContent;
+  FInner.Navigate;
+end;
+
+procedure TDATFMXTranslatedBrowser.RefreshTranslatedContent;
+begin
+  if not FHasSourceContent then
+    Exit;
+  FContentDelivered := False;
+  RetryPendingContent;
+end;
+
+procedure TDATFMXTranslatedBrowser.Reload;
+begin
+  FInner.Reload;
+end;
+
+procedure TDATFMXTranslatedBrowser.SetEnableCaching(const Value: Boolean);
+begin
+  FInner.SetEnableCaching(Value);
+end;
+
+procedure TDATFMXTranslatedBrowser.SetURL(const AValue: string);
+begin
+  ClearSourceContent;
+  FInner.SetURL(AValue);
+end;
+
+procedure TDATFMXTranslatedBrowser.SetWebBrowserControl(
+  const AValue: TCustomWebBrowser);
+begin
+  FInner.SetWebBrowserControl(AValue);
+end;
+
+procedure TDATFMXTranslatedBrowser.Show;
+begin
+  FInner.Show;
+end;
+
+procedure TDATFMXTranslatedBrowser.Stop;
+begin
+  FInner.Stop;
+end;
+
+procedure TDATFMXTranslatedBrowser.UpdateContentFromControl;
+begin
+  FInner.UpdateContentFromControl;
+end;
+
+constructor TDATFMXBrowserTranslationService.Create(
+  const AOriginal: IFMXWBService);
+begin
+  inherited Create;
+  if AOriginal = nil then
+    raise EArgumentNilException.Create('The FMX browser service is required.');
+  FOriginal := AOriginal;
+  FWrappers := TList<IDATFMXTranslatedBrowser>.Create;
+end;
+
+destructor TDATFMXBrowserTranslationService.Destroy;
+begin
+  FWrappers.Free;
+  FOriginal := nil;
+  inherited Destroy;
+end;
+
+function TDATFMXBrowserTranslationService.CreateWebBrowser: ICustomBrowser;
+var
+  Browser: TDATFMXTranslatedBrowser;
+  BrowserContract: IDATFMXTranslatedBrowser;
+begin
+  Browser := TDATFMXTranslatedBrowser.Create(FOriginal.CreateWebBrowser);
+  Result := Browser;
+  BrowserContract := Browser;
+  FWrappers.Add(BrowserContract);
+end;
+
+procedure TDATFMXBrowserTranslationService.DestroyWebBrowser(
+  const AWebBrowser: ICustomBrowser);
+var
+  BrowserContract: IDATFMXTranslatedBrowser;
+begin
+  if Supports(AWebBrowser, IDATFMXTranslatedBrowser, BrowserContract) then
+  begin
+    FOriginal.DestroyWebBrowser(BrowserContract.InnerBrowser);
+    FWrappers.Remove(BrowserContract);
+  end
+  else
+    FOriginal.DestroyWebBrowser(AWebBrowser);
+end;
+
+procedure TDATFMXBrowserTranslationService.RealignBrowsers;
+begin
+  FOriginal.RealignBrowsers;
+end;
+
+procedure TDATFMXBrowserTranslationService.RefreshAll;
+var
+  Browser: IDATFMXTranslatedBrowser;
+  Snapshot: TArray<IDATFMXTranslatedBrowser>;
+begin
+  Snapshot := FWrappers.ToArray;
+  for Browser in Snapshot do
+    Browser.RefreshTranslatedContent;
+end;
+
+procedure TDATFMXBrowserTranslationService.RetryPending;
+var
+  Browser: IDATFMXTranslatedBrowser;
+  Snapshot: TArray<IDATFMXTranslatedBrowser>;
+begin
+  Snapshot := FWrappers.ToArray;
+  for Browser in Snapshot do
+    Browser.RetryPendingContent;
+end;
+
+procedure InstallFMXBrowserTranslationService;
+var
+  BrowserService: IFMXWBService;
+begin
+  if DATFMXProxyBrowserService <> nil then
+    Exit;
+  if TPlatformServices.Current = nil then
+    Exit;
+  if not TPlatformServices.Current.SupportsPlatformService(IFMXWBService,
+    BrowserService) or (BrowserService = nil) then
+    Exit;
+  DATFMXOriginalBrowserService := BrowserService;
+  DATFMXBrowserTranslationServiceObject :=
+    TDATFMXBrowserTranslationService.Create(BrowserService);
+  DATFMXProxyBrowserService := DATFMXBrowserTranslationServiceObject;
+  TPlatformServices.Current.RemovePlatformService(IFMXWBService);
+  TPlatformServices.Current.AddPlatformService(IFMXWBService,
+    DATFMXProxyBrowserService);
+end;
+
+procedure RefreshFMXBrowserTranslations;
+begin
+  if DATFMXBrowserTranslationServiceObject <> nil then
+    DATFMXBrowserTranslationServiceObject.RefreshAll;
+end;
+
+procedure UninstallFMXBrowserTranslationService;
+var
+  CurrentService: IFMXWBService;
+begin
+  if (DATFMXProxyBrowserService <> nil) and
+    (TPlatformServices.Current <> nil) and
+    TPlatformServices.Current.SupportsPlatformService(IFMXWBService,
+      CurrentService) and
+    (Pointer(CurrentService) = Pointer(DATFMXProxyBrowserService)) then
+  begin
+    TPlatformServices.Current.RemovePlatformService(IFMXWBService);
+    if DATFMXOriginalBrowserService <> nil then
+      TPlatformServices.Current.AddPlatformService(IFMXWBService,
+        DATFMXOriginalBrowserService);
+  end;
+  DATFMXProxyBrowserService := nil;
+  DATFMXBrowserTranslationServiceObject := nil;
+  DATFMXOriginalBrowserService := nil;
+end;
 
 procedure AcquireFMXDialogTranslationService;
 var
@@ -700,9 +1125,9 @@ begin
   { A browser created after the form's initial lifecycle notification needs
     its own complete refresh window. Without this reset, it inherits only the
     few attempts left from the form and its first document can miss the
-    layout contract permanently. }
+    lifecycle contract permanently. }
   if BrowserDiscovered then
-    ScheduleBrowserLayoutRefresh;
+    ScheduleBrowserLifecycleRefresh;
 end;
 
 procedure TDATFMXLanguageManager.HideFormBrowsers(
@@ -754,6 +1179,9 @@ begin
     BrowserSubscription.PendingGeneration := FTransitionGeneration
   else
     BrowserSubscription.PendingGeneration := Generation;
+  { Native WebViews must not be made visible while their FMX form is still
+    being constructed. The completed-document handoff in EndLanguageTransition
+    restores the active browser after the owning form exists. }
   Browser.Visible := False;
   FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
     BrowserSubscription);
@@ -766,7 +1194,6 @@ procedure TDATFMXLanguageManager.HandleBrowserDidFinishLoad(
 var
   Browser: TCustomWebBrowser;
   BrowserSubscription: TDATBrowserLifecycleSubscription;
-  Form: TCommonCustomForm;
   OriginalHandler: TWebBrowserDidFinishLoad;
 begin
   if not (Sender is TCustomWebBrowser) then
@@ -781,18 +1208,6 @@ begin
   if not FBrowserLifecycleSubscriptions.TryGetValue(Browser,
     BrowserSubscription) then
     Exit;
-  { OnDidFinishLoad is the first point at which the document's actual cells,
-    computed padding and overflow are available.  Apply the measured contract
-    before exposing the native browser surface.  This is independent of the
-    host application's form names, CSS classes and coordinates. }
-  Form := nil;
-  if (Browser.Root <> nil) and
-    (Browser.Root.GetObject is TCommonCustomForm) then
-    Form := TCommonCustomForm(Browser.Root.GetObject)
-  else if Browser.Owner is TCommonCustomForm then
-    Form := TCommonCustomForm(Browser.Owner);
-  if (Form <> nil) and (ActivePack <> nil) then
-    TFMXTranslationApplicator.RefreshBrowserLayout(Form, ActivePack);
   if BrowserSubscription.PendingGeneration <> 0 then
     BrowserSubscription.LoadedGeneration :=
       BrowserSubscription.PendingGeneration
@@ -809,7 +1224,7 @@ begin
     BrowserIsOnActiveTab(Browser);
   FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
     BrowserSubscription);
-  ScheduleBrowserLayoutRefresh;
+  ScheduleBrowserLifecycleRefresh;
 end;
 
 procedure TDATFMXLanguageManager.HandleBrowserDidFailLoad(
@@ -901,7 +1316,7 @@ begin
       FBrowserLifecycleSubscriptions.AddOrSetValue(Browser,
         BrowserSubscription);
     end;
-  ScheduleBrowserLayoutRefresh;
+  ScheduleBrowserLifecycleRefresh;
 end;
 
 procedure TDATFMXLanguageManager.SynchronizeBrowserVisibility(
@@ -919,27 +1334,35 @@ begin
       FBrowserLifecycleSubscriptions.TryGetValue(Browser,
         BrowserSubscription) then
     begin
-      if not BrowserIsOnActiveTab(Browser) then
+      if not AForm.Visible then
+        Browser.Visible := False
+      else if not BrowserIsOnActiveTab(Browser) then
         Browser.Visible := False
       else if FTransitionActive then
         Browser.Visible := False
       else if BrowserSubscription.WaitingForLoad then
       begin
-        if (BrowserSubscription.LoadedGeneration = Generation) and
-          not BrowserSubscription.LoadStartObserved then
+        if ((BrowserSubscription.LoadedGeneration = Generation) and
+          not BrowserSubscription.LoadStartObserved) or
+          (FBrowserLifecycleAttempts > 0) then
         begin
+          { The first post-transition lifecycle tick is also the deterministic
+            fallback for native hosts that omit DidFinishLoad after a complete
+            LoadFromStrings handoff. This runs only after the owning form is
+            visible and normal FMX painting has resumed. }
+          BrowserSubscription.LoadedGeneration := Generation;
           BrowserSubscription.WaitingForLoad := False;
           BrowserSubscription.PendingGeneration := 0;
+          BrowserSubscription.LoadStartObserved := False;
           Browser.Visible := BrowserSubscription.RequestedVisible;
         end
         else
         begin
-          { Never turn elapsed time into proof that an asynchronous browser
-            contains the current language. If a host does not navigate or
-            does not report completion, keep the native surface hidden. A
-            blank page is recoverable; exposing a stale language frame is
-            the transition defect this contract exists to prevent. }
-          Browser.Visible := False;
+          { LoadFromStrings receives a complete translated document before
+            navigation starts.  Do not make visibility depend on an optional
+            native completion callback: some WebView hosts omit it and would
+            otherwise leave the active report permanently blank. }
+          Browser.Visible := BrowserSubscription.RequestedVisible;
         end;
       end
       else
@@ -960,9 +1383,14 @@ begin
     TDictionary<TTabControl, TDATTabChangeSubscription>.Create;
   if not (csDesigning in ComponentState) then
     AcquireFMXDialogTranslationService;
-  FAutoRefreshDynamicText := False;
+  FAutoRefreshDynamicText := True;
   FDynamicRefreshInterval := 1000;
-  FTranslateBrowserContent := False;
+  FTranslateBrowserContent := True;
+  if not (csDesigning in ComponentState) then
+  begin
+    Inc(DATFMXBrowserTranslationEnabledCount);
+    FBrowserTranslationRegistered := True;
+  end;
   if not (csDesigning in ComponentState) then
     SubscribeToLifecycle;
 end;
@@ -981,7 +1409,6 @@ var
   ExpectedBrowserStart: TWebBrowserDidStartLoad;
   ExpectedHandler: TOnCalcContentBoundsEvent;
   ExpectedTabChange: TNotifyEvent;
-  Form: TCommonCustomForm;
   ScrollBox: TCustomScrollBox;
   Subscription: TDATScrollBoundsSubscription;
   TabControl: TTabControl;
@@ -989,6 +1416,12 @@ var
 begin
   UnsubscribeFromLifecycle;
   FTransitionActive := False;
+  if FBrowserTranslationRegistered then
+  begin
+    if DATFMXBrowserTranslationEnabledCount > 0 then
+      Dec(DATFMXBrowserTranslationEnabledCount);
+    FBrowserTranslationRegistered := False;
+  end;
   if not (csDesigning in ComponentState) then
     ReleaseFMXDialogTranslationService;
   if FDynamicTimer <> nil then
@@ -998,17 +1431,13 @@ begin
   end;
   FDynamicTimer.Free;
   FDynamicTimer := nil;
-  if FBrowserLayoutTimer <> nil then
+  if FBrowserLifecycleTimer <> nil then
   begin
-    FBrowserLayoutTimer.Enabled := False;
-    FBrowserLayoutTimer.OnTimer := nil;
+    FBrowserLifecycleTimer.Enabled := False;
+    FBrowserLifecycleTimer.OnTimer := nil;
   end;
-  FBrowserLayoutTimer.Free;
-  FBrowserLayoutTimer := nil;
-  if FTransitionForms <> nil then
-    for Form in FTransitionForms do
-      if Form <> nil then
-        Form.EndUpdate;
+  FBrowserLifecycleTimer.Free;
+  FBrowserLifecycleTimer := nil;
   FTransitionBrowsers.Free;
   FTransitionBrowsers := nil;
   FTransitionForms.Free;
@@ -1092,7 +1521,6 @@ begin
   if (AForm = nil) or (ActivePack = nil) then
     Exit;
   EnsureBrowserLifecycleContracts(AForm);
-  TFMXTranslationApplicator.RefreshBrowserLayout(AForm, ActivePack);
   ApplyScrollBottomGutter(AForm);
 end;
 
@@ -1155,8 +1583,8 @@ begin
   if (csDesigning in ComponentState) or
     (csDestroying in ComponentState) then
     Exit;
-  if FBrowserLayoutTimer <> nil then
-    FBrowserLayoutTimer.Enabled := False;
+  if FBrowserLifecycleTimer <> nil then
+    FBrowserLifecycleTimer.Enabled := False;
   FreeAndNil(FTransitionBrowsers);
   FreeAndNil(FTransitionForms);
   FTransitionBrowsers := TList<TCustomWebBrowser>.Create;
@@ -1178,7 +1606,6 @@ begin
             before locking the form so no queued native frame can escape the
             language transaction. }
           HideFormBrowsers(Form, True);
-          Form.BeginUpdate;
           FTransitionForms.Add(Form);
           Form.FreeNotification(Self);
         end;
@@ -1194,17 +1621,19 @@ begin
   end;
 end;
 
-procedure TDATFMXLanguageManager.BrowserLayoutTimerTick(Sender: TObject);
+procedure TDATFMXLanguageManager.BrowserLifecycleTimerTick(Sender: TObject);
 var
   Form: TObject;
   Forms: TList<TObject>;
 begin
   if (ActivePack = nil) or (csDestroying in ComponentState) then
   begin
-    FBrowserLayoutTimer.Enabled := False;
+    FBrowserLifecycleTimer.Enabled := False;
     Exit;
   end;
-  Inc(FBrowserLayoutAttempts);
+  Inc(FBrowserLifecycleAttempts);
+  if DATFMXBrowserTranslationServiceObject <> nil then
+    DATFMXBrowserTranslationServiceObject.RetryPending;
   Forms := TList<TObject>.Create;
   try
     CollectOpenManagedObjects(Forms);
@@ -1216,8 +1645,8 @@ begin
   finally
     Forms.Free;
   end;
-  if FBrowserLayoutAttempts >= BrowserLayoutMaximumAttempts then
-    FBrowserLayoutTimer.Enabled := False;
+  if FBrowserLifecycleAttempts >= BrowserLifecycleMaximumAttempts then
+    FBrowserLifecycleTimer.Enabled := False;
 end;
 
 procedure TDATFMXLanguageManager.DynamicTimerTick(Sender: TObject);
@@ -1246,15 +1675,15 @@ begin
     (FDynamicRefreshInterval > 0);
 end;
 
-procedure TDATFMXLanguageManager.EnsureBrowserLayoutTimer;
+procedure TDATFMXLanguageManager.EnsureBrowserLifecycleTimer;
 begin
   if (csDesigning in ComponentState) or (csDestroying in ComponentState) then
     Exit;
-  if FBrowserLayoutTimer = nil then
+  if FBrowserLifecycleTimer = nil then
   begin
-    FBrowserLayoutTimer := TTimer.Create(nil);
-    FBrowserLayoutTimer.Interval := BrowserLayoutRefreshInterval;
-    FBrowserLayoutTimer.OnTimer := BrowserLayoutTimerTick;
+    FBrowserLifecycleTimer := TTimer.Create(nil);
+    FBrowserLifecycleTimer.Interval := BrowserLifecycleRefreshInterval;
+    FBrowserLifecycleTimer.OnTimer := BrowserLifecycleTimerTick;
   end;
 end;
 
@@ -1265,6 +1694,10 @@ var
   Form: TCommonCustomForm;
 begin
   try
+    { Reload each browser from the original source document through the newly
+      active pack before the native surface is revealed.  The document's HTML
+      structure and CSS never leave the application-authored version. }
+    RefreshFMXBrowserTranslations;
     if FTransitionForms <> nil then
       for Form in FTransitionForms do
         if Form <> nil then
@@ -1274,9 +1707,10 @@ begin
         end;
   finally
     { Application callbacks may request a browser visible after starting an
-      asynchronous navigation. Capture that request, but keep the native
-      surface hidden before the FMX scene lock is released, and until the
-      current generation reports completion. }
+      asynchronous navigation. Capture that request, but finish the FMX scene
+      transition with native surfaces hidden. The post-transition lifecycle
+      tick restores only the active report and supplies the deterministic
+      fallback when a native host omits DidFinishLoad. }
     if (FTransitionBrowsers <> nil) and
       (FBrowserLifecycleSubscriptions <> nil) then
       for Browser in FTransitionBrowsers do
@@ -1289,14 +1723,7 @@ begin
           Browser.Visible := False;
           if BrowserIsOnActiveTab(Browser) then
           begin
-            if FTranslateBrowserContent and
-              not BrowserSubscription.LoadStartObserved then
-            begin
-              BrowserSubscription.LoadedGeneration := Generation;
-              BrowserSubscription.WaitingForLoad := False;
-              BrowserSubscription.PendingGeneration := 0;
-            end
-            else if BrowserSubscription.LoadedGeneration <> Generation then
+            if BrowserSubscription.LoadedGeneration <> Generation then
             begin
               BrowserSubscription.WaitingForLoad := True;
               if BrowserSubscription.PendingGeneration = 0 then
@@ -1309,10 +1736,10 @@ begin
     if FTransitionForms <> nil then
       for Form in FTransitionForms do
         if Form <> nil then
-        begin
-          Form.EndUpdate;
           Form.Invalidate;
-        end;
+    { Prevent attempts left by an earlier lifecycle pass from satisfying the
+      deferred-load fallback during transition teardown itself. }
+    FBrowserLifecycleAttempts := 0;
     FTransitionActive := False;
     if FTransitionForms <> nil then
       for Form in FTransitionForms do
@@ -1322,7 +1749,7 @@ begin
     FreeAndNil(FTransitionForms);
   end;
   FTransitionGeneration := 0;
-  ScheduleBrowserLayoutRefresh;
+  ScheduleBrowserLifecycleRefresh;
 end;
 
 procedure TDATFMXLanguageManager.Loaded;
@@ -1368,6 +1795,29 @@ procedure TDATFMXLanguageManager.SetDynamicRefreshInterval(
 begin
   FDynamicRefreshInterval := Value;
   EnsureDynamicTimer;
+end;
+
+procedure TDATFMXLanguageManager.SetTranslateBrowserContent(
+  const Value: Boolean);
+begin
+  if FTranslateBrowserContent = Value then
+    Exit;
+  FTranslateBrowserContent := Value;
+  if csDesigning in ComponentState then
+    Exit;
+  if Value and not FBrowserTranslationRegistered then
+  begin
+    InstallFMXBrowserTranslationService;
+    Inc(DATFMXBrowserTranslationEnabledCount);
+    FBrowserTranslationRegistered := True;
+  end
+  else if not Value and FBrowserTranslationRegistered then
+  begin
+    if DATFMXBrowserTranslationEnabledCount > 0 then
+      Dec(DATFMXBrowserTranslationEnabledCount);
+    FBrowserTranslationRegistered := False;
+  end;
+  RefreshFMXBrowserTranslations;
 end;
 
 function TDATFMXLanguageManager.ApplyLanguagePack(
@@ -1449,7 +1899,7 @@ begin
     { FormCreate has completed by this notification, while controls created
       by FormShow can appear immediately afterward. The bounded refresh finds
       both groups without polling for the life of the application. }
-    ScheduleBrowserLayoutRefresh;
+    ScheduleBrowserLifecycleRefresh;
   end;
 end;
 
@@ -1540,13 +1990,13 @@ begin
     FScrollBoundsSubscriptions.Remove(TCustomScrollBox(AComponent));
 end;
 
-procedure TDATFMXLanguageManager.ScheduleBrowserLayoutRefresh;
+procedure TDATFMXLanguageManager.ScheduleBrowserLifecycleRefresh;
 begin
-  EnsureBrowserLayoutTimer;
-  if FBrowserLayoutTimer = nil then
+  EnsureBrowserLifecycleTimer;
+  if FBrowserLifecycleTimer = nil then
     Exit;
-  FBrowserLayoutAttempts := 0;
-  FBrowserLayoutTimer.Enabled := True;
+  FBrowserLifecycleAttempts := 0;
+  FBrowserLifecycleTimer.Enabled := True;
 end;
 
 procedure TDATFMXLanguageManager.SubscribeToLifecycle;
@@ -1584,9 +2034,14 @@ begin
 end;
 
 initialization
+  { FMX.WebBrowser has already registered the native factory because this
+    unit uses it. Decorate that factory before any application form is
+    streamed; never replace it from a component constructor. }
+  InstallFMXBrowserTranslationService;
   RegisterClass(TDATFMXLanguageManager);
 
 finalization
+  UninstallFMXBrowserTranslationService;
   UnregisterClass(TDATFMXLanguageManager);
 
 end.

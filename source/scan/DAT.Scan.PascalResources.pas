@@ -17,6 +17,7 @@ implementation
 uses
   System.Classes,
   System.Generics.Collections,
+  System.Hash,
   System.IOUtils,
   System.RegularExpressions,
   System.StrUtils,
@@ -1320,14 +1321,50 @@ procedure AddRuntimeItem(const AResult: TProjectScanResult;
   const ASourceLine: Integer; const ARuntimeRole: TRuntimeTextRole);
 var
   Context: string;
+  HashText: string;
+  KeyContext: string;
   ScanItem: TScanItem;
+
+  function StableKeyPart(const AValue: string): string;
+  var
+    Character: Char;
+    LastWasSeparator: Boolean;
+  begin
+    Result := '';
+    LastWasSeparator := False;
+    for Character in Trim(AValue) do
+      if CharInSet(Character, ['A'..'Z', 'a'..'z', '0'..'9', '_']) or
+        (Ord(Character) > 127) then
+      begin
+        Result := Result + Character;
+        LastWasSeparator := False;
+      end
+      else if not LastWasSeparator then
+      begin
+        Result := Result + '_';
+        LastWasSeparator := True;
+      end;
+    Result := Result.Trim(['_']);
+    if Result = '' then
+      Result := 'Text';
+  end;
 begin
   if Trim(ASourceText) = '' then
     Exit;
   Context := StringReplace(Trim(ALeftSide), ' ', '', [rfReplaceAll]);
+  KeyContext := Context;
+  { HTML fragments used to be numbered by their order in a statement and all
+    runtime keys ended in a source line.  Adding one paragraph therefore
+    renamed every later string even when its words had not changed.  A key is
+    now the stable semantic location plus a digest of the actual source text;
+    line numbers remain diagnostic metadata only. }
+  if StartsText('HtmlText.', KeyContext) then
+    KeyContext := 'HtmlText';
+  HashText := LowerCase(THashSHA2.GetHashString(ASourceText));
   ScanItem := TScanItem.Create;
-  ScanItem.Key := Format('%s.Runtime.%s.%d',
-    [AUnitName, Context, ASourceLine]);
+  ScanItem.Key := Format('%s.Runtime.%s.%s.%s',
+    [AUnitName, StableKeyPart(KeyContext), StableKeyPart(APropertyName),
+     Copy(HashText, 1, 16)]);
   ScanItem.SourceText := ASourceText;
   ScanItem.ComponentName := Context;
   ScanItem.ComponentClassName := RuntimeComponentClassName(ALeftSide,

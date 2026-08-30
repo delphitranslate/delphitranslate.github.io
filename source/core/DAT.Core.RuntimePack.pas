@@ -26,6 +26,7 @@ type
 implementation
 
 uses
+  System.Classes,
   System.Generics.Collections,
   System.Hash,
   System.IOUtils,
@@ -40,15 +41,27 @@ class function TRuntimePackBuilder.SourceCatalogChecksum(
   const ACatalog: TTranslationCatalog): string;
 var
   Entry: TTranslationEntry;
+  Index: Integer;
+  SourceLines: TStringList;
   SourceText: string;
 begin
-  SourceText := '';
-  for Entry in ACatalog.Entries do
-    if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
-      (Entry.TextOwnership <> tokSuspicious) and
-      not (Entry.Status in [tsExcluded, tsObsolete]) then
-      SourceText := SourceText + Entry.Key + '=' + Entry.SourceChecksum + #10;
-  Result := LowerCase(THashSHA2.GetHashString(SourceText));
+  SourceLines := TStringList.Create;
+  try
+    SourceLines.CaseSensitive := True;
+    SourceLines.Sorted := True;
+    SourceLines.Duplicates := dupError;
+    for Entry in ACatalog.Entries do
+      if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
+        (Entry.TextOwnership <> tokSuspicious) and
+        not (Entry.Status in [tsExcluded, tsObsolete]) then
+        SourceLines.Add(Entry.Key + '=' + Entry.SourceChecksum);
+    SourceText := '';
+    for Index := 0 to SourceLines.Count - 1 do
+      SourceText := SourceText + SourceLines[Index] + #10;
+    Result := LowerCase(THashSHA2.GetHashString(SourceText));
+  finally
+    SourceLines.Free;
+  end;
 end;
 
 class function TRuntimePackBuilder.Serialize(
@@ -61,18 +74,22 @@ class function TRuntimePackBuilder.Serialize(
   const ACatalog: TTranslationCatalog;
   const ALayoutProposalFileName: string): string;
 var
+  DisplayText: string;
   Entry: TTranslationEntry;
   LanguageObject: TJSONObject;
   LocaleObject: TJSONObject;
   Root: TJSONObject;
   StringsObject: TJSONObject;
   SourceStrings: TDictionary<string, string>;
+  SourceStringKeys: TDictionary<string, string>;
   SourceStringsObject: TJSONObject;
   SourceTemplates: TDictionary<string, string>;
+  SourceTemplateKeys: TDictionary<string, string>;
   SourceTemplatesObject: TJSONObject;
   SourcesObject: TJSONObject;
   TemplatesObject: TJSONObject;
   ExistingText: string;
+  ExistingKey: string;
   SourceText: string;
   ValidationResult: TCatalogValidationResult;
   LayoutRootValue: TJSONValue;
@@ -88,6 +105,7 @@ var
   FontColorsObject: TJSONObject;
   FontColorKey: string;
   Hyphenation: TDATHyphenationDictionary;
+  IsSourceLanguage: Boolean;
 
   { A caption goes into the pack with a soft hyphen at every point its
     language allows a break.
@@ -142,7 +160,8 @@ var
   function ForDisplay(const AText: string;
     const AEntry: TTranslationEntry): string;
   begin
-    if (Hyphenation = nil) or not AcceptsBreakMarks(AEntry) then
+    if IsSourceLanguage or (Hyphenation = nil) or
+      not AcceptsBreakMarks(AEntry) then
       Exit(AText);
     Result := Hyphenation.HyphenateText(AText);
   end;
@@ -158,7 +177,12 @@ begin
     ValidationResult.Free;
   end;
 
-  Hyphenation := TDATHyphenation.Load(ACatalog.Locale.LanguageCode);
+  IsSourceLanguage := SameText(ACatalog.Locale.LanguageCode,
+    ACatalog.SourceLanguage);
+  if IsSourceLanguage then
+    Hyphenation := nil
+  else
+    Hyphenation := TDATHyphenation.Load(ACatalog.Locale.LanguageCode);
 
   Root := TJSONObject.Create;
   try
@@ -200,7 +224,9 @@ begin
     SourceTemplatesObject := TJSONObject.Create;
     SourcesObject := TJSONObject.Create;
     SourceStrings := TDictionary<string, string>.Create;
+    SourceStringKeys := TDictionary<string, string>.Create;
     SourceTemplates := TDictionary<string, string>.Create;
+    SourceTemplateKeys := TDictionary<string, string>.Create;
     try
       for Entry in ACatalog.Entries do
         if RuntimeTextRoleRequiresTranslation(Entry.RuntimeTextRole) and
@@ -212,17 +238,31 @@ begin
           case Entry.RuntimeTextRole of
             rtrStaticText:
               begin
-                StringsObject.AddPair(Entry.Key,
-                  ForDisplay(Entry.TranslatedText, Entry));
+                DisplayText := ForDisplay(Entry.TranslatedText, Entry);
+                StringsObject.AddPair(Entry.Key, DisplayText);
                 if (Trim(SourceText) <> '') and
                   (Trim(Entry.TranslatedText) <> '') then
                 begin
                   if SourceStrings.TryGetValue(SourceText, ExistingText) and
-                    not SameText(ExistingText, Entry.TranslatedText) then
-                    SourceStrings[SourceText] := ''
+                    not SameText(ExistingText, DisplayText) then
+                  begin
+                    SourceStringKeys.TryGetValue(SourceText, ExistingKey);
+                    { A source-only browser lookup cannot distinguish two
+                      controls that carry the same source words.  Pick one
+                      canonical translation by stable key so every pack is
+                      complete and regeneration never depends on catalog
+                      insertion order. }
+                    if CompareText(Entry.Key, ExistingKey) < 0 then
+                    begin
+                      SourceStrings[SourceText] := DisplayText;
+                      SourceStringKeys[SourceText] := Entry.Key;
+                    end;
+                  end
                   else if not SourceStrings.ContainsKey(SourceText) then
-                    SourceStrings.Add(SourceText,
-                      ForDisplay(Entry.TranslatedText, Entry));
+                  begin
+                    SourceStrings.Add(SourceText, DisplayText);
+                    SourceStringKeys.Add(SourceText, Entry.Key);
+                  end;
                 end;
               end;
             rtrDynamicValue, rtrRuntimeTemplate:
@@ -233,9 +273,19 @@ begin
                 begin
                   if SourceTemplates.TryGetValue(SourceText, ExistingText) and
                     not SameText(ExistingText, Entry.TranslatedText) then
-                    SourceTemplates[SourceText] := ''
+                  begin
+                    SourceTemplateKeys.TryGetValue(SourceText, ExistingKey);
+                    if CompareText(Entry.Key, ExistingKey) < 0 then
+                    begin
+                      SourceTemplates[SourceText] := Entry.TranslatedText;
+                      SourceTemplateKeys[SourceText] := Entry.Key;
+                    end;
+                  end
                   else if not SourceTemplates.ContainsKey(SourceText) then
+                  begin
                     SourceTemplates.Add(SourceText, Entry.TranslatedText);
+                    SourceTemplateKeys.Add(SourceText, Entry.Key);
+                  end;
                 end;
               end;
           end;
@@ -247,7 +297,9 @@ begin
         if SourceTemplates[SourceText] <> '' then
           SourceTemplatesObject.AddPair(SourceText, SourceTemplates[SourceText]);
     finally
+      SourceTemplateKeys.Free;
       SourceTemplates.Free;
+      SourceStringKeys.Free;
       SourceStrings.Free;
     end;
     Root.AddPair('strings', StringsObject);
@@ -257,7 +309,8 @@ begin
     Root.AddPair('sources', SourcesObject);
 
     LayoutArray := TJSONArray.Create;
-    if (Trim(ALayoutProposalFileName) <> '') and
+    if not IsSourceLanguage and
+      (Trim(ALayoutProposalFileName) <> '') and
       TFile.Exists(ALayoutProposalFileName) then
     begin
       LayoutRootValue := TJSONObject.ParseJSONValue(

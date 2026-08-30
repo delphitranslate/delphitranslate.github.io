@@ -10,6 +10,7 @@ uses
   Winapi.Windows,
   FMX.Forms,
   FMX.Layouts,
+  FMX.StdCtrls,
   FMX.TabControl,
   FMX.Types,
   FMX.WebBrowser,
@@ -67,7 +68,7 @@ end;
 procedure WritePack(const AFileName, ALanguageCode, ANativeName,
   ACaption, AProbeText, AInheritedCaption,
   AInheritedProbeText, ASampleCaption, ADateItem0, ADateItem1,
-  ADateItem2, ADateItem3, ADateItem4: string);
+  ADateItem2, ADateItem3, ADateItem4, ARuntimeStatus: string);
 var
   JsonText: string;
 begin
@@ -98,7 +99,8 @@ begin
     '"frmFMXSample.memInstructions.Lines.Strings.1":' +
     '"Translated memo line 2"},' +
     '"sourceStrings":{"FMX Lifecycle Source":"' + ACaption + '",' +
-    '"FMX source text":"' + AProbeText + '"},' +
+    '"FMX source text":"' + AProbeText + '",' +
+    '"Runtime only status":"' + ARuntimeStatus + '"},' +
     '"sources":{"frmFMXLifecycle.Caption":"FMX Lifecycle Source",' +
     '"frmFMXLifecycle.lblProbe.Text":"FMX source text",' +
     '"frmFMXInheritedLifecycle.Caption":"FMX Inherited Source",' +
@@ -161,6 +163,7 @@ var
   BrowserTabB: TTabItem;
   ScrollContentProbe: TLayout;
   ScrollProbe: TVertScrollBox;
+  RuntimeStatusProbe: TLabel;
   StateForm: TfrmFMXSample;
 begin
   TTimer(Sender).Enabled := False;
@@ -244,6 +247,14 @@ begin
     ScrollContentProbe.Align := TAlignLayout.None;
     ScrollProbe.RealignContent;
 
+    RuntimeStatusProbe := TLabel.Create(StateForm);
+    RuntimeStatusProbe.Name := 'lblRuntimeStatusProbe';
+    RuntimeStatusProbe.Parent := StateForm;
+    RuntimeStatusProbe.Text := 'Runtime only status';
+    FManager.RefreshDynamicText;
+    Require(RuntimeStatusProbe.Text = 'Dynamischer Status',
+      'A semantic runtime-only value was not translated.');
+
     FBrowserTabControl := TTabControl.Create(StateForm);
     FBrowserTabControl.Parent := StateForm;
     FBrowserTabControl.Position.X := 1200;
@@ -269,6 +280,8 @@ begin
 
     Require(FManager.SelectLanguage('en-US'),
       'Instant English selection failed.');
+    Require(RuntimeStatusProbe.Text = 'Runtime only status',
+      'A semantic runtime-only value did not restore before language change.');
     RequireEnglish(FMainForm, 'Visible main form after instant selection');
     RequireEnglish(DuplicateForm,
       'Visible duplicate form after instant selection');
@@ -289,27 +302,33 @@ begin
       'FMX writable memo content or selection was not preserved.');
     Require(FControlChangeCount = 0,
       'FMX localization fired a protected control OnChange event.');
-    { The manager held the active native browser until its current-generation
-      document announced completion, and never restored the inactive page. }
-    Require(not FBrowserA.Visible and not FBrowserB.Visible,
-      'A native browser escaped the language transition before its current ' +
-      'document completed.');
-    for HoldCheckIndex := 1 to 8 do
-    begin
-      Sleep(180);
-      Application.ProcessMessages;
-    end;
-    Require(not FBrowserA.Visible and not FBrowserB.Visible,
-      'Elapsed time was incorrectly treated as proof that a stale native ' +
-      'browser document belonged to the current language generation.');
+    { A complete LoadFromStrings handoff restores the active report without
+      relying on an optional native DidFinishLoad callback. Inactive pages
+      must remain hidden. }
+    Require(not FBrowserB.Visible,
+      'An inactive browser escaped the language transition.');
+    if not FBrowserA.Visible then
+      for HoldCheckIndex := 1 to 2 do
+      begin
+        Sleep(180);
+        Application.ProcessMessages;
+      end;
+    Require(FBrowserA.Visible and not FBrowserB.Visible,
+      'The active report was not restored by the post-transition lifecycle.');
     FBrowserA.FinishLoading;
     Require(FBrowserA.Visible and not FBrowserB.Visible,
       'The active current-generation browser was not restored exclusively.');
     FBrowserTabControl.ActiveTab := BrowserTabB;
     Require((FBrowserTabChangeCount = 1) and not FBrowserA.Visible and
       not FBrowserB.Visible,
-      'The tab lifecycle exposed a retained browser document before the new ' +
-      'document completed.');
+      'The tab lifecycle exposed a browser during its FMX transition.');
+    for HoldCheckIndex := 1 to 2 do
+    begin
+      Sleep(180);
+      Application.ProcessMessages;
+    end;
+    Require(FBrowserB.Visible and not FBrowserA.Visible,
+      'The post-transition lifecycle did not expose only the active report.');
     FBrowserB.FinishLoading;
     Require(FBrowserB.Visible and not FBrowserA.Visible,
       'The newly loaded browser did not become the sole visible native page.');
@@ -431,12 +450,12 @@ begin
     'English', 'English caption', 'English probe',
     'English inherited caption', 'English inherited probe',
     'English sample', 'Today', 'Last 7 days', 'Last 28 days',
-    'Last 90 days', 'This year');
+    'Last 90 days', 'This year', 'Runtime only status');
   WritePack(TPath.Combine(LanguagesDirectory, 'de-DE.json'), 'de-DE',
     'Deutsch', 'Deutsch caption', 'Deutsch probe',
     'Deutsch inherited caption', 'Deutsch inherited probe',
     'Deutsch sample', 'Heute', 'Letzte 7 Tage', 'Letzte 28 Tage',
-    'Letzte 90 Tage', 'Dieses Jahr');
+    'Letzte 90 Tage', 'Dieses Jahr', 'Dynamischer Status');
 
   Test := TFMXManagerTest.Create;
   Manager := TDATFMXLanguageManager.Create(nil);

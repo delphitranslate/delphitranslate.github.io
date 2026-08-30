@@ -1146,52 +1146,40 @@ begin
   CoreFileName := TPath.Combine(ProjectRoot,
     'source\components\DAT.Components.Core.pas');
   CoreSource := TFile.ReadAllText(CoreFileName, TEncoding.UTF8);
-  Require(ContainsText(RuntimeSource, 'if NeedsRetry then') and
-    ContainsText(RuntimeSource,
-      'TBrowserTranslationRetry.Create(TCustomWebBrowser(AComponent)'),
-    'FMX browser translation again schedules retries after a successful injection.');
-  Require(ContainsText(RuntimeSource, 'Object.create(null)'),
-    'FMX browser translation no longer uses a direct source-text lookup.');
-  Require(ContainsText(RuntimeSource,
-    'SCRIPT|STYLE|TEMPLATE|NOSCRIPT|CODE|PRE|TEXTAREA'),
-    'FMX browser translation again rewrites protected or executable content.');
-  Require(ContainsText(RuntimeSource,
-    'if(document.body){run();return;}'),
-    'FMX browser translation no longer stops its DOM readiness retry after success.');
-  Require(not ContainsText(RuntimeSource, 'if(tries<40)'),
-    'The former forty-pass browser DOM retry loop returned.');
+  Require(not ContainsText(RuntimeSource, 'EvaluateJavaScript') and
+    not ContainsText(RuntimeSource, 'TBrowserTranslationRetry') and
+    not ContainsText(RuntimeSource, 'ApplyBrowserText') and
+    not ContainsText(RuntimeSource, 'JavaScriptString') and
+    not ContainsText(RuntimeSource, 'Object.create(null)') and
+    not ContainsText(RuntimeSource, 'document.body') and
+    not ContainsText(RuntimeSource, 'window.setTimeout'),
+    'The FMX runtime again injects JavaScript into application HTML.');
   Require(ContainsText(RuntimeSource, '{$IFDEF DAT_RUNTIME_DEBUG_LOG}'),
     'FMX runtime browser diagnostics are again unconditional in shipping builds.');
   Require(ContainsText(RuntimeSource,
     'const ATranslateBrowserContent: Boolean = False') and
-    ContainsText(RuntimeSource, 'if ATranslateBrowserContent then'),
-    'FMX browser DOM rewriting is again mandatory during every language switch.');
+    not ContainsText(RuntimeSource, 'if ATranslateBrowserContent then') and
+    ContainsText(RuntimeSource,
+      'the FMX runtime never mutates the DOM'),
+    'The compatibility browser option again controls DOM rewriting.');
   Require(ContainsText(ComponentSource,
     'property TranslateBrowserContent: Boolean') and
-    ContainsText(ComponentSource, 'default False'),
-    'The browser compatibility option is not available in Object Inspector.');
-  Require(ContainsText(RuntimeSource,
-    'ApplyBrowserLayoutContract(AComponent, APack)') and
-    ContainsText(RuntimeSource, 'dat-runtime-layout-contract') and
-    ContainsText(RuntimeSource,
-      'table-layout:auto!important') and
-    ContainsText(RuntimeSource,
-      'min-inline-size:100%!important') and
-    ContainsText(RuntimeSource,
-      'white-space:normal!important') and
-    ContainsText(RuntimeSource,
-      'overflow-wrap:normal!important') and
-    ContainsText(RuntimeSource, 'word-break:normal!important') and
-    ContainsText(RuntimeSource, 'th{text-align:start!important') and
-    ContainsText(RuntimeSource, 'hyphens:auto!important') and
-    ContainsText(RuntimeSource, 'tr{height:auto!important}') and
-    ContainsText(RuntimeSource, 'overflow:visible!important') and
-    ContainsText(RuntimeSource, 'data-dat-layout-language') and
-    ContainsText(RuntimeSource, 'FMXObject := TFmxObject(AComponent)') and
-    ContainsText(RuntimeSource,
-      'for ChildIndex := 0 to FMXObject.ChildrenCount - 1 do') and
-    ContainsText(RuntimeSource,
-      'Visit(TComponent(FMXObject.Children[ChildIndex]))') and
+    ContainsText(ComponentSource, 'default True') and
+    ContainsText(ComponentSource,
+      'TDATFMXBrowserTranslationService = class') and
+    ContainsText(ComponentSource,
+      'Result := DATTranslateHtmlText(FSourceContent)') and
+    ContainsText(ComponentSource,
+      'Content := TranslatedContent') and
+    ContainsText(ComponentSource,
+      'FInner.LoadFromStrings(Content') and
+    not ContainsText(ComponentSource, 'document.body') and
+    not ContainsText(ComponentSource, 'window.setTimeout'),
+    'FMX browser HTML is not translated as a complete, CSS-preserving document.');
+  Require(not ContainsText(RuntimeSource, 'ApplyBrowserLayoutContract') and
+    not ContainsText(RuntimeSource, 'dat-runtime-layout-contract') and
+    not ContainsText(RuntimeSource, 'table-layout:auto!important') and
+    not ContainsText(RuntimeSource, 'data-dat-layout-language') and
     not ContainsText(RuntimeSource, 'function alignTable(t)') and
     not ContainsText(RuntimeSource, 'function firstTextBox(e)') and
     not ContainsText(RuntimeSource, 'function firstTextEdge(e,c)') and
@@ -1199,8 +1187,12 @@ begin
     not ContainsText(RuntimeSource, 'function wrapHeading(h)') and
     not ContainsText(RuntimeSource, 'function fitHeadingWords(h)') and
     not ContainsText(RuntimeSource, 'data-dat-heading-wrapper') and
-    not ContainsText(RuntimeSource, 'data-dat-heading-word'),
-    'The shared-grid, application-neutral browser layout contract is incomplete.');
+    not ContainsText(RuntimeSource, 'data-dat-heading-word') and
+    ContainsText(RuntimeSource,
+      'class function TFMXTranslationApplicator.RefreshBrowserLayout') and
+    ContainsText(RuntimeSource,
+      'layout is owned entirely by the complete HTML document'),
+    'The FMX runtime again mutates application browser layout through JavaScript.');
   Require(not ContainsText(RuntimeSource,
       'SnapshotWidth(TControl(AParent).ParentControl)'),
     'Nested FMX controls can still be mirrored against an ancestor width.');
@@ -1215,8 +1207,7 @@ begin
       'font-size:clamp(8px,.82vw,12px)!important') and
     not ContainsText(RuntimeSource, '.summary-table{') and
     not ContainsText(RuntimeSource, '.metric-line{'),
-    'The browser contract again contains target-shaped fixed CSS instead of ' +
-    'measuring the application document.');
+    'The FMX runtime again contains application-shaped browser layout CSS.');
   Require(ContainsText(ComponentSource,
     'procedure TDATFMXLanguageManager.BeginLanguageTransition') and
     ContainsText(ComponentSource, 'HideFormBrowsers(Form, True)') and
@@ -1229,23 +1220,26 @@ begin
     ContainsText(ComponentSource,
       'procedure TDATFMXLanguageManager.HandleBrowserDidFinishLoad') and
     ContainsText(ComponentSource,
-      'TFMXTranslationApplicator.RefreshBrowserLayout(Form, ActivePack)') and
-    ContainsText(ComponentSource,
       'BrowserSubscription.LoadedGeneration = Generation') and
     ContainsText(ComponentSource,
       'BrowserIsOnActiveTab(Browser)'),
     'FMX native browser surfaces are not bracketed across language changes.');
   Require(ContainsText(ComponentSource,
-      'BrowserLayoutMaximumAttempts = 48') and
+      'BrowserLifecycleMaximumAttempts = 48') and
     ContainsText(ComponentSource,
-      'BrowserLayoutRefreshInterval = 250') and
+      'BrowserLifecycleRefreshInterval = 250') and
     ContainsText(ComponentSource,
-      'FBrowserLayoutAttempts >= BrowserLayoutMaximumAttempts') and
+      'FBrowserLifecycleAttempts >= BrowserLifecycleMaximumAttempts') and
     ContainsText(ComponentSource,
-      'FBrowserLayoutTimer.Interval := BrowserLayoutRefreshInterval') and
+      'FBrowserLifecycleTimer.Interval := BrowserLifecycleRefreshInterval') and
     ContainsText(ComponentSource, 'if BrowserDiscovered then') and
-    ContainsText(ComponentSource, 'ScheduleBrowserLayoutRefresh;'),
-    'The post-navigation browser layout refresh is missing or unbounded.');
+    ContainsText(ComponentSource, 'ScheduleBrowserLifecycleRefresh;') and
+    not ContainsText(ComponentSource,
+      'TFMXTranslationApplicator.RefreshBrowserLayout(') and
+    not ContainsText(ComponentSource, 'BrowserLayoutTimer') and
+    not ContainsText(ComponentSource, 'ScheduleBrowserLayoutRefresh'),
+    'Late FMX browser lifecycle discovery is missing, unbounded, or still ' +
+    'coupled to browser layout mutation.');
   Require(ContainsText(ComponentSource,
     'TDictionary<TCustomScrollBox, TDATScrollBoundsSubscription>') and
     ContainsText(ComponentSource,
@@ -1643,6 +1637,8 @@ begin
   Catalog := TTranslationCatalog.Create;
   ScanResult := TProjectScanResult.Create;
   try
+    Catalog.SourceLanguage := 'en-US';
+    Catalog.Locale.LanguageCode := 'de-DE';
     Entry := TTranslationEntry.Create;
     Entry.Key := 'MainForm.SaveButton.Caption';
     Entry.SourceText := 'Save';
@@ -1753,6 +1749,17 @@ begin
   Result.Entries.Add(Entry);
 
   Entry := TTranslationEntry.Create;
+  Entry.Key := 'Report.Note.Explicit';
+  Entry.SourceText := 'Uses an explicit event rule.';
+  Entry.TranslatedText := 'Verwendet eine explizite Ereignisregel.';
+  Entry.SourceChecksum := 'source-checksum-5';
+  Entry.Status := tsApproved;
+  Entry.RuntimeApplication := rakAutomatic;
+  Entry.RuntimeTextRole := rtrRuntimeTemplate;
+  Entry.RuntimeWiringConfirmed := True;
+  Result.Entries.Add(Entry);
+
+  Entry := TTranslationEntry.Create;
   Entry.Key := 'MainForm.UsersValue.Text';
   Entry.SourceText := '--';
   Entry.SourceChecksum := 'source-checksum-4';
@@ -1782,7 +1789,7 @@ begin
     try
       Require(LoadedCatalog.Locale.LanguageCode = 'de-DE',
         'The target language was not loaded from disk.');
-      Require(LoadedCatalog.Entries.Count = 4,
+      Require(LoadedCatalog.Entries.Count = 5,
         'The persisted catalog entry count is incorrect.');
     finally
       LoadedCatalog.Free;
@@ -1989,6 +1996,11 @@ begin
     Require(Pack.TryTranslateDynamicText('Updated at 10:30', RuntimeText) and
       (RuntimeText = 'Aktualisiert um 10:30'),
       'The runtime source-template index did not translate formatted text.');
+    Require(Pack.TryTranslateDynamicText(
+      'Uses an explicit event rule. Updated at 10:30', RuntimeText) and
+      (RuntimeText =
+        'Verwendet eine explizite Ereignisregel. Updated at 10:30'),
+      'A literal semantic template inside a compound text node was not translated.');
   finally
     Pack.Free;
   end;
@@ -1996,6 +2008,11 @@ begin
   Runtime := TTranslationRuntime.Create('OfflineWorkflowTest',
     LanguageDirectory, PreferenceFileName, 'en-US');
   try
+    Require(Runtime.LoadLanguage('en-US'),
+      'The runtime manager did not load the source-language pack.');
+    RuntimeText := '<table><tr><th>FMX event</th></tr></table>';
+    Require(Runtime.TranslateHtmlText(RuntimeText) = RuntimeText,
+      'Source-language HTML was not preserved byte-for-byte.');
     Require(Runtime.LoadLanguage('de-DE'),
       'The runtime manager did not load the exported pack.');
     Require(Runtime.Translate('MainForm.Greeting.Text', 'Hello') = 'Hallo %s',
@@ -2027,6 +2044,122 @@ begin
 
   if TDirectory.Exists(TPath.GetDirectoryName(LanguageDirectory)) then
     TDirectory.Delete(TPath.GetDirectoryName(LanguageDirectory), True);
+end;
+
+procedure TestStableRuntimeKeyTranslationMigration;
+var
+  Catalog: TTranslationCatalog;
+  Entry: TTranslationEntry;
+  MergeSummary: TCatalogMergeSummary;
+  ScanItem: TScanItem;
+  ScanResult: TProjectScanResult;
+begin
+  Catalog := TTranslationCatalog.Create;
+  ScanResult := TProjectScanResult.Create;
+  try
+    Catalog.SourceLanguage := 'en-US';
+    Catalog.Locale.LanguageCode := 'de-DE';
+    Entry := TTranslationEntry.Create;
+    Entry.Key := 'MainForm.Runtime.HtmlText.4.3175';
+    Entry.SourceText := 'Reference notes';
+    Entry.TranslatedText := 'Hinweise';
+    Entry.ComponentName := 'HtmlText.4';
+    Entry.PropertyName := 'BrowserText';
+    Entry.RuntimeTextRole := rtrStaticText;
+    Entry.Status := tsObsolete;
+    Catalog.Entries.Add(Entry);
+
+    ScanItem := TScanItem.Create;
+    ScanItem.Key := 'MainForm.Runtime.HtmlText.BrowserText.1234567890abcdef';
+    ScanItem.SourceText := 'Reference notes';
+    ScanItem.ComponentName := 'HtmlText.0';
+    ScanItem.PropertyName := 'BrowserText';
+    ScanItem.RuntimeTextRole := rtrStaticText;
+    ScanResult.Items.Add(ScanItem);
+
+    MergeSummary := TScanCatalogMerger.Merge(ScanResult, Catalog);
+    Require(MergeSummary.MigratedEntries = 1,
+      'A stable runtime key did not reuse its unchanged prior translation.');
+    Entry := Catalog.FindEntry(
+      'MainForm.Runtime.HtmlText.BrowserText.1234567890abcdef');
+    Require((Entry <> nil) and (Entry.TranslatedText = 'Hinweise'),
+      'The unchanged HTML translation was not migrated by semantic source.');
+    Require(Entry.Status = tsImported,
+      'An obsolete prior key did not become an imported stable-key entry.');
+  finally
+    ScanResult.Free;
+    Catalog.Free;
+  end;
+end;
+
+procedure TestStableSemanticContractRecovery;
+var
+  Catalog: TTranslationCatalog;
+  Entry: TTranslationEntry;
+  MergeSummary: TCatalogMergeSummary;
+  PascalFileName: string;
+  Recovered: Integer;
+  ScanResult: TProjectScanResult;
+  SecondCatalog: TTranslationCatalog;
+begin
+  PascalFileName := TPath.Combine(TPath.GetTempPath,
+    'DATSemanticContract-' + TGUID.NewGuid.ToString + '.pas');
+  TFile.WriteAllText(PascalFileName,
+    'unit SemanticContract;' + sLineBreak +
+    'procedure BuildReport;' + sLineBreak +
+    'begin' + sLineBreak +
+    '  AppendHeading(''Component Mapping Reference'');' + sLineBreak +
+    'end.' + sLineBreak, TEncoding.UTF8);
+  Catalog := TTranslationCatalog.Create;
+  ScanResult := TProjectScanResult.Create;
+  try
+    Catalog.SourceLanguage := 'en-US';
+    Catalog.Locale.LanguageCode := 'de-DE';
+    Entry := TTranslationEntry.Create;
+    Entry.Key := 'Report.Component.Title';
+    Entry.SourceText := 'Component Mapping Reference';
+    Entry.TranslatedText := 'Komponentenzuordnungsreferenz';
+    Entry.SourceFileName := PascalFileName;
+    Entry.RuntimeTextRole := rtrRuntimeTemplate;
+    Entry.RuntimeApplication := rakAutomatic;
+    Entry.RuntimeWiringConfirmed := True;
+    Entry.Status := tsObsolete;
+    Catalog.Entries.Add(Entry);
+
+    Recovered := TScanCatalogMerger.RecoverStableSemanticContracts(Catalog,
+      ScanResult);
+    Require(Recovered = 1,
+      'The stable semantic contract was not added to the canonical scan.');
+    Require((ScanResult.FindItem('Report.Component.Title') <> nil) and
+      (ScanResult.FindItem('Report.Component.Title').SourceText =
+        'Component Mapping Reference'),
+      'The canonical scan did not retain the semantic key and source text.');
+
+    MergeSummary := TScanCatalogMerger.Merge(ScanResult, Catalog);
+    Require(MergeSummary.UnchangedEntries = 1,
+      'The recovered semantic contract did not merge as unchanged source.');
+    Require(Entry.Status in [tsImported, tsApproved],
+      'A recovered semantic contract remained obsolete.');
+    Require(Entry.TranslatedText = 'Komponentenzuordnungsreferenz',
+      'Recovery did not preserve the existing semantic translation.');
+
+    SecondCatalog := TTranslationCatalog.Create;
+    try
+      SecondCatalog.SourceLanguage := 'en-US';
+      SecondCatalog.Locale.LanguageCode := 'es-ES';
+      TScanCatalogMerger.Merge(ScanResult, SecondCatalog);
+      Entry := SecondCatalog.FindEntry('Report.Component.Title');
+      Require((Entry <> nil) and
+        (Entry.SourceText = 'Component Mapping Reference'),
+        'A second language did not receive the canonical semantic contract.');
+    finally
+      SecondCatalog.Free;
+    end;
+  finally
+    ScanResult.Free;
+    Catalog.Free;
+    TFile.Delete(PascalFileName);
+  end;
 end;
 
 procedure TestDuplicateScanKeyContract;
@@ -2776,6 +2909,8 @@ begin
     TestProjectScanning;
     TestStudioProjectScanning;
     TestIncrementalCatalogMerge;
+    TestStableRuntimeKeyTranslationMigration;
+    TestStableSemanticContractRecovery;
     TestDuplicateScanKeyContract;
     TestRuntimeOwnershipClassification;
     TestCatalogFilePersistence;

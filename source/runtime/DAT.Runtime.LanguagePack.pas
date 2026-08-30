@@ -520,8 +520,13 @@ begin
       SourceTemplatesObject := JsonRoot.GetValue('sourceTemplates') as TJSONObject;
       if SourceTemplatesObject <> nil then
         for JsonPair in SourceTemplatesObject do
+        begin
           Result.FSourceTemplates.Add(JsonPair.JsonString.Value,
             JsonPair.JsonValue.Value);
+          if JsonPair.JsonValue.Value <> '' then
+            Result.FTranslatedStrings.AddOrSetValue(
+              JsonPair.JsonValue.Value, True);
+        end;
       LayoutArray := JsonRoot.GetValue('layout') as TJSONArray;
       if LayoutArray <> nil then
         for LayoutItem in LayoutArray do
@@ -800,8 +805,12 @@ function TRuntimeLanguagePack.TryTranslateDynamicText(
 var
   Candidate: string;
   LongestSource: string;
+  LongestTemplate: string;
+  ProcessedSources: TDictionary<string, Boolean>;
+  ProcessedTemplates: TDictionary<string, Boolean>;
   SourceTemplate: string;
   Replacement: string;
+  WorkingText: string;
 
   function IsWordCharacter(const AValue: Char): Boolean;
   begin
@@ -856,19 +865,59 @@ begin
       ATranslatedText := FSourceTemplates[SourceTemplate];
       Exit(ATranslatedText <> ASourceText);
     end;
-  LongestSource := '';
-  for Candidate in FSourceStrings.Keys do
-    if (Length(Candidate) >= 4) and
-      (Length(Candidate) > Length(LongestSource)) and
-      ContainsStr(ASourceText, Candidate) and
-      not ContainsStr(ASourceText, FSourceStrings[Candidate]) then
-      LongestSource := Candidate;
-  if LongestSource <> '' then
-  begin
-    Replacement := FSourceStrings[LongestSource];
-    ATranslatedText := ReplaceWholeTerm(ASourceText, LongestSource,
-      Replacement);
-    Exit(ATranslatedText <> ASourceText);
+  WorkingText := ASourceText;
+  ProcessedTemplates := TDictionary<string, Boolean>.Create;
+  ProcessedSources := TDictionary<string, Boolean>.Create;
+  try
+    { A rendered HTML text node can contain several independently keyed
+      semantic sentences. Apply every literal template, longest first, rather
+      than returning after the first match and leaving the rest in the source
+      language. Formatted templates remain governed by the parser below. }
+    repeat
+      LongestTemplate := '';
+      for SourceTemplate in FSourceTemplates.Keys do
+        if not ProcessedTemplates.ContainsKey(SourceTemplate) and
+          (Pos('%', SourceTemplate) = 0) and
+          (Length(SourceTemplate) >= 4) and
+          (Length(SourceTemplate) > Length(LongestTemplate)) and
+          ContainsStr(WorkingText, SourceTemplate) and
+          not ContainsStr(WorkingText, FSourceTemplates[SourceTemplate]) then
+          LongestTemplate := SourceTemplate;
+      if LongestTemplate = '' then
+        Break;
+      ProcessedTemplates.Add(LongestTemplate, True);
+      Replacement := FSourceTemplates[LongestTemplate];
+      WorkingText := ReplaceWholeTerm(WorkingText, LongestTemplate,
+        Replacement);
+    until False;
+
+    { Apply every stable source term for the same reason. This also makes the
+      dynamic API itself complete instead of relying on an HTML caller to run
+      a second replacement pass. }
+    repeat
+      LongestSource := '';
+      for Candidate in FSourceStrings.Keys do
+        if not ProcessedSources.ContainsKey(Candidate) and
+          (Length(Candidate) >= 4) and
+          (Length(Candidate) > Length(LongestSource)) and
+          ContainsStr(WorkingText, Candidate) and
+          not ContainsStr(WorkingText, FSourceStrings[Candidate]) then
+          LongestSource := Candidate;
+      if LongestSource = '' then
+        Break;
+      ProcessedSources.Add(LongestSource, True);
+      Replacement := FSourceStrings[LongestSource];
+      WorkingText := ReplaceWholeTerm(WorkingText, LongestSource,
+        Replacement);
+    until False;
+    if WorkingText <> ASourceText then
+    begin
+      ATranslatedText := WorkingText;
+      Exit(True);
+    end;
+  finally
+    ProcessedSources.Free;
+    ProcessedTemplates.Free;
   end;
   for SourceTemplate in FSourceTemplates.Keys do
     if TryApplyFormatTemplate(ASourceText, SourceTemplate,

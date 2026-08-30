@@ -458,6 +458,13 @@ var
         Length(TrimRight(AText)) + 1, MaxInt);
       Exit(LeftWhitespace + TranslatedText + RightWhitespace);
     end;
+    { A single identifier, number, property name, or class name cannot
+      contain a longer natural-language phrase.  The exact lookup above is
+      sufficient for genuinely translatable one-word captions and avoids an
+      O(visible-segments x catalog-entries) scan across large report tables. }
+    if (Pos(' ', ExactText) = 0) and (Pos(#9, ExactText) = 0) and
+      (Pos(#10, ExactText) = 0) and (Pos(#13, ExactText) = 0) then
+      Exit(AText);
     Result := AText;
     for KeyIndex := 0 to Keys.Count - 1 do
     begin
@@ -526,7 +533,8 @@ var
 
 begin
   Result := AHtmlText;
-  if (FActivePack = nil) or (AHtmlText = '') then
+  if (FActivePack = nil) or (AHtmlText = '') or
+    SameText(FActivePack.LanguageCode, FActivePack.SourceLanguage) then
     Exit;
   Keys := TStringList.Create;
   try
