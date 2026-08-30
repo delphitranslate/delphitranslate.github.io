@@ -192,6 +192,7 @@ type
     FScanCancelRequested: Integer;
     FCloseAfterScan: Boolean;
     FProviderTestInProgress: Boolean;
+    FProviderTestCancelRequested: Integer;
     FCloseAfterProviderTest: Boolean;
     procedure UpdateBuildChoice;
     procedure SetStep(const AStep: Integer);
@@ -791,9 +792,10 @@ begin
   end
   else if FProviderTestInProgress then
   begin
+    TInterlocked.Exchange(FProviderTestCancelRequested, 1);
     FCloseAfterProviderTest := True;
     CanClose := False;
-    lblFooterStatus.Text := 'Waiting for the connection test to finish before closing...';
+    lblFooterStatus.Text := 'Cancelling the connection test before closing...';
   end
   else if FBuildInProgress then
   begin
@@ -826,7 +828,13 @@ begin
     lblFooterStatus.Text := 'Cancelling final processing...';
     Exit;
   end;
-  if FProviderTestInProgress or FBuildInProgress then
+  if FProviderTestInProgress then
+  begin
+    TInterlocked.Exchange(FProviderTestCancelRequested, 1);
+    lblFooterStatus.Text := 'Cancelling the connection test...';
+    Exit;
+  end;
+  if FBuildInProgress then
     Exit;
   ModalResult := mrCancel;
 end;
@@ -885,7 +893,7 @@ end;
 procedure TfrmSetupWizard.UpdateNavigation;
 begin
   btnBack.Enabled := (FCurrentStep > 1) and not FFinalProcessing;
-  btnCancel.Enabled := not FProviderTestInProgress and not FBuildInProgress;
+  btnCancel.Enabled := not FBuildInProgress;
   btnNext.Visible := FCurrentStep < StepCount;
   btnFinish.Visible := FCurrentStep = StepCount;
   btnFinish.Enabled := FCompleted and
@@ -1178,7 +1186,10 @@ begin
   Provider := SelectedProvider;
   ApiKey := EffectiveApiKey;
   FProviderTestInProgress := True;
+  FCloseAfterProviderTest := False;
+  TInterlocked.Exchange(FProviderTestCancelRequested, 0);
   lblProviderStatus.Text := 'Testing the provider connection...';
+  UpdateNavigation;
   TThread.CreateAnonymousThread(
     procedure
     var
@@ -1188,11 +1199,17 @@ begin
     begin
       Passed := False;
       ErrorText := '';
-      Client := TTranslationProviderClient.Create(Provider, Plan,
-        ApiKey, 30, 40);
+      Client := nil;
       try
         try
-          Client.TestConnection;
+          Client := TTranslationProviderClient.Create(Provider, Plan,
+            ApiKey, 30, 40);
+          Client.TestConnection(
+            function: Boolean
+            begin
+              Result := TInterlocked.CompareExchange(
+                FProviderTestCancelRequested, 0, 0) <> 0;
+            end);
           Passed := True;
         except
           on E: Exception do
@@ -1206,7 +1223,11 @@ begin
         begin
           FProviderTestInProgress := False;
           btnTestConnection.Enabled := True;
-          if Passed then
+          UpdateNavigation;
+          if TInterlocked.CompareExchange(
+            FProviderTestCancelRequested, 0, 0) <> 0 then
+            lblProviderStatus.Text := 'Connection test cancelled.'
+          else if Passed then
             lblProviderStatus.Text := 'Connection test passed.'
           else
             lblProviderStatus.Text := 'Connection test failed: ' + ErrorText;

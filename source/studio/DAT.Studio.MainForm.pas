@@ -1572,29 +1572,89 @@ end;
 procedure TfrmTranslationStudio.btnTestProviderConnectionClick(
   Sender: TObject);
 var
-  Client: TTranslationProviderClient;
+  ApiKey: string;
+  BatchSize: Integer;
+  DeepLPlan: TDeepLPlan;
+  Provider: TTranslationProvider;
+  ProviderName: string;
+  RequestTimeoutSeconds: Integer;
 begin
+  if FProviderOperationInProgress then
+    Exit;
   btnTestProviderConnection.Enabled := False;
   try
     SaveProviderSettings;
-    Client := TTranslationProviderClient.Create(
-      FProviderSettings.Provider, FProviderSettings.DeepLPlan,
-      EffectiveApiKey(FProviderSettings.Provider),
-      FProviderSettings.RequestTimeoutSeconds,
-      FProviderSettings.BatchSize);
-    try
-      Client.TestConnection;
-      lblStatus.Text := Format(
-        '%s connection test passed.',
-        [TranslationProviderDisplayName(FProviderSettings.Provider)]);
-    finally
-      Client.Free;
-    end;
+    Provider := FProviderSettings.Provider;
+    DeepLPlan := FProviderSettings.DeepLPlan;
+    ApiKey := EffectiveApiKey(Provider);
+    RequestTimeoutSeconds := FProviderSettings.RequestTimeoutSeconds;
+    BatchSize := FProviderSettings.BatchSize;
+    ProviderName := TranslationProviderDisplayName(Provider);
+    FProviderOperationInProgress := True;
+    FCloseAfterProviderOperation := False;
+    TInterlocked.Exchange(FProviderCancelRequested, 0);
+    BodyLayout.Enabled := False;
+    NavigationCard.Enabled := False;
+    lblStatus.Text := 'Testing the ' + ProviderName + ' connection...';
+    ShowOperation('Testing provider connection',
+      'Waiting for ' + ProviderName + '...', True);
+    TThread.CreateAnonymousThread(
+      procedure
+      var
+        Client: TTranslationProviderClient;
+        ErrorText: string;
+        Passed: Boolean;
+      begin
+        ErrorText := '';
+        Passed := False;
+        Client := nil;
+        try
+          try
+            Client := TTranslationProviderClient.Create(Provider, DeepLPlan,
+              ApiKey, RequestTimeoutSeconds, BatchSize);
+            Client.TestConnection(
+              function: Boolean
+              begin
+                Result := TInterlocked.CompareExchange(
+                  FProviderCancelRequested, 0, 0) <> 0;
+              end);
+            Passed := True;
+          except
+            on E: Exception do
+              ErrorText := E.Message;
+          end;
+        finally
+          Client.Free;
+        end;
+        TThread.Queue(nil,
+          procedure
+          begin
+            FProviderOperationInProgress := False;
+            HideOperation;
+            BodyLayout.Enabled := True;
+            NavigationCard.Enabled := True;
+            btnTestProviderConnection.Enabled := True;
+            if TInterlocked.CompareExchange(
+              FProviderCancelRequested, 0, 0) <> 0 then
+              lblStatus.Text := 'Connection test cancelled.'
+            else if Passed then
+              lblStatus.Text := ProviderName + ' connection test passed.'
+            else
+              lblStatus.Text := 'Connection test failed: ' + ErrorText;
+            if FCloseAfterProviderOperation then
+            begin
+              FCloseAfterProviderOperation := False;
+              Close;
+            end;
+          end);
+      end).Start;
   except
     on E: Exception do
+    begin
       lblStatus.Text := 'Connection test failed: ' + E.Message;
+      btnTestProviderConnection.Enabled := True;
+    end;
   end;
-  btnTestProviderConnection.Enabled := True;
 end;
 
 procedure TfrmTranslationStudio.btnBuildIntegrationPlanClick(Sender: TObject);

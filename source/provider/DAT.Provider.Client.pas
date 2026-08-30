@@ -36,6 +36,9 @@ type
     function PostBatch(const ATexts: TArray<string>;
       const ASourceLanguage, ATargetLanguage: string;
       const AContext: string): TArray<string>;
+    function PostBatchOnce(const ATexts: TArray<string>;
+      const ASourceLanguage, ATargetLanguage, AContext: string;
+      const ACancelCheck: TTranslationCancelCheck): TArray<string>;
     function TranslateBatch(const ATexts: TArray<string>;
       const ASourceLanguage, ATargetLanguage: string;
       const AContext: string = ''): TArray<string>;
@@ -57,7 +60,8 @@ type
       const ASourceLanguage, ATargetLanguage: string;
       const ACancelCheck: TTranslationCancelCheck = nil;
       const AProgress: TTranslationProgressEvent = nil): TArray<string>;
-    procedure TestConnection;
+    procedure TestConnection(
+      const ACancelCheck: TTranslationCancelCheck = nil);
   end;
 
 implementation
@@ -68,6 +72,7 @@ uses
   System.Math,
   System.Net.HttpClient,
   System.Net.URLClient,
+  System.Types,
   DAT.Provider.Batching,
   DAT.Provider.CalendarTerms,
   DAT.Provider.LanguageCodes,
@@ -401,6 +406,92 @@ begin
   end;
 end;
 
+function TTranslationProviderClient.PostBatchOnce(
+  const ATexts: TArray<string>; const ASourceLanguage, ATargetLanguage,
+  AContext: string; const ACancelCheck: TTranslationCancelCheck): TArray<string>;
+const
+  ConnectionTestMaximumSeconds = 10;
+  CancelCompletionWaitMilliseconds = 5000;
+var
+  AsyncResult: IAsyncResult;
+  Client: THTTPClient;
+  Content: TStringStream;
+  ElapsedMilliseconds: UInt64;
+  Headers: TNetHeaders;
+  RequestStarted: UInt64;
+  Response: IHTTPResponse;
+  TestTimeoutMilliseconds: UInt64;
+  WaitResult: TWaitResult;
+begin
+  Client := THTTPClient.Create;
+  Content := nil;
+  AsyncResult := nil;
+  try
+    TestTimeoutMilliseconds := UInt64(Min(FTimeoutSeconds,
+      ConnectionTestMaximumSeconds)) * 1000;
+    Client.ConnectionTimeout := Integer(TestTimeoutMilliseconds);
+    Client.ResponseTimeout := Integer(TestTimeoutMilliseconds);
+    SetLength(Headers, 2);
+    Headers[0].Name := 'Content-Type';
+    Headers[0].Value := 'application/json; charset=utf-8';
+    if FProvider = tpGoogle then
+    begin
+      Headers[1].Name := 'X-Goog-Api-Key';
+      Headers[1].Value := FApiKey;
+    end
+    else
+    begin
+      Headers[1].Name := 'Authorization';
+      Headers[1].Value := 'DeepL-Auth-Key ' + FApiKey;
+    end;
+    Content := TStringStream.Create(
+      BuildRequestBody(ATexts, ASourceLanguage, ATargetLanguage, AContext),
+      TEncoding.UTF8);
+    RequestStarted := TThread.GetTickCount64;
+    AsyncResult := Client.BeginPost(Endpoint, Content, nil, Headers);
+    repeat
+      WaitResult := AsyncResult.AsyncWaitEvent.WaitFor(50);
+      if WaitResult = wrSignaled then
+        Break;
+      if Assigned(ACancelCheck) and ACancelCheck() then
+      begin
+        AsyncResult.Cancel;
+        AsyncResult.AsyncWaitEvent.WaitFor(
+          CancelCompletionWaitMilliseconds);
+        raise TTranslationCancelled.Create(
+          'Connection test was cancelled.');
+      end;
+      ElapsedMilliseconds := TThread.GetTickCount64 - RequestStarted;
+      if ElapsedMilliseconds >= TestTimeoutMilliseconds then
+      begin
+        AsyncResult.Cancel;
+        AsyncResult.AsyncWaitEvent.WaitFor(
+          CancelCompletionWaitMilliseconds);
+        raise ETranslationProviderError.CreateFmt(
+          'Connection test timed out after %d seconds.',
+          [TestTimeoutMilliseconds div 1000]);
+      end;
+      if WaitResult in [wrAbandoned, wrError] then
+        raise ETranslationProviderError.Create(
+          'The connection test could not wait for the provider response.');
+    until False;
+    Response := THTTPClient.EndAsyncHTTP(AsyncResult);
+    if (Response.StatusCode < 200) or (Response.StatusCode >= 300) then
+      raise ETranslationProviderError.Create(
+        DescribeRejection(FProvider, Response), Response.StatusCode);
+    Result := ParseResponse(Response.ContentAsString(TEncoding.UTF8));
+  finally
+    if (AsyncResult <> nil) and not AsyncResult.IsCompleted then
+    begin
+      AsyncResult.Cancel;
+      AsyncResult.AsyncWaitEvent.WaitFor(
+        CancelCompletionWaitMilliseconds);
+    end;
+    Content.Free;
+    Client.Free;
+  end;
+end;
+
 { Each string sent with the context that belongs to it.
 
   A service takes one context per request, and this used to batch fifty
@@ -488,14 +579,19 @@ begin
   end;
 end;
 
-procedure TTranslationProviderClient.TestConnection;
+procedure TTranslationProviderClient.TestConnection(
+  const ACancelCheck: TTranslationCancelCheck);
 var
   TestSource: TArray<string>;
   TestResult: TArray<string>;
 begin
   SetLength(TestSource, 1);
   TestSource[0] := 'Connection test';
-  TestResult := Translate(TestSource, 'en', 'it');
+  { A connection check answers one question and must return promptly. It does
+    not inherit the six-attempt production retry policy used by a translation
+    run, and its asynchronous HTTP request can be cancelled by either Studio
+    screen while it is in flight. }
+  TestResult := PostBatchOnce(TestSource, 'en', 'it', '', ACancelCheck);
   if (Length(TestResult) <> 1) or (Trim(TestResult[0]) = '') then
     raise ETranslationProviderError.Create(
       'The provider returned no text for the connection test.');

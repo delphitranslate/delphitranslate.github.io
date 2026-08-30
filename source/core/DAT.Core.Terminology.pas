@@ -34,7 +34,7 @@ begin
     Result := Copy(Result, 1, SeparatorAt - 1);
 end;
 
-function ExactSourceTranslation(const ALanguage, ASourceText: string;
+function ExactSourceTranslation(const ALanguageCode, ASourceText: string;
   out ATranslation: string): Boolean; forward;
 
 class function TTerminologyResolver.ApplyAuthoritativeTerms(
@@ -240,13 +240,18 @@ begin
     Result := False;
 end;
 
-function ExactSourceTranslation(const ALanguage, ASourceText: string;
+function ExactSourceTranslation(const ALanguageCode, ASourceText: string;
   out ATranslation: string): Boolean;
 var
+  ALanguage: string;
+  NormalizedLanguage: string;
   TextValue: string;
 begin
   Result := False;
   ATranslation := '';
+  NormalizedLanguage := LowerCase(StringReplace(Trim(ALanguageCode), '_',
+    '-', [rfReplaceAll]));
+  ALanguage := BaseLanguage(NormalizedLanguage);
   TextValue := Trim(StringReplace(ASourceText, '&', '', [rfReplaceAll]));
   if ALanguage = 'de' then
   begin
@@ -293,6 +298,107 @@ begin
     else
       Exit(False);
     Exit(True);
+  end
+  else if ALanguage = 'el' then
+  begin
+    if SameText(TextValue, 'On') then
+      ATranslation := 'Ενεργό'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'Ανενεργό'
+    else
+      Exit(False);
+    Exit(True);
+  end
+  else if ALanguage = 'es' then
+  begin
+    if SameText(TextValue, 'On') then
+      ATranslation := 'Activado'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'Desactivado'
+    else
+      Exit(False);
+    Exit(True);
+  end
+  else if ALanguage = 'he' then
+  begin
+    if SameText(TextValue, 'On') then
+      ATranslation := 'מופעל'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'כבוי'
+    else
+      Exit(False);
+    Exit(True);
+  end
+  else if ALanguage = 'hi' then
+  begin
+    if SameText(TextValue, 'On') then
+      ATranslation := 'चालू'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'बंद'
+    else
+      Exit(False);
+    Exit(True);
+  end
+  else if ALanguage = 'it' then
+  begin
+    if SameText(TextValue, 'On') then
+      ATranslation := 'Attivo'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'Disattivo'
+    else
+      Exit(False);
+    Exit(True);
+  end
+  else if ALanguage = 'ja' then
+  begin
+    if SameText(TextValue, 'On') then
+      ATranslation := 'オン'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'オフ'
+    else
+      Exit(False);
+    Exit(True);
+  end
+  else if ALanguage = 'pt' then
+  begin
+    if SameText(TextValue, 'On') then
+      ATranslation := 'Ligado'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'Desligado'
+    else
+      Exit(False);
+    Exit(True);
+  end
+  else if ALanguage = 'ur' then
+  begin
+    if SameText(TextValue, 'On') then
+      ATranslation := 'فعال'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := 'غیر فعال'
+    else
+      Exit(False);
+    Exit(True);
+  end
+  else if ALanguage = 'zh' then
+  begin
+    if StartsText('zh-tw', NormalizedLanguage) or
+      StartsText('zh-hk', NormalizedLanguage) or
+      StartsText('zh-mo', NormalizedLanguage) then
+    begin
+      if SameText(TextValue, 'On') then
+        ATranslation := '開啟'
+      else if SameText(TextValue, 'Off') then
+        ATranslation := '關閉'
+      else
+        Exit(False);
+    end
+    else if SameText(TextValue, 'On') then
+      ATranslation := '开启'
+    else if SameText(TextValue, 'Off') then
+      ATranslation := '关闭'
+    else
+      Exit(False);
+    Exit(True);
   end;
 end;
 
@@ -307,7 +413,7 @@ begin
     ConceptTranslation(BaseLanguage(ATargetLanguage), AEntry.SemanticConcept,
       ATranslation);
   if not Result then
-    Result := ExactSourceTranslation(BaseLanguage(ATargetLanguage),
+    Result := ExactSourceTranslation(ATargetLanguage,
       AEntry.SourceText, ATranslation);
   if Result then
   begin

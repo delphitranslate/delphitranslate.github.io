@@ -40,6 +40,7 @@ type
   private
     FBeforeShownSubscription: TMessageSubscriptionId;
     FReleasedSubscription: TMessageSubscriptionId;
+    FSizeChangedSubscription: TMessageSubscriptionId;
     FAutoRefreshDynamicText: Boolean;
     FDynamicRefreshInterval: Cardinal;
     FDynamicRefreshBusy: Boolean;
@@ -90,6 +91,8 @@ type
     procedure HandleBeforeShown(const Sender: TObject;
       const AMessage: TMessage);
     procedure HandleReleased(const Sender: TObject;
+      const AMessage: TMessage);
+    procedure HandleSizeChanged(const Sender: TObject;
       const AMessage: TMessage);
   protected
     procedure BeginLanguageTransition; override;
@@ -1263,6 +1266,7 @@ var
   Browsers: TArray<TCustomWebBrowser>;
   BrowserSubscription: TDATBrowserLifecycleSubscription;
   Form: TCommonCustomForm;
+  FormIdentity: string;
   OriginalHandler: TNotifyEvent;
   TabControl: TTabControl;
   TabSubscription: TDATTabChangeSubscription;
@@ -1287,6 +1291,17 @@ begin
     OriginalHandler(Sender);
   if Form = nil then
     Exit;
+  { The application's tab-change handler has now completed. It may have run a
+    responsive source layout, so restore the active RTL mirror immediately
+    from the stable source snapshot before the next frame is presented. }
+  if (ActivePack <> nil) and
+    SameText(Trim(ActivePack.TextDirection), 'rtl') and
+    WasAppliedInCurrentGeneration(Form) then
+  begin
+    FormIdentity := ResolveFormIdentity(Form, Form.Name);
+    TFMXTranslationApplicator.RefreshDirectionLayout(Form, ActivePack,
+      FormIdentity);
+  end;
   EnsureBrowserLifecycleContracts(Form);
   Browsers := FBrowserLifecycleSubscriptions.Keys.ToArray;
   for Browser in Browsers do
@@ -1624,7 +1639,9 @@ end;
 procedure TDATFMXLanguageManager.BrowserLifecycleTimerTick(Sender: TObject);
 var
   Form: TObject;
+  FormIdentity: string;
   Forms: TList<TObject>;
+  ManagedForm: TCommonCustomForm;
 begin
   if (ActivePack = nil) or (csDestroying in ComponentState) then
   begin
@@ -1639,8 +1656,21 @@ begin
     CollectOpenManagedObjects(Forms);
     for Form in Forms do
     begin
-      ApplyBrowserAndScrollContracts(TCommonCustomForm(Form));
-      SynchronizeBrowserVisibility(TCommonCustomForm(Form));
+      ManagedForm := TCommonCustomForm(Form);
+      { The first bounded post-show/post-transition tick runs after FormShow,
+        including any responsive layout the application performs there. It
+        closes the lifecycle gap that exists before the first normal resize
+        or tab change without adding a permanent layout timer. }
+      if (FBrowserLifecycleAttempts = 1) and
+        SameText(Trim(ActivePack.TextDirection), 'rtl') and
+        WasAppliedInCurrentGeneration(ManagedForm) then
+      begin
+        FormIdentity := ResolveFormIdentity(ManagedForm, ManagedForm.Name);
+        TFMXTranslationApplicator.RefreshDirectionLayout(ManagedForm,
+          ActivePack, FormIdentity);
+      end;
+      ApplyBrowserAndScrollContracts(ManagedForm);
+      SynchronizeBrowserVisibility(ManagedForm);
     end;
   finally
     Forms.Free;
@@ -1914,6 +1944,30 @@ begin
   end;
 end;
 
+procedure TDATFMXLanguageManager.HandleSizeChanged(const Sender: TObject;
+  const AMessage: TMessage);
+var
+  Form: TCommonCustomForm;
+  FormIdentity: string;
+begin
+  if not Initialized or (ActivePack = nil) or
+    not SameText(Trim(ActivePack.TextDirection), 'rtl') or
+    not (AMessage is TSizeChangedMessage) or
+    not (Sender is TCommonCustomForm) then
+    Exit;
+  Form := TCommonCustomForm(Sender);
+  { FMX sends this message after the form's own Resize event. That ordering is
+    the universal contract needed here: the application first performs its
+    ordinary responsive LTR layout, then the language manager mirrors the
+    resulting live-width coordinate spaces. The generation gate leaves
+    excluded and not-yet-translated forms entirely alone. }
+  if not WasAppliedInCurrentGeneration(Form) then
+    Exit;
+  FormIdentity := ResolveFormIdentity(Form, Form.Name);
+  TFMXTranslationApplicator.RefreshDirectionLayout(Form, ActivePack,
+    FormIdentity);
+end;
+
 procedure TDATFMXLanguageManager.HandleScrollContentBounds(Sender: TObject;
   var ContentBounds: TRectF);
 const
@@ -2009,6 +2063,10 @@ begin
     FReleasedSubscription :=
       TMessageManager.DefaultManager.SubscribeToMessage(
         TFormReleasedMessage, HandleReleased);
+  if FSizeChangedSubscription = 0 then
+    FSizeChangedSubscription :=
+      TMessageManager.DefaultManager.SubscribeToMessage(
+        TSizeChangedMessage, HandleSizeChanged);
 end;
 
 function TDATFMXLanguageManager.SupportsManagedObject(
@@ -2030,6 +2088,12 @@ begin
     TMessageManager.DefaultManager.Unsubscribe(
       TFormReleasedMessage, FReleasedSubscription);
     FReleasedSubscription := 0;
+  end;
+  if FSizeChangedSubscription <> 0 then
+  begin
+    TMessageManager.DefaultManager.Unsubscribe(
+      TSizeChangedMessage, FSizeChangedSubscription);
+    FSizeChangedSubscription := 0;
   end;
 end;
 

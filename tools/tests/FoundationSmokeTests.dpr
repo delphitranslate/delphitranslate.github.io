@@ -1760,6 +1760,25 @@ begin
   Result.Entries.Add(Entry);
 
   Entry := TTranslationEntry.Create;
+  Entry.Key := 'MainForm.State.On';
+  Entry.SourceText := 'On';
+  Entry.TranslatedText := 'Ein';
+  Entry.SourceChecksum := 'source-checksum-6';
+  Entry.Status := tsApproved;
+  Result.Entries.Add(Entry);
+
+  Entry := TTranslationEntry.Create;
+  Entry.Key := 'MainForm.RuleSummary';
+  Entry.SourceText := 'Critical Areas = %s';
+  Entry.TranslatedText := 'Kritische Bereiche = %s';
+  Entry.SourceChecksum := 'source-checksum-7';
+  Entry.Status := tsApproved;
+  Entry.RuntimeApplication := rakManualTranslateText;
+  Entry.RuntimeTextRole := rtrRuntimeTemplate;
+  Entry.RuntimeWiringConfirmed := True;
+  Result.Entries.Add(Entry);
+
+  Entry := TTranslationEntry.Create;
   Entry.Key := 'Report.Note.Explicit';
   Entry.SourceText := 'Uses an explicit event rule.';
   Entry.TranslatedText := 'Verwendet eine explizite Ereignisregel.';
@@ -1800,7 +1819,7 @@ begin
     try
       Require(LoadedCatalog.Locale.LanguageCode = 'de-DE',
         'The target language was not loaded from disk.');
-      Require(LoadedCatalog.Entries.Count = 5,
+      Require(LoadedCatalog.Entries.Count = 7,
         'The persisted catalog entry count is incorrect.');
     finally
       LoadedCatalog.Free;
@@ -2007,6 +2026,9 @@ begin
     Require(Pack.TryTranslateDynamicText('Updated at 10:30', RuntimeText) and
       (RuntimeText = 'Aktualisiert um 10:30'),
       'The runtime source-template index did not translate formatted text.');
+    Require(Pack.TryTranslateDynamicText('Critical Areas = On',
+      RuntimeText) and (RuntimeText = 'Kritische Bereiche = Ein'),
+      'A formatted template did not translate its exact short semantic value.');
     Require(Pack.TryTranslateDynamicText(
       'Uses an explicit event rule. Updated at 10:30', RuntimeText) and
       (RuntimeText =

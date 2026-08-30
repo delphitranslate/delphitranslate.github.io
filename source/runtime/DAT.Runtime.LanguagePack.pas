@@ -733,8 +733,13 @@ begin
 end;
 
 function TryApplyFormatTemplate(const ACurrentText, ASourceTemplate,
-  ATranslatedTemplate: string; out ATranslatedText: string): Boolean;
+  ATranslatedTemplate: string;
+  const ASourceTranslations: TDictionary<string, string>;
+  AWholeTextOnly: Boolean;
+  out ATranslatedText: string): Boolean;
 var
+  CaptureCore: string;
+  CaptureText: string;
   Captures: TStringList;
   CurrentAt: Integer;
   Index: Integer;
@@ -747,6 +752,7 @@ var
   SourcePlaceholders: TStringList;
   TranslatedLiterals: TStringList;
   TranslatedPlaceholders: TStringList;
+  TranslatedCapture: string;
 begin
   Result := False;
   ATranslatedText := '';
@@ -785,9 +791,27 @@ begin
       CurrentAt := LiteralAt + Length(NextLiteral);
     end;
     MatchEnd := CurrentAt;
+    if AWholeTextOnly and
+      ((MatchStart <> 1) or (MatchEnd <> Length(ACurrentText) + 1)) then
+      Exit;
     OutputText := TranslatedLiterals[0];
     for Index := 0 to Captures.Count - 1 do
-      OutputText := OutputText + Captures[Index] + TranslatedLiterals[Index + 1];
+    begin
+      CaptureText := Captures[Index];
+      CaptureCore := Trim(CaptureText);
+      { Placeholders usually contain data and must remain verbatim. A value
+        that is itself an exact catalog source string, however, is semantic UI
+        text (for example On or Off). Translate only that whole value and
+        preserve any surrounding whitespace. This avoids unsafe substring
+        replacement in filenames, identifiers, counts, and user content. }
+      if (ASourceTranslations <> nil) and (CaptureCore <> '') and
+        ASourceTranslations.TryGetValue(CaptureCore, TranslatedCapture) then
+        CaptureText := Copy(CaptureText, 1,
+          Length(CaptureText) - Length(TrimLeft(CaptureText))) +
+          TranslatedCapture + Copy(CaptureText,
+          Length(TrimRight(CaptureText)) + 1, MaxInt);
+      OutputText := OutputText + CaptureText + TranslatedLiterals[Index + 1];
+    end;
     ATranslatedText := Copy(ACurrentText, 1, MatchStart - 1) + OutputText +
       Copy(ACurrentText, MatchEnd, MaxInt);
     Result := ATranslatedText <> ACurrentText;
@@ -870,6 +894,16 @@ begin
       ATranslatedText := FSourceTemplates[SourceTemplate];
       Exit(ATranslatedText <> ASourceText);
     end;
+  { A formatted semantic template must run before shorter literal terms can
+    translate pieces of its source text. Once a label such as Critical Areas
+    has changed independently, the complete template no longer matches and
+    its short semantic placeholder values (On/Off) would remain untranslated. }
+  for SourceTemplate in FSourceTemplates.Keys do
+    if (Pos('%', SourceTemplate) > 0) and
+      TryApplyFormatTemplate(ASourceText, SourceTemplate,
+        FSourceTemplates[SourceTemplate], FSourceStrings, True,
+        ATranslatedText) then
+      Exit(True);
   WorkingText := ASourceText;
   ProcessedTemplates := TDictionary<string, Boolean>.Create;
   ProcessedSources := TDictionary<string, Boolean>.Create;
@@ -926,7 +960,8 @@ begin
   end;
   for SourceTemplate in FSourceTemplates.Keys do
     if TryApplyFormatTemplate(ASourceText, SourceTemplate,
-      FSourceTemplates[SourceTemplate], ATranslatedText) then
+      FSourceTemplates[SourceTemplate], FSourceStrings, False,
+      ATranslatedText) then
       Exit(True);
   ATranslatedText := ASourceText;
   Result := False;

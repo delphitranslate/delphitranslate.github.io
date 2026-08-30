@@ -71,6 +71,8 @@ type
     FGeneration: Cardinal;
     FInitialized: Boolean;
     FInitializing: Boolean;
+    FInitialApplicationPending: Boolean;
+    FInitialApplicationQueued: Boolean;
     FDestroying: Boolean;
     FSelectingLanguage: Boolean;
     FApplying: Boolean;
@@ -106,6 +108,8 @@ type
       const AIdentity, AInstanceName: string): Boolean;
     function ApplyToManagedObjectInternal(const AManagedObject: TObject;
       const AForce: Boolean): Integer;
+    procedure ApplyInitialLanguage;
+    procedure QueueInitialLanguageApplication;
   protected
     procedure Loaded; override;
     procedure Notification(AComponent: TComponent;
@@ -378,6 +382,10 @@ begin
     down. Mark the manager as destroying before releasing collections so a
     late opRemove notification cannot dereference freed state. }
   FDestroying := True;
+  if FInitialApplicationQueued then
+    TThread.RemoveQueuedEvents(nil, ApplyInitialLanguage);
+  FInitialApplicationQueued := False;
+  FInitialApplicationPending := False;
   FApplying := False;
   FSelectingLanguage := False;
   FAppliedGenerations.Clear;
@@ -411,6 +419,32 @@ begin
   Inc(FGeneration);
   if FGeneration = 0 then
     Inc(FGeneration);
+end;
+
+procedure TDATCustomLanguageManager.ApplyInitialLanguage;
+begin
+  FInitialApplicationQueued := False;
+  if FDestroying or not FInitialized then
+    Exit;
+  FInitialApplicationPending := False;
+  if FAutoTranslateOwner and SupportsManagedObject(Owner) then
+    ApplyToManagedObject(Owner);
+  if FReapplyOpenForms then
+    ApplyToOpenForms;
+end;
+
+procedure TDATCustomLanguageManager.QueueInitialLanguageApplication;
+begin
+  if FDestroying or FInitialApplicationQueued then
+    Exit;
+  FInitialApplicationPending := True;
+  FInitialApplicationQueued := True;
+  { A streamed form has not yet run its OnCreate layout while owned
+    components receive Loaded. Applying RTL geometry at that point lets the
+    application's normal startup layout overwrite only part of the mirror.
+    Queue the first application until streaming and OnCreate have both
+    completed; later language changes remain immediate. }
+  TThread.ForceQueue(nil, ApplyInitialLanguage);
 end;
 
 procedure TDATCustomLanguageManager.ReportMissingTranslation(
@@ -645,10 +679,12 @@ begin
 
   if not Result then
     Exit;
-  if FAutoTranslateOwner and SupportsManagedObject(Owner) then
-    ApplyToManagedObject(Owner);
-  if FReapplyOpenForms then
-    ApplyToOpenForms;
+  if (Owner <> nil) and (csLoading in Owner.ComponentState) then
+  begin
+    FInitialApplicationPending := True;
+    Exit;
+  end;
+  ApplyInitialLanguage;
 end;
 
 procedure TDATCustomLanguageManager.InvalidateTranslations(
@@ -682,7 +718,11 @@ begin
   inherited Loaded;
   if not (csDesigning in ComponentState) and
     not (csLoading in ComponentState) then
+  begin
     Initialize;
+    if FInitialApplicationPending then
+      QueueInitialLanguageApplication;
+  end;
 end;
 
 procedure TDATCustomLanguageManager.Notification(AComponent: TComponent;
