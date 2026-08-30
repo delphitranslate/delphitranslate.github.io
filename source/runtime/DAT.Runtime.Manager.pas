@@ -398,6 +398,8 @@ end;
 function TTranslationRuntime.TranslateHtmlText(const AHtmlText: string): string;
 var
   InTag: Boolean;
+  DirectionStyleInjected: Boolean;
+  IsRightToLeft: Boolean;
   Output: TStringBuilder;
   ProtectedDepth: Integer;
   Segment: string;
@@ -491,6 +493,15 @@ var
   end;
 
   procedure AppendTag;
+  const
+    RightToLeftStyle =
+      '<style id="dat-text-direction">' +
+      'html[dir="rtl"],html[dir="rtl"] body{direction:rtl;}' +
+      'html[dir="rtl"] body,html[dir="rtl"] p,html[dir="rtl"] li,' +
+      'html[dir="rtl"] th,html[dir="rtl"] td,html[dir="rtl"] h1,' +
+      'html[dir="rtl"] h2,html[dir="rtl"] h3,html[dir="rtl"] h4,' +
+      'html[dir="rtl"] h5,html[dir="rtl"] h6{text-align:right;}' +
+      '</style>';
   var
     ClosingTag: Boolean;
     Name: string;
@@ -503,6 +514,25 @@ var
     SelfClosingTag := EndsText('/>', TrimRight(TagText));
     if ClosingTag and IsProtectedTag(Name) and (ProtectedDepth > 0) then
       Dec(ProtectedDepth);
+    if IsRightToLeft and not ClosingTag and (Name = 'html') then
+    begin
+      TagText := StringReplace(TagText, 'dir="ltr"', 'dir="rtl"',
+        [rfReplaceAll, rfIgnoreCase]);
+      TagText := StringReplace(TagText, 'dir=''ltr''', 'dir=''rtl''',
+        [rfReplaceAll, rfIgnoreCase]);
+      TagText := StringReplace(TagText, 'dir="auto"', 'dir="rtl"',
+        [rfReplaceAll, rfIgnoreCase]);
+      TagText := StringReplace(TagText, 'dir=''auto''', 'dir=''rtl''',
+        [rfReplaceAll, rfIgnoreCase]);
+      if not ContainsText(TagText, ' dir=') then
+        Insert(' dir="rtl"', TagText, Length(TagText));
+    end;
+    if IsRightToLeft and ClosingTag and (Name = 'head') and
+      not DirectionStyleInjected then
+    begin
+      Output.Append(RightToLeftStyle);
+      DirectionStyleInjected := True;
+    end;
     Output.Append(TagText);
     if not ClosingTag and not SelfClosingTag and IsProtectedTag(Name) then
       Inc(ProtectedDepth);
@@ -520,6 +550,10 @@ begin
     TagText := '';
     InTag := False;
     ProtectedDepth := 0;
+    IsRightToLeft := SameText(Trim(FActivePack.TextDirection), 'rtl');
+    DirectionStyleInjected := ContainsText(AHtmlText,
+      'id="dat-text-direction"') or ContainsText(AHtmlText,
+      'id=''dat-text-direction''');
     for TextIndex := 1 to Length(AHtmlText) do
     begin
       if AHtmlText[TextIndex] = '<' then

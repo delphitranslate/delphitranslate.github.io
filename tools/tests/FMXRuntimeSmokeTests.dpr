@@ -128,6 +128,19 @@ begin
   Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
 end;
 
+function RTLTestPack: TRuntimeLanguagePack;
+const
+  JsonText =
+    '{"schemaVersion":3,"applicationId":"SampleFMXApp",' +
+    '"applicationVersion":"1.0","framework":"FireMonkey",' +
+    '"sourceLanguage":"en-US","sourceCatalogChecksum":"rtl-test",' +
+    '"language":{"code":"ar-SA","nativeName":"Arabic",' +
+    '"direction":"rtl"},"locale":{},"strings":{},"sources":{},' +
+    '"sourceStrings":{},"sourceTemplates":{},"layout":[]}';
+begin
+  Result := TRuntimeLanguagePack.LoadFromJson(JsonText);
+end;
+
 var
   AppliedCount: Integer;
   DynamicLabel: TLabel;
@@ -136,6 +149,9 @@ var
   OriginalHorizontalAlignment: TTextAlign;
   OriginalStyledSettings: TStyledSettings;
   Pack: TRuntimeLanguagePack;
+  RTLCenteredLabel: TLabel;
+  RTLParagraphLabel: TLabel;
+  RTLPack: TRuntimeLanguagePack;
   ProseContainer: TLayout;
   ProseLabel: TLabel;
   StatusContainer: TLayout;
@@ -157,6 +173,18 @@ begin
     OriginalStyledSettings := DynamicLabel.StyledSettings;
     TemplateLabel := TLabel.Create(frmFMXSample);
     TemplateLabel.Text := 'Uptime: 2 years';
+    RTLParagraphLabel := TLabel.Create(frmFMXSample);
+    RTLParagraphLabel.Parent := frmFMXSample;
+    RTLParagraphLabel.Text := 'Ordinary paragraph';
+    RTLParagraphLabel.TextSettings.HorzAlign := TTextAlign.Leading;
+    RTLParagraphLabel.StyledSettings := RTLParagraphLabel.StyledSettings -
+      [TStyledSetting.Other];
+    RTLCenteredLabel := TLabel.Create(frmFMXSample);
+    RTLCenteredLabel.Parent := frmFMXSample;
+    RTLCenteredLabel.Text := 'Centered heading';
+    RTLCenteredLabel.TextSettings.HorzAlign := TTextAlign.Center;
+    RTLCenteredLabel.StyledSettings := RTLCenteredLabel.StyledSettings -
+      [TStyledSetting.Other];
     ProseContainer := TLayout.Create(frmFMXSample);
     ProseContainer.Parent := frmFMXSample;
     ProseContainer.Position.X := 20;
@@ -197,6 +225,7 @@ begin
     frmFMXSample.grdCustomers.RowCount := 1;
     frmFMXSample.grdCustomers.Cells[0, 0] := 'Event';
     Pack := TestPack;
+    RTLPack := nil;
     try
       AppliedCount := TFMXTranslationApplicator.ApplyToForm(
         frmFMXSample, Pack);
@@ -345,7 +374,20 @@ begin
         'A control with no layout rule was not restored from the snapshot.');
       Require(Round(frmFMXSample.edtCustomerName.Height) = 36,
         'A control with no layout rule was not restored from the snapshot.');
+      RTLPack := RTLTestPack;
+      TFMXTranslationApplicator.ApplyToForm(frmFMXSample, RTLPack);
+      Require(RTLParagraphLabel.TextSettings.HorzAlign =
+        TTextAlign.Trailing,
+        'An ordinary RTL label did not follow the paragraph reading edge.');
+      Require(RTLCenteredLabel.TextSettings.HorzAlign = TTextAlign.Center,
+        'RTL paragraph alignment changed a centered heading.');
+      TFMXTranslationApplicator.RestoreSourceLanguage(frmFMXSample,
+        RTLPack, frmFMXSample.Name);
+      Require(RTLParagraphLabel.TextSettings.HorzAlign =
+        TTextAlign.Leading,
+        'Returning to LTR did not restore the designed label alignment.');
     finally
+      RTLPack.Free;
       Pack.Free;
       frmFMXSample.Free;
     end;

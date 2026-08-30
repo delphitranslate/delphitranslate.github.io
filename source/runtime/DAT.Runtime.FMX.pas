@@ -435,11 +435,12 @@ end;
   alignment. A field left aligned under Arabic puts the first character
   somebody types at the far end of the box from where they are looking.
 
-  Captions are deliberately not touched here. Their alignment is decided by
-  the planner, which knows where each one sits and what it labels; overruling
-  that at run time would undo a decision made with the whole form in view.
-  A field is different - it has a caret rather than a position in a sentence,
-  and where the caret starts is a property of the reader, not the layout. }
+  Ordinary labels also carry the reading direction of their paragraph.  A
+  translated Arabic or Urdu paragraph at the mirrored side of its card is
+  still wrong when its glyphs start from the left edge.  Centred labels retain
+  their designed alignment; all other labels follow the reader in RTL.  The
+  source snapshot restores their designed alignment before an LTR language is
+  applied, so the LTR path need not invent a replacement for it. }
 function IsFMXInputControl(const AObject: TFmxObject): Boolean;
 begin
   { TComboEdit and the list controls live in units this one does not use,
@@ -511,6 +512,15 @@ var
           Inc(Applied);
         end;
       end;
+    end;
+    if ARightToLeft and (AObject is TLabel) and
+      Supports(AObject, ITextSettings) then
+    begin
+      Settings := (AObject as ITextSettings).TextSettings;
+      if (Settings <> nil) and
+        (Settings.HorzAlign <> TTextAlign.Center) and
+        ApplyHorzAlignSetting(TComponent(AObject), 'Trailing') then
+        Inc(Applied);
     end;
     { A grid creates its cell editor only when editing begins, after this walk
       has completed. The editor copies its reading alignment from the active

@@ -1985,6 +1985,8 @@ var
   PreferenceFileName: string;
   Runtime: TTranslationRuntime;
   RuntimeText: string;
+  RTLSourceCatalog: TTranslationCatalog;
+  RTLSourcePackFileName: string;
   SourceCatalog: TTranslationCatalog;
   SourcePackFileName: string;
   SwitchPack: TRuntimeLanguagePack;
@@ -1995,6 +1997,7 @@ begin
     'export\RuntimeLoaderTest\Languages');
   PackFileName := TPath.Combine(LanguageDirectory, 'de-DE.json');
   SourcePackFileName := TPath.Combine(LanguageDirectory, 'en-US.json');
+  RTLSourcePackFileName := TPath.Combine(LanguageDirectory, 'ar-SA.json');
   PreferenceFileName := TPath.Combine(
     TPath.GetDirectoryName(LanguageDirectory), 'language.ini');
   Catalog := CreateCompleteCatalog;
@@ -2011,6 +2014,16 @@ begin
     TRuntimePackBuilder.ExportToFile(SourceCatalog, SourcePackFileName);
   finally
     SourceCatalog.Free;
+  end;
+  RTLSourceCatalog := CreateCompleteCatalog;
+  try
+    RTLSourceCatalog.Locale.LanguageCode := 'ar-SA';
+    RTLSourceCatalog.Locale.NativeLanguageName := 'Arabic';
+    RTLSourceCatalog.Locale.TextDirection := 'rtl';
+    TRuntimePackBuilder.ExportToFile(RTLSourceCatalog,
+      RTLSourcePackFileName);
+  finally
+    RTLSourceCatalog.Free;
   end;
 
   Pack := TRuntimeLanguagePack.LoadFromFile(PackFileName);
@@ -2082,7 +2095,7 @@ begin
       '"On":"Aktiv","Off":"Inaktiv"},' +
       '"sourceTemplates":{' +
       '"Critical Areas = %s\r\nData Aware = %s\r\n3rd Party = %s":' +
-      '"Kritische Bereiche = %s\r\nDatenbewusst = %s\r\nDrittanbieter = %s"}}');
+      '"Critical Areas = %s\r\nData Aware = %s\r\n3rd Party = %s"}}');
     try
       Require(SwitchPack.TryTranslateDynamicText(
         'Critical Areas = On' + sLineBreak +
@@ -2127,6 +2140,19 @@ begin
       '<div>Click &Beenden please <strong>&Beenden</strong></div>' +
       '<script>var label="E&xit";</script><code>E&xit</code>',
       'HTML translation changed markup/technical content or missed a mixed visible node.');
+    Require(Runtime.LoadLanguage('ar-SA'),
+      'The runtime manager did not load the RTL test pack.');
+    RuntimeText := Runtime.TranslateHtmlText(
+      '<html lang="en"><head><style>th{text-align:left}</style></head>' +
+      '<body><h2>Heading</h2><p>E&xit</p><table><tr><th>Notes</th>' +
+      '<td>E&xit</td></tr></table></body></html>');
+    Require(ContainsText(RuntimeText, '<html lang="en" dir="rtl">') and
+      ContainsText(RuntimeText, 'id="dat-text-direction"') and
+      ContainsText(RuntimeText, 'html[dir="rtl"] th') and
+      ContainsText(RuntimeText, 'html[dir="rtl"] p'),
+      'RTL HTML did not receive a semantic document direction and ordinary CSS reading contract.');
+    Require(Runtime.LoadLanguage('de-DE'),
+      'The runtime manager did not restore the preferred LTR test pack.');
     Require(Runtime.FormatSettings.DecimalSeparator = ',',
       'The locale decimal separator was not applied.');
   finally

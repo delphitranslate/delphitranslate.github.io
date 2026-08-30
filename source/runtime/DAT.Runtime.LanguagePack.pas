@@ -66,6 +66,7 @@ type
     FSourceTemplates: TDictionary<string, string>;
     FSourceByTranslatedString: TDictionary<string, string>;
     FSourceByTranslatedTemplate: TDictionary<string, string>;
+    FSourceByGeneratedTranslation: TDictionary<string, string>;
     FTranslatedStrings: TDictionary<string, Boolean>;
     FLayoutRules: TObjectList<TRuntimeLayoutRule>;
     FFontColors: TDictionary<string, string>;
@@ -410,6 +411,8 @@ begin
   FSourceTemplates := TDictionary<string, string>.Create;
   FSourceByTranslatedString := TDictionary<string, string>.Create;
   FSourceByTranslatedTemplate := TDictionary<string, string>.Create;
+  FSourceByGeneratedTranslation := TDictionary<string, string>.Create(
+    TIStringComparer.Ordinal);
   { Display controls may normalize caption case. Keep the ownership check
     constant-time without losing the established case-insensitive restore
     fallback. }
@@ -424,6 +427,7 @@ begin
   FLayoutRules.Free;
   FFontColors.Free;
   FTranslatedStrings.Free;
+  FSourceByGeneratedTranslation.Free;
   FSourceByTranslatedTemplate.Free;
   FSourceByTranslatedString.Free;
   FSourceTemplates.Free;
@@ -705,6 +709,13 @@ begin
   { Exact reverse indexes make the normal language-change path constant time.
     They also avoid repeatedly walking a complete application catalog for
     every control on every open form. }
+  { A generated sentence can combine a formatted template and several stable
+    terms.  Remember the exact source that produced that exact output so a
+    language switch never has to reconstruct ownership from ambiguous words
+    and can never carry part of the previous language into the next one. }
+  if FSourceByGeneratedTranslation.TryGetValue(ATranslatedText,
+    ASourceText) then
+    Exit(True);
   if FSourceByTranslatedTemplate.TryGetValue(ATranslatedText,
     ASourceText) then
     Exit(True);
@@ -986,6 +997,14 @@ var
         SearchFrom := At + Length(ASource);
     end;
   end;
+
+  procedure RememberGeneratedTranslation(const AOutput: string);
+  begin
+    if (AOutput = '') or (AOutput = ASourceText) then
+      Exit;
+    FTranslatedStrings.AddOrSetValue(AOutput, True);
+    FSourceByGeneratedTranslation.AddOrSetValue(AOutput, ASourceText);
+  end;
 begin
   { Dynamic refresh can see a value translated on an earlier pass.  Treat
     translated values as terminal so source prefixes such as Event -> Evento
@@ -1019,24 +1038,29 @@ begin
      EndsText(':', ATranslatedText) then
   begin
     Delete(ATranslatedText, Length(ATranslatedText), 1);
-    if ATranslatedText <> '' then
-      FTranslatedStrings.AddOrSetValue(ATranslatedText, True);
+    RememberGeneratedTranslation(ATranslatedText);
     Exit(ATranslatedText <> ASourceText);
   end;
+  WorkingText := ASourceText;
   { A formatted semantic template must run before shorter literal terms can
     translate pieces of its source text. Once a label such as Critical Areas
     has changed independently, the complete template no longer matches and
-    its short semantic placeholder values (On/Off) would remain untranslated. }
+    its short semantic placeholder values (On/Off) would remain untranslated.
+
+    A translated template is not necessarily a fully translated sentence.
+    Some imported packs preserve the source labels in the template while
+    translating its values.  Keep that formatted result in the same compound
+    pipeline below so stable labels such as Critical Areas and Data Aware are
+    resolved too. }
   for SourceTemplate in FSourceTemplates.Keys do
     if (Pos('%', SourceTemplate) > 0) and
       TryApplyFormatTemplate(ASourceText, SourceTemplate,
         FSourceTemplates[SourceTemplate], FSourceStrings, True,
         ATranslatedText) then
     begin
-      FTranslatedStrings.AddOrSetValue(ATranslatedText, True);
-      Exit(True);
+      WorkingText := ATranslatedText;
+      Break;
     end;
-  WorkingText := ASourceText;
   ProcessedTemplates := TDictionary<string, Boolean>.Create;
   ProcessedSources := TDictionary<string, Boolean>.Create;
   try
@@ -1084,7 +1108,7 @@ begin
     if WorkingText <> ASourceText then
     begin
       ATranslatedText := WorkingText;
-      FTranslatedStrings.AddOrSetValue(ATranslatedText, True);
+      RememberGeneratedTranslation(ATranslatedText);
       Exit(True);
     end;
   finally
@@ -1096,7 +1120,7 @@ begin
       FSourceTemplates[SourceTemplate], FSourceStrings, False,
       ATranslatedText) then
     begin
-      FTranslatedStrings.AddOrSetValue(ATranslatedText, True);
+      RememberGeneratedTranslation(ATranslatedText);
       Exit(True);
     end;
   ATranslatedText := ASourceText;

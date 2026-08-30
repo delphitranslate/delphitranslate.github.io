@@ -62,6 +62,7 @@ type
     procedure ApplyBrowserAndScrollContracts(
       const AForm: TCommonCustomForm);
     procedure ApplyScrollBottomGutter(const AForm: TCommonCustomForm);
+    procedure RefreshActiveTabLayouts(const AForm: TCommonCustomForm);
     procedure BrowserLifecycleTimerTick(Sender: TObject);
     procedure EnsureBrowserLifecycleContracts(
       const AForm: TCommonCustomForm);
@@ -1625,6 +1626,58 @@ begin
     Exit;
   EnsureBrowserLifecycleContracts(AForm);
   ApplyScrollBottomGutter(AForm);
+  RefreshActiveTabLayouts(AForm);
+end;
+
+procedure TDATFMXLanguageManager.RefreshActiveTabLayouts(
+  const AForm: TCommonCustomForm);
+var
+  Visited: TDictionary<TComponent, Boolean>;
+
+  procedure Visit(const AComponent: TComponent);
+  var
+    ActiveTab: TTabItem;
+    ChildIndex: Integer;
+    OriginalChange: TNotifyEvent;
+    TabControl: TTabControl;
+  begin
+    if (AComponent = nil) or Visited.ContainsKey(AComponent) then
+      Exit;
+    Visited.Add(AComponent, True);
+    if AComponent is TTabControl then
+    begin
+      TabControl := TTabControl(AComponent);
+      ActiveTab := TabControl.ActiveTab;
+      if ActiveTab <> nil then
+      begin
+        { FMX can retain the selected tab while leaving its presentation
+          hidden after the entire control tree changes reading direction.
+          Reselect the same page without publishing a user navigation event;
+          this rebuilds the tab presentation immediately instead of waiting
+          for the user to visit another page and come back. }
+        OriginalChange := TabControl.OnChange;
+        TabControl.OnChange := nil;
+        try
+          TabControl.ActiveTab := nil;
+          TabControl.ActiveTab := ActiveTab;
+        finally
+          TabControl.OnChange := OriginalChange;
+        end;
+      end;
+      TabControl.Repaint;
+    end;
+    for ChildIndex := 0 to AComponent.ComponentCount - 1 do
+      Visit(AComponent.Components[ChildIndex]);
+  end;
+begin
+  if AForm = nil then
+    Exit;
+  Visited := TDictionary<TComponent, Boolean>.Create;
+  try
+    Visit(AForm);
+  finally
+    Visited.Free;
+  end;
 end;
 
 procedure TDATFMXLanguageManager.ApplyScrollBottomGutter(
@@ -1661,6 +1714,15 @@ var
         ScrollBox.FreeNotification(Self);
         ScrollBox.OnCalcContentBounds := HandleScrollContentBounds;
       end;
+      { RTL mirroring may leave a vertical scroll box with a horizontal
+        viewport offset even though its restored LTR children are back at
+        their designed coordinates.  The content is then entirely offscreen
+        until a tab change happens to realign the box.  These containers are
+        vertically scrolling contracts, so X always belongs at the origin;
+        preserve Y so a language switch does not lose the reader's place. }
+      if not SameValue(ScrollBox.ViewportPosition.X, 0, 0.01) then
+        ScrollBox.ViewportPosition := TPointF.Create(0,
+          ScrollBox.ViewportPosition.Y);
       ScrollBox.RealignContent;
     end;
     for ChildIndex := 0 to AComponent.ComponentCount - 1 do

@@ -6,7 +6,9 @@ uses
   System.StartUpCopy,
   System.Classes,
   System.IOUtils,
+  System.Math,
   System.SysUtils,
+  System.Types,
   Winapi.Windows,
   FMX.Forms,
   FMX.Layouts,
@@ -334,6 +336,18 @@ begin
     Require(FBrowserB.Visible and not FBrowserA.Visible,
       'The newly loaded browser did not become the sole visible native page.');
     PumpMessages;
+    Require(FManager.SelectLanguage('de-DE'),
+      'Viewport reset setup could not select the translated language.');
+    ScrollProbe.ViewportPosition := TPointF.Create(32,
+      ScrollProbe.ViewportPosition.Y);
+    Require(FManager.SelectLanguage('en-US'),
+      'English selection failed while resetting the viewport.');
+    Require(SameValue(ScrollProbe.ViewportPosition.X, 0, 0.01),
+      'An RTL horizontal scroll offset left the restored active page offscreen.');
+    Require(FBrowserTabControl.ActiveTab = BrowserTabB,
+      'A language transition did not preserve the selected tab while refreshing its presentation.');
+    Require(FBrowserTabChangeCount = 1,
+      'Refreshing the active tab published a false user navigation event.');
     Require(ScrollProbe.ContentBounds.Bottom >=
       ScrollContentProbe.Position.Y + ScrollContentProbe.Height + 17,
       'The universal FMX scroll viewport contract did not preserve a ' +
@@ -376,6 +390,8 @@ begin
     Writeln('FMX_MANAGER_FOCUS_AND_SELECTION=PASS');
     Writeln('FMX_MANAGER_EVENT_SUPPRESSION=PASS');
     Writeln('FMX_MANAGER_SCROLL_BOTTOM_GUTTER=PASS');
+    Writeln('FMX_MANAGER_SCROLL_HORIZONTAL_RESET=PASS');
+    Writeln('FMX_MANAGER_ACTIVE_TAB_REFRESH=PASS');
     Writeln('FMX_MANAGER_EXPLICIT_APPLY=PASS');
   except
     on E: Exception do
