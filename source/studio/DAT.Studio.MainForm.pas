@@ -256,7 +256,9 @@ type
     procedure ClearScanSummary;
     procedure ResetCatalog;
     procedure DisplayProjectSummary(const AProfile: TProjectProfile);
-    procedure DisplayScanResult(const AResult: TProjectScanResult);
+    procedure DisplayScanResult(const AResult: TProjectScanResult;
+      const ARawScanCount, ARecoveredSemanticCount,
+      ADuplicateOccurrenceCount: Integer);
     procedure DisplayCatalogEntries;
     procedure DisplayCatalogLanguage;
     procedure DisplayValidationResult;
@@ -794,11 +796,14 @@ begin
 end;
 
 procedure TfrmTranslationStudio.DisplayScanResult(
-  const AResult: TProjectScanResult);
+  const AResult: TProjectScanResult;
+  const ARawScanCount, ARecoveredSemanticCount,
+  ADuplicateOccurrenceCount: Integer);
 var
   DisplayText: string;
   ScanItem: TScanItem;
   DesignerCount, RuntimeCount, DataCount, SuspiciousCount, ExcludedCount: Integer;
+  UniqueCatalogCount: Integer;
 begin
   DesignerCount := 0;
   RuntimeCount := 0;
@@ -814,13 +819,17 @@ begin
     else
       Inc(DesignerCount);
     end;
-  lblScanSummaryValue.Text := Format('%d translatable entries in %d ms',
-    [AResult.Items.Count, AResult.ElapsedMilliseconds]);
+  UniqueCatalogCount := AResult.Items.Count - ADuplicateOccurrenceCount;
+  lblScanSummaryValue.Text := Format(
+    '%d unique catalog entries  |  scan: %d ms',
+    [UniqueCatalogCount, AResult.ElapsedMilliseconds]);
   lblScanBreakdown.Text := Format(
-    '%d form properties | %d resourcestrings | %d runtime assignments' +
+    '%d raw scanned occurrences | %d recovered semantic contracts | %d duplicate occurrences collapsed' +
+    sLineBreak + '%d form properties | %d resourcestrings | %d runtime assignments' +
     sLineBreak + '%d forms | %d source files | %d files total' + sLineBreak +
     'Ownership: %d designer | %d runtime | %d data | %d suspicious | %d excluded',
-    [AResult.CountByKind(stkFormProperty),
+    [ARawScanCount, ARecoveredSemanticCount, ADuplicateOccurrenceCount,
+     AResult.CountByKind(stkFormProperty),
      AResult.CountByKind(stkResourceString),
      AResult.CountByKind(stkRuntimeAssignment),
      AResult.FormFilesScanned, AResult.SourceFilesScanned,
@@ -1392,6 +1401,8 @@ begin
       ErrorText: string;
       MergeSummary: TCatalogMergeSummary;
       NewScanResult: TProjectScanResult;
+      RawScanCount: Integer;
+      RecoveredSemanticCount: Integer;
     begin
       ErrorText := '';
       NewScanResult := nil;
@@ -1436,7 +1447,7 @@ begin
               FScanResult := NewScanResult;
               NewScanResult := nil;
               FLastScanCompletedAt := Now;
-              DisplayScanResult(FScanResult);
+              RawScanCount := FScanResult.Items.Count;
               if FTranslationCatalog = nil then
               begin
                 FTranslationCatalog := TTranslationCatalog.Create;
@@ -1445,13 +1456,16 @@ begin
                 FTranslationCatalog.SourceLanguage :=
                   SelectedLanguageCode(cboSourceLanguage);
               end;
-              TScanCatalogMerger.RecoverWorkspaceSemanticContracts(
+              RecoveredSemanticCount :=
+                TScanCatalogMerger.RecoverWorkspaceSemanticContracts(
                 TTranslationWorkspace.DevelopmentDirectory(FProjectProfile),
                 FProjectProfile.ProjectName,
                 SelectedLanguageCode(cboSourceLanguage),
                 FProjectProfile.Framework, FScanResult);
               MergeSummary := TScanCatalogMerger.Merge(FScanResult,
                 FTranslationCatalog);
+              DisplayScanResult(FScanResult, RawScanCount,
+                RecoveredSemanticCount, MergeSummary.DuplicateScanKeys);
               DisplayCatalogEntries;
               InvalidateValidation;
               lblStatus.Text := Format(

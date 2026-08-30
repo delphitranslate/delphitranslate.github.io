@@ -114,6 +114,7 @@ end;
 
 procedure TestSetupWizard;
 var
+  Index: Integer;
   Wizard: TfrmSetupWizard;
 begin
   Wizard := TfrmSetupWizard.Create(nil);
@@ -122,8 +123,12 @@ begin
       raise Exception.Create('The Setup Wizard is not borderless.');
     if Wizard.Position <> TFormPosition.ScreenCenter then
       raise Exception.Create('The Setup Wizard is not centered.');
-    if Wizard.WizardTabs.TabCount <> 9 then
-      raise Exception.Create('The Setup Wizard does not have nine steps.');
+    if Wizard.WizardTabs.TabCount <> 8 then
+      raise Exception.Create('The Setup Wizard does not have eight steps.');
+    for Index := 0 to Wizard.WizardTabs.TabCount - 1 do
+      if SameText(Wizard.WizardTabs.Tabs[Index].Text, 'Component') then
+        raise Exception.Create(
+          'The instruction-only Delphi Component page is still in the Wizard.');
     if not Assigned(Wizard.dlgOpenProject) then
       raise Exception.Create('The Setup Wizard project dialog is missing.');
     if not Assigned(Wizard.btnCopyApplicationId.OnClick) or
@@ -133,14 +138,6 @@ begin
     if (Wizard.cboWorkflowMode.Items.Count <> 3) or
        not Assigned(Wizard.cboWorkflowMode.OnChange) then
       raise Exception.Create('The new/update translation workflow is not available.');
-    { Two checks stood here naming a button that no longer exists on the
-      Wizard, and this program had not compiled since it went. Localization
-      Review is opened from code when final processing reaches that point,
-      which is the path the developer travels; there is no visible control to
-      check. Restore one here if a visible entry point returns. }
-    if (Pos('Required:', Wizard.chkUnderstandManualStep.Text) <> 1) or
-       (Wizard.lblManualConfirmationRequired.Text = '') then
-      raise Exception.Create('The required manual-phase confirmation is not explained.');
     { Localization Review is reopened from code when final processing reaches
       that point, which is the path the developer actually travels. A hidden,
       disabled button wired to the same handler sat on the completion page for
@@ -158,10 +155,13 @@ begin
         'The wizard must not silently default a new project to one target language.');
     if not Wizard.edtApiKey.Password then
       raise Exception.Create('The wizard API-key field is not masked.');
+    if (Wizard.cboProvider.Items.Count <> 2) or
+       (Wizard.cboProvider.Items[0] <> 'DeepL') then
+      raise Exception.Create(
+        'The Wizard does not present DeepL as the recommended provider.');
     if not Assigned(Wizard.btnBrowseProject.OnClick) or
        not Assigned(Wizard.btnRunScan.OnClick) or
-       not Assigned(Wizard.btnTestConnection.OnClick) or
-       not Assigned(Wizard.btnRunDeployment.OnClick) then
+       not Assigned(Wizard.btnTestConnection.OnClick) then
       raise Exception.Create('A primary wizard action is not designer-wired.');
     if not Assigned(Wizard.btnAddDeploymentDestination.OnClick) or
        not Assigned(Wizard.btnRemoveDeploymentDestination.OnClick) or
@@ -172,13 +172,14 @@ begin
        not Wizard.chkCreateBackup.IsChecked then
       raise Exception.Create(
         'The Wizard safety backup is not mandatory.');
-    if ContainsText(Wizard.memComponentInstructions.Text, 'optionally') then
-      raise Exception.Create(
-        'The Wizard still describes the visible language selector as optional.');
     if Wizard.memScanResults.WordWrap then
       raise Exception.Create('Wizard scan rows must not wrap over one another.');
-    if Wizard.memCommands.WordWrap then
-      raise Exception.Create('PowerShell deployment commands must not wrap.');
+    if Wizard.memProgress.Height < 250 then
+      raise Exception.Create(
+        'The completion progress memo did not receive the reclaimed space.');
+    if not Wizard.btnNext.Default or not Wizard.btnCancel.Cancel then
+      raise Exception.Create(
+        'The Wizard does not provide standard Enter/Escape actions.');
     if Wizard.btnBack.Position.Y + Wizard.btnBack.Height > Wizard.ClientHeight then
       raise Exception.Create('Wizard navigation extends below the form.');
     if Wizard.ContentCard.Position.X + Wizard.ContentCard.Width >

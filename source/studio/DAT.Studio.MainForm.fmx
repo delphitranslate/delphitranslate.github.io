@@ -524,17 +524,18 @@ object frmTranslationStudio: TfrmTranslationStudio
             Position.X = 450.000000000000000000
             Position.Y = 98.000000000000000000
             Size.Width = 428.000000000000000000
-            Size.Height = 22.000000000000000000
+            Size.Height = 76.000000000000000000
             Size.PlatformDefault = False
             TextSettings.FontColor = xFF365674
+            WordWrap = True
             Text = 'Open a project, then scan its forms and resourcestrings.'
           end
           object lstScanResults: TListBox
             Anchors = [akLeft, akTop, akRight, akBottom]
             Position.X = 450.000000000000000000
-            Position.Y = 146.000000000000000000
+            Position.Y = 180.000000000000000000
             Size.Width = 428.000000000000000000
-            Size.Height = 134.000000000000000000
+            Size.Height = 100.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 1
             ItemHeight = 24.000000000000000000
@@ -543,7 +544,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             DefaultItemStyles.GroupHeaderStyle = ''
             DefaultItemStyles.GroupFooterStyle = ''
             Viewport.Width = 424.000000000000000000
-            Viewport.Height = 130.000000000000000000
+            Viewport.Height = 96.000000000000000000
           end
         end
         object StatusCard: TRectangle

@@ -39,7 +39,6 @@ type
     railStep6: TLabel;
     railStep7: TLabel;
     railStep8: TLabel;
-    railStep9: TLabel;
     ContentCard: TRectangle;
     WizardTabs: TTabControl;
     tabWelcome: TTabItem;
@@ -48,7 +47,6 @@ type
     tabLanguages: TTabItem;
     tabProvider: TTabItem;
     tabScan: TTabItem;
-    tabComponent: TTabItem;
     tabReview: TTabItem;
     tabFinish: TTabItem;
     lblDeploymentTitle: TLabel;
@@ -97,12 +95,6 @@ type
     btnRunScan: TButton;
     lblScanSummary: TLabel;
     memScanResults: TMemo;
-    lblComponentTitle: TLabel;
-    lblComponentText: TLabel;
-    memComponentInstructions: TMemo;
-    btnShowDesignBPL: TButton;
-    chkUnderstandManualStep: TCheckBox;
-    lblManualConfirmationRequired: TLabel;
     lblReviewTitle: TLabel;
     lblReviewText: TLabel;
     memReview: TMemo;
@@ -113,12 +105,6 @@ type
     lblFinishTitle: TLabel;
     lblFinishText: TLabel;
     memProgress: TMemo;
-    lblKitPath: TLabel;
-    lblFallbackCommands: TLabel;
-    memCommands: TMemo;
-    btnCopyCommands: TButton;
-    btnRunDeployment: TButton;
-    btnOpenKitFolder: TButton;
     btnDeployApplicationFolder: TButton;
     lblWorkflowMode: TLabel;
     cboWorkflowMode: TComboBox;
@@ -152,13 +138,8 @@ type
     procedure btnSaveKeyClick(Sender: TObject);
     procedure btnTestConnectionClick(Sender: TObject);
     procedure btnRunScanClick(Sender: TObject);
-    procedure btnShowDesignBPLClick(Sender: TObject);
-    procedure chkUnderstandManualStepChange(Sender: TObject);
     procedure chkAuthorizeFinalChange(Sender: TObject);
     procedure railStepClick(Sender: TObject);
-    procedure btnCopyCommandsClick(Sender: TObject);
-    procedure btnRunDeploymentClick(Sender: TObject);
-    procedure btnOpenKitFolderClick(Sender: TObject);
     procedure btnDeployApplicationFolderClick(Sender: TObject);
     procedure btnAddDeploymentDestinationClick(Sender: TObject);
     procedure btnRemoveDeploymentDestinationClick(Sender: TObject);
@@ -181,6 +162,7 @@ type
     FProjectProfile: TProjectProfile;
     FScanResult: TProjectScanResult;
     FCatalog: TTranslationCatalog;
+    FDeploymentCommands: TStringList;
     FCatalogFileName: string;
     FKitDirectory: string;
     FBackupFileName: string;
@@ -218,9 +200,7 @@ type
     procedure StopFinalProcessing(const AMessage: string);
     procedure AddProgress(const AText: string);
     function FindStudioRoot: string;
-    function DesignBPLFileName: string;
     procedure BuildDeploymentCommands;
-    procedure UpdateComponentInstructions;
     procedure RebuildAllTargetConfigurations;
     function ExistingBuildOutputDirectories: TArray<string>;
     function DeployLanguagePacksToExistingOutputs: Integer;
@@ -283,7 +263,7 @@ uses
 {$R *.fmx}
 
 const
-  StepCount = 9;
+  StepCount = 8;
   DeploymentProcessTimeout = 120000;
   ProcessTerminationWait = 5000;
 
@@ -314,18 +294,27 @@ begin
 end;
 
 procedure TfrmSetupWizard.FormCreate(Sender: TObject);
+var
+  ProviderSettings: TProviderSettings;
 begin
   Caption := 'Translation Setup Wizard - ' + StudioBuildDescription;
   lblSubtitle.Text := 'A safe, step-by-step path from Delphi project to offline language pack - ' +
     StudioBuildDescription;
   FCurrentStep := 1;
   FHighestStep := 1;
+  FDeploymentCommands := TStringList.Create;
   cboSourceLanguage.ItemIndex := 0;
   cboTargetLanguage.ItemIndex := -1;
-  cboProvider.ItemIndex := 0;
-  cboDeepLPlan.ItemIndex := 0;
   cboWorkflowMode.ItemIndex := 0;
-  chkRememberKey.IsChecked := True;
+  ProviderSettings := TProviderSettings.Load;
+  try
+    cboProvider.ItemIndex := Ord(ProviderSettings.Provider);
+    cboDeepLPlan.ItemIndex := Ord(ProviderSettings.DeepLPlan);
+    chkRememberKey.IsChecked := ProviderSettings.RememberCredential;
+  finally
+    ProviderSettings.Free;
+  end;
+  cboProviderChange(nil);
   chkCreateBackup.IsChecked := True;
   chkCreateBackup.Enabled := False;
   chkTargetProjectClosed.IsChecked := False;
@@ -576,45 +565,6 @@ begin
       'Localization Review closed. Saved glossary terms will be applied during final processing.';
 end;
 
-procedure TfrmSetupWizard.UpdateComponentInstructions;
-var
-  ApplicationId: string;
-  ManagerClass: string;
-  SelectorClass: string;
-begin
-  ApplicationId := FProjectProfile.ProjectName;
-  if FProjectProfile.Framework = tfVCL then
-  begin
-    ManagerClass := 'TDATVCLLanguageManager';
-    SelectorClass := 'TDATVCLLanguageComboBox';
-  end
-  else
-  begin
-    ManagerClass := 'TDATFMXLanguageManager';
-    SelectorClass := 'TDATFMXLanguageComboBox';
-  end;
-  memComponentInstructions.Lines.Text :=
-    'These instructions were generated for the selected project:' +
-      sLineBreak + FProjectProfile.ProjectFileName + sLineBreak +
-    'Detected Application ID: "' + ApplicationId + '"' + sLineBreak +
-    'Before the Wizard:' + sLineBreak +
-    '1. Install the matching DAT design package in RAD Studio.' + sLineBreak +
-    '2. Place one ' + ManagerClass + ' and one ' + SelectorClass +
-      ' on the primary form, connect the selector to the manager, and Save All.' + sLineBreak +
-    '3. Add any supporting Language label or menu and complete its layout.' + sLineBreak +
-    'The Wizard verifies and preserves this setup:' + sLineBreak +
-    '4. ApplicationId must be "' +
-      ApplicationId + '". This value comes from the selected .dproj file. ' +
-      'Leave LanguagesFolder as "Localization\Languages".' + sLineBreak +
-    '5. Build-output folders and every available application destination ' +
-      'entered on the Deployment page receive the current JSON packs ' +
-      'automatically.' + sLineBreak +
-    'For Wizard-initiated builds, the Wizard passes ComponentSource to MSBuild ' +
-      'without editing the target project file. For manual RAD Studio builds, ' +
-      'add the generated ComponentSource folder to the project Search Path or ' +
-      'use an approved common source location.';
-end;
-
 procedure TfrmSetupWizard.UpdateDeploymentSummary;
 begin
   btnRemoveDeploymentDestination.Enabled :=
@@ -776,6 +726,7 @@ end;
 
 procedure TfrmSetupWizard.FormDestroy(Sender: TObject);
 begin
+  FDeploymentCommands.Free;
   FCatalog.Free;
   FScanResult.Free;
 end;
@@ -864,9 +815,9 @@ end;
 function TfrmSetupWizard.SelectedProvider: TTranslationProvider;
 begin
   if cboProvider.ItemIndex = 1 then
-    Result := tpDeepL
+    Result := tpGoogle
   else
-    Result := tpGoogle;
+    Result := tpDeepL;
 end;
 
 function TfrmSetupWizard.EffectiveApiKey: string;
@@ -884,23 +835,32 @@ begin
     Exit;
   FCurrentStep := AStep;
   WizardTabs.TabIndex := AStep - 1;
-  if FCurrentStep = 8 then
+  if FCurrentStep = 7 then
     BuildReview;
   UpdateRail;
   UpdateNavigation;
 end;
 
 procedure TfrmSetupWizard.UpdateNavigation;
+var
+  FinalStep: Boolean;
 begin
+  FinalStep := FCurrentStep = StepCount;
+  btnBack.Visible := not FinalStep;
   btnBack.Enabled := (FCurrentStep > 1) and not FFinalProcessing;
   btnCancel.Enabled := not FBuildInProgress;
-  btnNext.Visible := FCurrentStep < StepCount;
-  btnFinish.Visible := FCurrentStep = StepCount;
+  btnCancel.Visible := not (FinalStep and FCompleted);
+  if FFinalProcessing then
+    btnCancel.Text := 'Stop'
+  else
+    btnCancel.Text := 'Cancel';
+  btnNext.Visible := not FinalStep;
+  btnFinish.Visible := FinalStep;
   btnFinish.Enabled := FCompleted and
     not FFinalProcessing and
     not FBuildInProgress and
     ((not chkBuildNow.IsChecked) or FBuildCompleted);
-  if FCurrentStep = 8 then
+  if FCurrentStep = 7 then
   begin
     btnNext.Text := 'Begin Final Processing';
     btnNext.Enabled := chkTargetProjectClosed.IsChecked and
@@ -911,6 +871,8 @@ begin
     btnNext.Text := 'Next';
     btnNext.Enabled := not FFinalProcessing;
   end;
+  btnNext.Default := btnNext.Visible and btnNext.Enabled;
+  btnFinish.Default := btnFinish.Visible and btnFinish.Enabled;
 end;
 
 procedure TfrmSetupWizard.UpdateRail;
@@ -963,10 +925,10 @@ procedure TfrmSetupWizard.btnNextClick(Sender: TObject);
 begin
   if not ValidateCurrentStep then
     Exit;
-  if FCurrentStep = 8 then
+  if FCurrentStep = 7 then
   begin
-    FHighestStep := 9;
-    SetStep(9);
+    FHighestStep := 8;
+    SetStep(8);
     ExecuteFinalProcessing;
     Exit;
   end;
@@ -1016,8 +978,6 @@ begin
         Exit;
       end;
     7:
-      ;
-    8:
       if not chkTargetProjectClosed.IsChecked then
       begin
         lblFooterStatus.Text :=
@@ -1059,9 +1019,9 @@ begin
     FReviewOutputDirectory := '';
     FHighestStep := Min(FHighestStep, 5);
     lblFooterStatus.Text := 'Project identified. No target file was changed.';
-    UpdateComponentInstructions;
     UpdateWorkflowSummary;
     UpdateRail;
+    btnNext.SetFocus;
   except
     on E: Exception do
     begin
@@ -1324,6 +1284,8 @@ begin
       ErrorText: string;
       MergeSummary: TCatalogMergeSummary;
       NewScanResult: TProjectScanResult;
+      RawScanCount: Integer;
+      RecoveredSemanticCount: Integer;
     begin
       ErrorText := '';
       NewScanResult := nil;
@@ -1370,7 +1332,9 @@ begin
               FScanResult := NewScanResult;
               NewScanResult := nil;
               FLastScanCompletedAt := Now;
-              TScanCatalogMerger.RecoverWorkspaceSemanticContracts(
+              RawScanCount := FScanResult.Items.Count;
+              RecoveredSemanticCount :=
+                TScanCatalogMerger.RecoverWorkspaceSemanticContracts(
                 TTranslationWorkspace.DevelopmentDirectory(FProjectProfile),
                 FProjectProfile.ProjectName,
                 SelectedLanguageCode(cboSourceLanguage),
@@ -1388,15 +1352,19 @@ begin
               end;
               if cboWorkflowMode.ItemIndex = 2 then
                 lblScanSummary.Text := Format(
-                  '%d translatable entries  |  %d new  |  %d changed  |  %d unchanged  |  %d obsolete',
-                  [FScanResult.Items.Count, MergeSummary.NewEntries,
+                  '%d unique catalog entries  |  %d new  |  %d changed  |  %d unchanged  |  %d obsolete',
+                  [FScanResult.Items.Count - MergeSummary.DuplicateScanKeys,
+                   MergeSummary.NewEntries,
                    MergeSummary.ChangedEntries, MergeSummary.UnchangedEntries,
                    MergeSummary.ObsoleteEntries])
               else
                 lblScanSummary.Text := Format(
-                  '%d current translatable entries  |  new catalog  |  %d equivalent duplicate occurrence(s) collapsed',
-                  [FScanResult.Items.Count, MergeSummary.DuplicateScanKeys]);
+                  '%d unique catalog entries  |  new catalog',
+                  [FScanResult.Items.Count - MergeSummary.DuplicateScanKeys]);
               lblScanSummary.Text := lblScanSummary.Text + sLineBreak + Format(
+                '%d raw scanned occurrences | %d recovered semantic contracts | %d duplicate occurrences collapsed',
+                [RawScanCount, RecoveredSemanticCount,
+                 MergeSummary.DuplicateScanKeys]) + sLineBreak + Format(
                 '%d form properties | %d resourcestrings | %d runtime assignments | %d forms | %d source files',
                 [FScanResult.CountByKind(stkFormProperty),
                  FScanResult.CountByKind(stkResourceString),
@@ -1445,55 +1413,6 @@ begin
     Candidate := Parent;
   end;
   raise Exception.Create('The Studio project root could not be located.');
-end;
-
-function TfrmSetupWizard.DesignBPLFileName: string;
-var
-  PackageName: string;
-begin
-  if FProjectProfile.Framework = tfVCL then
-    PackageName := 'DATLanguageManagerVCLDesign.bpl'
-  else
-    PackageName := 'DATLanguageManagerFMXDesign.bpl';
-  Result := TPath.Combine(FindStudioRoot,
-    TPath.Combine('bin\packages\Win32\Release', PackageName));
-end;
-
-procedure TfrmSetupWizard.btnShowDesignBPLClick(Sender: TObject);
-var
-  BPLName: string;
-begin
-  try
-    BPLName := DesignBPLFileName;
-    if not TFile.Exists(BPLName) then
-      raise Exception.Create('The verified design BPL has not been built yet.');
-    if ShellExecute(0, 'open', 'explorer.exe',
-      PChar('/select,"' + BPLName + '"'), nil, SW_SHOWNORMAL) <= 32 then
-      raise Exception.Create('Windows could not open the package folder.');
-    lblFooterStatus.Text := 'The exact design BPL is selected in File Explorer.';
-  except
-    on E: Exception do
-      lblFooterStatus.Text := E.Message;
-  end;
-end;
-
-procedure TfrmSetupWizard.chkUnderstandManualStepChange(Sender: TObject);
-begin
-  if chkUnderstandManualStep.IsChecked then
-  begin
-    chkUnderstandManualStep.TextSettings.FontColor := $FF245587;
-    lblManualConfirmationRequired.Text :=
-      'Confirmed. Click Next to review and authorize final processing.';
-    lblManualConfirmationRequired.TextSettings.FontColor := $FF245587;
-  end
-  else
-  begin
-    chkUnderstandManualStep.TextSettings.FontColor := $FFB25400;
-    lblManualConfirmationRequired.Text :=
-      'Required before continuing: check the confirmation box above.';
-    lblManualConfirmationRequired.TextSettings.FontColor := $FFB25400;
-  end;
-  UpdateNavigation;
 end;
 
 procedure TfrmSetupWizard.chkAuthorizeFinalChange(Sender: TObject);
@@ -1602,7 +1521,7 @@ var
   ScriptName: string;
   UniqueDirectories: TStringList;
 begin
-  memCommands.Lines.Clear;
+  FDeploymentCommands.Clear;
   PowerShellFileName := WindowsPowerShellFileName;
   ScriptName := TPath.Combine(FKitDirectory, 'Deploy-LanguagePacks.ps1');
   UniqueDirectories := TStringList.Create;
@@ -1620,7 +1539,7 @@ begin
           UniqueDirectories.Add(OutputDirectory);
       end;
     for OutputDirectory in UniqueDirectories do
-      memCommands.Lines.Add(Format(
+      FDeploymentCommands.Add(Format(
         '& "%s" -NoProfile -ExecutionPolicy Bypass -File "%s" -ApplicationDirectory "%s"',
         [PowerShellFileName, ScriptName, OutputDirectory]));
   finally
@@ -2327,8 +2246,6 @@ begin
          lstDeploymentDestinations.Items.Count]));
     FProjectConfigurationBackupDirectory := '';
     AddProgress('Target project source and project files were not modified.');
-    lblKitPath.Text := FKitDirectory;
-    lblKitPath.Hint := 'Click to open the generated component kit folder.';
     Report := TStringList.Create;
     try
       Report.Add('DELPHI APP TRANSLATION - SETUP WIZARD COMPLETION REPORT');
@@ -2355,10 +2272,17 @@ begin
       Report.Add('Review workflow: completed inside the same Wizard processing pass before final export');
       Report.Add('');
       Report.Add('NEXT MANUAL DELPHI STEP');
-      Report.AddStrings(memComponentInstructions.Lines);
+      Report.Add('Install the matching DAT design package in RAD Studio if it is not already installed.');
+      if FProjectProfile.Framework = tfVCL then
+        Report.Add('Confirm that the primary form contains one TDATVCLLanguageManager and one connected TDATVCLLanguageComboBox.')
+      else
+        Report.Add('Confirm that the primary form contains one TDATFMXLanguageManager and one connected TDATFMXLanguageComboBox.');
+      Report.Add('ApplicationId: ' + FProjectProfile.ProjectName);
+      Report.Add('LanguagesFolder: Localization\Languages');
+      Report.Add('For a manual RAD Studio build, add the ComponentSource folder listed above to the project Search Path.');
       Report.Add('');
       Report.Add('DEPLOYMENT COMMANDS');
-      Report.AddStrings(memCommands.Lines);
+      Report.AddStrings(FDeploymentCommands);
       Report.Add('');
       Report.Add('WIZARD PROGRESS AND DEPLOYMENT LOG');
       Report.AddStrings(memProgress.Lines);
@@ -2416,24 +2340,6 @@ begin
   end;
 end;
 
-procedure TfrmSetupWizard.btnCopyCommandsClick(Sender: TObject);
-var
-  Clipboard: IFMXClipboardService;
-begin
-  if TPlatformServices.Current.SupportsPlatformService(
-    IFMXClipboardService, Clipboard) then
-  begin
-    Clipboard.SetClipboard(TValue.From<string>(memCommands.Text));
-    lblFooterStatus.Text := 'All deployment commands copied to the clipboard.';
-  end;
-end;
-
-procedure TfrmSetupWizard.btnOpenKitFolderClick(Sender: TObject);
-begin
-  if (FKitDirectory <> '') and TDirectory.Exists(FKitDirectory) then
-    ShellExecute(0, 'open', PChar(FKitDirectory), nil, nil, SW_SHOWNORMAL);
-end;
-
 function TfrmSetupWizard.RunDeploymentScript(
   const AApplicationDirectory: string;
   const ASkipConfiguredDestinations: Boolean): Boolean;
@@ -2489,27 +2395,6 @@ begin
   finally
     CloseHandle(ShellInfo.hProcess);
   end;
-end;
-
-procedure TfrmSetupWizard.btnRunDeploymentClick(Sender: TObject);
-var
-  DeployedCount: Integer;
-begin
-  btnRunDeployment.Enabled := False;
-  try
-    DeployedCount := DeployLanguagePacksToExistingOutputs;
-    if DeployedCount = 0 then
-      lblFooterStatus.Text :=
-        'No built target folders were found. Build the target, then run deployment again.'
-    else
-      lblFooterStatus.Text := Format(
-        'Language packs deployed to %d existing build folder(s).',
-        [DeployedCount]);
-  except
-    on E: Exception do
-      lblFooterStatus.Text := E.Message;
-  end;
-  btnRunDeployment.Enabled := True;
 end;
 
 procedure TfrmSetupWizard.btnDeployApplicationFolderClick(Sender: TObject);
