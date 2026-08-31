@@ -397,16 +397,18 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         document,
         "Setup Wizard Guide",
         "A Detailed, Screen-by-Screen Path from Delphi Source to Offline Language Packs",
+        last_changed="August 31, 2026",
     )
     add_static_toc(document, title, toc_entries(WIZARD_HEADINGS, toc_pages))
 
     document.add_heading(WIZARD_HEADINGS[0], level=1)
     add_paragraphs(document, [
-        "This guide is the complete operating procedure for the eight-step Translation Setup Wizard. It is intended for a Delphi developer who is localizing a VCL or FireMonkey application for the first time, repeating a translation after source changes, or adding another language to an existing application.",
-        "The Wizard reads the selected Delphi project, creates or merges a development catalog, translates only eligible unresolved material, opens Localization Review, validates the result, exports a canonical English source pack and translated pack, generates a component integration kit, and deploys packs to detected and authorized application folders. The target Pascal, DFM, FMX, DPR, and DPROJ files remain unchanged.",
-        "The deployed application remains offline. DeepL or Google is contacted only by the Studio on the developer computer. The target application reads validated local JSON packs and never receives the provider API key.",
+        "Welcome to the Translation Setup Wizard. This guide walks beside you through all eight steps, explains what each choice means, and tells you what to look for before you move on. Use it for a first VCL or FireMonkey translation, for a later update after source changes, or when you want to add another language.",
+        "You do not need to memorize the whole process. Follow the screens in order on your first run, and return to the individual step sections whenever you need a reminder. Each section includes the complete screen, a closer view of the important controls, and a plain-language explanation of what happens next.",
+        "During a normal run, the Wizard reads your selected Delphi project, creates or merges its development catalog, translates only eligible unresolved material, opens Localization Review, validates the result, exports the canonical source and translated packs, prepares the component integration kit, and deploys packs to the folders you approved. It leaves the target Pascal, DFM, FMX, DPR, and DPROJ files unchanged.",
+        "Your finished application remains offline. Only the Studio contacts DeepL or Google, and it does so from the developer computer while translation work is under way. The application you ship reads validated local JSON packs and never receives the provider API key.",
     ])
-    add_callout(document, "Recommended safety boundary.", "Use a pristine backup and a separate test copy of the target project. A successful Wizard run is reversible because it writes Studio workspace/export artifacts and deployed packs, not application source or project files.")
+    add_callout(document, "Start with a safe copy.", "Keep a pristine backup and perform the first localization run on a separate test copy of the target project. This gives you an easy way back while you learn the workflow. The Wizard also creates its own timestamped safety ZIP before final processing.")
     add_table(document, ["Completion product", "What it is", "Where it is used"], [
         ["Development catalog", "The full editable key/source/translation/context/review model.", r"Studio workspace under %LOCALAPPDATA%."],
         ["Canonical source pack", "The validated English or other authored-source runtime pack.", r"Beside every target EXE under Localization\Languages."],
@@ -417,6 +419,9 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     ])
 
     document.add_heading(WIZARD_HEADINGS[1], level=1)
+    add_paragraphs(document, [
+        "A few minutes of preparation makes the Wizard much easier to use. Complete the checks below once, then keep this section nearby as your setup checklist.",
+    ])
     document.add_heading("2.1 Obtain and build the Studio", level=2)
     add_steps(document, [
         "Download or clone the complete repository from https://github.com/tmartindub/DelphiAppTranslationStudio. Do not download isolated PAS, DPK, BPL, or JSON files.",
@@ -434,7 +439,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         "Add and position any visible Language label or menu item in the designer. Choose File > Save All so the first scan sees every intended static string.",
         "Close the target project before Wizard final processing. The Wizard verifies this explicitly at Review and Authorize.",
     ])
-    add_callout(document, "Designer-first rule.", "The supplied manager and selector are normal designer components. Configure them in Object Inspector. The Wizard does not inject runtime UI construction or silently rewrite the form.")
+    add_callout(document, "Keep the setup visible in Delphi.", "The supplied manager and selector are normal designer components. Place and configure them in the Form Designer and Object Inspector so another developer can see and maintain the setup later. The Wizard does not inject hidden runtime UI construction or silently rewrite the form.")
     document.add_heading("2.3 Provider and network readiness", level=2)
     add_bullets(document, [
         "DeepL is the recommended default. Use a DeepL API Free or API Pro key, not merely a consumer Translator subscription.",
@@ -454,14 +459,14 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         ["Finish", "Closes a successful completed run.", "Press Enter after reading the completion status."],
         ["Footer status", "Reports the last completed action and next requirement.", "Read it whenever a button remains disabled."],
     ])
-    add_callout(document, "Final-processing boundary.", "Before Begin Final Processing, Cancel leaves the target unchanged. During processing, closing is blocked while an active operation must finish or stop safely. On success Back and Cancel disappear because Finish is the only meaningful close action.")
+    add_callout(document, "You stay in control until processing begins.", "Before you select Begin Final Processing, Cancel leaves the target unchanged. Once processing starts, the Wizard briefly blocks unsafe navigation while the active operation finishes or stops safely. After a successful run, Back and Cancel disappear because Finish is the only action you need.")
 
     document.add_heading(WIZARD_HEADINGS[3], level=1)
     add_screen(document, "07-wizard-welcome.png", "Figure 4-1. Step 1 - Welcome.", "Welcome page explaining the Wizard and safety boundary")
-    add_focus_screen(document, "07-wizard-welcome.png", "Figure 4-2. Welcome-page navigation buttons.", "Back, Next, and Cancel buttons on the Welcome page", (56000, 76000, 0, 0), 5.2)
+    add_focus_screen(document, "07-wizard-welcome.png", "Figure 4-2. Welcome-page navigation buttons.", "Back, Next, and Cancel buttons on the Welcome page", (55700, 75700, 0, 0), 5.2)
     add_paragraphs(document, [
-        "The Welcome page establishes what the Wizard will identify and produce. At this point no project is selected and no provider request, scan, backup, export, or deployment has started.",
-        "Read the safety notice. It explains that final processing creates a backup and Studio-owned artifacts while target Pascal, form, DPR, and DPROJ files remain read-only. Press Enter or select Next.",
+        "The Welcome page is a quiet starting point. Nothing has been scanned, translated, backed up, exported, or deployed yet, so you can read the overview without affecting a project.",
+        "Read the safety notice, then press Enter or select Next. The notice explains that final processing creates a backup and Studio-owned artifacts while your target Pascal, form, DPR, and DPROJ files remain read-only.",
     ])
     add_control_table(document, [
         ["Welcome explanation", "Summarizes project identification, languages, provider verification, scanning, packs, and component integration.", "Confirm that this is the intended guided workflow."],
@@ -471,10 +476,10 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(WIZARD_HEADINGS[4], level=1)
     add_screen(document, "08-wizard-project.png", "Figure 5-1. Step 2 - Delphi Project.", "Delphi Project page with project path, Browse, detected framework, application ID, targets, forms, and source units")
-    add_focus_screen(document, "08-wizard-project.png", "Figure 5-2. Project selection and detected identity.", "Project path, Browse button, and detected project metadata", (21000, 17000, 18000, 42000), 2.6)
+    add_focus_screen(document, "08-wizard-project.png", "Figure 5-2. Project selection and detected identity.", "Project path, Browse button, and detected project metadata", (6200, 10900, 1700, 36300), 2.65)
     add_paragraphs(document, [
-        "Browse selects a DPR or DPROJ; DPROJ is preferred because it provides framework, platform, configuration, source, form, and output metadata. Detection is read-only and does not compile or execute the target.",
-        "ApplicationId is the stable identity that links catalog, pack, manager, workspace, and preference. It must match the manager's published ApplicationId exactly. A folder name, product caption, or executable display name is not a substitute.",
+        "This is where the Wizard learns which application you want to translate. Select Browse and choose the project's DPROJ file when one is available. A DPROJ gives the Wizard the clearest framework, platform, configuration, source, form, and output information. Detection is read-only; it does not compile or run the target.",
+        "Pause for a moment after detection and check the project name, framework, targets, forms, and source-unit count. ApplicationId is especially important: it is the stable identity shared by the catalog, runtime packs, manager, workspace, and saved language preference. It must match the manager's ApplicationId property exactly.",
     ])
     add_control_table(document, [
         ["Project path", "Holds the selected DPR/DPROJ.", "Verify the test copy path character by character."],
@@ -488,10 +493,10 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(WIZARD_HEADINGS[5], level=1)
     add_screen(document, "09-wizard-deployment.png", "Figure 6-1. Step 3 - Deployment.", "Deployment page listing detected build outputs and optional application folders")
-    add_focus_screen(document, "09-wizard-deployment.png", "Figure 6-2. Optional destination controls.", "Deployment destination list with Add and Remove controls", (16000, 20000, 21000, 26000), 2.8)
+    add_focus_screen(document, "09-wizard-deployment.png", "Figure 6-2. Optional destination controls.", "Deployment destination list with Add and Remove controls", (0, 14700, 6200, 15700), 2.05)
     add_paragraphs(document, [
-        "Detected Delphi output folders require no manual entry. Add only separate installed, portable, network, USB, or test-run folders that should receive the current language packs.",
-        "Choose the application folder containing the executable, not its Localization or Languages child folder. An unavailable removable or network destination is reported and skipped; it does not invalidate the pack.",
+        "Most developers can leave this page alone. The Wizard already detects normal Delphi build-output folders, so you only need to add a destination for a separate installed, portable, network, USB, or test-run copy of the application.",
+        "When you do add one, choose the folder that contains the executable - not its Localization or Languages child folder. If a removable or network destination is unavailable later, the Wizard reports and skips it without invalidating the language pack.",
     ])
     add_control_table(document, [
         ["Detected outputs", "Shows build-output folders inferred from the project.", "Verify they correspond to the configurations you intend to run."],
@@ -503,10 +508,10 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(WIZARD_HEADINGS[6], level=1)
     add_screen(document, "10-wizard-languages.png", "Figure 7-1. Step 4 - Languages.", "Languages page with source and target locale selectors and locale facts")
-    add_focus_screen(document, "10-wizard-languages.png", "Figure 7-2. Source and target locale selection.", "Source-language and target-language selectors", (15000, 19000, 16000, 43000), 2.7)
+    add_focus_screen(document, "10-wizard-languages.png", "Figure 7-2. Source and target locale selection.", "Source-language and target-language selectors", (0, 13400, 0, 37600), 3.10)
     add_paragraphs(document, [
-        "Source language is the language already authored in the saved forms and source. Target language is the new runtime choice. The locale code controls pack naming, native display name, direction, and formatting facts.",
-        "Changing source, target, or project invalidates downstream scan/catalog state in the current Wizard session. That reset prevents a catalog built for one identity or locale from being exported as another.",
+        "Choose the language already written in the forms and source as the Source language, then choose the new language you want to create as the Target language. The locale code also controls the pack name, native display name, reading direction, and regional formatting facts shown on the page.",
+        "Check the native name and direction before continuing. If you change the project or either language later, the Wizard clears the downstream scan state for this session. That protective reset keeps a catalog built for one application or locale from being exported as another.",
     ])
     add_control_table(document, [
         ["Source language", "Identifies the authored source locale.", "Normally English (United States) [en-US] for an English Delphi application."],
@@ -518,10 +523,10 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(WIZARD_HEADINGS[7], level=1)
     add_screen(document, "11-wizard-translation-service.png", "Figure 8-1. Step 5 - Translation Service.", "Translation Service page showing DeepL provider, plan, masked key, remember option, save, and connection test")
-    add_focus_screen(document, "11-wizard-translation-service.png", "Figure 8-2. Provider, key, and connection controls.", "DeepL provider and plan selectors, masked API key, save, and test buttons", (13000, 17000, 13000, 25000), 2.5)
+    add_focus_screen(document, "11-wizard-translation-service.png", "Figure 8-2. Provider, key, and connection controls.", "DeepL provider and plan selectors, masked API key, save, and test buttons", (0, 10900, 0, 14400), 2.03)
     add_paragraphs(document, [
-        "DeepL is the first-run default and recommended provider. The Studio restores a previously saved provider/plan choice but never displays a stored secret back into the API-key edit. A blank field with a saved-key status is therefore correct.",
-        "Test Connection runs a bounded asynchronous request. The Wizard must remain responsive, cancellation-aware, and able to close after the test completes or times out. A successful test proves only authentication and endpoint access; it does not approve language quality or quota for a large catalog.",
+        "DeepL is the recommended first choice and the first-run default. If you previously saved a provider and plan, the Studio restores those choices. For security, it never puts a stored secret back into the API-key box, so a blank box beside a saved-key message is normal.",
+        "If this is a new or replacement key, paste it, choose whether to remember it securely, and select Save / Replace Key. Then select Test Connection. A successful test confirms that the key and endpoint work; it does not guarantee translation quality or enough remaining quota for a large catalog.",
     ])
     add_control_table(document, [
         ["Provider", "Selects DeepL or Google Cloud Translation.", "Use DeepL unless project/account requirements call for Google."],
@@ -532,14 +537,14 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         ["Test Connection", "Performs one small provider request with timeout/cancellation.", "Continue only after a success result."],
         ["Credential status", "Reports saved/session availability without revealing the key.", "Use it to distinguish an empty edit from a missing credential."],
     ])
-    add_callout(document, "Secret locations.", r"Non-secret settings are in %LOCALAPPDATA%\DelphiAppTranslationStudio\provider-settings.json. Remembered secrets use Windows Generic Credential targets DelphiAppTranslationStudio/Providers/DeepL or DelphiAppTranslationStudio/Providers/Google Cloud Translation.")
+    add_callout(document, "Your key is not stored in the project.", r"Non-secret settings are in %LOCALAPPDATA%\DelphiAppTranslationStudio\provider-settings.json. A remembered key is stored as a Windows Generic Credential named DelphiAppTranslationStudio/Providers/DeepL or DelphiAppTranslationStudio/Providers/Google Cloud Translation. It is never copied into the target source, catalog, pack, kit, or guide.")
 
     document.add_heading(WIZARD_HEADINGS[8], level=1)
     add_screen(document, "12-wizard-scan.png", "Figure 9-1. Step 6 - Scan Project.", "Scan Project page showing unique catalog entries, raw observations, recovered semantic contracts, duplicate occurrences, and scan items")
-    add_focus_screen(document, "12-wizard-scan.png", "Figure 9-2. Canonical scan-count explanation.", "Scan totals and representative stable-key rows", (16000, 22000, 13000, 26000), 2.6)
+    add_focus_screen(document, "12-wizard-scan.png", "Figure 9-2. Canonical scan-count explanation.", "Scan totals and representative stable-key rows", (0, 17300, 0, 15700), 2.26)
     add_paragraphs(document, [
-        "The Wizard and Maintenance Studio call the same canonical scanner. The headline is the unique catalog-entry count. Raw observations can be lower or higher after semantic contracts are recovered and equivalent duplicate occurrences are collapsed; those supporting counts are displayed separately so the total is auditable.",
-        "The scanner reads saved text DFM/FMX resources, Pascal resourcestrings, eligible runtime assignments, and explicitly authorized project resource manifests. It does not translate arbitrary identifiers, user data, database values, or every string literal in source code.",
+        "Select Scan Project and let the Wizard inventory the text that belongs in the translation catalog. The Wizard and Maintenance Studio use the same canonical scanner, so the unique catalog-entry total should agree when both are looking at the same saved project snapshot.",
+        "The supporting numbers explain how the total was formed. Raw observations are direct discoveries, recovered semantic contracts restore known dynamic application text, and equivalent duplicate occurrences are represented once. The scanner reads saved text DFM/FMX resources, Pascal resourcestrings, eligible runtime assignments, and explicitly authorized project resource manifests; it does not sweep up arbitrary identifiers, user data, database values, or every string literal in source code.",
     ])
     add_control_table(document, [
         ["Scan Project", "Runs canonical project discovery and scan.", "Use after every saved source/form text change."],
@@ -553,8 +558,8 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     document.add_heading(WIZARD_HEADINGS[9], level=1)
     add_screen(document, "13-wizard-review.png", "Figure 10-1. Step 7 - Review and Authorize content area.", "Review and Authorize page summarizing project, language, provider, scan, translation, backup, and authorization")
     add_paragraphs(document, [
-        "This is the final deliberate authorization point. The summary must describe the exact test project, framework, source/target locales, provider, scan state, unresolved work, backup, and component workflow that the developer intends.",
-        "The target project must be closed in RAD Studio. An open DPROJ or form may leave unsaved buffers and makes the selected source snapshot unreliable even though the Wizard itself does not rewrite those files.",
+        "This page gives you one last chance to confirm the whole job before anything time-consuming begins. Read the summary from top to bottom and make sure it names the exact test project, framework, source and target locales, provider, scan state, unresolved work, backup, and component workflow you intended.",
+        "Close the target project in RAD Studio before you authorize the run. An open DPROJ or form can leave unsaved work in memory and make the selected source snapshot unreliable, even though the Wizard itself does not rewrite those files.",
     ])
     add_control_table(document, [
         ["Review memo", "Prints the complete proposed operation in plain text.", "Read the path, application ID, locale, provider, counts, output, and backup line by line."],
@@ -566,8 +571,8 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(WIZARD_HEADINGS[10], level=1)
     add_paragraphs(document, [
-        "After provider translation and before final validation/export, the Wizard opens Localization Review automatically. This modal window is where machine output, glossary candidates, application-owned strings, layout findings, and per-language proposals are reviewed while all necessary translated text is available.",
-        "Closing Localization Review does not abandon the Wizard. It saves accepted decisions and returns control to the suspended final-processing continuation, which then validates, exports, generates the kit, deploys, and writes the completion report.",
+        "After provider translation, the Wizard opens Localization Review automatically. Take your time here: this is where you review machine output, glossary candidates, application-owned strings, layout findings, and language-specific proposals while all translated text is available.",
+        "When your decisions are saved, close Localization Review normally. You are not abandoning the run. Control returns to the waiting Wizard, which continues with validation, export, kit generation, deployment, and the completion report.",
     ])
     add_table(document, ["Review area", "Engineering meaning", "Developer decision"], [
         ["Findings", "Information, warning, and high-risk localization issues.", "Resolve high-risk issues before treating the language as release-ready."],
@@ -581,10 +586,10 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     add_callout(document, "Layout decision rule.", "Use natural word wrapping first, then intelligent hyphenation for long unbroken words, then a modest readable font reduction only when necessary. Never shift neighboring columns or controls merely to make one translated heading fit.")
 
     document.add_heading(WIZARD_HEADINGS[11], level=1)
-    add_screen(document, "14-wizard-processing.png", "Figure 12-1. Step 8 - Process and Finish status area.", "Processing and completion page with operation text and progress memo", crop=(27400, 18600, 1800, 43600), aspect_ratio=2.81)
+    add_screen(document, "14-wizard-processing.png", "Figure 12-1. Step 8 - Process and Finish status area.", "Processing and completion page with operation text and progress memo", aspect_ratio=1.51)
     add_paragraphs(document, [
-        "The progress memo is the authoritative sequence record. It reports backup, catalog save, provider work, review return, glossary application, validation, source/target pack export, kit generation, output deployment, optional destination deployment, and completion-report creation.",
-        "A line prefixed STOPPED is a controlled failure, not permission to ignore the problem. Read the last successful line and the stopped reason, preserve the artifacts, correct the cause, and rerun. On success the page states that target Pascal, form, DPR, and DPROJ files were not modified.",
+        "You can follow the run in the progress memo. It records the safety backup, catalog save, provider work, return from review, glossary application, validation, source and target pack export, kit generation, deployment, and completion report in the order they occur.",
+        "When the final line reports success, select Finish. If you see STOPPED instead, the Wizard has ended the operation safely. Read the last successful line and the reason that follows, keep the log and generated artifacts, correct that specific cause, and run the Wizard again. Do not treat partial output as a finished release.",
     ])
     add_control_table(document, [
         ["Progress memo", "Timestamped operation and diagnostic history.", "Read from the last line upward when a run stops."],
@@ -598,8 +603,8 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(WIZARD_HEADINGS[12], level=1)
     add_paragraphs(document, [
-        r"The generated kit is under <Studio>\export\component-integration\<ApplicationId>. ComponentSource contains the complete current framework-appropriate unit set. The Studio does not automatically create a dependencies folder inside the target project.",
-        r"A project-local dependencies folder is an optional vendoring strategy: <Target Project>\dependencies\DelphiAppTranslation\source. It makes the target build independent of the Studio repository path and lets Git record the exact runtime source shipped with that application.",
+        r"The Wizard places the generated kit under <Studio>\export\component-integration\<ApplicationId>. Inside it, ComponentSource contains the complete current unit set for the selected framework. The Studio deliberately does not create or fill a dependencies folder inside your target project without your direction.",
+        r"For a portable, repeatable build, copy that complete source set into <Target Project>\dependencies\DelphiAppTranslation\source. This optional project-local folder keeps the target independent of the Studio repository path and lets Git record the exact runtime source that ships with the application.",
     ])
     add_steps(document, [
         r"Open <Studio>\export\component-integration\<ApplicationId>\ComponentSource.",
@@ -616,7 +621,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(WIZARD_HEADINGS[13], level=1)
     add_paragraphs(document, [
-        "The Wizard passes ComponentSource temporarily to Wizard-initiated build commands but does not edit DPROJ. A manual RAD Studio build therefore needs a permanent Search path entry that resolves the current ComponentSource or vendored dependency folder.",
+        "The Wizard can pass ComponentSource to a build it starts itself, but it does not edit your DPROJ. To make ordinary builds from RAD Studio work every time, add one permanent Search path entry for the current ComponentSource or, preferably, the project-local dependency folder.",
     ])
     add_steps(document, [
         "Open the target project in RAD Studio and choose Project > Options.",
