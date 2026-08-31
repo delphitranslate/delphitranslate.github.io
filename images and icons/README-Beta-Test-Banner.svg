@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="220" viewBox="0 0 1200 220" role="img" aria-labelledby="title description">
+  <title id="title">Beta testing is open</title>
+  <desc id="description">Beta testing and developer feedback are welcome.</desc>
+  <defs>
+    <linearGradient id="betaBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-20%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#172554" flood-opacity="0.38"/>
+    </filter>
+  </defs>
+  <rect x="6" y="6" width="1188" height="208" rx="24" fill="url(#betaBlue)" stroke="#172554" stroke-width="12"/>
+  <rect x="24" y="24" width="1152" height="172" rx="14" fill="none" stroke="#bfdbfe" stroke-width="3" opacity="0.9"/>
+  <g transform="translate(72 38)" filter="url(#shadow)">
+    <circle cx="72" cy="72" r="66" fill="#ffffff" stroke="#1e3a8a" stroke-width="7"/>
+    <path d="M38 73 62 97 108 48" fill="none" stroke="#2563eb" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="650" y="93" text-anchor="middle" fill="#ffffff" font-family="Segoe UI, Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="6">BETA TEST</text>
+  <text x="650" y="146" text-anchor="middle" fill="#eff6ff" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700" letter-spacing="1">TESTING AND FEEDBACK WELCOME</text>
+  <text x="650" y="181" text-anchor="middle" fill="#bfdbfe" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="600">ACTIVE DEVELOPMENT - FORKS WELCOME</text>
+</svg>

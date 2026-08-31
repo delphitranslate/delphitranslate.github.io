@@ -425,7 +425,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     document.add_heading("2.1 Obtain and build the Studio", level=2)
     add_steps(document, [
         "Download or clone the complete repository from https://github.com/tmartindub/DelphiAppTranslationStudio. Do not download isolated PAS, DPK, BPL, or JSON files.",
-        r"Extract it to a short writable path, for example C:\New Delphi Projects\Delphi App Translation.",
+        r"Extract it to a short writable path, for example C:\DelphiProjects\Delphi App Translation.",
         "Open DelphiAppTranslationStudio.dproj in RAD Studio 13 Florence and build Win32 Release for the simplest first run.",
         r"The verified RAD Studio environment is C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat and the Win32 compiler is dcc32.exe in the same folder.",
         r"Run bin\Win32\Release\DelphiAppTranslationStudio.exe from the repository copy you just built.",
@@ -627,7 +627,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         "Open the target project in RAD Studio and choose Project > Options.",
         "At the top choose All configurations and All platforms unless the project intentionally uses distinct paths.",
         "Open Building > Delphi Compiler and locate Search path.",
-        r"Append .\dependencies\DelphiAppTranslation\source when using the recommended project-local folder. An absolute example is C:\New Delphi Projects\MyApplication\dependencies\DelphiAppTranslation\source.",
+        r"Append .\dependencies\DelphiAppTranslation\source when using the recommended project-local folder. An absolute example is C:\DelphiProjects\MyApplication\dependencies\DelphiAppTranslation\source.",
         "Preserve every existing path and the inherited $(DCC_UnitSearchPath) value. Do not replace the field with only the DAT path.",
         "Save the option, clean, and build every configuration/platform that will ship.",
     ])
@@ -741,7 +741,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     document.add_page_break()
     document.add_heading(WIZARD_HEADINGS[21], level=1)
     add_table(document, ["Purpose", "Exact or relative path"], [
-        ["Studio repository", r"C:\New Delphi Projects\Delphi App Translation (example)"],
+        ["Studio repository", r"C:\DelphiProjects\Delphi App Translation (example)"],
         ["RAD environment", r"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat"],
         ["Win32 compiler", r"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc32.exe"],
         ["Studio settings", r"%LOCALAPPDATA%\DelphiAppTranslationStudio"],

@@ -23,15 +23,15 @@ The localization project should not modify the FireMonkey pilot to repair TC-18.
 
 Before Group 0 work, complete pre-change backups were created:
 
-- `G:\Delphi App Translation Backup\Pre-Group-0-Translation-Studio-2026-08-09_191054`
-- `G:\FMXPilot - Component Test Backup\Pre-Group-0-Component-Test-2026-08-09_191054`
+- `<BackupDrive>:\Delphi App Translation Backup\Pre-Group-0-Translation-Studio-2026-08-09_191054`
+- `<BackupDrive>:\FMXPilot - Component Test Backup\Pre-Group-0-Component-Test-2026-08-09_191054`
 
 The following evidence remained available in place:
 
 - Current development catalog: `C:\Projects\FMXPilot - Component Test\Localization\Development\FMXPilot.es-ES.translation-project.json`
 - Current Spanish runtime pack: `C:\Projects\FMXPilot - Component Test\Localization\Languages\es-ES.json`
 - Generated component kit: `C:\Projects\Delphi App Translation\export\component-integration\FMXPilot`
-- Earlier test archive: `C:\Downloads\First Test on Translator`
+- Earlier test archive: `C:\TestArchives\TranslationPilot`
 - Pristine GA4 source: `C:\Projects\FMXPilot - Pristine`
 
 The disposable pilot was clean in Git before investigation. The Studio contained known pre-existing untracked generated/export files; those files were not staged or altered as part of Group 0.
@@ -41,7 +41,7 @@ The disposable pilot was clean in Git before investigation. The Studio contained
 ### 3.1 Compared catalogs
 
 **Earlier 179-entry catalog**  
-`C:\Downloads\First Test on Translator\Localization\Development\FMXPilot.es-ES.translation-project.json`
+`C:\TestArchives\TranslationPilot\Localization\Development\FMXPilot.es-ES.translation-project.json`
 
 SHA-256: `246f386c1c60dc2f4d18d9d975a660bb005587f0ed62b0713eef60d647650709`
 
@@ -72,8 +72,8 @@ The six earlier-only keys are:
 
 All six controls exist in the archived source-mutating pilot under:
 
-- `C:\Downloads\First Test on Translator\the FireMonkey pilot - Old-Component Test\FMXPilot.MainForm.fmx`
-- `C:\Downloads\First Test on Translator\the FireMonkey pilot - Old-Component Test\FMXPilot.MainForm.pas`
+- `C:\TestArchives\TranslationPilot\FMXPilot - Old-Component Test\FMXPilot.MainForm.fmx`
+- `C:\TestArchives\TranslationPilot\FMXPilot - Old-Component Test\FMXPilot.MainForm.pas`
 
 None of the six controls exists in:
 

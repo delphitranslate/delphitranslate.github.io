@@ -424,7 +424,8 @@ def add_table(
 def finish_document(document: Document, path: Path) -> None:
     document.core_properties.title = path.stem
     document.core_properties.subject = "Delphi App Translation Studio documentation"
-    document.core_properties.author = "TMartinDub"
+    document.core_properties.author = ""
+    document.core_properties.last_modified_by = ""
     document.core_properties.keywords = (
         "Delphi, VCL, FireMonkey, FMX, localization, translation"
     )
@@ -1726,7 +1727,7 @@ def build_engineering_guide() -> Path:
         document,
         [
             "DAT.Provider.Settings persists only provider, DeepL plan, remember choice, timeout, and batch size in %LOCALAPPDATA%\\DelphiAppTranslationStudio\\provider-settings.json. Bounds are normalized to 5-300 seconds and 1-50 strings.",
-            "DAT.Provider.CredentialStore uses CredWriteW, CredReadW, CredDeleteW, and CredFree with CRED_TYPE_GENERIC and local-machine persistence. Credential targets are provider-specific and begin TMartinDub/DelphiAppTranslationStudio/. Secret bytes are cleared after conversion where practical.",
+            "DAT.Provider.CredentialStore uses CredWriteW, CredReadW, CredDeleteW, and CredFree with CRED_TYPE_GENERIC and local-machine persistence. Credential targets are provider-specific and begin DelphiAppTranslationStudio/Providers/. Secret bytes are cleared after conversion where practical.",
         ],
     )
     add_table(

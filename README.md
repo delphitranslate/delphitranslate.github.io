@@ -1,32 +1,31 @@
 # Delphi App Translation Studio
 
-![ALPHA TEST - testing and feedback welcome](images%20and%20icons/README-Alpha-Test-Banner.svg)
+![BETA TEST - testing and feedback welcome](images%20and%20icons/README-Beta-Test-Banner.svg)
 
 > [!IMPORTANT]
-> **Alpha testing is open.** You may download, build, use, evaluate, and fork
+> **Beta testing is open.** You may download, build, use, evaluate, and fork
 > Delphi App Translation Studio. Active development is still underway, so a
 > feature may be incomplete, may change without notice, or may not behave as
-> an alpha tester expects. Use test copies of Delphi projects, keep them under
+> a beta tester expects. Use test copies of Delphi projects, keep them under
 > version control, and verify every generated catalog, language pack, component
 > setting, and translated screen before relying on the result.
 >
-> Alpha feedback is welcome at **churchesite@gmail.com**. Reports are most
-> useful when they include the Delphi version, framework, platform, exact steps,
-> expected result, actual result, and screenshots. Do not send API keys,
-> credentials, customer data, or proprietary source code.
+> Beta feedback is welcome through the repository's GitHub issue tracker.
+> Reports are most useful when they include the Delphi version, framework,
+> platform, exact steps, expected result, actual result, and privacy-reviewed
+> screenshots. Never post API keys, credentials, customer data, personal
+> information, or proprietary source code.
 
-## Help is requested on translations
+## Translation feedback is requested
 
-I speak two fluent languages, English and Spanish and some German and Portuguese. 
-Because of that, I am asking for help on non-roman alphabet languages like Arabic, 
-Pashto, Urdu, etc. 
+Machine translation is useful but is not a substitute for review by a fluent
+speaker. Feedback is especially valuable for right-to-left languages and
+non-Latin writing systems. Report wording, direction, wrapping, or cultural
+formatting problems through GitHub Issues without including confidential
+project material.
 
-Since I do not know these languages, I have to trust the translation I am given
-and vet it the best way possible. If you translate an app and the translation 
-is off, let me know at the email above and I will investigate the problem.
-
-DeepL is the recommended translator and is used by this Alpha test app.  With each
-translation sent to DeepL, context is sent with it to get the best translation.
+DeepL is the recommended first-choice provider for this beta. The Studio sends
+eligible source text with available context to improve translation quality.
 
 ## What it is
 
@@ -48,7 +47,7 @@ Internet access only while calling the selected provider. After deployment,
 the target application reads its local language packs and does not need
 Internet access or an API key at runtime.
 
-## Alpha scope
+## Beta scope
 
 - Delphi VCL and FMX target applications on Windows Win32 and Win64.
 - Translation Studio builds for Win32 and Win64, Debug and Release.
@@ -60,10 +59,10 @@ Internet access or an API key at runtime.
   validation, component-kit generation, deployment, and optional builds.
 
 macOS, iOS, Android, Linux, C++Builder, and runtime cloud translation are not
-part of the current alpha scope. Delphi 12.x and clean-machine installation
+part of the current beta scope. Delphi 12.x and clean-machine installation
 remain compatibility items to be tested.
 
-## Downloading the alpha source
+## Downloading the beta source
 
 ### Download a ZIP archive
 
@@ -76,17 +75,17 @@ remain compatibility items to be tested.
 
 ### Clone or fork with Git
 
-Clone the repository when you want to receive later alpha updates:
+Clone the repository when you want to receive later beta updates:
 
 ```text
 git clone https://github.com/tmartindub/DelphiAppTranslationStudio.git
 ```
 
 You are also welcome to fork the repository through GitHub and develop or test
-against your own fork. Keep local work on a separate branch so upstream alpha
+against your own fork. Keep local work on a separate branch so upstream beta
 changes can be reviewed before they are merged.
 
-## Installing and starting the alpha
+## Installing and starting the beta
 
 There is no supported binary installer yet. Build the Studio and its design
 packages from source with RAD Studio 13 Florence:
@@ -149,7 +148,7 @@ selected application folder. The application `.exe` is created or replaced
 only when the developer explicitly checks the executable deployment
 authorization. The source project is not replaced by that operation.
 
-## Known alpha limitations
+## Known beta limitations
 
 - Dynamic runtime text requires explicit application integration; it is not
   always discoverable as static form text.
@@ -194,7 +193,7 @@ tools/tests/         Automated validation and smoke tests
 ## Documentation
 
 Documentation was reviewed and regenerated with LibreOffice on
-**August 25, 2026**. The DOCX guides contain real generated tables of contents;
+**August 31, 2026**. The DOCX guides contain real generated tables of contents;
 matching PDFs are provided for convenient reading.
 
 - [Setup Wizard Guide](docs/guides/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.docx)
@@ -203,7 +202,7 @@ matching PDFs are provided for convenient reading.
 - Companion PDFs are in [`docs/pdf`](docs/pdf/).
 - Engineering history is in [`docs/guides/Engineering Notes.md`](docs/guides/Engineering%20Notes.md).
 
-## Reporting alpha feedback
+## Reporting beta feedback
 
 Please include the RAD Studio/Delphi version, VCL or FMX, Win32 or Win64,
 Debug or Release, exact Wizard step, expected and actual behavior, screenshots,
@@ -212,8 +211,13 @@ private source, customer data, or proprietary language packs.
 
 ## Release decision
 
-This repository is suitable for a limited technical alpha and contributor
-feedback. It is not a production release. Version 1.0 requires a clean-clone
-build, clean IDE package-installation test, VCL and FMX acceptance, Win32 and
-Win64 validation, removable-drive deployment testing, documentation review,
-license selection, and a complete source-distribution audit.
+This repository is ready for limited beta testing by Delphi developers. It is
+pre-release software, not a general-availability production release. Beta users
+should work with version-controlled test copies, review machine translation,
+and validate every supported framework, platform, language, layout, and runtime
+path used by their application.
+
+## License
+
+Delphi App Translation Studio is licensed under the Apache License, Version 2.0.
+See [LICENSE](LICENSE) for the complete license terms.

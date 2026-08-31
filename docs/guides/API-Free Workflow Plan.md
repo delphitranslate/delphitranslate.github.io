@@ -214,7 +214,7 @@ Before each approved implementation stage:
 2. State the exact intended file scope.
 3. Obtain approval.
 4. Create the required pre-change backup under
-   `G:\Delphi App Translation Backup`.
+   `<BackupDrive>:\Delphi App Translation Backup`.
 
 After implementation:
 

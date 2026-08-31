@@ -24,6 +24,8 @@ if ($LASTEXITCODE -ne 0) {
 
 # These files are part of the current release even before its final Git commit.
 $ReleaseFiles = @(
+    'LICENSE',
+    'images and icons/README-Beta-Test-Banner.svg',
     'DelphiAppTranslationStudio_Icon1.ico',
     'docs/guides/In-Place AI Translation Plan.md',
     'docs/guides/Release Notes 1.0.md',
@@ -32,6 +34,9 @@ $ReleaseFiles = @(
 )
 
 $RetiredFiles = @(
+    'docs/guides/User Guide Screenshots/06-wizard-provider.png',
+    'images and icons/README-Alpha-Test-Banner.svg',
+    'images and icons/Delphi-App-Translation-Studio-Alpha-Testing-Open.png',
     'source/agent/DAT.Agent.Execution.pas',
     'tools/tests/AgentExecutionSmokeTests.dpr'
 )

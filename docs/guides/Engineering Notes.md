@@ -620,7 +620,7 @@ Integration application is transactional:
 7. Retain the backup path for the Integration page's Restore action.
 
 On this development system, automatic target backups default to
-`G:\ProjectName Backup\Translation Integration timestamp`. On systems without a
+`<BackupDrive>:\ProjectName Backup\Translation Integration timestamp`. On systems without a
 `G:` drive, the portable fallback is
 `Target Project\Localization\Integration Backups`. The backup manifest records
 whether the target is a Git repository, whether each changed file existed
@@ -781,7 +781,7 @@ validated offline JSON packs.
 Nonsecret choices are saved under
 `%LOCALAPPDATA%\DelphiAppTranslationStudio\provider-settings.json`. A remembered
 API key is a Windows Generic Credential whose target begins with
-`TMartinDub/DelphiAppTranslationStudio/`. A session-only key remains in process
+`DelphiAppTranslationStudio/Providers/`. A session-only key remains in process
 memory and is forgotten at shutdown. Keys are not written into a catalog,
 runtime pack, project, integration package, diagnostic, or repository file.
 

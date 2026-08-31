@@ -259,7 +259,7 @@ def build_user_guide() -> Path:
         "Use the branch selector to choose the published beta/release branch specified by the project owner. For the current stabilization candidate, that branch is codex/total-stabilization-release; after it is merged or released, use the published release tag or main branch named by the repository.",
         "Choose Code, then Download ZIP.",
         "Save the ZIP to your normal Downloads folder. Extract it before opening anything; Delphi cannot build the project correctly from inside the compressed ZIP.",
-        r"Extract the complete archive to a short, writable development path such as C:\New Delphi Projects\Delphi App Translation.",
+        r"Extract the complete archive to a short, writable development path such as C:\DelphiProjects\Delphi App Translation.",
         "Open the extracted root and make sure you can see DelphiAppTranslationStudio.dproj together with the source, packages, Localization, docs, tools, and images and icons folders. If those are present, you have the complete source tree.",
     ])
     document.add_heading("3.2 Clone with Git", level=2)
@@ -345,7 +345,7 @@ def build_user_guide() -> Path:
         "Build Win32 Debug, Win32 Release, and any supported Win64 configurations. A clean build verifies that no DAT unit is being found accidentally from an unrelated global path.",
     ])
     add_path(document, r"Recommended portable entry: .\dependencies\DelphiAppTranslation\source")
-    add_path(document, r"Example absolute entry: C:\New Delphi Projects\VCL2FMXConverterV5 - Test\dependencies\DelphiAppTranslation\source")
+    add_path(document, r"Example absolute entry: C:\DelphiProjects\MyApplication\dependencies\DelphiAppTranslation\source")
     add_callout(document, "You can point to the export folder, but...", r"A project may use export\component-integration\<ApplicationId>\ComponentSource directly. That works, but it ties the application to a generated Studio location. The project-local dependencies folder is easier to archive, clone, and build on another computer.")
 
     document.add_heading("7. Understand the Files Under %LOCALAPPDATA%", level=1)
@@ -514,7 +514,7 @@ def build_user_guide() -> Path:
     add_paragraphs(document, [
         "Maintenance Studio is your workspace after the guided setup. Its seven pages - Project, Scan, Translate, Validation, Export, Integration, and Provider Settings - let you go directly to the part of the translation you want to maintain. Moving through the left rail does not rerun completed work. Keep an eye on the status line at the bottom; it confirms the last action and often tells you exactly what to do next.",
     ])
-    add_screen(document, "02-maintenance-project-loaded.png", "Figure 19-1. Maintenance Studio with a Delphi project loaded.", "Maintenance Studio Project page showing VCL2FMXConverter project details", crop=(11875, 2889, 11812, 8333), aspect_ratio=1.528)
+    add_screen(document, "02-maintenance-project-loaded.png", "Figure 19-1. Maintenance Studio with a Delphi project loaded.", "Maintenance Studio Project page showing project details", aspect_ratio=1.563)
 
     document.add_heading("20. Maintenance Page 1 - Project", level=1)
     add_screen_control_table(document, [
@@ -526,7 +526,7 @@ def build_user_guide() -> Path:
     ])
 
     document.add_heading("21. Maintenance Page 2 - Scan", level=1)
-    add_screen(document, "03-maintenance-scan.png", "Figure 21-1. Maintenance scan showing the corrected unique/raw count contract.", "Maintenance Studio scan results for the VCL2FMXConverter project", crop=(11875, 2889, 11812, 8333), aspect_ratio=1.528)
+    add_screen(document, "03-maintenance-scan.png", "Figure 21-1. Maintenance scan showing the corrected unique/raw count contract.", "Maintenance Studio scan results for a Delphi project", aspect_ratio=1.506)
     add_paragraphs(document, [
         "Maintenance Studio and the Setup Wizard use the same scanner. When both are looking at the same saved project with the same catalog basis, their totals should agree. The large headline is the number of unique catalog entries; raw occurrences, recovered semantic contracts, and duplicates are shown separately so you can understand where that total came from.",
         "Scanning does not edit the Delphi project. When you later save or merge the catalog, the Studio writes to its own workspace, not to your Pascal units or forms.",
@@ -589,7 +589,7 @@ def build_user_guide() -> Path:
     add_paragraphs(document, [
         "Use this page when you need to change providers, rotate a key, adjust the timeout, or tune the number of strings sent in one request. Provider settings affect translation performed by the Studio; they are never placed in the application you deploy.",
     ])
-    add_screen(document, "06-wizard-provider.png", "Figure 26-1. Provider controls; the Maintenance page additionally exposes timeout, batch size, and Remove Key.", "Provider settings showing DeepL, API Free, masked API key, remember option, save and test connection controls", crop=(16875, 8444, 16875, 13778), aspect_ratio=1.514)
+    add_screen(document, "11-wizard-translation-service.png", "Figure 26-1. Provider controls; the Maintenance page additionally exposes timeout, batch size, and Remove Key.", "Provider settings showing DeepL, API Free, masked API key, remember option, save and test connection controls", aspect_ratio=1.514)
     add_screen_control_table(document, [
         ["Provider", "DeepL or Google Cloud Translation.", "DeepL is default and recommended."],
         ["DeepL API plan", "Free or Pro endpoint.", "Choose the plan matching the DeepL key."],
@@ -735,7 +735,7 @@ def build_user_guide() -> Path:
         "These are the paths you are most likely to need while building, troubleshooting, or moving the project to another computer.",
     ])
     add_table(document, ["Purpose", "Path"], [
-        ["Studio repository", r"C:\New Delphi Projects\Delphi App Translation (example)"],
+        ["Studio repository", r"C:\DelphiProjects\Delphi App Translation (example)"],
         ["RAD Studio environment", r"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat"],
         ["Win32 compiler", r"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc32.exe"],
         ["Studio user settings", r"%LOCALAPPDATA%\DelphiAppTranslationStudio"],

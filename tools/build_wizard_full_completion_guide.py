@@ -301,15 +301,15 @@ def build_document() -> Path:
 
     document.add_heading("2. Exact Product Files and Generated Locations", level=1)
     add_matrix(document, ["Purpose", "Path or pattern"], [
-        ["Recommended Studio build", r"C:\New Delphi Projects\Delphi App Translation\bin\Win32\Debug\DelphiAppTranslationStudio.exe"],
-        ["Win64 Studio build", r"C:\New Delphi Projects\Delphi App Translation\bin\Win64\Debug\DelphiAppTranslationStudio.exe"],
-        ["FMX design package", r"C:\New Delphi Projects\Delphi App Translation\bin\packages\Win32\Release\DATLanguageManagerFMXDesign.bpl"],
-        ["VCL design package", r"C:\New Delphi Projects\Delphi App Translation\bin\packages\Win32\Release\DATLanguageManagerVCLDesign.bpl"],
+        ["Recommended Studio build", r"C:\DelphiProjects\Delphi App Translation\bin\Win32\Debug\DelphiAppTranslationStudio.exe"],
+        ["Win64 Studio build", r"C:\DelphiProjects\Delphi App Translation\bin\Win64\Debug\DelphiAppTranslationStudio.exe"],
+        ["FMX design package", r"C:\DelphiProjects\Delphi App Translation\bin\packages\Win32\Release\DATLanguageManagerFMXDesign.bpl"],
+        ["VCL design package", r"C:\DelphiProjects\Delphi App Translation\bin\packages\Win32\Release\DATLanguageManagerVCLDesign.bpl"],
         ["Development catalog", r"<Test Project>\Localization\Development\<ApplicationId>.<language>.translation-project.json"],
         ["Project glossary", r"<Test Project>\Localization\Glossaries\<ApplicationId>.<language>.glossary.json"],
         ["Runtime language pack", r"<Test Project>\Localization\Languages\<language>.json"],
-        ["Component kit", r"C:\New Delphi Projects\Delphi App Translation\export\component-integration\<ApplicationId>"],
-        ["Localization review", r"C:\New Delphi Projects\Delphi App Translation\export\localization-review\<ApplicationId>\<language>"],
+        ["Component kit", r"C:\DelphiProjects\Delphi App Translation\export\component-integration\<ApplicationId>"],
+        ["Localization review", r"C:\DelphiProjects\Delphi App Translation\export\localization-review\<ApplicationId>\<language>"],
         ["Saved language preference", r"%LOCALAPPDATA%\<ApplicationId>\language.ini"],
         ["Wizard safety backup", r"%USERPROFILE%\Documents\Delphi App Translation Backups\<ApplicationId>\<timestamp>.zip"],
     ], [2550, 6810], 8.8)
@@ -346,7 +346,7 @@ def build_document() -> Path:
 
     document.add_heading("4. Start the Setup Wizard", level=1)
     add_steps(document, [
-        r"Run C:\New Delphi Projects\Delphi App Translation\bin\Win32\Debug\DelphiAppTranslationStudio.exe.",
+        r"Run C:\DelphiProjects\Delphi App Translation\bin\Win32\Debug\DelphiAppTranslationStudio.exe.",
         "Wait for the Delphi App Translation Studio main form to appear.",
         "Click Start Setup Wizard on the Project page. Do not click Open Project for this initial path.",
         "Confirm the dimmed Studio background is blocked by the modal Translation Setup Wizard.",

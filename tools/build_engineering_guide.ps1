@@ -29,7 +29,7 @@ subheading sits hard against its first paragraph.
 param(
   [string]$ProjectRoot,
   [string]$LibreOffice = 'C:\Program Files\LibreOffice\program\soffice.com',
-  [string]$Python = 'C:\Users\marti\AppData\Local\Microsoft\WindowsApps\python.exe'
+  [string]$Python = "$env:LOCALAPPDATA\Microsoft\WindowsApps\python.exe"
 )
 
 Set-StrictMode -Version Latest

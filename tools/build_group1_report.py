@@ -421,7 +421,8 @@ def build():
     settings.append(update_fields)
     doc.core_properties.title = "Translation Studio Group 1 Runtime Lifecycle and State Ownership Report"
     doc.core_properties.subject = "Group 1 implementation and validation evidence"
-    doc.core_properties.author = "Delphi App Translation Studio Project"
+    doc.core_properties.author = ""
+    doc.core_properties.last_modified_by = ""
     doc.save(OUTPUT)
     print(OUTPUT)
 
