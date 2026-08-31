@@ -154,36 +154,36 @@ def build_user_guide() -> Path:
         ("2. Before You Begin", 3),
         ("3. Get the Studio from GitHub", 4),
         ("4. Build and Open the Studio", 5),
-        ("5. Prepare Your Delphi Application", 5),
+        ("5. Prepare Your Delphi Application", 6),
         ("6. Give Delphi Access to the DAT Dependencies", 6),
         ("7. Understand the Files Under %LOCALAPPDATA%", 8),
-        ("8. Meet the Start Screen and Keyboard Controls", 10),
-        ("9. Move Through the Setup Wizard with Confidence", 11),
-        ("10. Wizard Step 1 - Welcome", 13),
-        ("11. Wizard Step 2 - Delphi Project", 14),
-        ("12. Wizard Step 3 - Deployment", 15),
-        ("13. Wizard Step 4 - Languages", 17),
-        ("14. Wizard Step 5 - Translation Service", 18),
-        ("15. Wizard Step 6 - Scan Project", 20),
-        ("16. Wizard Step 7 - Review and Authorize", 21),
-        ("17. Localization Review Window", 22),
-        ("18. Wizard Step 8 - Process and Finish", 23),
-        ("19. Maintenance Studio Overview", 24),
-        ("20. Maintenance Page 1 - Project", 25),
-        ("21. Maintenance Page 2 - Scan", 26),
-        ("22. Maintenance Page 3 - Translate", 27),
-        ("23. Maintenance Page 4 - Validation", 29),
-        ("24. Maintenance Page 5 - Export", 29),
-        ("25. Maintenance Page 6 - Integration", 30),
-        ("26. Maintenance Page 7 - Provider Settings", 31),
-        ("27. DeepL and Google Setup", 33),
-        ("28. Runtime Integration in VCL and FMX", 34),
-        ("29. Build, Deploy, and Verify", 35),
-        ("30. RTL, Layout, HTML, and Dynamic Text", 35),
-        ("31. Security, Privacy, and Recovery", 36),
-        ("32. Troubleshooting", 36),
-        ("33. Complete First-Time Checklist", 38),
-        ("34. Quick Path Reference", 40),
+        ("8. Meet the Start Screen and Keyboard Controls", 11),
+        ("9. Move Through the Setup Wizard with Confidence", 12),
+        ("10. Wizard Step 1 - Welcome", 14),
+        ("11. Wizard Step 2 - Delphi Project", 15),
+        ("12. Wizard Step 3 - Deployment", 16),
+        ("13. Wizard Step 4 - Languages", 18),
+        ("14. Wizard Step 5 - Translation Service", 19),
+        ("15. Wizard Step 6 - Scan Project", 21),
+        ("16. Wizard Step 7 - Review and Authorize", 22),
+        ("17. Localization Review Window", 23),
+        ("18. Wizard Step 8 - Process and Finish", 24),
+        ("19. Maintenance Studio Overview", 25),
+        ("20. Maintenance Page 1 - Project", 26),
+        ("21. Maintenance Page 2 - Scan", 27),
+        ("22. Maintenance Page 3 - Translate", 28),
+        ("23. Maintenance Page 4 - Validation", 30),
+        ("24. Maintenance Page 5 - Export", 30),
+        ("25. Maintenance Page 6 - Integration", 31),
+        ("26. Maintenance Page 7 - Provider Settings", 32),
+        ("27. DeepL and Google Setup", 34),
+        ("28. Runtime Integration in VCL and FMX", 35),
+        ("29. Build, Deploy, and Verify", 36),
+        ("30. RTL, Layout, HTML, and Dynamic Text", 36),
+        ("31. Security, Privacy, and Recovery", 37),
+        ("32. Troubleshooting", 37),
+        ("33. Complete First-Time Checklist", 39),
+        ("34. Quick Path Reference", 41),
     ])
 
     document.add_heading("1. Welcome - How This Guide Will Help You", level=1)
@@ -194,7 +194,15 @@ def build_user_guide() -> Path:
     ])
     add_callout(document, "Your project remains yours.", "Scanning reads the Delphi project you select. Final Setup Wizard processing creates a safety ZIP, workspace files, runtime packs, review artifacts, and a component kit. In the recommended workflow, it does not rewrite your Pascal, DFM, FMX, DPR, or DPROJ files.")
 
-    document.add_heading("1.1 Choose the path that fits your work", level=2)
+    document.add_heading("1.1 Translation Is Part of Development", level=2)
+    add_paragraphs(document, [
+        "Delphi App Translation Studio is a development tool, not a utility that is run against a finished executable. Use it while the Delphi application is under active development, when its forms, resources, runtime messages, and language behavior can still be reviewed and adjusted by the developer. Run the Studio again as the application changes so that new or revised text becomes part of the same controlled translation workflow.",
+        "Machine translation from DeepL or Google can provide a strong, useful result, but no automatic translation service can guarantee perfect wording in every language or every application context. A provider translates the text and context it is given; it cannot always know the developer's intended meaning, a specialized industry term, the purpose of a short caption, or how translated text will fit a particular control when the application is running.",
+        "The developer therefore remains an active part of localization. Review terminology, dynamic and assembled messages, custom or third-party controls, right-to-left and mixed-direction paragraphs, control sizing, wrapping, and the screens that matter most to users. A small, simple project may require little or no manual adjustment. A larger or more specialized application will usually need at least a few developer decisions or small corrections before release.",
+        "The goal of the Studio is to automate the translation work and give the best translation possible, preserve the developer’s project, identify the remaining work clearly, and make professional multilingual development practical—not to remove the developer from the process.",
+    ])
+
+    document.add_heading("1.2 Choose the path that fits your work", level=2)
     add_bullets(document, [
         "First project or first language: begin with Chapter 2 and follow the Setup Wizard chapters in order.",
         "Returning to an existing translation: open Maintenance Studio and use Chapters 19-27 as your working reference.",
@@ -202,7 +210,7 @@ def build_user_guide() -> Path:
         "Something is not working: start with Chapter 32, then use the path and file reference in Chapter 34.",
     ])
 
-    document.add_heading("1.2 What you will have when you finish", level=2)
+    document.add_heading("1.3 What you will have when you finish", level=2)
     add_paragraphs(document, [
         "The Studio keeps development work separate from the files your finished application uses. The following items are created during the workflow; later chapters explain each one in context.",
     ])
@@ -215,7 +223,7 @@ def build_user_guide() -> Path:
         ["Safety backup", "Timestamped ZIP made before final processing.", "The backup path is displayed in Wizard progress and the completion report."],
     ])
 
-    document.add_heading("1.3 What this release supports", level=2)
+    document.add_heading("1.4 What this release supports", level=2)
     add_bullets(document, [
         "Supported target frameworks: Delphi VCL and FireMonkey (FMX).",
         "Supported target platforms: Windows Win32 and Win64; Debug and Release configurations may be built locally.",
