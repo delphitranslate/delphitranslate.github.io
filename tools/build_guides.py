@@ -227,7 +227,13 @@ def setup_styles(document: Document) -> None:
     callout.paragraph_format.space_after = Pt(6)
 
 
-def add_cover(document: Document, title: str, subtitle: str) -> None:
+def add_cover(
+    document: Document,
+    title: str,
+    subtitle: str,
+    *,
+    last_changed: str | None = None,
+) -> None:
     section = document.sections[0]
     configure_page(section)
     add_header_footer(section, "", False)
@@ -264,7 +270,7 @@ def add_cover(document: Document, title: str, subtitle: str) -> None:
     meta = document.add_paragraph()
     meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = meta.add_run(
-        f"Version 1.0\nLast changed: {LAST_CHANGED}\n"
+        f"Version 1.0\nLast changed: {last_changed or LAST_CHANGED}\n"
         "Windows • Delphi VCL and FireMonkey • Win32 and Win64"
     )
     run.font.name = "Aptos"
@@ -374,7 +380,13 @@ def add_callout(document: Document, title: str, text: str) -> None:
     paragraph.add_run(text)
 
 
-def add_table(document: Document, headers: list[str], rows: list[list[str]]) -> None:
+def add_table(
+    document: Document,
+    headers: list[str],
+    rows: list[list[str]],
+    *,
+    widths: list[int] | None = None,
+) -> None:
     table = document.add_table(rows=1, cols=len(headers))
     table.style = "Light Shading Accent 1"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -383,7 +395,7 @@ def add_table(document: Document, headers: list[str], rows: list[list[str]]) -> 
         3: [1800, 3900, 3660],
         4: [1500, 2500, 2680, 2680],
     }
-    widths = widths_by_count.get(
+    widths = widths or widths_by_count.get(
         len(headers), [9360 // len(headers)] * len(headers)
     )
     widths[-1] += 9360 - sum(widths)

@@ -81,7 +81,7 @@ def add_path(document: Document, value: str) -> None:
 def add_screen_control_table(
     document: Document, rows: list[list[str]]
 ) -> None:
-    add_table(document, ["Control or area", "What it does", "When to use it"], rows)
+    add_table(document, ["On the screen", "How it helps you", "When you will use it"], rows)
 
 
 def add_static_toc(
@@ -143,54 +143,70 @@ def build_user_guide() -> Path:
     document = Document()
     setup_styles(document)
     title = "Delphi App Translation Studio - User Guide"
-    add_cover(document, "User Guide", "Delphi App Translation Studio")
+    add_cover(
+        document,
+        "User Guide",
+        "Delphi App Translation Studio",
+        last_changed="August 31, 2026",
+    )
     add_static_toc(document, title, [
-        ("1. About This Guide", 1),
-        ("2. System and Developer Prerequisites", 2),
-        ("3. Download the Studio from GitHub", 3),
-        ("4. Build and Start the Studio", 4),
-        ("5. Prepare the Target Delphi Application", 4),
-        ("6. The dependencies Folder and Delphi Search Path", 5),
-        ("7. Files Stored Under %LOCALAPPDATA%", 7),
-        ("8. Starting the Studio and Keyboard Operation", 10),
-        ("9. Setup Wizard Navigation and Safety", 11),
-        ("10. Wizard Step 1 - Welcome", 12),
-        ("11. Wizard Step 2 - Delphi Project", 13),
-        ("12. Wizard Step 3 - Deployment", 14),
-        ("13. Wizard Step 4 - Languages", 16),
-        ("14. Wizard Step 5 - Translation Service", 17),
-        ("15. Wizard Step 6 - Scan Project", 19),
-        ("16. Wizard Step 7 - Review and Authorize", 20),
-        ("17. Localization Review Window", 21),
-        ("18. Wizard Step 8 - Process and Finish", 22),
-        ("19. Maintenance Studio Overview", 23),
-        ("20. Maintenance Page 1 - Project", 24),
-        ("21. Maintenance Page 2 - Scan", 25),
-        ("22. Maintenance Page 3 - Translate", 26),
-        ("23. Maintenance Page 4 - Validation", 27),
-        ("24. Maintenance Page 5 - Export", 28),
-        ("25. Maintenance Page 6 - Integration", 29),
+        ("1. Welcome - How This Guide Will Help You", 1),
+        ("2. Before You Begin", 3),
+        ("3. Get the Studio from GitHub", 4),
+        ("4. Build and Open the Studio", 5),
+        ("5. Prepare Your Delphi Application", 5),
+        ("6. Give Delphi Access to the DAT Dependencies", 6),
+        ("7. Understand the Files Under %LOCALAPPDATA%", 8),
+        ("8. Meet the Start Screen and Keyboard Controls", 10),
+        ("9. Move Through the Setup Wizard with Confidence", 11),
+        ("10. Wizard Step 1 - Welcome", 13),
+        ("11. Wizard Step 2 - Delphi Project", 14),
+        ("12. Wizard Step 3 - Deployment", 15),
+        ("13. Wizard Step 4 - Languages", 17),
+        ("14. Wizard Step 5 - Translation Service", 18),
+        ("15. Wizard Step 6 - Scan Project", 20),
+        ("16. Wizard Step 7 - Review and Authorize", 21),
+        ("17. Localization Review Window", 22),
+        ("18. Wizard Step 8 - Process and Finish", 23),
+        ("19. Maintenance Studio Overview", 24),
+        ("20. Maintenance Page 1 - Project", 25),
+        ("21. Maintenance Page 2 - Scan", 26),
+        ("22. Maintenance Page 3 - Translate", 27),
+        ("23. Maintenance Page 4 - Validation", 29),
+        ("24. Maintenance Page 5 - Export", 29),
+        ("25. Maintenance Page 6 - Integration", 30),
         ("26. Maintenance Page 7 - Provider Settings", 31),
-        ("27. DeepL and Google Setup", 32),
-        ("28. Runtime Integration in VCL and FMX", 33),
-        ("29. Build, Deploy, and Verify", 33),
-        ("30. RTL, Layout, HTML, and Dynamic Text", 34),
-        ("31. Security, Privacy, and Recovery", 34),
-        ("32. Troubleshooting", 35),
-        ("33. Complete First-Time Checklist", 36),
-        ("34. Quick Path Reference", 38),
+        ("27. DeepL and Google Setup", 33),
+        ("28. Runtime Integration in VCL and FMX", 34),
+        ("29. Build, Deploy, and Verify", 35),
+        ("30. RTL, Layout, HTML, and Dynamic Text", 35),
+        ("31. Security, Privacy, and Recovery", 36),
+        ("32. Troubleshooting", 36),
+        ("33. Complete First-Time Checklist", 38),
+        ("34. Quick Path Reference", 40),
     ])
 
-    document.add_heading("1. About This Guide", level=1)
+    document.add_heading("1. Welcome - How This Guide Will Help You", level=1)
     add_paragraphs(document, [
-        "This is the complete operating guide for Delphi App Translation Studio. It is written from the current Pascal source, FMX form definitions, package projects, scanner contracts, provider code, workspace code, and the verified application behavior as of August 30, 2026. It covers both VCL and FireMonkey target applications.",
-        "The guide explains installation, project preparation, every Studio and Setup Wizard screen, every visible operating control, provider security, catalogs, offline packs, component integration, compiler paths, deployment, verification, right-to-left behavior, recovery, and troubleshooting. A developer should be able to start with a GitHub download and finish with a translated Win32 or Win64 application without relying on undocumented steps.",
-        "The product is currently distributed as source. There is no supported binary installer. Use a disposable copy of a target application until the translated result has passed the verification checklist in Chapter 33.",
+        "Welcome to Delphi App Translation Studio. This guide is here to help you take a Delphi application from its original language to a tested, offline multilingual build without making you guess what happens next. It follows the current Pascal source, FMX form definitions, package projects, scanner contracts, provider code, workspace code, and verified application behavior as of August 31, 2026. The same workflow supports VCL and FireMonkey applications.",
+        "You can read the guide from beginning to end for your first project, or jump directly to the screen or task you need. Along the way, you will learn how to install the Studio, prepare a safe project copy, connect a translation provider, review translations, build language packs, add the runtime components, set Delphi's compiler path, deploy the result, and test both left-to-right and right-to-left languages.",
+        "The Studio is currently distributed as source rather than through an installer. That gives you full visibility into what you are building, but it also means the first setup includes a few Delphi steps. They are all explained here. For your first run, work with a disposable copy of your application until it passes the verification checklist in Chapter 33.",
     ])
-    add_callout(document, "Core safety rule.", "Scanning reads the selected Delphi project. Final Setup Wizard processing creates a safety ZIP, workspace files, runtime packs, review artifacts, and a component kit, but the current recommended workflow does not rewrite the target Pascal, DFM, FMX, DPR, or DPROJ files.")
+    add_callout(document, "Your project remains yours.", "Scanning reads the Delphi project you select. Final Setup Wizard processing creates a safety ZIP, workspace files, runtime packs, review artifacts, and a component kit. In the recommended workflow, it does not rewrite your Pascal, DFM, FMX, DPR, or DPROJ files.")
 
-    document.add_heading("1.1 What the Studio produces", level=2)
-    add_table(document, ["Product", "Purpose", "Primary location"], [
+    document.add_heading("1.1 Choose the path that fits your work", level=2)
+    add_bullets(document, [
+        "First project or first language: begin with Chapter 2 and follow the Setup Wizard chapters in order.",
+        "Returning to an existing translation: open Maintenance Studio and use Chapters 19-27 as your working reference.",
+        "Preparing a Delphi project to compile: go directly to Chapters 5 and 6 for components, dependencies, and the compiler Search Path.",
+        "Something is not working: start with Chapter 32, then use the path and file reference in Chapter 34.",
+    ])
+
+    document.add_heading("1.2 What you will have when you finish", level=2)
+    add_paragraphs(document, [
+        "The Studio keeps development work separate from the files your finished application uses. The following items are created during the workflow; later chapters explain each one in context.",
+    ])
+    add_table(document, ["What is created", "Why you need it", "Where to find it"], [
         ["Development catalog", "Editable source/translation records, locale facts, review state, context, checksums, and scan provenance.", r"%LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\<ApplicationId>\Development"],
         ["Runtime language pack", "Compact, validated JSON read by the target application without Internet access.", r"%LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\<ApplicationId>\Languages"],
         ["Project glossary", "Approved project-specific terminology applied before general machine-translation wording.", r"%LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\<ApplicationId>\Glossaries"],
@@ -199,7 +215,7 @@ def build_user_guide() -> Path:
         ["Safety backup", "Timestamped ZIP made before final processing.", "The backup path is displayed in Wizard progress and the completion report."],
     ])
 
-    document.add_heading("1.2 Supported and excluded scope", level=2)
+    document.add_heading("1.3 What this release supports", level=2)
     add_bullets(document, [
         "Supported target frameworks: Delphi VCL and FireMonkey (FMX).",
         "Supported target platforms: Windows Win32 and Win64; Debug and Release configurations may be built locally.",
@@ -209,8 +225,11 @@ def build_user_guide() -> Path:
         "Dynamic strings assembled from live data may require an application-authored semantic key or explicit runtime application; a static scanner cannot infer every possible runtime sentence.",
     ])
 
-    document.add_heading("2. System and Developer Prerequisites", level=1)
-    add_table(document, ["Requirement", "Required state"], [
+    document.add_heading("2. Before You Begin", level=1)
+    add_paragraphs(document, [
+        "A little preparation makes the rest of the process straightforward. Gather the items below before you open the Studio. If your Delphi project does not already build cleanly, fix that first; translation should not be asked to hide an unrelated compiler problem.",
+    ])
+    add_table(document, ["You will need", "What to have ready"], [
         ["Windows", "A current 64-bit Windows development system with permission to write the selected project copy, Local AppData, and the Studio export folder."],
         ["RAD Studio", r"RAD Studio 13 Florence. The verified toolchain is under C:\Program Files (x86)\Embarcadero\Studio\37.0\bin."],
         ["Delphi project", "A saved VCL or FMX .dproj/.dpr that builds successfully before localization."],
@@ -219,72 +238,78 @@ def build_user_guide() -> Path:
         ["Provider account", "A DeepL API Free/Pro key or Google Cloud Translation API key. DeepL is the recommended default."],
         ["Version control", "Git or an equivalent recoverable baseline for both the Studio source and the disposable target copy."],
     ])
-    add_callout(document, "Do not start with the production copy.", "Make a pristine backup and a separate test copy of the Delphi application. Confirm the test copy compiles before adding DAT components or language packs.")
+    add_callout(document, "Start safely.", "Keep a pristine backup and make a separate test copy of the Delphi application. Build that test copy successfully before you add DAT components or language packs. This gives you a clean point of comparison at every stage.")
 
-    document.add_heading("3. Download the Studio from GitHub", level=1)
+    document.add_heading("3. Get the Studio from GitHub", level=1)
     add_paragraphs(document, [
-        "The official repository is https://github.com/tmartindub/DelphiAppTranslationStudio. The entire repository is the required source distribution because the project, packages, runtime units, images, localization files, tests, tools, and documentation use its folder structure.",
-        "Do not download one .pas file, one .dproj, or a component BPL by itself. A partial download omits package dependencies, runtime units, localization resources, and build output paths.",
+        "The official repository is https://github.com/tmartindub/DelphiAppTranslationStudio. Download the whole repository so the Delphi projects, packages, runtime units, images, localization files, tests, tools, and documentation stay together in the folder structure they expect.",
+        "A single .pas file, .dproj, or component BPL is not enough. Those files rely on neighboring source and package files, and a partial download is the most common way to end up with missing-unit or missing-resource errors.",
     ])
     document.add_heading("3.1 Download a ZIP", level=2)
     add_steps(document, [
-        "Open the repository URL in a browser.",
+        "Open the repository URL in your browser.",
         "Use the branch selector to choose the published beta/release branch specified by the project owner. For the current stabilization candidate, that branch is codex/total-stabilization-release; after it is merged or released, use the published release tag or main branch named by the repository.",
         "Choose Code, then Download ZIP.",
-        "Save the ZIP to a normal download folder. Do not run or build from the browser preview or from inside the ZIP.",
+        "Save the ZIP to your normal Downloads folder. Extract it before opening anything; Delphi cannot build the project correctly from inside the compressed ZIP.",
         r"Extract the complete archive to a short, writable development path such as C:\New Delphi Projects\Delphi App Translation.",
-        "Open the extracted root and confirm that DelphiAppTranslationStudio.dproj, source, packages, Localization, docs, tools, and images and icons are present.",
+        "Open the extracted root and make sure you can see DelphiAppTranslationStudio.dproj together with the source, packages, Localization, docs, tools, and images and icons folders. If those are present, you have the complete source tree.",
     ])
     document.add_heading("3.2 Clone with Git", level=2)
     add_path(document, "git clone https://github.com/tmartindub/DelphiAppTranslationStudio.git")
     add_paragraphs(document, [
-        "Cloning is preferred for developers who will receive updates. Keep local work on a separate branch, review upstream changes, and never commit provider credentials or proprietary target catalogs.",
+        "Cloning is the easiest choice if you expect to receive updates. Keep your local work on a separate branch, review incoming changes before merging them, and never commit provider credentials or proprietary application catalogs.",
     ])
-    document.add_heading("3.3 What not to download", level=2)
+    document.add_heading("3.3 Avoid these partial-install shortcuts", level=2)
     add_bullets(document, [
         "Do not treat bin as an installer. Local executables and BPLs must match the active RAD Studio toolchain.",
         "Do not install a .dpk through Install Component. Build the package and add the Win32 design BPL through Component > Install Packages.",
         "Do not rely on an older source-distribution ZIP if its date predates the selected repository branch. The full branch archive is authoritative until a signed release package is published.",
     ])
 
-    document.add_heading("4. Build and Start the Studio", level=1)
+    document.add_heading("4. Build and Open the Studio", level=1)
+    add_paragraphs(document, [
+        "Once the repository is extracted, building the Studio is a normal Delphi project build. Win32 Release is the friendliest first choice because the design-time packages also use Win32.",
+    ])
     add_steps(document, [
         "Start RAD Studio 13 Florence.",
         "Open DelphiAppTranslationStudio.dproj from the extracted repository root.",
         "Choose Win32 or Win64 and Debug or Release. Win32 Release is the simplest first build and is also the platform used for Delphi design-time packages.",
-        "Choose Project > Build DelphiAppTranslationStudio.",
+        "Choose Project > Build DelphiAppTranslationStudio and wait for a successful build message.",
         r"Run the executable from bin\<Platform>\<Configuration>, for example bin\Win32\Release\DelphiAppTranslationStudio.exe.",
     ])
     add_paragraphs(document, [
-        r"The verified command-line environment is initialized by C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat. The Win32 compiler is C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc32.exe. These toolchain paths identify Delphi itself; they are different from the target project's DAT unit Search Path described in Chapter 6.",
+        r"If you prefer a command-line build, initialize Delphi with C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat. The Win32 compiler is C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc32.exe. These paths point to Delphi itself. They are separate from the DAT unit Search Path you will add to your application in Chapter 6.",
     ])
-    add_callout(document, "Build output.", r"Executables go to bin\<Platform>\<Configuration>; DCUs go under dcu. Keep the repository folder structure intact so relative package, localization, export, and documentation paths remain valid.")
+    add_callout(document, "Where did the build go?", r"The executable is placed in bin\<Platform>\<Configuration>, and compiled DCUs go under dcu. Keep the repository folder structure intact so packages, localization files, exports, and documentation continue to resolve correctly.")
 
-    document.add_heading("5. Prepare the Target Delphi Application", level=1)
+    document.add_heading("5. Prepare Your Delphi Application", level=1)
+    add_paragraphs(document, [
+        "The Studio calls the application being translated the target application. You only need to prepare it once: install the matching DAT design package, place a language manager and selector on the primary form, and save their properties in the Form Designer.",
+    ])
     add_steps(document, [
-        "Create a pristine backup and a separate test copy of the target application.",
+        "Create a pristine backup, then make a separate test copy of the application for localization work.",
         "Open the test copy in RAD Studio and build every platform/configuration you intend to support. Correct pre-existing build errors before localization.",
         "Build the matching DAT runtime and design packages from the Studio repository.",
         r"In RAD Studio choose Component > Install Packages > Add and select DATLanguageManagerVCLDesign.bpl or DATLanguageManagerFMXDesign.bpl from bin\packages\Win32\Release.",
         "Open the target application's primary form in the Form Designer.",
-        "Place one TDATVCLLanguageManager or TDATFMXLanguageManager on the primary form.",
+        "Place one TDATVCLLanguageManager or TDATFMXLanguageManager on the primary form. It is nonvisual, so it will appear in the designer's component tray.",
         "Set ApplicationId to the exact Delphi project name, LanguagesFolder to Localization\\Languages, and SourceLanguage to the source locale, normally en-US.",
         "Place one TDATVCLLanguageComboBox or TDATFMXLanguageComboBox and set its LanguageManager property to the manager. A designer-authored connected Language menu is an alternative, but the user needs a visible selection mechanism.",
-        "Add any supporting Language label or menu captions in the designer, then choose File > Save All.",
+        "Add any supporting Language label or menu captions in the designer, then choose File > Save All. Keeping these controls in the designer makes them easy to see and maintain in the Object Inspector.",
         "Close the target project before the Setup Wizard's final-processing step.",
     ])
-    add_callout(document, "One manager.", "The primary form owns the single language manager. Ordinary forms do not need another manager. The manager retranslates open forms and applies the active pack to later forms through the framework-appropriate lifecycle.")
+    add_callout(document, "One manager is enough.", "The primary form owns the application's single language manager. You do not need another manager on every form. The manager retranslates forms that are already open and applies the active language to forms opened later.")
 
-    document.add_heading("6. The dependencies Folder and Delphi Search Path", level=1)
+    document.add_heading("6. Give Delphi Access to the DAT Dependencies", level=1)
     add_paragraphs(document, [
-        r"The Studio's generated component kit contains a ComponentSource folder. The Studio does not silently create a dependencies folder inside every target project. A project-local dependencies\DelphiAppTranslation\source folder is an optional, recommended vendoring arrangement when the developer wants the target project to compile independently of the Studio export folder.",
-        "Create the dependencies folder only in the disposable/controlled target project. Populate it by copying the complete current ComponentSource set generated for that target framework. Do not copy a hand-picked subset: a set that compiles today may fail after another runtime unit begins using a shared dependency.",
+        r"The component kit generated by the Studio contains a ComponentSource folder. For a dependable, portable build, copy that complete source set into dependencies\DelphiAppTranslation\source inside your application. The Studio does not create this project-local folder automatically because you, not the Studio, control your application's source tree.",
+        "Copy the complete set rather than choosing individual units. The files are designed and versioned as one dependency set; a partial mixture can compile in one configuration and fail in another when a shared unit is needed.",
     ])
-    document.add_heading("6.1 Recommended target layout", level=2)
+    document.add_heading("6.1 The recommended folder layout", level=2)
     add_path(document, r"<Target Project>\dependencies\DelphiAppTranslation\source")
     add_path(document, r"<Target Project>\Localization\Languages")
     add_steps(document, [
-        "Complete the Wizard or generate a component kit from Maintenance Studio.",
+        "Complete the Setup Wizard, or generate a component kit from Maintenance Studio.",
         r"Open export\component-integration\<ApplicationId>\ComponentSource.",
         r"Create <Target Project>\dependencies\DelphiAppTranslation\source if it does not exist.",
         "Copy every .pas file from ComponentSource into that source folder, replacing the previous DAT set as one versioned unit.",
@@ -292,10 +317,15 @@ def build_user_guide() -> Path:
         "Whenever the Studio runtime is updated, regenerate the kit and refresh the whole set together; do not mix files from different builds.",
     ])
     document.add_heading("6.2 Canonical framework unit set", level=2)
-    add_table(document, ["Shared units", "VCL target adds", "FMX target adds"], [
-        ["DAT.Core.AtomicFile; DAT.Core.Diagnostics; DAT.Runtime.LanguagePack; DAT.Runtime.Preference; DAT.Runtime.Manager; DAT.Runtime.LayoutOverrides; DAT.Runtime.SplashTranslation; DAT.Runtime.TemplateRewrite; DAT.Components.Core", "DAT.Runtime.VCL; DAT.Runtime.SplashTranslation.VCL; DAT.Runtime.TemplateRewrite.VCL; DAT.Components.VCL; DAT.Components.VCL.LanguageSelector", "DAT.Runtime.FMX; DAT.Runtime.SplashTranslation.FMX; DAT.Runtime.TemplateRewrite.FMX; DAT.Components.FMX; DAT.Components.FMX.LanguageSelector"],
+    add_table(document, ["Used by", "Units to copy"], [
+        ["Every target", "DAT.Core.AtomicFile; DAT.Core.Diagnostics; DAT.Runtime.LanguagePack; DAT.Runtime.Preference; DAT.Runtime.Manager; DAT.Runtime.LayoutOverrides; DAT.Runtime.SplashTranslation; DAT.Runtime.TemplateRewrite; DAT.Components.Core"],
+        ["VCL target", "DAT.Runtime.VCL; DAT.Runtime.SplashTranslation.VCL; DAT.Runtime.TemplateRewrite.VCL; DAT.Components.VCL; DAT.Components.VCL.LanguageSelector"],
+        ["FireMonkey target", "DAT.Runtime.FMX; DAT.Runtime.SplashTranslation.FMX; DAT.Runtime.TemplateRewrite.FMX; DAT.Components.FMX; DAT.Components.FMX.LanguageSelector"],
+    ], widths=[2100, 7260])
+    document.add_heading("6.3 Tell Delphi where the units are", level=2)
+    add_paragraphs(document, [
+        "Copying the files is only half of the setup. Delphi also needs the folder on the project's compiler Search Path. Set it for all configurations and platforms so Debug, Release, Win32, and Win64 do not quietly use different unit locations.",
     ])
-    document.add_heading("6.3 Set the exact compiler Search Path", level=2)
     add_steps(document, [
         "Open the target project in RAD Studio.",
         "Choose Project > Options.",
@@ -308,11 +338,12 @@ def build_user_guide() -> Path:
     ])
     add_path(document, r"Recommended portable entry: .\dependencies\DelphiAppTranslation\source")
     add_path(document, r"Example absolute entry: C:\New Delphi Projects\VCL2FMXConverterV5 - Test\dependencies\DelphiAppTranslation\source")
-    add_callout(document, "Alternative.", r"A project may point directly to export\component-integration\<ApplicationId>\ComponentSource. That works, but the target then depends on a generated Studio export path. The project-local dependency folder is easier to archive, clone, and build on another development system.")
+    add_callout(document, "You can point to the export folder, but...", r"A project may use export\component-integration\<ApplicationId>\ComponentSource directly. That works, but it ties the application to a generated Studio location. The project-local dependencies folder is easier to archive, clone, and build on another computer.")
 
-    document.add_heading("7. Files Stored Under %LOCALAPPDATA%", level=1)
+    document.add_heading("7. Understand the Files Under %LOCALAPPDATA%", level=1)
     add_paragraphs(document, [
-        r"%LOCALAPPDATA% expands to the current Windows user's Local AppData folder, normally C:\Users\<WindowsUser>\AppData\Local. These files are per-user working state. They are deliberately outside Program Files and outside the target project so normal Windows permissions do not require the executable folder to be writable.",
+        r"The Studio keeps your working settings and translation workspace under %LOCALAPPDATA%, normally C:\Users\<WindowsUser>\AppData\Local. These are per-user files. Keeping them outside Program Files and outside your application lets the Studio save normal working state without asking Windows for permission to rewrite an installed program folder.",
+        "Most of the time, you will not need to open these files yourself. They become important when you are moving work to another computer, diagnosing a recovery, checking which catalog is active, or removing a remembered preference.",
     ])
     add_table(document, ["Path or file", "Contents", "Operational meaning"], [
         [r"%LOCALAPPDATA%\DelphiAppTranslationStudio\provider-settings.json", "Provider name, DeepL plan, remember-credential choice, request timeout, and batch size.", "Contains no API key. Defaults are DeepL, API Free, remember enabled, 30 seconds, and 40 strings per request."],
@@ -323,27 +354,27 @@ def build_user_guide() -> Path:
         [r"...\Glossaries\<ApplicationId>.<locale>.glossary.json", "Approved project-specific terms.", "Overrides general machine wording for exact project terminology."],
         [r"...\Deployment\deployment-destinations.json", "Optional application destination folders.", "Restores portable/network/USB deployment destinations on the next Wizard run."],
         [r"%LOCALAPPDATA%\<Target ApplicationId>\language.ini", "The target application's selected language.", "Created by the DAT manager unless PreferenceLocation is customized."],
-    ])
-    document.add_heading("7.1 Atomic recovery files", level=2)
+    ], widths=[3000, 2700, 3660])
+    document.add_heading("7.1 Recovery files you may see", level=2)
     add_bullets(document, [
         "A successful replacement may retain one .previous file containing the last valid text.",
         "A temporary sibling ending in .tmp is used during atomic publication and should not remain after a successful operation.",
         "An invalid current file may be quarantined with a .corrupt-<timestamp>-<identifier> name while the prior valid file is recovered.",
         "Do not delete recovery files while diagnosing a failed catalog, settings, pack, glossary, or preference load. Copy them first and compare timestamps.",
     ])
-    document.add_heading("7.2 Where API keys are stored", level=2)
+    document.add_heading("7.2 Where your API keys are kept", level=2)
     add_paragraphs(document, [
-        "Remembered keys are Windows Generic Credentials, not JSON files. The target names are DelphiAppTranslationStudio/Providers/DeepL and DelphiAppTranslationStudio/Providers/Google Cloud Translation. An unchecked Remember option keeps the key for the current process only and removes any stored credential for that provider.",
-        "Use Windows Credential Manager to confirm or remove remembered credentials. Never paste a key into source, catalogs, bug reports, screenshots, documentation, logs, deployment scripts, or Git.",
+        "When you choose Remember, the key is stored as a Windows Generic Credential, not in a JSON file. The credential names are DelphiAppTranslationStudio/Providers/DeepL and DelphiAppTranslationStudio/Providers/Google Cloud Translation. If Remember is clear, the key stays in memory only for the current Studio session, and saving that choice removes any stored credential for that provider.",
+        "You can confirm or remove a saved key in Windows Credential Manager. Treat the key like a password: never paste it into source code, catalogs, bug reports, screenshots, documentation, logs, deployment scripts, or Git.",
     ])
 
-    document.add_heading("8. Starting the Studio and Keyboard Operation", level=1)
+    document.add_heading("8. Meet the Start Screen and Keyboard Controls", level=1)
     add_screen(document, "01-landing-screen.png", "Figure 8-1. Current landing screen.", "Delphi App Translation Studio landing screen with Setup Wizard, Maintenance Studio, and Close buttons", aspect_ratio=1.547)
     add_paragraphs(document, [
-        "The landing screen separates first-time setup from maintenance. Run Setup Wizard is the default action, so Enter starts the guided path. Tab and Shift+Tab move between controls; Space activates a focused button or check box; Alt+Down or F4 opens a focused combo box; arrow keys move through its choices; Enter accepts; Escape closes a list or cancels the current dialog where safe.",
+        "The start screen gives you two clear choices: a guided first-time setup or direct maintenance of work that already exists. Run Setup Wizard is the default button, so pressing Enter starts the guided path without reaching for the mouse. Use Tab and Shift+Tab to move between controls, Space to activate a focused button or check box, Alt+Down or F4 to open a combo box, the arrow keys to move through choices, Enter to accept, and Escape to close a list or cancel a dialog when it is safe to do so.",
     ])
     add_screen_control_table(document, [
-        ["Run Setup Wizard", "Opens the eight-step guided workflow for a new or updated localization setup.", "Use for the first language or when you want one controlled scan-to-kit pass."],
+        ["Run Setup Wizard", "Walks you through the complete eight-step setup.", "Choose this for your first language or whenever you want one guided scan-to-kit pass."],
         ["Open Maintenance Studio", "Opens the seven-page direct workflow.", "Use for existing catalogs, manual review, validation, export, integration, or provider settings."],
         ["Close", "Closes the Studio.", "Use when no operation is running."],
         ["File > Exit", "Normal application exit path.", "Use from Maintenance Studio; an active operation observes safe cancellation boundaries."],
@@ -351,10 +382,10 @@ def build_user_guide() -> Path:
     ])
     add_screen(document, "01-landing-screen.png", "Figure 8-2. Landing-screen action buttons.", "Focused crop showing the Run Setup Wizard, Open Maintenance Studio, and Close buttons", crop=(15858, 53442, 34304, 29412), aspect_ratio=4.50, width=5.9)
 
-    document.add_heading("9. Setup Wizard Navigation and Safety", level=1)
+    document.add_heading("9. Move Through the Setup Wizard with Confidence", level=1)
     add_paragraphs(document, [
-        "The Setup Wizard has eight steps: Welcome, Delphi Project, Deployment, Languages, Translation Service, Scan Project, Review Authorize, and Process Finish. Completed steps may be revisited from the left rail until final processing begins.",
-        "Next is the default button on ordinary pages; Enter therefore advances only when the current page is valid. Back returns to the previous page. Cancel closes before processing. During processing it becomes Stop and requests cancellation at a safe boundary. After successful completion Back and Cancel are hidden, leaving Finish as the clear completion action. If processing stops, Cancel remains available so the developer can close after reading the STOPPED result.",
+        "The Setup Wizard divides the job into eight manageable steps: Welcome, Delphi Project, Deployment, Languages, Translation Service, Scan Project, Review Authorize, and Process Finish. Until final processing begins, you can click any completed step in the left rail to review or correct an earlier choice.",
+        "On ordinary pages, Next is the default button, so Enter advances after the current page passes its checks. Back returns to the previous page without throwing away your entries. Cancel closes the Wizard before processing. Once processing starts, Cancel becomes Stop and waits for a safe stopping point rather than interrupting a file write. After a successful finish, Back and Cancel disappear so the only action left is Finish. If processing stops with a problem, Cancel remains available after you read the STOPPED message.",
     ])
     add_screen_control_table(document, [
         ["Step rail", "Shows progress and allows revisiting completed steps before authorization.", "Select a completed step to correct a choice."],
@@ -368,84 +399,84 @@ def build_user_guide() -> Path:
     document.add_heading("10. Wizard Step 1 - Welcome", level=1)
     add_screen(document, "07-wizard-welcome.png", "Figure 10-1. Welcome page.", "Setup Wizard Welcome page with safety explanation and Back, Next, Cancel buttons", aspect_ratio=1.49)
     add_paragraphs(document, [
-        "Welcome summarizes the controlled workflow and the safety boundary. It makes no project change. Press Enter or choose Next to continue. Back is disabled because there is no earlier Wizard page; Cancel returns to the Studio.",
+        "This first page lets you know what the Wizard will do and, just as importantly, what it will not do. Nothing is changed here. Read the safety note, then press Enter or choose Next. Back is disabled because you are already at the beginning; Cancel returns you to the Studio.",
     ])
 
     document.add_heading("11. Wizard Step 2 - Delphi Project", level=1)
     add_screen(document, "08-wizard-project.png", "Figure 11-1. Delphi Project page.", "Setup Wizard Delphi Project page with project path, detected Application ID, and workflow selection", crop=(16875, 8444, 16875, 13778), aspect_ratio=1.514)
     add_screen_control_table(document, [
-        ["Project path", "Displays the selected .dproj or .dpr.", "Treat it as read-only confirmation after Browse."],
-        ["Browse", "Selects the Delphi project.", "Choose the saved disposable/test copy, not the production original."],
-        ["Detected Application ID", "Shows the exact project identity used by catalogs and packs.", "It must match the manager component's ApplicationId."],
-        ["Copy ID", "Copies the detected ID.", "Use when setting the manager in Delphi's Object Inspector."],
-        ["Project details", "Reports framework, targets, form resources, and source units.", "Verify VCL/FMX and expected project scale before continuing."],
-        ["Translation workflow", "Automatic recommends create/update based on existing workspace state; explicit choices can create or update.", "Use Update Existing Translation to preserve reviewed/approved entries when a compatible catalog exists."],
+        ["Project path", "Shows the .dproj or .dpr you selected.", "Use it as a final visual check that you opened the intended test copy."],
+        ["Browse", "Opens the file picker for your Delphi project.", "Choose the saved disposable/test copy, not the production original."],
+        ["Detected Application ID", "Shows the identity shared by catalogs, packs, and the runtime manager.", "Make sure it matches the manager component's ApplicationId."],
+        ["Copy ID", "Copies the detected ID to the Clipboard.", "Paste it into the manager's ApplicationId property in the Object Inspector."],
+        ["Project details", "Summarizes the framework, Windows targets, form resources, and source units the Studio found.", "Pause here and confirm VCL or FMX and the expected project size before continuing."],
+        ["Translation workflow", "Lets the Studio recommend a new or update workflow, or lets you choose explicitly.", "Choose Update Existing Translation when you want compatible reviewed and approved work to carry forward."],
     ])
-    add_callout(document, "Application identity is a contract.", "Catalog applicationId, runtime-pack applicationId, manager ApplicationId, workspace folder, and generated kit identity must agree. Changing the identity creates a different localization workspace.")
+    add_callout(document, "Keep the Application ID consistent.", "The catalog applicationId, runtime-pack applicationId, manager ApplicationId, workspace folder, and generated kit identity must all agree. If you change the ID, the Studio correctly treats it as a different localization workspace.")
 
     document.add_heading("12. Wizard Step 3 - Deployment", level=1)
     add_screen(document, "09-wizard-deployment.png", "Figure 12-1. Deployment page.", "Setup Wizard Deployment page with optional destinations and executable authorization", crop=(16875, 8444, 16875, 13778), aspect_ratio=1.514)
     add_screen_control_table(document, [
-        ["Destination list", "Stores separate installed, portable, network, or USB application folders.", "Leave empty when normal detected build outputs are sufficient."],
-        ["Add Application Folder", "Adds one full application destination.", "Select the folder containing or intended to contain the deployed executable."],
-        ["Remove Selected", "Removes only the selected optional destination.", "Does not delete the folder or application."],
-        ["Authorize creating or replacing the deployed EXE", "Allows the optional build/deploy action to place an executable in listed destinations.", "Leave clear when only JSON packs should be deployed."],
+        ["Destination list", "Remembers extra installed, portable, network, or USB application folders.", "Leave it empty if the normal detected build folders are all you need."],
+        ["Add Application Folder", "Adds one optional deployment destination.", "Choose the folder that contains, or will contain, the deployed executable."],
+        ["Remove Selected", "Removes the selected destination from this list.", "It does not delete the folder or anything inside it."],
+        ["Authorize creating or replacing the deployed EXE", "Allows the optional build/deploy step to place an executable in the listed destinations.", "Leave it clear when you only want the JSON language packs copied."],
     ])
     add_paragraphs(document, [
-        "Final processing always attempts pack deployment to existing detected build outputs. Separate destinations are optional. A removable or network destination that is unavailable is reported; it is not silently treated as a successful deployment.",
+        "You can safely leave this page empty for a normal local build. Final processing still looks for existing Delphi output folders and deploys language packs where appropriate. Add a separate destination only when you also need an installed, portable, network, or USB copy. If that location is unavailable, the Studio tells you instead of reporting a false success.",
     ])
 
     document.add_heading("13. Wizard Step 4 - Languages", level=1)
     add_screen(document, "10-wizard-languages.png", "Figure 13-1. Languages page.", "Setup Wizard Languages page with source language, target language, and native language name", crop=(16875, 8444, 16875, 13778), aspect_ratio=1.514)
     add_screen_control_table(document, [
-        ["Source language", "The language of the saved Delphi UI text.", "Normally English (United States) [en-US]. Do not use the desired output language here."],
-        ["Target language", "The locale being created or updated.", "Select explicitly; the Studio does not silently assume German or another target."],
-        ["Native language name", "The display name shown to users in that language.", "Auto-filled from locale facts and editable when the product requires a preferred name."],
-        ["Direction", "Derived from locale facts in the catalog/runtime contract.", "Arabic, Hebrew, Persian, Urdu, Pashto, and other RTL locales follow the common RTL path."],
+        ["Source language", "Identifies the language already saved in your Delphi forms and source.", "For most projects this is English (United States) [en-US]. Do not choose the language you want to create here."],
+        ["Target language", "Selects the locale you are creating or updating.", "Choose it explicitly so the catalog receives the correct regional rules."],
+        ["Native language name", "Controls the language name your users will see.", "The Studio fills it automatically; edit it only when your product prefers different wording."],
+        ["Direction", "Comes from the locale's shared language facts.", "Arabic, Hebrew, Persian, Urdu, Pashto, and other RTL locales automatically use the common right-to-left path."],
     ])
     add_paragraphs(document, [
-        "Selecting the target locale also establishes date, time, decimal, thousands, currency, and direction facts. Existing compatible catalogs restore their saved locale facts without a programmatic combo-box event overwriting them.",
+        "A locale is more than a language name. Your selection also establishes date and time formats, decimal and thousands separators, currency facts, and reading direction. When you reopen a compatible catalog, its saved locale facts are restored rather than being overwritten by a default selection.",
     ])
 
     document.add_heading("14. Wizard Step 5 - Translation Service", level=1)
     add_screen(document, "11-wizard-translation-service.png", "Figure 14-1. Translation Service page with DeepL selected.", "Setup Wizard Translation Service page showing DeepL API Free, masked key field, remember option, and connection buttons", crop=(16875, 8444, 16875, 13778), aspect_ratio=1.514)
     add_screen_control_table(document, [
-        ["Provider", "Selects DeepL or Google Cloud Translation.", "DeepL is the recommended and default provider."],
-        ["DeepL plan", "Selects API Free or API Pro endpoint.", "Must match the DeepL key/account plan; ignored for Google."],
-        ["API key", "Accepts a new key; it is masked.", "A saved key need not be retyped."],
-        ["Remember securely", "Writes a Windows Generic Credential for the selected provider.", "Clear it for session-only use; clearing also removes that provider's stored key when saved."],
-        ["Save / Replace Key", "Stores the new key or keeps it for the session according to Remember.", "Use after pasting or replacing a key."],
-        ["Test Connection", "Performs a bounded provider request using the selected plan/settings.", "A result or timeout is reported; the UI remains cancellable."],
-        ["Status text", "States whether a saved key exists and reports test results.", "A saved-key message does not reveal the key."],
+        ["Provider", "Chooses DeepL or Google Cloud Translation.", "DeepL is selected by default and is the recommended starting point."],
+        ["DeepL plan", "Chooses the API Free or API Pro endpoint.", "Match this to your DeepL account; Google ignores this setting."],
+        ["API key", "Accepts a new provider key and masks it on screen.", "Leave it blank when the Studio reports that a saved key is already available."],
+        ["Remember securely", "Stores the key in Windows Credential Manager for this provider.", "Clear it for session-only use. Saving the cleared choice also removes that provider's stored credential."],
+        ["Save / Replace Key", "Saves the pasted key according to your Remember choice.", "Choose it whenever you add or rotate a key."],
+        ["Test Connection", "Makes a small, time-limited provider request.", "Use it before a long translation run; you will receive either a result or a timeout, and the UI remains responsive."],
+        ["Status text", "Tells you whether a saved key exists and reports connection results.", "It confirms availability without ever displaying the saved key."],
     ])
-    add_callout(document, "Keys are provider-specific.", "Switching provider does not reuse the other provider's key. A DeepL credential can exist at the same time as a Google credential.")
+    add_callout(document, "Each provider keeps its own key.", "Switching providers does not copy or reuse the other provider's credential. You can safely have a DeepL key and a Google key stored at the same time.")
 
     document.add_heading("15. Wizard Step 6 - Scan Project", level=1)
     add_screen(document, "12-wizard-scan.png", "Figure 15-1. Scan page after the verified 1,012-entry scan.", "Setup Wizard Scan page showing 1012 unique catalog entries, 880 raw scanned occurrences, recovered semantic contracts, and duplicates collapsed", crop=(16875, 8444, 16875, 13778), aspect_ratio=1.514)
     add_paragraphs(document, [
-        "Scan Project reads saved forms and supported source/resource contracts. The current summary distinguishes unique catalog entries from raw observations. Equivalent duplicate occurrences are collapsed; semantic contracts recovered from compatible prior work remain identified; conflicting duplicate keys remain visible for correction.",
-        "The list is evidence, not a second catalog editor. Review project/form/source counts and sample entries. If the count is unexpectedly small, confirm that the correct project copy was selected, forms are saved, expected source directories are in the project, and any external JSON prose has an explicit dat-translatable-resources.json manifest.",
+        "This is where the Studio discovers the text your users can see. Scan Project reads saved forms and supported source/resource contracts, then reports both unique catalog entries and the raw observations that produced them. Equivalent duplicates are collapsed so you do not translate the same semantic entry repeatedly. Compatible semantic contracts recovered from earlier work remain identified, while conflicting duplicate keys stay visible for correction.",
+        "Treat the list as a confidence check rather than a second catalog editor. Look at the project, form, and source counts, then read a few familiar entries. If the result seems too small, first confirm that you selected the correct project copy and saved every form. Then check that expected source directories belong to the project and that external JSON prose is declared through dat-translatable-resources.json.",
     ])
     add_screen_control_table(document, [
-        ["Scan Project", "Runs or reruns the inventory.", "Rerun after saving target UI/source changes."],
-        ["Summary", "Reports unique entries, raw occurrences, recovered semantic contracts, and collapsed duplicates.", "Use these categories when comparing Maintenance and Wizard scans."],
-        ["Results memo", "Lists key, source text, and representative observations.", "Spot-check the first entries and search later in the development catalog for full details."],
-        ["Next", "Continues to Review Authorize after a successful scan.", "Automatic translation and Localization Review occur during final processing, not while merely viewing this page."],
+        ["Scan Project", "Runs the inventory again.", "Rerun it after you save changes to forms, UI source, or declared resources."],
+        ["Summary", "Separates unique entries, raw occurrences, recovered semantic contracts, and collapsed duplicates.", "Use the same categories when you compare Wizard and Maintenance scans."],
+        ["Results memo", "Shows keys, source wording, and representative places where the wording was found.", "Spot-check familiar entries here; the development catalog contains the complete record."],
+        ["Next", "Moves to the final review after a successful scan.", "Translation and Localization Review happen later, during final processing."],
     ])
 
     document.add_heading("16. Wizard Step 7 - Review and Authorize", level=1)
     add_screen(document, "13-wizard-review.png", "Figure 16-1. Review and Authorize content area; the current Wizard uses this same confirmation contract in Step 7.", "Review and Authorize page showing project summary and required backup, project-closed, and authorization confirmations", crop=(26415, 16992, 1887, 24095), aspect_ratio=1.52)
     add_screen_control_table(document, [
-        ["Review memo", "Summarizes project, application ID, framework, target locale, workflow, provider, scan count, unresolved entries, integration mode, and destinations.", "Read it from top to bottom before authorizing."],
-        ["Required ZIP backup", "Confirms the mandatory pre-processing safety archive.", "Required and selected by design."],
-        ["Target project is closed", "Confirms RAD Studio is not holding the target project during the controlled pass.", "Close the target project, then check it."],
-        ["Authorize final processing", "Records the developer's explicit approval.", "Check only after all earlier choices are correct."],
-        ["Begin Final Processing", "Starts backup, translation, review, validation, export, kit generation, builds/deployment where configured, and the completion report.", "After this click, Back and the rail are disabled; Stop remains available at safe boundaries."],
+        ["Review memo", "Brings your project, application ID, framework, locale, workflow, provider, counts, integration mode, and destinations together in one place.", "Read it from top to bottom; it is your chance to catch a wrong project or locale before work begins."],
+        ["Required ZIP backup", "Confirms that the Wizard will create its pre-processing safety archive.", "It is required and selected by design."],
+        ["Target project is closed", "Confirms RAD Studio is no longer holding the application open.", "Close the target project, then select this confirmation."],
+        ["Authorize final processing", "Records your explicit approval for the controlled processing pass.", "Select it only after the summary is correct."],
+        ["Begin Final Processing", "Starts the backup, translation, review, validation, export, kit generation, configured builds/deployment, and completion report.", "After you choose it, Back and the step rail are disabled; Stop is still honored at safe boundaries."],
     ])
 
     document.add_heading("17. Localization Review Window", level=1)
     add_paragraphs(document, [
-        "Localization Review opens automatically after provider translation and before the final runtime pack is exported. It is part of the same Wizard processing pass. Closing it resumes validation, export, component-kit generation, and deployment.",
+        "After machine translation, the Wizard pauses and opens Localization Review so you can look at wording and layout before the runtime pack is finalized. This is where human judgment matters most: short button captions and product terms can be technically translated yet still sound wrong in context. When you close the review window, the same Wizard pass continues with validation, export, component-kit generation, and deployment.",
     ])
     add_table(document, ["Tab", "Purpose", "Primary actions"], [
         ["Audit", "Summarizes readiness, structural issues, untranslated/uncertain entries, and package artifacts.", "Generate Package; Open Package."],
@@ -453,76 +484,79 @@ def build_user_guide() -> Path:
         ["Suggestions", "Reviews terminology suggestions and confidence.", "Use Suggestion; Approve High Confidence; Reject Suggestion."],
         ["Layout Proposals", "Reviews direction, text fitting, columns, and geometry proposals.", "Save Decision; Accept Safe All; Reset Pending. Absolute geometry remains an individual visual decision."],
     ])
-    add_callout(document, "Review is not optional quality theater.", "Provider output may be grammatically valid but wrong for a short UI word. Use source context, project glossary, placeholders, and visual layout before approving terminology.")
+    add_callout(document, "Give short UI text special attention.", "A provider can produce grammatically correct wording that is still wrong for a button, tab, or status label. Check the source context, glossary, placeholders, and visual fit before you approve it.")
 
     document.add_heading("18. Wizard Step 8 - Process and Finish", level=1)
     add_screen(document, "14-wizard-processing.png", "Figure 18-1. Processing status area. The final build has a simplified Finish page; obsolete command and kit-path controls are not part of the current workflow.", "Processing and completion page showing current operation text and progress memo", crop=(27400, 18600, 1800, 43600), aspect_ratio=2.81)
     add_paragraphs(document, [
-        "The progress memo records the safety backup, catalog work, translation, review return, validation, runtime-pack export, component-kit generation, detected-output deployment, optional destination deployment, and completion report. A failure is prefixed STOPPED and leaves Finish unavailable until the developer has a result to close or retry safely.",
-        "On success the page states that target Pascal, form, DPR, and DPROJ files were not edited. Back and Cancel disappear; choose Finish. The optional deployment card can deploy the application to Step 3 destinations. Leave Rebuild before deploying clear to deploy what final processing just built; select it only when another compile is actually required.",
+        "The progress memo lets you follow the work without having to interpret a console window. It records the safety backup, catalog work, translation, return from review, validation, runtime-pack export, component-kit generation, detected-output deployment, optional destination deployment, and completion report. If something cannot continue safely, the final diagnostic begins with STOPPED and Finish remains unavailable until you have a result you can close or retry.",
+        "After success, the page confirms that your Pascal, form, DPR, and DPROJ files were not edited. Back and Cancel disappear; choose Finish when you are ready to return to the Studio. The optional deployment card can send the application to the destinations from Step 3. Normally leave Rebuild before deploying clear, because final processing has already built the available target. Select it only when you truly need another compile.",
     ])
     add_screen_control_table(document, [
-        ["Progress memo", "Timestamped operation and diagnostic sequence.", "Read the last lines first when processing stops."],
-        ["Deploy to App Folder", "Copies packs to a manually chosen application folder.", "Use for a one-off destination not saved in Step 3."],
+        ["Progress memo", "Shows each operation and diagnostic with a time stamp.", "If processing stops, begin with the last few lines; they normally contain the cause and next action."],
+        ["Deploy to App Folder", "Copies packs to a folder you choose now.", "Use it for a one-time destination that was not saved in Step 3."],
         ["Rebuild before deploying", "Requests another selected build before destination deployment.", "Normally leave clear because final processing already compiled available target outputs."],
         ["Platform / Configuration", "Chooses Win32/Win64 and Release/Debug for an optional rebuild.", "Choose only combinations supported by the target project."],
         ["Deploy to Application Folders", "Deploys the built application and packs to configured destinations, subject to executable authorization.", "Nothing else copies the executable to separate Step 3 destinations."],
-        ["Finish", "Closes after successful completion.", "Use even if no optional blue-card deployment was requested."],
-        ["Cancel after STOPPED", "Closes an unsuccessful Wizard after the diagnostic is read.", "It is hidden/disabled after success because Finish is the correct action."],
+        ["Finish", "Closes the successfully completed Wizard.", "Choose it even when you did not request the optional blue-card deployment."],
+        ["Cancel after STOPPED", "Closes an unsuccessful Wizard after you have read the diagnostic.", "It disappears after success because Finish is then the correct action."],
     ])
 
     document.add_heading("19. Maintenance Studio Overview", level=1)
     add_paragraphs(document, [
-        "Maintenance Studio is the direct seven-page workflow: Project, Scan, Translate, Validation, Export, Integration, and Provider Settings. The left rail changes pages without rerunning completed work. Status text at the bottom reports the last action and often supplies the next required step.",
+        "Maintenance Studio is your workspace after the guided setup. Its seven pages - Project, Scan, Translate, Validation, Export, Integration, and Provider Settings - let you go directly to the part of the translation you want to maintain. Moving through the left rail does not rerun completed work. Keep an eye on the status line at the bottom; it confirms the last action and often tells you exactly what to do next.",
     ])
     add_screen(document, "02-maintenance-project-loaded.png", "Figure 19-1. Maintenance Studio with a Delphi project loaded.", "Maintenance Studio Project page showing VCL2FMXConverter project details", crop=(11875, 2889, 11812, 8333), aspect_ratio=1.528)
 
     document.add_heading("20. Maintenance Page 1 - Project", level=1)
     add_screen_control_table(document, [
-        ["Start Setup Wizard", "Opens the guided workflow while retaining the current project context where applicable.", "Use when maintenance reveals that a complete controlled pass is preferable."],
-        ["Open Project", "Selects a .dproj or .dpr and inventories project metadata without editing it.", "Use before Scan on a new Maintenance session."],
-        ["Project details", "Shows project name, framework, Windows targets, form-resource count, and source-unit count.", "Verify all values before comparing scan counts."],
-        ["Scan Project", "Runs the same canonical scanner used by the Wizard.", "Use after opening or saving changes."],
-        ["Scan results", "Shows unique entries, elapsed time, category breakdown, and observations.", "Maintenance and Wizard totals should agree when project, source state, and merge basis agree."],
+        ["Start Setup Wizard", "Returns you to the guided workflow and keeps current project context where possible.", "Use it when the maintenance task has grown into a complete scan-to-kit update."],
+        ["Open Project", "Selects a .dproj or .dpr and reads its project facts without editing it.", "Use it at the beginning of a Maintenance session."],
+        ["Project details", "Shows the project name, framework, Windows targets, form count, and source-unit count.", "Confirm these values before you compare scans or open a catalog."],
+        ["Scan Project", "Runs the same scanner used by the Setup Wizard.", "Use it after opening the project or saving UI/source changes."],
+        ["Scan results", "Shows unique entries, elapsed time, category totals, and observations.", "Wizard and Maintenance totals should agree when the project, saved source, and merge basis are the same."],
     ])
 
     document.add_heading("21. Maintenance Page 2 - Scan", level=1)
     add_screen(document, "03-maintenance-scan.png", "Figure 21-1. Maintenance scan showing the corrected unique/raw count contract.", "Maintenance Studio scan results for the VCL2FMXConverter project", crop=(11875, 2889, 11812, 8333), aspect_ratio=1.528)
     add_paragraphs(document, [
-        "The canonical scanner is shared by Maintenance and Wizard. A difference is valid only when the opened project, saved source, scanner rules, catalog merge state, or displayed category differs. The current display uses unique catalog entries as the headline and separately reports raw scanned occurrences, recovered semantic contracts, and duplicate occurrences.",
-        "A scan is read-only with respect to the selected Delphi project. Saving or merging the resulting catalog writes the Studio workspace, not target Pascal or forms.",
+        "Maintenance Studio and the Setup Wizard use the same scanner. When both are looking at the same saved project with the same catalog basis, their totals should agree. The large headline is the number of unique catalog entries; raw occurrences, recovered semantic contracts, and duplicates are shown separately so you can understand where that total came from.",
+        "Scanning does not edit the Delphi project. When you later save or merge the catalog, the Studio writes to its own workspace, not to your Pascal units or forms.",
     ])
 
     document.add_heading("22. Maintenance Page 3 - Translate", level=1)
+    add_paragraphs(document, [
+        "This is the page you will spend the most time on when refining a language. It combines locale settings, the catalog entry list, source context, translated text, suggestions, review state, approval, CSV exchange, and automatic provider translation. Work one entry at a time when wording is delicate; use bulk actions only after you understand exactly which records they will affect.",
+    ])
     add_screen(document, "04-maintenance-translate.png", "Figure 22-1. Translate page and catalog editor.", "Maintenance Studio Translate page with locale fields, entry list, source text, translated text, review, approval, CSV, and automatic translation controls", aspect_ratio=1.547)
     add_screen_control_table(document, [
-        ["Source language / Target language", "Select catalog locales.", "Target selection is required before a new catalog is created."],
+        ["Source language / Target language", "Identifies the catalog's original and translated locales.", "Choose the target before you create a new catalog."],
         ["Native name and locale formats", "Store display name, date/time, numeric separators, and currency facts.", "Review them for regional correctness."],
         ["Open / Save", "Loads or atomically saves a development catalog.", "Open from the workspace or an explicit compatible catalog; save after manual changes."],
         ["CSV Out / CSV In", "Exports/imports translator-facing interchange.", "Preserve stable keys; validate after import."],
-        ["Entry list", "Shows key plus translation/review status.", "Select an entry for context and editing."],
-        ["Source text", "Read-only source wording and context.", "Use it to judge ambiguous machine output."],
-        ["Suggestion / Accept", "Offers translation-memory or terminology suggestions.", "Accept only after checking the exact UI meaning."],
+        ["Entry list", "Shows each stable key and its translation/review state.", "Select an entry to see its source context and edit its translation."],
+        ["Source text", "Shows the original wording and context without allowing accidental changes.", "Read it before deciding between two plausible translations."],
+        ["Suggestion / Accept", "Offers wording from translation memory or terminology rules.", "Accept it only after checking what this text means on the actual screen."],
         ["Translated text / Apply Translation", "Edits and applies the selected translation.", "Preserve placeholders, accelerators, line breaks, and protected tokens."],
         ["Mark Reviewed / Approve", "Records linguistic review and approval for the selected entry.", "Approval is a human decision, not inferred from structural validation."],
         ["Review All / Approve All", "Bulk state actions.", "Use only after a deliberate batch review; do not convert machine output into approval blindly."],
-        ["Translate Automatically", "Translates unresolved eligible entries through the configured provider.", "Existing unchanged translations are preserved and stable-key/source-text recovery avoids unnecessary retranslating."],
+        ["Translate Automatically", "Sends only unresolved eligible entries to your configured provider.", "Existing unchanged work is preserved, and stable keys plus matching source text recover prior translations whenever possible."],
     ])
 
     document.add_heading("23. Maintenance Page 4 - Validation", level=1)
     add_paragraphs(document, [
-        "The Validation page contains Validate the language catalog, an explanation, Run Validation, a summary, and an issue list. Double-clicking an entry-specific issue returns to the corresponding Translate entry.",
+        "Validation is the Studio's preflight check. It catches structural problems that would make a runtime pack unsafe or incomplete and separates them from items that need your linguistic judgment. Double-click an entry-specific issue to return directly to that record on the Translate page.",
     ])
     add_screen_control_table(document, [
         ["Run Validation", "Checks required translations, placeholders, accelerator keys, source changes, duplicate keys, locale/catalog metadata, and runtime structural safety.", "Run after every provider pass, CSV import, glossary correction, or manual edit."],
         ["Summary", "Separates errors, warnings, and informational findings.", "Errors block runtime export; warnings require judgment."],
         ["Issue list", "Lists key-specific and catalog-wide findings.", "Double-click a key-specific item to edit it on Translate."],
     ])
-    add_callout(document, "Structural versus linguistic status.", "Validation can prove that a pack is structurally safe; it cannot prove that a translation is idiomatic or correct for the product. Reviewed and Approved remain separate states.")
+    add_callout(document, "Validation cannot replace a human reader.", "The Studio can prove that a pack is structurally safe, but it cannot decide whether every sentence sounds natural or uses the right product language. Reviewed and Approved therefore remain separate human decisions.")
 
     document.add_heading("24. Maintenance Page 5 - Export", level=1)
     add_paragraphs(document, [
-        "The Export page contains Build the offline runtime pack, the current validation/readiness summary, a clickable output path, and Export Runtime Pack. The button is disabled until the catalog passes required structural validation.",
+        "Export turns the development catalog into the compact JSON pack your application reads at runtime. The page shows current readiness and the exact output location. Export Runtime Pack remains disabled until the catalog passes the required structural checks, so an unsafe pack cannot be published by accident.",
     ])
     add_screen_control_table(document, [
         ["Export summary", "Reports structural readiness and separate linguistic-state counts.", "Confirm the selected application ID and locale before export."],
@@ -533,31 +567,37 @@ def build_user_guide() -> Path:
     document.add_heading("25. Maintenance Page 6 - Integration", level=1)
     add_screen(document, "05-maintenance-integration.png", "Figure 25-1. Integration page before generating a kit.", "Maintenance Studio Integration page with component integration mode, plan, preview, generated files, and kit actions", aspect_ratio=1.547)
     add_screen_control_table(document, [
-        ["Integration method", "Chooses Component Integration (recommended) or Automatic Source Integration (advanced).", "Use Component Integration for normal projects."],
+        ["Integration method", "Chooses the normal component kit or the advanced source-integration path.", "Use Component Integration unless you have a specific, reviewed reason to modify source automatically."],
         ["Language menu component", "Names an application-authored menu for advanced source integration.", "Not required for the connected component selector path."],
-        ["Build Integration Plan", "Calculates framework, available packs, generated units/files, and intended actions without changing the target.", "Always inspect the plan first."],
+        ["Build Integration Plan", "Previews the framework, packs, generated files, and intended actions without changing your application.", "Always read the plan before you generate or authorize anything."],
         ["Plan list / exact text", "Shows each generated or proposed file and its content/diff.", "Select each important item before generating or applying."],
-        ["Generate Component Kit", "Publishes the non-mutating component kit under export.", "Recommended action."],
+        ["Generate Component Kit", "Publishes the safe, non-mutating kit under export.", "This is the recommended action for normal projects."],
         ["Show Design BPL", "Selects the matching compiled Win32 design BPL in File Explorer.", "Use before RAD Studio Component > Install Packages > Add."],
         ["Open Kit Folder", "Opens the generated kit.", "Use to copy ComponentSource or inspect README/manifest/completion report."],
         ["Advanced Preview / Authorize / Apply / Restore / Complete Reset", "Supports explicitly authorized source integration with preview and recovery.", "Advanced only; protect the target with Git and a backup first."],
     ])
 
     document.add_heading("26. Maintenance Page 7 - Provider Settings", level=1)
+    add_paragraphs(document, [
+        "Use this page when you need to change providers, rotate a key, adjust the timeout, or tune the number of strings sent in one request. Provider settings affect translation performed by the Studio; they are never placed in the application you deploy.",
+    ])
     add_screen(document, "06-wizard-provider.png", "Figure 26-1. Provider controls; the Maintenance page additionally exposes timeout, batch size, and Remove Key.", "Provider settings showing DeepL, API Free, masked API key, remember option, save and test connection controls", crop=(16875, 8444, 16875, 13778), aspect_ratio=1.514)
     add_screen_control_table(document, [
         ["Provider", "DeepL or Google Cloud Translation.", "DeepL is default and recommended."],
         ["DeepL API plan", "Free or Pro endpoint.", "Choose the plan matching the DeepL key."],
-        ["Timeout (seconds)", "Maximum bounded provider request time; values below 5 are corrected to 5.", "Increase only for a demonstrably slow connection; the default is 30."],
+        ["Timeout (seconds)", "Limits how long one provider request may wait; values below 5 are raised to 5.", "Keep the 30-second default unless a known slow connection needs more time."],
         ["Strings per request", "Translation batch size; minimum 1.", "Default 40 balances request overhead and response size."],
         ["API key", "Masked new/replacement key.", "A stored key is never displayed back into the field."],
         ["Remember securely", "Credential Manager versus session-only behavior.", "Use a dedicated provider key on a trusted developer computer."],
         ["Replace / Save Key", "Persists settings and handles the selected provider credential.", "Use after any provider, plan, key, timeout, or batch change."],
-        ["Test Connection", "Tests the selected provider through the bounded asynchronous operation contract.", "A failure reports authentication, quota, endpoint, network, or timeout context."],
+        ["Test Connection", "Checks the selected provider without freezing the Studio indefinitely.", "A failure explains whether to look at authentication, quota, endpoint, network, or timeout settings."],
         ["Remove Key", "Deletes only the selected provider's Generic Credential.", "Use before transferring the computer or rotating a compromised key."],
     ])
 
     document.add_heading("27. DeepL and Google Setup", level=1)
+    add_paragraphs(document, [
+        "You only need one provider. DeepL is the recommended default, while Google Cloud Translation is available when it better fits your account, language coverage, or quota. In either case, create a dedicated API key for the Studio rather than reusing a broad key from another application.",
+    ])
     document.add_heading("27.1 DeepL", level=2)
     add_steps(document, [
         "Create or sign in to a DeepL developer account at https://www.deepl.com/pro-api.",
@@ -578,19 +618,25 @@ def build_user_guide() -> Path:
     ])
 
     document.add_heading("28. Runtime Integration in VCL and FMX", level=1)
+    add_paragraphs(document, [
+        "At runtime, the DAT manager connects the language packs to your application's forms. VCL and FMX use different framework adapters, but you work with them in the same way: one manager on the primary form, one connected selector, and validated packs under Localization\\Languages.",
+    ])
     add_table(document, ["Responsibility", "VCL", "FireMonkey"], [
         ["Manager", "TDATVCLLanguageManager", "TDATFMXLanguageManager"],
         ["Visible selector", "TDATVCLLanguageComboBox", "TDATFMXLanguageComboBox"],
         ["Applicator", "DAT.Runtime.VCL", "DAT.Runtime.FMX"],
         ["Later forms", "Additive application notifications plus explicit ApplyToForm before Show/ShowModal when first-paint certainty is required.", "Additive before-show lifecycle and open-form reapplication."],
         ["Direction", "Bidirectional/layout state restored from designer baseline and reapplied per language.", "Designer geometry snapshot restored before each LTR/RTL transformation."],
-    ])
+    ], widths=[2100, 3630, 3630])
     add_paragraphs(document, [
-        "The manager discovers validated packs in Localization\\Languages, checks application ID/framework/version/locale/checksum/source-pack compatibility, loads the saved preference, and falls back to the validated source language when a stale preference cannot be admitted.",
-        "Selecting a language retranslates open forms immediately and persists the locale. English is a generated source pack, so switching back restores scanned English text without restarting. Writable control state, focus, selections, list selection, and live data are preserved by the runtime contract.",
+        "When the application starts, the manager discovers validated packs in Localization\\Languages. It checks the application ID, framework, version, locale, checksum, and source-pack compatibility before admitting a pack. It then loads the user's saved preference. If that preference is stale or invalid, the manager safely returns to the validated source language.",
+        "Choosing another language retranslates open forms immediately and remembers the selection. English is generated as a real source pack, so switching back restores the scanned English text without restarting. The runtime is designed to preserve writable control contents, focus, selections, list state, and live data while visible language text changes.",
     ])
 
     document.add_heading("29. Build, Deploy, and Verify", level=1)
+    add_paragraphs(document, [
+        "A successful build is not the end of localization; it is the beginning of visual verification. Follow this sequence so you always know which executable, dependency set, and pack folder you are testing.",
+    ])
     add_steps(document, [
         "Confirm the matching design package is installed and the target primary form contains one manager plus a connected selector.",
         "Confirm ApplicationId, LanguagesFolder, SourceLanguage, and any FormIdentityMappings in Object Inspector.",
@@ -598,13 +644,16 @@ def build_user_guide() -> Path:
         "Confirm the Delphi Compiler Search Path resolves that exact folder for every supported configuration/platform.",
         "Copy or deploy the canonical English source pack and every translated pack to <Executable Folder>\\Localization\\Languages.",
         "Clean and build Win32 Debug and Release. Build Win64 only when the application will ship it and the dependency/toolchain path is valid.",
-        "Run from the actual output folder, not an older copy elsewhere.",
+        "Run the executable from the actual output folder. If Windows has another copy elsewhere, close it so you do not accidentally test stale code or stale packs.",
         "Test startup in English, every translated locale, switching between two non-English locales, switching RTL to LTR and back, switching back to English, closing/restarting, and a stale/missing preference.",
         "Open every form, dialog, menu, tab, HTML/report page, grid, long paragraph, status area, dynamic message, and error path. Check alignment, clipping, wrapping, readable font size, accelerator keys, placeholders, mixed-language remnants, and input state.",
         "Repeat the matrix for each shipped platform/configuration and record defects by locale, screen, source key, expected text, actual text, and screenshot.",
     ])
 
     document.add_heading("30. RTL, Layout, HTML, and Dynamic Text", level=1)
+    add_paragraphs(document, [
+        "Translation changes more than words. A longer label may need space, Arabic or Hebrew changes reading direction, and generated HTML must preserve its markup while translating visible prose. The shared DAT contracts handle these concerns consistently, but every shipped screen still deserves a visual review.",
+    ])
     add_bullets(document, [
         "Direction is applied from an immutable designer baseline on every switch. It must not accumulate from the previous language.",
         "RTL languages right-align appropriate paragraphs and reverse visual flow where Windows/framework contracts require it; technical tokens such as WinAPI, identifiers, paths, and numbers remain protected/bidirectional as appropriate.",
@@ -616,6 +665,9 @@ def build_user_guide() -> Path:
     ])
 
     document.add_heading("31. Security, Privacy, and Recovery", level=1)
+    add_paragraphs(document, [
+        "The Studio is designed so the online provider is part of development, not part of your deployed application. Keep the following habits in place and you can translate without putting credentials or customer information into the deliverable.",
+    ])
     add_bullets(document, [
         "Send only confirmed user-interface source strings to the chosen provider. Do not place secrets, customer data, personal data, or regulated data in translatable UI source.",
         "Use a dedicated restricted provider key; rotate it immediately if exposed.",
@@ -626,7 +678,10 @@ def build_user_guide() -> Path:
     ])
 
     document.add_heading("32. Troubleshooting", level=1)
-    add_table(document, ["Symptom", "Cause to check", "Corrective action"], [
+    add_paragraphs(document, [
+        "When something looks wrong, resist the urge to make several changes at once. Start with the symptom below, check the most likely cause, make one correction, and rebuild or rerun the affected step. That keeps a small configuration issue from turning into a hard-to-explain project change.",
+    ])
+    add_table(document, ["What you see", "What to check first", "What to do next"], [
         ["Project will not compile: DAT unit not found", "Search Path points to no ComponentSource/dependency folder or an incomplete set.", "Populate the complete framework set and add the exact folder under All configurations/All platforms."],
         ["Design package will not install", "Wrong RAD Studio version, wrong platform, stale BPL, or .dpk selected through the wrong dialog.", "Rebuild with Studio 37.0; use Component > Install Packages > Add and the Win32 Release design BPL."],
         ["Language selector is empty", "No valid packs, wrong folder, wrong applicationId/framework/checksum, missing source pack, or stale executable copy.", "Deploy canonical English plus translated packs under the running EXE's Localization\\Languages and rebuild/run the correct output."],
@@ -643,6 +698,9 @@ def build_user_guide() -> Path:
     ])
 
     document.add_heading("33. Complete First-Time Checklist", level=1)
+    add_paragraphs(document, [
+        "Use this checklist before you call the first localized build complete. It is deliberately thorough; checking each item once is faster than trying to reconstruct a missing setup step later.",
+    ])
     add_bullets(document, [
         "[ ] Entire repository downloaded/extracted or cloned; folder structure intact.",
         "[ ] Studio builds and starts from the intended bin output.",
@@ -665,6 +723,9 @@ def build_user_guide() -> Path:
 
     document.add_page_break()
     document.add_heading("34. Quick Path Reference", level=1)
+    add_paragraphs(document, [
+        "These are the paths you are most likely to need while building, troubleshooting, or moving the project to another computer.",
+    ])
     add_table(document, ["Purpose", "Path"], [
         ["Studio repository", r"C:\New Delphi Projects\Delphi App Translation (example)"],
         ["RAD Studio environment", r"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat"],
