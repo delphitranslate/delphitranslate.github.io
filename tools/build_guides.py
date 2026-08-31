@@ -380,6 +380,40 @@ def add_callout(document: Document, title: str, text: str) -> None:
     paragraph.add_run(text)
 
 
+def add_license_appendix(document: Document, heading: str) -> None:
+    """Add the maintained Apache 2.0 guide appendix."""
+    document.add_page_break()
+    document.add_heading(heading, level=1)
+    add_paragraphs(document, [
+        "Unless a particular file or third-party component states otherwise, Delphi App Translation Studio and its project documentation are licensed under the Apache License, Version 2.0. The license permits broad use while preserving attribution, notices, and the stated warranty limitations.",
+    ])
+    document.add_heading("License grant", level=2)
+    add_paragraphs(document, [
+        "Subject to the complete license terms, you may use, reproduce, modify, prepare derivative works from, publicly display, publicly perform, sublicense, and distribute the licensed material. The Apache License 2.0 also includes an express patent license from contributors for their applicable contributions.",
+    ])
+    document.add_heading("Important conditions", level=2)
+    add_bullets(document, [
+        "Give recipients a copy of the Apache License 2.0 when distributing covered material.",
+        "State significant changes made to modified files.",
+        "Retain applicable copyright, patent, trademark, attribution, and NOTICE information.",
+        "Do not use project or contributor names and trademarks as an endorsement except as the license permits.",
+    ])
+    document.add_heading("Warranty and liability", level=2)
+    add_paragraphs(document, [
+        "The licensed material is provided on an AS IS basis, without warranties or conditions of any kind. The complete Apache License 2.0 controls the warranty, liability, contribution, redistribution, and patent provisions.",
+    ])
+    document.add_heading("Your applications and generated output", level=2)
+    add_paragraphs(document, [
+        "Using the Studio does not transfer ownership of the Delphi application being translated. The application developer remains responsible for the license and distribution terms of the target application, translated content, generated language packs, and any third-party components.",
+        "Studio runtime or component source included with a project remains subject to the Apache License 2.0 unless its file states different terms. Third-party software retains its own license.",
+    ])
+    document.add_heading("Full legal text", level=2)
+    add_paragraphs(document, [
+        "The complete controlling license is the LICENSE file in the repository and source distribution root. An official reference copy is available at https://www.apache.org/licenses/LICENSE-2.0. If this summary and the complete license differ, the complete Apache License 2.0 text controls.",
+        'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this work except in compliance with the License. Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an AS IS BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.',
+    ])
+
+
 def add_table(
     document: Document,
     headers: list[str],

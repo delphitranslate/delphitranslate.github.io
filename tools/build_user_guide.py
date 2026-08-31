@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from docx import Document
 from docx.enum.section import WD_SECTION
@@ -9,6 +10,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
+from PIL import Image
 
 from build_guides import (
     BLUE,
@@ -18,6 +20,7 @@ from build_guides import (
     add_callout,
     add_cover,
     add_header_footer,
+    add_license_appendix,
     add_paragraphs,
     add_steps,
     add_table,
@@ -41,30 +44,48 @@ def add_screen(
     *,
     crop: tuple[int, int, int, int] | None = None,
     aspect_ratio: float | None = None,
-    width: float = 6.45,
+    width: float = 5.85,
 ) -> None:
-    """Insert a source screenshot as an inline, accessible Word figure."""
+    """Insert a screenshot at a printable width, using a real bitmap crop.
+
+    Word's DrawingML crop rectangle is interpreted differently by Word and
+    LibreOffice when the inner picture transform retains the source image
+    dimensions.  That made several apparently 5.9-inch figures render wider
+    than the page.  Cropping the pixels before insertion gives both programs
+    the same geometry and prevents clipping or overlap.
+    """
     path = SCREEN_DIR / file_name
     if not path.exists():
         raise FileNotFoundError(path)
+    picture_path = path
+    temporary_path: Path | None = None
+    if crop is not None:
+        with Image.open(path) as source_image:
+            image_width, image_height = source_image.size
+            left = round(image_width * crop[0] / 100000)
+            top = round(image_height * crop[1] / 100000)
+            right = image_width - round(image_width * crop[2] / 100000)
+            bottom = image_height - round(image_height * crop[3] / 100000)
+            if left >= right or top >= bottom:
+                raise ValueError(f"Invalid crop rectangle for {path}: {crop}")
+            with NamedTemporaryFile(suffix=".png", delete=False) as temporary:
+                temporary_path = Path(temporary.name)
+            source_image.crop((left, top, right, bottom)).save(temporary_path, "PNG")
+            picture_path = temporary_path
     paragraph = document.add_paragraph()
     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
     paragraph.paragraph_format.keep_with_next = True
-    shape = paragraph.add_run().add_picture(str(path), width=Inches(width))
-    set_picture_alt_text(shape, alt_text)
-    if crop is not None:
-        blip_fill = shape._inline.xpath(".//pic:blipFill")[0]
-        old = blip_fill.find(qn("a:srcRect"))
-        if old is not None:
-            blip_fill.remove(old)
-        source_rectangle = OxmlElement("a:srcRect")
-        for name, value in zip(("l", "t", "r", "b"), crop):
-            source_rectangle.set(name, str(value))
-        blip_fill.insert(1, source_rectangle)
-    if aspect_ratio:
-        shape.height = int(shape.width / aspect_ratio)
+    paragraph.paragraph_format.space_before = Pt(6)
+    paragraph.paragraph_format.space_after = Pt(3)
+    try:
+        shape = paragraph.add_run().add_picture(str(picture_path), width=Inches(width))
+        set_picture_alt_text(shape, alt_text)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
     caption_paragraph = document.add_paragraph()
     caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    caption_paragraph.paragraph_format.keep_together = True
     caption_paragraph.paragraph_format.space_after = Pt(10)
     caption_run = caption_paragraph.add_run(caption)
     caption_run.italic = True
@@ -157,33 +178,34 @@ def build_user_guide() -> Path:
         ("5. Prepare Your Delphi Application", 6),
         ("6. Give Delphi Access to the DAT Dependencies", 6),
         ("7. Understand the Files Under %LOCALAPPDATA%", 8),
-        ("8. Meet the Start Screen and Keyboard Controls", 11),
-        ("9. Move Through the Setup Wizard with Confidence", 12),
-        ("10. Wizard Step 1 - Welcome", 14),
-        ("11. Wizard Step 2 - Delphi Project", 15),
-        ("12. Wizard Step 3 - Deployment", 16),
-        ("13. Wizard Step 4 - Languages", 18),
-        ("14. Wizard Step 5 - Translation Service", 19),
-        ("15. Wizard Step 6 - Scan Project", 21),
-        ("16. Wizard Step 7 - Review and Authorize", 22),
-        ("17. Localization Review Window", 23),
-        ("18. Wizard Step 8 - Process and Finish", 24),
-        ("19. Maintenance Studio Overview", 25),
-        ("20. Maintenance Page 1 - Project", 26),
-        ("21. Maintenance Page 2 - Scan", 27),
-        ("22. Maintenance Page 3 - Translate", 28),
-        ("23. Maintenance Page 4 - Validation", 30),
-        ("24. Maintenance Page 5 - Export", 30),
-        ("25. Maintenance Page 6 - Integration", 31),
-        ("26. Maintenance Page 7 - Provider Settings", 32),
-        ("27. DeepL and Google Setup", 34),
-        ("28. Runtime Integration in VCL and FMX", 35),
-        ("29. Build, Deploy, and Verify", 36),
-        ("30. RTL, Layout, HTML, and Dynamic Text", 36),
-        ("31. Security, Privacy, and Recovery", 37),
-        ("32. Troubleshooting", 37),
-        ("33. Complete First-Time Checklist", 39),
-        ("34. Quick Path Reference", 41),
+        ("8. Meet the Start Screen and Keyboard Controls", 10),
+        ("9. Move Through the Setup Wizard with Confidence", 11),
+        ("10. Wizard Step 1 - Welcome", 13),
+        ("11. Wizard Step 2 - Delphi Project", 14),
+        ("12. Wizard Step 3 - Deployment", 15),
+        ("13. Wizard Step 4 - Languages", 17),
+        ("14. Wizard Step 5 - Translation Service", 18),
+        ("15. Wizard Step 6 - Scan Project", 20),
+        ("16. Wizard Step 7 - Review and Authorize", 21),
+        ("17. Localization Review Window", 22),
+        ("18. Wizard Step 8 - Process and Finish", 23),
+        ("19. Maintenance Studio Overview", 24),
+        ("20. Maintenance Page 1 - Project", 25),
+        ("21. Maintenance Page 2 - Scan", 26),
+        ("22. Maintenance Page 3 - Translate", 27),
+        ("23. Maintenance Page 4 - Validation", 28),
+        ("24. Maintenance Page 5 - Export", 29),
+        ("25. Maintenance Page 6 - Integration", 30),
+        ("26. Maintenance Page 7 - Provider Settings", 31),
+        ("27. DeepL and Google Setup", 33),
+        ("28. Runtime Integration in VCL and FMX", 34),
+        ("29. Build, Deploy, and Verify", 34),
+        ("30. RTL, Layout, HTML, and Dynamic Text", 35),
+        ("31. Security, Privacy, and Recovery", 36),
+        ("32. Troubleshooting", 36),
+        ("33. Complete First-Time Checklist", 38),
+        ("34. Quick Path Reference", 40),
+        ("35. Appendix A - License Information", 41),
     ])
 
     document.add_heading("1. Welcome - How This Guide Will Help You", level=1)
@@ -746,6 +768,8 @@ def build_user_guide() -> Path:
         ["Deployed packs", r"<Target EXE Folder>\Localization\Languages"],
         ["Guides", r"<Studio>\docs\guides and <Studio>\docs\pdf"],
     ])
+
+    add_license_appendix(document, "35. Appendix A - License Information")
 
     mark_first_rows_as_accessibility_headers(document)
     path = GUIDES_DIR / "Delphi App Translation Studio User Guide.docx"

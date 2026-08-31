@@ -23,6 +23,7 @@ from build_guides import (
     add_callout,
     add_cover,
     add_header_footer,
+    add_license_appendix,
     add_paragraphs,
     add_steps,
     add_table,
@@ -64,6 +65,19 @@ SUBSYSTEM_PURPOSE = {
     "scan": "project discovery, DFM/FMX and Pascal text extraction, context, rules, quality, and stable-key catalog merging",
     "studio": "the FMX operator interface, Setup Wizard state machine, Localization Review, and Studio self-translation",
     "validation": "structural catalog checks that protect runtime export",
+}
+
+SUBSYSTEM_PLAIN_LANGUAGE = {
+    "components": "This layer gives a Delphi application the nonvisual language manager and the visible language selector used at run time.",
+    "core": "This layer defines the shared data and file rules used by the Studio, the scanners, and the deployed runtime.",
+    "design": "This layer makes the language components appear in the RAD Studio Tool Palette and Object Inspector.",
+    "integration": "This layer prepares the files a target Delphi project needs and copies approved outputs to approved destinations.",
+    "provider": "This layer is the only part that talks to DeepL or Google and handles provider credentials and limits.",
+    "review": "This layer turns translation and layout concerns into findings a developer can inspect and decide.",
+    "runtime": "This layer loads local language packs and applies them inside the finished offline VCL or FMX application.",
+    "scan": "This layer reads saved Delphi forms and Pascal source and turns eligible text into stable translation records.",
+    "studio": "This layer is the developer-facing FMX application: its forms, buttons, pages, Wizard, and workflow state.",
+    "validation": "This layer blocks structurally unsafe catalogs and packs without pretending to judge human language quality.",
 }
 
 
@@ -302,7 +316,7 @@ def add_focus_screen(
         alt_text,
         crop=crop,
         aspect_ratio=aspect_ratio,
-        width=5.9,
+        width=5.4,
     )
 
 
@@ -333,12 +347,13 @@ def add_unit_entry(document: Document, unit: PascalUnit) -> None:
     heading.add_run(unit.name)
     file_paragraph = add_key_value(document, "File", str(unit.path))
     file_paragraph.paragraph_format.keep_with_next = True
+    add_key_value(document, "Where it fits", SUBSYSTEM_PLAIN_LANGUAGE[unit.subsystem])
     add_key_value(document, "What it is", UNIT_DESCRIPTIONS[unit.name])
     reason = (
         f"This unit exists to keep {SUBSYSTEM_PURPOSE[unit.subsystem]} in the "
         f"{unit.subsystem} layer instead of coupling that responsibility to unrelated UI or framework code."
     )
-    add_key_value(document, "Why it matters", reason)
+    add_key_value(document, "Why it is separate", reason)
     symbols = ", ".join(unit.public_symbols[:14]) or "No separate public type or routine; the unit supplies registrations or implementation bindings."
     if len(unit.public_symbols) > 14:
         symbols += f"; plus {len(unit.public_symbols) - 14} additional public declarations"
@@ -386,6 +401,7 @@ WIZARD_HEADINGS = [
     "20. Security and Privacy",
     "21. Printable Completion Checklist",
     "22. Quick Reference",
+    "23. Appendix A - License Information",
 ]
 
 
@@ -753,6 +769,8 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         ["Target preference", r"%LOCALAPPDATA%\<ApplicationId>\language.ini"],
     ])
 
+    add_license_appendix(document, WIZARD_HEADINGS[22])
+
     mark_first_rows_as_accessibility_headers(document)
     path = GUIDES_DIR / "Delphi App Translation Studio Setup Wizard Guide.docx"
     finish_document(document, path)
@@ -760,7 +778,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
 
 ENGINEERING_HEADINGS = [
-    "1. Guide Purpose and Engineering Vocabulary",
+    "1. Guide Purpose, Plain-Language Architecture, and Vocabulary",
     "2. Product Scope, Non-Negotiable Invariants, and Trust Boundaries",
     "3. Repository, Build, and Distribution Layout",
     "4. End-to-End Architecture and Ownership",
@@ -791,6 +809,7 @@ ENGINEERING_HEADINGS = [
     "29. Safe Change Procedure",
     "30. Engineering Release Checklist",
     "31. Quick Path and Identifier Reference",
+    "32. Appendix A - License Information",
 ]
 
 
@@ -861,6 +880,46 @@ def add_important_file(document: Document, path: str, what: str, why: str) -> No
     add_key_value(document, "Why it matters", why)
 
 
+ENGINEERING_CHAPTER_SUMMARIES = {
+    1: ("What rules may never be bypassed?", "This chapter defines the safety boundary. The Studio may read selected source and create its own artifacts. The recommended workflow does not rewrite the target project's Pascal, form, DPR, or DPROJ files."),
+    2: ("Where does each kind of file belong?", "This chapter maps repository folders to responsibilities. Use it before adding a unit or generated artifact so production, test, documentation, and output files do not become mixed."),
+    3: ("How does text move from source to a running translation?", "This chapter follows the pipeline from project detection through scanning, translation, review, validation, export, deployment, and run-time application. Each stage has one owner and one output contract."),
+    4: ("What information does one translation record carry?", "The catalog stores identity, source and target text, context, status, origin, and review facts. Status describes workflow state; origin records where wording came from. They are not interchangeable."),
+    5: ("Where is development state stored, and how is it protected?", "Project workspaces live under Local AppData, outside the target project. Important JSON and preference files use validated atomic replacement so an interruption cannot silently replace a good file with a partial one."),
+    6: ("What exactly does a scan do?", "Detection finds the project closure. The scanner reads saved form resources and approved Pascal text. It produces stable records and counts; it does not run the target application or translate arbitrary data."),
+    7: ("How does the Studio choose the best wording it already knows?", "Context explains meaning. Terminology protects required words. Translation memory reuses reviewed work. A glossary records project-specific choices. These steps reduce provider ambiguity before new machine translation is requested."),
+    8: ("What crosses the network?", "Only eligible source text and safe context go to the selected provider. Credentials stay in Windows Credential Manager or session memory. Placeholders are protected, requests are bounded, and malformed responses are rejected."),
+    9: ("Who decides whether wording and layout are acceptable?", "Automated review finds likely problems and can propose conservative layout changes. The developer decides. Structural validation can prove that a pack is safe to load, but it cannot prove that a sentence is the best human translation."),
+    10: ("When may a runtime pack be created?", "Only a structurally valid catalog can be exported. Source and target packs must agree on application identity, framework, locale relationship, schema, and checksum contract."),
+    11: ("Why does a pack appear—or not appear—in the selector?", "The runtime admits a pack only after compatibility checks pass. The canonical source pack is the fallback anchor and is required for reliable switching back to the authored language."),
+    12: ("What is special about VCL?", "The VCL manager follows Windows form and handle lifecycle. Its applicator restores the designer baseline, applies the selected pack, and preserves focus, selection, lists, grids, menus, and other live state."),
+    13: ("What is special about FireMonkey?", "The FMX manager handles styled controls, tabs, scrolling, browsers, grids, and later repainting. Template repair is important because an FMX style can recreate visible text after the first assignment."),
+    14: ("Why are there separate runtime and design packages?", "Runtime packages contain code an application may ship. Win32 design packages contain RAD Studio registration code. Keeping them separate prevents deployed applications from depending on IDE-only units."),
+    15: ("Why must ComponentSource be copied as one set?", "The generated source closure contains matching shared and framework-specific units. Copying only files named by the first compiler error can combine incompatible interfaces from different versions."),
+    16: ("What may integration change?", "The normal component workflow generates a kit and deploys packs without changing target source. Advanced source editing exists only behind explicit preview, authorization, backup, and restore boundaries."),
+    17: ("Which form owns which workflow state?", "MainForm owns Maintenance Studio. SetupWizard owns the guided state machine. LocalizationReview owns findings and decisions. Their FMX resources remain the editable design authority."),
+    18: ("How are direction, HTML, and changing text kept correct?", "Every switch begins from the source baseline. Dynamic text and HTML use explicit translation keys and refresh contracts. RTL is applied at the correct control or paragraph boundary while protected identifiers remain LTR."),
+    19: ("How does the system fail without hanging or corrupting state?", "Network, build, scan, save, and language-switch operations have explicit bounds and recovery behavior. Errors must return the interface to a usable state and must not expose secrets."),
+    20: ("What information is trusted?", "Selected source is parsed, provider responses are validated, files are written atomically, and packs are admitted before use. Secrets, arbitrary JSON, and unverified output folders are never trusted merely because they exist."),
+    21: ("What proves a change is ready?", "Small focused test programs isolate individual contracts. Release scripts then combine those results with builds, real pilot applications, documentation checks, and a Git review."),
+    22: ("How should the production unit reference be used?", "Find the unit by subsystem, read its plain-language role and purpose, then inspect its direct dependencies, consumers, tests, and change risk before editing it."),
+    23: ("What are the test and fixture files for?", "Tests are intentionally separate programs so a failure names one contract. Fixtures provide controlled forms, source, and behavior; they are evidence, not production dependencies."),
+    24: ("Which files start builds and packages?", "The DPR starts a program. The DPROJ supplies RAD Studio build metadata. DPK files define packages and their contained units. A change to one can alter what is built even when Pascal implementation code is unchanged."),
+    25: ("Why do schemas and form resources need their own review?", "Schemas define serialized compatibility. FMX and DFM resources define designer-owned layout and published properties. Both are contracts, not incidental generated text."),
+    26: ("Which tool should be run for a given engineering task?", "This chapter explains the maintained build, verification, distribution, and documentation scripts. Prefer these repeatable entry points to improvised one-off commands."),
+    27: ("How do dependencies show change impact?", "A direct dependency is imported by a unit. A direct consumer imports that unit. Trace both directions, then consider package and generated-source closure before deciding that a change is local."),
+    28: ("What is the safest order for making a change?", "Define the contract, trace ownership, make the smallest universal correction, run focused checks, run the full gate, test real VCL and FMX applications, update documentation, and review the final Git diff."),
+    29: ("What must be true before release?", "The checklist converts architecture promises into evidence: builds, tests, pack compatibility, state preservation, direction, dynamic content, deployment, security, distribution, and documentation."),
+    30: ("Where are the most-used engineering paths?", "This is a lookup page for the project, compiler, source layers, schemas, tests, workspaces, generated kits, deployed packs, and credential targets."),
+}
+
+
+def add_engineering_chapter(document: Document, index: int) -> None:
+    document.add_heading(ENGINEERING_HEADINGS[index], level=1)
+    question, explanation = ENGINEERING_CHAPTER_SUMMARIES[index]
+    add_callout(document, question, explanation)
+
+
 def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     units = collect_pascal_units()
     missing = sorted(unit.name for unit in units if unit.name not in UNIT_DESCRIPTIONS)
@@ -879,14 +938,17 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(ENGINEERING_HEADINGS[0], level=1)
     add_paragraphs(document, [
-        "This guide explains the complete engineering system before presenting the file-by-file reference. It is written for Delphi developers maintaining the Studio, the VCL/FMX runtime components, provider integration, scanners, review tooling, packages, deployment pipeline, tests, and documentation.",
-        "A term is introduced here before later chapters depend on it. The final reference chapters describe every production PAS unit individually, every test/spike/contract Pascal program, every Delphi project/package file, each JSON schema and FMX/DFM resource, and the important build and verification tools.",
+        "This guide explains how Delphi App Translation Studio is built and why its parts are separated. It is for Delphi developers who maintain the Studio or the runtime components used by translated VCL and FireMonkey applications.",
+        "Begin with this chapter even if you already know Delphi. It defines the product's vocabulary and gives one simple model of the whole system. Later chapters add implementation detail. Chapters 23 through 27 are reference chapters for individual source files, packages, schemas, forms, and tools.",
     ])
     document.add_heading("1.1 Engineering Boundary: Localization Is a Development Workflow", level=2)
     add_paragraphs(document, [
-        "Localization is performed against a Delphi source project during active development; it is not post-processing applied to a finished EXE. The scanner, catalog, review, pack, component, and deployment contracts assume that developers can rescan after source changes, inspect the results in application context, and make deliberate source or layout adjustments when the application requires them.",
-        "Automation has a defined boundary. Stable keys, source-aware merging, provider batching, structural validation, reversible baseline restoration, and framework-specific applicators make repeatable translation practical, but they cannot infer every sentence assembled from live data or make every linguistic, terminology, layout, and bidirectional-text decision on behalf of the application owner.",
-        "Engineering and release review must therefore cover semantic keys for dynamic text, specialized terminology, custom and third-party controls, protected identifiers, right-to-left and mixed-direction paragraphs, clipping, wrapping, and behavior after repeated language changes. A small and structurally simple project may need almost no manual adjustment; the architecture must nevertheless preserve a clear path for developer review and correction wherever it is needed.",
+        "Localization happens while a Delphi source project is under active development. It is not post-processing applied to a finished EXE.",
+        "Developers can rescan after source changes and inspect the result inside the real application. They can also make deliberate wording or layout adjustments when an application needs them.",
+        "Automation has a defined boundary. Stable keys preserve identity. Catalog merge preserves unchanged work. Provider batching limits network requests. Structural validation protects exported packs. Baseline restoration makes language changes reversible.",
+        "Those mechanisms cannot infer every sentence assembled from live data. They also cannot make every terminology, layout, or bidirectional-text decision for the application owner.",
+        "Release review must therefore cover dynamic text, specialized terms, custom controls, third-party controls, protected identifiers, right-to-left text, mixed-direction paragraphs, clipping, wrapping, and repeated language changes.",
+        "A small and simple project may need almost no manual adjustment. The architecture must still leave a clear path for developer review and correction.",
         "The Studio’s engineering objective is to perform the safe translation work automatically and as accurately as possible, preserve application behavior and source ownership, and provide precise evidence for anything that still requires developer judgment.",
     ])
     add_table(document, ["Term", "Definition", "Ownership consequence"], [
@@ -906,7 +968,44 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["Pack admission", "Runtime validation performed before a pack appears as selectable.", "Invalid, wrong-app, wrong-framework, wrong-version, or incompatible packs never become active."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[1], level=1)
+    document.add_heading("1.2 The system in plain language", level=2)
+    add_paragraphs(document, [
+        "The product has two separate halves. The Studio is the developer tool. It scans source, contacts a translation service, supports review, and creates files. The runtime is the code placed in the target Delphi application. It works offline and reads only validated local language packs.",
+        "A development catalog is the Studio's working record. It contains much more than translated words: it also records identity, context, review state, source changes, and checksums. A runtime pack is the smaller file produced from that catalog for the finished application.",
+        "The target project remains the design authority. Forms stay editable in the Delphi designer. The runtime manager changes language while the application runs, but it must preserve the form's original text, layout, control state, and direction so switching back is reliable.",
+    ])
+    add_table(document, ["Part", "Plain-language responsibility", "Must not do"], [
+        ["Project detector and scanner", "Find the selected Delphi project and collect text that is safe to translate.", "Run the target source or guess that arbitrary data is interface text."],
+        ["Catalog and workspace", "Keep the durable development record outside the target source tree.", "Replace a valid file with a partial or corrupt write."],
+        ["Provider pipeline", "Send eligible unresolved text to DeepL or Google and validate the response.", "Store a provider key in source, packs, logs, or catalogs."],
+        ["Localization Review", "Show wording and layout concerns that need developer judgment.", "Silently approve language quality or move developer-owned controls."],
+        ["Pack builder", "Create one compatible source pack and the translated runtime packs.", "Export a structurally invalid or mismatched catalog."],
+        ["Runtime manager and applicator", "Load admitted packs and update open or later forms without losing live state.", "Contact a provider, rescan source, or translate the previous translation."],
+        ["Component and integration kit", "Give a VCL or FMX project one compatible set of source units and deployment files.", "Mix old and new dependency units or rewrite target source without authorization."],
+    ])
+
+    document.add_heading("1.3 Follow one caption through the system", level=2)
+    add_steps(document, [
+        "A caption is saved in a DFM or FMX form. The scanner reads the saved form and assigns a stable key such as form.component.property.",
+        "Catalog merge compares that key and source text with the prior catalog. Unchanged reviewed work is preserved. New or changed text is marked for attention.",
+        "The terminology and provider pipeline prepares eligible text, protects placeholders, sends a bounded request, and records the returned text as a machine draft.",
+        "Localization Review lets the developer inspect wording and any layout finding. Structural validation then checks identity, required text, placeholders, and pack compatibility.",
+        "The pack builder writes the canonical source pack and target-language pack. Deployment places compatible packs under the executable's Localization\\Languages folder.",
+        "At run time, the manager restores the designer baseline and asks the VCL or FMX applicator to apply the selected pack. A later switch repeats the process from the baseline, not from the prior translation.",
+    ])
+
+    document.add_heading("1.4 How to read file and dependency entries", level=2)
+    add_table(document, ["Reference label", "What it means"], [
+        ["Public surface", "Types, classes, interfaces, constants, and routines that another unit can use."],
+        ["Direct DAT dependency", "A DAT unit named directly in this unit's uses clause. It does not include dependencies used only through another unit."],
+        ["Direct production consumer", "A production DAT unit that names this unit directly in its own uses clause."],
+        ["Named test consumer", "A test program that imports the unit directly. Other tests may still exercise it indirectly."],
+        ["ComponentSource closure", "The complete group of shared and framework-specific PAS files needed by a target project. It must be refreshed as one set."],
+        ["Change and validation risk", "The minimum subsystem tests and builds required after a change. Shared behavior normally requires both VCL and FMX verification."],
+    ])
+    add_callout(document, "A practical reading order.", "To understand behavior, read Chapters 2 through 22 in order. To change one unit, first read its Chapter 23 entry, then the architecture chapter for its layer, then the tests and consumers named by that entry.")
+
+    add_engineering_chapter(document, 1)
     add_bullets(document, [
         "Target Pascal, DFM, FMX, DPR, and DPROJ remain read-only in the recommended Wizard/component workflow.",
         "Forms and published component properties remain designer-authored and editable in Object Inspector; runtime-only UI construction is not the normal integration mechanism.",
@@ -921,7 +1020,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     ])
     add_callout(document, "Trust boundary.", "The Studio trusts only explicitly selected project source and validated provider responses; the runtime trusts only admitted local packs. Neither side treats arbitrary JSON, user data, provider text, or an unverified executable folder as safe input.")
 
-    document.add_heading(ENGINEERING_HEADINGS[2], level=1)
+    add_engineering_chapter(document, 2)
     add_table(document, ["Folder", "Engineering ownership", "What must not be mixed into it"], [
         ["source\\core", SUBSYSTEM_PURPOSE["core"], "FMX/VCL controls, HTTP UI, or target-specific exceptions."],
         ["source\\scan", SUBSYSTEM_PURPOSE["scan"], "Runtime mutation or provider secrets."],
@@ -944,7 +1043,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         "Source distributions must contain complete source/package/schema/tool/document sets and must exclude secrets, Local AppData workspaces, provider keys, transient test workspaces, DCUs, EXEs, and unreviewed proprietary catalogs unless explicitly intended.",
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[3], level=1)
+    add_engineering_chapter(document, 3)
     add_table(document, ["Stage", "Input", "Owner", "Output / next boundary"], [
         ["Detect", "Selected DPR/DPROJ", "DAT.Core.ProjectDetection", "Framework, ApplicationId, targets, forms, units, output metadata"],
         ["Scan", "Saved DFM/FMX/PAS and authorized resources", "DAT.Scan.*", "TProjectScanResult with items, diagnostics, snapshots, and counts"],
@@ -960,7 +1059,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     ])
     add_callout(document, "Ownership rule.", "Each stage validates the contract it receives and emits a narrower explicit contract. Later stages must not reach backward into a UI form or provider response to reconstruct missing state.")
 
-    document.add_heading(ENGINEERING_HEADINGS[4], level=1)
+    add_engineering_chapter(document, 4)
     add_paragraphs(document, [
         "DAT.Core.Types is the vocabulary root. TProjectProfile describes target identity/framework/files/targets. TLocaleProfile describes locale facts. TTranslationEntry carries stable identity, source/target text, status, origin, context, ownership, checksums, and review facts. TTranslationCatalog owns project/locale metadata and its entries.",
         "Status is workflow state, not provenance. Origin records how target text arrived; Reviewed/Approved record human decisions. A machine result must not become Approved merely because structural validation passes.",
@@ -974,7 +1073,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["Semantic recovery", "Recreate known application-owned dynamic contract deterministically.", "Scan arbitrary runtime values as translatable source."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[5], level=1)
+    add_engineering_chapter(document, 5)
     add_paragraphs(document, [
         r"TTranslationWorkspace roots project state at %LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\<ApplicationId>. Development, Languages, Glossaries, and Deployment separate editable data, deployed-format packs, terminology, and destination settings.",
         "TAtomicTextFile writes a candidate, validates it, preserves a prior known-good version, and replaces the active file atomically. Readers can recover .previous, quarantine corrupt input, and avoid converting a process interruption into an empty or half-written catalog.",
@@ -988,7 +1087,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["Layout overrides", "TLayoutOverrides", "Application/locale/form/control identity and numeric bounds.", "Invalid overrides are ignored/quarantined rather than moving controls unpredictably."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[6], level=1)
+    add_engineering_chapter(document, 6)
     add_paragraphs(document, [
         "TProjectDetector establishes the source closure before scanning. TProjectScanner orchestrates form and Pascal scanners, rules, context, domain profile, quality analysis, progress/cancellation, source snapshots, and the final result.",
         "TTextFormScanner reads text DFM/FMX structure and eligible string properties. TPascalResourceStringScanner reads resourcestring declarations and approved runtime assignments. TScanRuleSet is the universal policy boundary; it must not contain named-project or version-specific exceptions.",
@@ -1001,7 +1100,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     ])
     add_callout(document, "Scan snapshot invariant.", "Final processing must reject a source/form save that occurred after the accepted scan. Exporting a stale snapshot can omit new text even when every later stage succeeds.")
 
-    document.add_heading(ENGINEERING_HEADINGS[7], level=1)
+    add_engineering_chapter(document, 7)
     add_paragraphs(document, [
         "Context and terminology are layered because provider text alone is insufficient for short interface strings. TScanContextAnalyzer records UI role, semantic concept, description, confidence, and surrounding evidence. TDomainProfiler builds project vocabulary and senses. TProjectGlossary and TSharedDictionary carry approved local and shared terms. TTranslationMemory reuses reviewed prior segments with provenance.",
         "Resolution order must preserve the most specific trusted evidence. Project glossary outranks shared/general terminology; reviewed contextual memory outranks an unreviewed machine draft; protected tokens and placeholders are never rewritten as terminology.",
@@ -1015,7 +1114,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["Provider draft", "Unreviewed external result", "Populate eligible unresolved target text as machine origin."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[8], level=1)
+    add_engineering_chapter(document, 8)
     add_paragraphs(document, [
         "TProviderSettings stores only provider, DeepL plan, remember policy, timeout, and batch size. TProviderCredentialStore stores the selected secret in Windows Credential Manager or session memory. TTranslationProviderClient builds and posts bounded HTTPS requests and maps provider-specific errors into ETranslationProviderError.",
         "TContextBatching groups compatible contexts and limits request size. TPlaceholderProtection replaces immutable tokens before network transmission and requires exact recovery. TProviderRetry retries only transient failures with bounded backoff. TProviderLanguageCodes prevents sending a canonical locale code that a provider does not accept.",
@@ -1029,7 +1128,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["Structural response error", "Wrong response count, malformed JSON, missing placeholders.", "Reject the batch; never write partial unvalidated translations as complete."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[9], level=1)
+    add_engineering_chapter(document, 9)
     add_paragraphs(document, [
         "TLocalizationReviewer combines source geometry, code-geometry ownership, translated measurements, text roles, and language behavior into findings and proposals. ITextMeasurer isolates metric acquisition; FMX and GDI implementations provide framework-appropriate measurements.",
         "Layout changes are stored as per-language rules and applied only after baseline restoration. A proposal is not application state until explicitly accepted. Code-positioned controls and complex layout relationships are excluded from automatic movement.",
@@ -1042,7 +1141,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["Developer redesign", "Handles complex collision, grid, graph, or container constraints.", "Required when automated proposals cannot preserve the design."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[10], level=1)
+    add_engineering_chapter(document, 10)
     add_paragraphs(document, [
         "TCatalogValidator separates blocking runtime safety from linguistic state. Required metadata, duplicate keys, source changes, placeholder/accelerator integrity, runtime wiring, and eligible target text are validated; Reviewed and Approved remain explicit human states.",
         "TRuntimePackBuilder exports only after structural validation. It creates a compact pack with identity, framework, version/schema, source/target locale, checksum linkage, texts, templates, source maps needed for reversibility, and accepted layout rules.",
@@ -1054,7 +1153,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         "Canonical source and every target pack in one deployment must share compatible application identity and catalog/source contract.",
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[11], level=1)
+    add_engineering_chapter(document, 11)
     add_paragraphs(document, [
         "TRuntimeLanguagePack parses one JSON file and exposes text, templates, source maps, locale, and layout rules. TTranslationRuntime discovers files, validates pack headers/checksums/framework/application identity, admits compatible packs, loads source and selected target, updates format settings, and serves translation lookups.",
         "TLanguagePreference remembers an admitted locale. Startup loads the source pack as the safety anchor, then attempts the stored or system language according to policy. A stale preference cannot force an invalid pack into the process.",
@@ -1068,21 +1167,21 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["Required data/layout structure", "Prevents incomplete pack activation and partial translation."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[12], level=1)
+    add_engineering_chapter(document, 12)
     add_paragraphs(document, [
         "TDATVCLLanguageManager connects TTranslationRuntime to VCL application lifecycle. Idle inspection, modal boundaries, active-form change, notifications, and explicit ApplyToForm cover existing and later forms without replacing application event handlers destructively.",
         "TVCLTranslationApplicator snapshots source text, geometry, alignment, direction, and writable state; restores the baseline; applies stable-key text/templates/layout; handles menus, dialogs, status panels, lists/grids, wrapping, and RTL; then restores focus, selection, and other live state.",
     ])
     add_callout(document, "VCL handle rule.", "Do not force unnecessary handle recreation or overwrite window state merely to change language. Native controls and Windows messages can regenerate captions, so VCL template/caption interception reapplies only the owned text contract.")
 
-    document.add_heading(ENGINEERING_HEADINGS[13], level=1)
+    add_engineering_chapter(document, 13)
     add_paragraphs(document, [
         "TDATFMXLanguageManager connects TTranslationRuntime to FMX form lifecycle and styled-control behavior. It handles open/later forms, tabs, scroll content bounds, browsers, grids, menus, dynamic refresh timers, and lifecycle-safe application without relying on one form-specific event.",
         "TFMXTranslationApplicator snapshots/restores the designer baseline, applies text and layout to the FMX object tree, preserves state/order, and coordinates direction. Template rewrite is essential because FMX styles can recreate visible text after a property was translated.",
     ])
     add_callout(document, "FMX styled-control rule.", "A language switch is not complete merely because Text changed once. Styled controls, tab activation, browser document load, and scroll-layout recalculation can repaint later; lifecycle contracts must reapply only when the owned text is regenerated.")
 
-    document.add_heading(ENGINEERING_HEADINGS[14], level=1)
+    add_engineering_chapter(document, 14)
     add_paragraphs(document, [
         "DAT.Components.Core exposes published properties/events and the framework-neutral manager contract. DAT.Components.VCL/FMX implement framework lifecycle and applicator bridges. The LanguageSelector units provide connected designer combo boxes. Registration units expose those components only to RAD Studio design packages.",
         "The design packages are Win32 IDE packages because RAD Studio is a Win32 design host even when the target application also builds Win64. Runtime packages are separated so a deployed application never links IDE registration code.",
@@ -1095,7 +1194,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["DATLanguageManagerFMXDesign", "FMX IDE design package.", "Requires FMX runtime package and contains FMX Register."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[15], level=1)
+    add_engineering_chapter(document, 15)
     add_paragraphs(document, [
         "ComponentSource is a generated source-closure distribution for one target framework. The package generator computes the exact shared and framework-specific set and copies all of it into the kit. The target compiler must see one internally consistent version of that set.",
         r"The optional target-local dependencies folder is <Target>\dependencies\DelphiAppTranslation\source. It is not created automatically because the Studio cannot assume how a target project vendors third-party source or what repository policy permits.",
@@ -1109,7 +1208,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     ])
     add_callout(document, "Partial-copy failure mode.", "Copying only the units named by the first compiler errors can compile against older interfaces elsewhere on Search path, creating ambiguous unit resolution or runtime behavior. Refresh the complete generated set together.")
 
-    document.add_heading(ENGINEERING_HEADINGS[16], level=1)
+    add_engineering_chapter(document, 16)
     add_paragraphs(document, [
         "TComponentIntegrationPackageGenerator produces the recommended non-mutating kit. TTargetBuildDeployer runs selected builds and deploys packs. TIntegrationPackageGenerator and TDelphiIntegrationSourceEditor retain an advanced explicitly authorized source-edit path with preview/backup/restore, but it is not the Wizard default.",
         "Wizard final processing passes ComponentSource to its own build environment without persisting a DPROJ edit. Manual IDE builds require the developer to set Search path in Project Options. Deployment verifies the intended executable/application directory before copying packs.",
@@ -1122,7 +1221,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         "No integration code should write outside the explicitly selected Studio export, workspace, target dependency, or authorized application destinations.",
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[17], level=1)
+    add_engineering_chapter(document, 17)
     add_paragraphs(document, [
         "TfrmTranslationStudio is the landing and seven-page Maintenance state owner. TfrmSetupWizard is an eight-step validation state machine whose downstream state is invalidated when project/language/provider inputs change. TfrmLocalizationReview is modal within final processing and returns saved decisions to a continuation. DAT.Studio.Translation owns the Studio's own interface-language runtime.",
         "The forms are designer-authored FMX resources. Runtime code should update state, enablement, text, and data; it should not rebuild the form hierarchy that belongs in the FMX designer. Default buttons, Enter/Esc behavior, hidden irrelevant buttons, and asynchronous provider state are explicit UI contracts.",
@@ -1133,7 +1232,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["LocalizationReview", "Findings, glossary, suggestions, proposals, decisions, output package.", "Close saves accepted decisions and returns to Wizard validation/export."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[18], level=1)
+    add_engineering_chapter(document, 18)
     add_paragraphs(document, [
         "Text direction is pack locale metadata interpreted by the framework applicator. Direction and alignment are applied at the smallest correct paragraph/control ownership boundary; the whole interface is not blindly mirrored when the application contains protected LTR identifiers, paths, APIs, or numeric content.",
         "Dynamic text uses stable semantic keys or source-map translation through DATTranslateDynamicText. HTML uses DATTranslateHtmlText and must rebuild the current page on language change. A language switch restores source/dynamic baseline before applying the new target, preventing Arabic text from surviving into Greek or another language.",
@@ -1147,7 +1246,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["Layout rule", "Locale/form/component property decision.", "Restore designer baseline, then apply selected locale rule only."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[19], level=1)
+    add_engineering_chapter(document, 19)
     add_paragraphs(document, [
         "TDATDiagnostics and structured exceptions provide severity, operation, path, provider status, stable key, and recovery context. UI code must convert them into actionable status/progress text without exposing secrets. Background provider/build work must always return the form to a closable and internally consistent state.",
         "Performance-sensitive language switching must use already admitted in-memory packs. It should not rescan the project, call a provider, reread every JSON file repeatedly, or rebuild hidden pages that have no active content. Only open/later managed objects and explicit dynamic/HTML refresh consumers participate.",
@@ -1160,7 +1259,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["Language switch", "Admitted pack lookup plus managed open objects.", "Reentrancy/main-thread guards and error behavior event/exception policy."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[20], level=1)
+    add_engineering_chapter(document, 20)
     add_bullets(document, [
         "Secrets: Credential Manager/session memory only; never serialize or log API-key text.",
         "Network: development Studio only; HTTPS endpoints determined by selected provider/DeepL plan; response structure and placeholder count validated.",
@@ -1172,7 +1271,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         "Dependencies: generated ComponentSource is source code and must be versioned/licensed/reviewed like any vendored library.",
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[21], level=1)
+    add_engineering_chapter(document, 21)
     add_paragraphs(document, [
         "The test suite is intentionally many small Delphi programs rather than one opaque test executable. Each program names and isolates a contract: scanning, placeholders, batching, retries, memory, validation, pack layout, VCL/FMX runtime, lifecycle, direction, wrapping, splash, templates, design streaming, and Studio form creation.",
         "tools\\verify_all.ps1 is the release-level orchestration entry. Contract scripts compile and run groups using the RAD Studio environment. check_shipped_units_complete.ps1 prevents package/kit/source-distribution omissions; check_build_paths_agree.ps1 detects conflicting outputs; check_source_encoding.ps1 detects unsupported encoding drift.",
@@ -1190,7 +1289,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     ])
 
     document.add_page_break()
-    document.add_heading(ENGINEERING_HEADINGS[22], level=1)
+    add_engineering_chapter(document, 22)
     add_paragraphs(document, [
         "This chapter is the production PAS inventory. Each entry names its file, purpose, reason for separation, public surface, direct DAT dependencies, direct production consumers, named test consumers, and change risk. Dependencies are parsed from the current source; descriptions state the architectural responsibility rather than merely repeating the filename.",
     ])
@@ -1205,7 +1304,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
             add_unit_entry(document, unit)
 
     document.add_page_break()
-    document.add_heading(ENGINEERING_HEADINGS[23], level=1)
+    add_engineering_chapter(document, 23)
     add_paragraphs(document, [
         "Every Delphi test DPR is listed below. Test-support PAS/DFM/FMX units and formal contract fixtures follow. These files are not runtime dependencies; they supply isolated evidence and intentionally artificial application behavior.",
     ])
@@ -1224,7 +1323,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         add_support_pascal_entry(document, path)
 
     document.add_page_break()
-    document.add_heading(ENGINEERING_HEADINGS[24], level=1)
+    add_engineering_chapter(document, 24)
     document.add_heading("25.1 Application, command-line, and package entry points", level=2)
     add_important_file(document, "DelphiAppTranslationStudio.dpr", "FMX application entry point that initializes the Studio translation runtime and creates the main Studio form.", "Defines process startup ordering and the first form/language initialization boundary.")
     add_important_file(document, "DelphiAppTranslationStudio.dproj", "RAD Studio project metadata, unit search paths, platforms/configurations, resources, outputs, and main form identity.", "A build can compile different source or write to a different output when DPROJ configuration drifts, even if DPR is unchanged.")
@@ -1235,7 +1334,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         if dproj.exists():
             add_key_value(document, "Companion DPROJ", str(dproj.relative_to(ROOT)) + " - platform/configuration/output metadata for this package.")
 
-    document.add_heading(ENGINEERING_HEADINGS[25], level=1)
+    add_engineering_chapter(document, 25)
     document.add_heading("26.1 JSON schemas", level=2)
     for path in sorted((ROOT / "source" / "schemas").glob("*.json")):
         description, properties, required = schema_summary(path)
@@ -1258,7 +1357,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     for path in sorted((ROOT / "tools" / "tests").rglob("*.dfm")) + sorted((ROOT / "tools" / "tests").rglob("*.fmx")):
         add_important_file(document, str(path.relative_to(ROOT)), "Designer resource streamed by a lifecycle or design test.", "Proves published properties, inheritance, object names, lifecycle behavior, and form-resource compatibility.")
 
-    document.add_heading(ENGINEERING_HEADINGS[26], level=1)
+    add_engineering_chapter(document, 26)
     document.add_heading("27.1 Build, verification, distribution, and guide tools", level=2)
     tools = [
         ("tools\\build_packages.ps1", "Builds the five runtime/design package projects in controlled platform/configuration order.", "Package installation and ComponentSource correctness depend on reproducible package outputs."),
@@ -1290,7 +1389,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     for path, what in references:
         add_important_file(document, path, what, "Read before changing the named subsystem; these records explain contracts that a source signature alone cannot express.")
 
-    document.add_heading(ENGINEERING_HEADINGS[27], level=1)
+    add_engineering_chapter(document, 27)
     add_paragraphs(document, [
         "Every production unit entry in Chapter 23 includes direct DAT dependencies and direct production consumers computed from current source. A dependency means the unit imports another DAT unit; a consumer means another production unit imports it. The list is direct, not the complete transitive closure.",
         "Leaf/foundation units may have no DAT dependencies but many consumers. Adapter/entry units may have many dependencies and no production consumer because a DPR/DPK or application code selects them. Test consumers show named DPRs that import the unit directly; indirect coverage is broader.",
@@ -1304,7 +1403,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["No named tests for high-risk unit", "Coverage may be only indirect.", "Add focused contract test when behavior cannot be proven by existing subsystem tests."],
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[28], level=1)
+    add_engineering_chapter(document, 28)
     add_steps(document, [
         "Define the contract and affected ownership layer before editing. Read the relevant reference document and unit entries in Chapter 23.",
         "Check Git status and remote currency; preserve unrelated work. Make a pre-change backup for material changes.",
@@ -1317,7 +1416,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         "Review Git diff, stage only intended files, commit clearly, and push configured public/private remotes without rewriting history.",
     ])
 
-    document.add_heading(ENGINEERING_HEADINGS[29], level=1)
+    add_engineering_chapter(document, 29)
     add_bullets(document, [
         "[ ] Product invariants and trust boundaries remain true.",
         "[ ] All production PAS units compile in their intended packages/projects.",
@@ -1339,7 +1438,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     ])
 
     document.add_page_break()
-    document.add_heading(ENGINEERING_HEADINGS[30], level=1)
+    add_engineering_chapter(document, 30)
     add_table(document, ["Purpose", "Path / identifier"], [
         ["Main project", "DelphiAppTranslationStudio.dproj / DelphiAppTranslationStudio.dpr"],
         ["RAD environment", r"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat"],
@@ -1358,6 +1457,8 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["DeepL credential target", "DelphiAppTranslationStudio/Providers/DeepL"],
         ["Google credential target", "DelphiAppTranslationStudio/Providers/Google Cloud Translation"],
     ])
+
+    add_license_appendix(document, ENGINEERING_HEADINGS[31])
 
     mark_first_rows_as_accessibility_headers(document)
     path = GUIDES_DIR / "Delphi App Translation Studio Engineering Guide.docx"
