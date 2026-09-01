@@ -26,6 +26,12 @@ type
     RootLayout: TLayout;
     HeaderBackground: TRectangle;
     HeaderAccent: TRectangle;
+    WizardBrandMark: TRectangle;
+    WizardBrandMarkAccent: TRectangle;
+    lblWizardBrandInitials: TLabel;
+    lblWizardBrandName: TLabel;
+    lblWizardBrandStudio: TLabel;
+    lblWizardBrandFamily: TLabel;
     lblTitle: TLabel;
     lblSubtitle: TLabel;
     BodyLayout: TLayout;
@@ -1548,81 +1554,10 @@ begin
 end;
 
 function TfrmSetupWizard.ExistingBuildOutputDirectories: TArray<string>;
-const
-  Configurations: array[0..1] of string = ('Debug', 'Release');
-  Platforms: array[0..1] of string = ('Win32', 'Win64');
-var
-  Configuration: string;
-  Match: TMatch;
-  Matches: TMatchCollection;
-  OutputDirectory: string;
-  OutputPattern: string;
-  Platform: string;
-  ProjectDirectory: string;
-  ProjectText: string;
-  UniqueDirectories: TStringList;
-
-  procedure AddPattern(const APattern: string);
-  var
-    Candidate: string;
-    LocalConfiguration: string;
-    LocalPlatform: string;
-  begin
-    for LocalPlatform in Platforms do
-      for LocalConfiguration in Configurations do
-      begin
-        Candidate := Trim(APattern);
-        Candidate := StringReplace(Candidate, '$(Platform)', LocalPlatform,
-          [rfReplaceAll, rfIgnoreCase]);
-        Candidate := StringReplace(Candidate, '$(Config)', LocalConfiguration,
-          [rfReplaceAll, rfIgnoreCase]);
-        Candidate := StringReplace(Candidate, '$(PROJECTDIR)', ProjectDirectory,
-          [rfReplaceAll, rfIgnoreCase]);
-        Candidate := StringReplace(Candidate, '$(MSBuildProjectDirectory)',
-          ProjectDirectory, [rfReplaceAll, rfIgnoreCase]);
-        if Pos('$(', Candidate) > 0 then
-          Continue;
-        if not TPath.IsPathRooted(Candidate) then
-          Candidate := TPath.Combine(ProjectDirectory, Candidate);
-        Candidate := TPath.GetFullPath(Candidate);
-        if TDirectory.Exists(Candidate) then
-          UniqueDirectories.Add(Candidate);
-      end;
-  end;
-
 begin
-  ProjectDirectory := TPath.GetDirectoryName(FProjectProfile.ProjectFileName);
-  UniqueDirectories := TStringList.Create;
-  try
-    UniqueDirectories.CaseSensitive := False;
-    UniqueDirectories.Duplicates := dupIgnore;
-    UniqueDirectories.Sorted := True;
-    ProjectText := TFile.ReadAllText(FProjectProfile.ProjectFileName,
-      TEncoding.UTF8);
-    Matches := TRegEx.Matches(ProjectText,
-      '<DCC_ExeOutput>(.*?)</DCC_ExeOutput>',
-      [roIgnoreCase, roSingleLine]);
-    for Match in Matches do
-    begin
-      OutputPattern := Match.Groups[1].Value;
-      OutputPattern := StringReplace(OutputPattern, '&amp;', '&',
-        [rfReplaceAll, rfIgnoreCase]);
-      AddPattern(OutputPattern);
-    end;
-    if Matches.Count = 0 then
-      for Platform in Platforms do
-        for Configuration in Configurations do
-        begin
-          OutputDirectory := TTargetBuildDeployer.FindBuildOutputDirectory(
-            FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
-            Platform, Configuration);
-          if TDirectory.Exists(OutputDirectory) then
-            UniqueDirectories.Add(TPath.GetFullPath(OutputDirectory));
-        end;
-    Result := UniqueDirectories.ToStringArray;
-  finally
-    UniqueDirectories.Free;
-  end;
+  Result := TTargetBuildDeployer.ExistingBuildOutputDirectories(
+    FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+    FProjectProfile.SupportsWin32, FProjectProfile.SupportsWin64);
 end;
 
 function TfrmSetupWizard.DeployLanguagePacksToExistingOutputs: Integer;

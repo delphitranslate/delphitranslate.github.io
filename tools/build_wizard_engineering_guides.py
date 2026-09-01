@@ -107,7 +107,7 @@ UNIT_DESCRIPTIONS = {
     "DAT.Core.Types": "Defines the central domain model: framework and status enumerations, project and locale profiles, translation entries, catalogs, ownership roles, and string conversions used by every pipeline stage.",
     "DAT.Design.FMX.Register": "Registers the FMX language manager and selector on the DAT Localization Tool Palette page. It is compiled only into the FMX design-time package, never into a deployed application.",
     "DAT.Design.VCL.Register": "Registers the VCL language manager and selector on the DAT Localization Tool Palette page. It is the VCL design-time bridge between package installation and Object Inspector use.",
-    "DAT.Integration.BuildDeploy": "Builds selected Delphi platform/configuration targets and deploys matching packs to detected or authorized application folders while reporting command, output, timeout, and destination results.",
+    "DAT.Integration.BuildDeploy": "Builds selected Delphi platform/configuration targets, discovers existing configured output folders, atomically deploys complete compatible pack sets, and publishes standalone glossary corrections through the matching catalog without rebuilding or editing the target project. It reports command, output, timeout, catalog, pack, and destination results.",
     "DAT.Integration.ComponentPackage": "Generates and validates the complete framework-appropriate kit, including ComponentSource, packs, Apache license, manifest, README, deployment support, and the exact Win32 Release BPL bundle. PrepareProjectDependencies then stages and atomically installs only the project-local dependency while target project files remain read-only.",
     "DAT.Integration.DelphiSource": "Implements the explicitly advanced source-integration editor with preview, authorization, transaction backup, bounded changes, and restoration; it is not used by the recommended component workflow.",
     "DAT.Integration.MenuResource": "Plans and applies controlled language-menu resource changes for advanced integration, including safe detection and reversal of the generated menu block.",
@@ -482,6 +482,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     add_focus_screen(document, "07-wizard-welcome.png", "Figure 4-2. Welcome-page navigation buttons.", "Back, Next, and Cancel buttons on the Welcome page", (55700, 75700, 0, 0), 5.2)
     add_paragraphs(document, [
         "The Welcome page is a quiet starting point. Nothing has been scanned, translated, backed up, exported, or deployed yet, so you can read the overview without affecting a project.",
+        "The header carries the DAT product mark, Delphi App Translation Studio name, and Vanguard Software family identity. These designer-owned brand controls identify the product consistently while remaining editable in the FMX Form Designer.",
         "Read the safety notice, then press Enter or select Next. The notice explains that final processing creates a backup and Studio-owned artifacts while your target Pascal, form, DPR, and DPROJ files remain read-only.",
     ])
     add_control_table(document, [
@@ -605,10 +606,11 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     add_paragraphs(document, [
         "Localization Review is the right place to make terminology decisions while a Wizard run is already in progress. It is no longer the only way to maintain those decisions. After the run, open Maintenance Studio and select Glossary directly below Translate on the left rail. The standalone page opens the same authoritative per-project, per-language glossary and does not rerun setup, scanning, or provider translation.",
         r"The saved file is %LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\<ApplicationId>\Glossaries\<ApplicationId>.<locale>.glossary.json. Select the target language, add or revise the source term and preferred translation, record optional semantic-concept and developer-note information, choose case sensitivity and approval deliberately, then choose Add / Update Term followed by Save Glossary.",
-        "Apply to Open Catalog is available only when Maintenance Studio has a development catalog open for the same target language. It saves pending glossary edits, applies approved matches only to entries that are not already Reviewed or Approved, saves the catalog, and invalidates prior validation. Run Validation and export/deploy a new runtime pack afterward. It does not call a provider, rebuild the project, or edit Delphi source/forms/project files.",
+        "Choose Apply and Deploy after saving terminology. Maintenance Studio loads the matching development catalog automatically, applies approved matches only to entries that are not already Reviewed or Approved, validates and saves the catalog, regenerates the affected external JSON runtime pack, refreshes the managed dependency pack, and deploys the complete verified pack set to existing build outputs and remembered destinations. It does not call a provider, rebuild or replace an executable, or edit Delphi source/forms/project files. A completed Wizard run for this application and target language is required once so the matching catalog and managed dependency exist.",
     ])
     add_control_table(document, [
         ["Cancel Edits", "Reloads the last saved glossary after a confirmation.", "Use only to discard every pending change for the selected target language."],
+        ["Apply and Deploy", "Publishes saved approved terminology without rerunning the Wizard.", "Read the resulting catalog/pack/destination report, then restart the target application so it reloads the changed external pack."],
         ["Maintenance Cancel / Esc", "Requests the normal safe exit from Maintenance Studio.", "Unsaved glossary work receives Save, Discard, or Cancel; active scans/provider requests first reach a safe cancellation boundary."],
     ])
 
@@ -715,7 +717,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         "Make source/form changes in the test project and choose Save All.",
         "Run the Wizard with the same ApplicationId and target locale, then scan again.",
         "Review new, changed, unchanged, recovered, and obsolete counts before authorization.",
-        "Translate unresolved work, complete Localization Review, validate, export, regenerate the kit, and redeploy. For terminology-only corrections afterward, use Maintenance Studio > Glossary instead of rerunning the entire Wizard.",
+        "Translate unresolved work, complete Localization Review, validate, export, regenerate the kit, and redeploy. For terminology-only corrections afterward, use Maintenance Studio > Glossary > Apply and Deploy instead of rerunning the entire Wizard. It automatically loads the matching catalog, regenerates the affected external JSON pack, refreshes the managed dependency copy, and deploys the complete pack set without rebuilding the EXE.",
         "Refresh the complete vendored dependency set only when runtime/component source changed; do not replace it for ordinary catalog-only updates.",
         "For another language, select that target locale and repeat scan/translation/review/export. Deploy the canonical source pack and all translated packs together.",
     ])
@@ -759,7 +761,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         "[ ] Project, source locale, target locale, native name, direction, and locale facts verified.",
         "[ ] Scan headline and supporting raw/recovered/duplicate counts reviewed.",
         "[ ] Review and Authorize summary, safety ZIP, saved-files/application-closed check, and authorization confirmed.",
-        "[ ] Localization Review findings, glossary, suggestions, and layout decisions completed; later terminology-only corrections use Maintenance Studio > Glossary.",
+        "[ ] Localization Review findings, glossary, suggestions, and layout decisions completed; later terminology-only corrections use Maintenance Studio > Glossary > Apply and Deploy and the destination report is reviewed.",
         "[ ] Progress ends successfully; completion report and component kit exist.",
         r"[ ] Managed dependencies\DelphiAppTranslation folder installed automatically; target DPROJ hash unchanged.",
         "[ ] Delphi Search path includes the exact dependency source for all shipped targets.",
@@ -1138,14 +1140,21 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         "Case-sensitive terms require exact source text. Other terms compare trimmed source text without case sensitivity.",
         "A nonblank ContextKind is a real filter and must match the entry. SemanticConcept is a preference, not a filter: an exact concept match wins, an untagged term is next, and a differently tagged but otherwise matching term remains a fallback.",
         "ApplyToCatalog never overwrites Reviewed or Approved entries. Matching unresolved entries receive the preferred target, Project Glossary origin, high confidence, a review note, and Machine Translated status so human approval remains a separate decision.",
-        "Applying terms changes the development catalog only. It does not export a pack, call a provider, rescan source, deploy files, or edit the target project.",
+        "TProjectGlossary.ApplyToCatalog itself changes the supplied in-memory development catalog only. It does not export, deploy, call a provider, rescan, or edit target source. TGlossaryPublisher deliberately composes that narrow operation with validation, atomic persistence, runtime-pack export, and pack deployment.",
     ])
     document.add_heading("8.3 Standalone Maintenance Studio glossary state", level=2)
     add_paragraphs(document, [
         "MainForm owns FProjectGlossary, FGlossaryFileName, FGlossaryDirty, and FUpdatingGlossaryLanguage. Opening the Glossary page derives the selected language file and loads it, or creates a new in-memory model when no file exists. This is intentionally independent of the Setup Wizard and independent of whether a development catalog has already been created.",
-        "The designer-owned page contains the language selector, exact file-path label, term list, source/target/concept/note editors, case-sensitive and approved check boxes, and New, Add / Update Term, Delete, Cancel Edits, Save Glossary, and Apply to Open Catalog buttons. FGlossaryDirty becomes true after add/update/delete. RefreshGlossary rebuilds the list and reports whether the model is new, saved, or pending.",
+        "The designer-owned page contains the language selector, exact file-path label, term list, source/target/concept/note editors, case-sensitive and approved check boxes, and New, Add / Update Term, Delete, Cancel Edits, Save Glossary, and Apply and Deploy buttons. FGlossaryDirty becomes true after add/update/delete. RefreshGlossary rebuilds the list and reports whether the model is new, saved, or pending.",
         "ConfirmGlossaryChanges protects three transitions: changing the glossary language, opening another Delphi project, and closing Maintenance Studio. Yes saves atomically, No discards the in-memory changes, and Cancel vetoes the transition. Cancel Edits is narrower: after confirmation it reloads the selected glossary and remains on the page.",
-        "Apply to Open Catalog is enabled only when FTranslationCatalog exists and its locale equals the selected glossary locale. The handler saves dirty glossary work first, applies the terms, creates a development-catalog path when needed, saves through TCatalogJson, refreshes catalog UI, invalidates validation, and recomputes readiness. This makes the required revalidation/export boundary explicit.",
+        "Apply and Deploy is enabled whenever a project glossary is loaded. The handler saves dirty glossary work first and calls TGlossaryPublisher. The publisher locates the matching workspace catalog itself, so the Translate page does not have to be open. If that catalog is currently displayed, MainForm reloads it after publication so the editor cannot retain a stale in-memory copy.",
+    ])
+
+    document.add_heading("8.4 Standalone glossary publication transaction", level=2)
+    add_paragraphs(document, [
+        "TGlossaryPublisher.Publish is the terminology-only publication boundary. Preflight verifies project identity, glossary identity and approved terms, the matching development catalog, framework and locale compatibility, the managed dependency Languages folder, and the syntax of remembered deployment destinations before replacing any artifact.",
+        "After ApplyToCatalog, TCatalogValidator must report no blocking errors. TRuntimePackBuilder serializes the candidate before any write, then TCatalogJson and TRuntimePackBuilder use their atomic persistence contracts to refresh the development catalog, canonical workspace pack, and managed dependency pack. SHA-256 equality proves that the canonical and dependency copies are identical before deployment begins.",
+        "TTargetBuildDeployer.ExistingBuildOutputDirectories resolves every existing supported Debug/Release output from DCC_ExeOutput patterns and conventional output trees. The publisher then atomically replaces Localization\\Languages from the complete managed dependency pack directory at each deduplicated existing output and remembered destination. Missing destinations are reported and skipped; deployment failures are counted and reported without hiding successful canonical publication. No compiler is launched and no EXE, DPROJ, DPR, PAS, DFM, or FMX file is replaced.",
     ])
 
     add_engineering_chapter(document, 8)
@@ -1247,7 +1256,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     add_paragraphs(document, [
         "TComponentIntegrationPackageGenerator.Generate produces a staged, verified kit. PrepareProjectDependencies is the shared Wizard/Maintenance transaction: it validates kit identity, creates a dated snapshot of any prior managed dependency, stages the replacement, verifies copied hashes, atomically promotes it, and verifies that the selected project-file hash did not change. It restores the previous dependency if promotion or post-promotion validation fails.",
         r"The Studio never writes DCC_UnitSearchPath or an Import element into the DPROJ. RunHiddenBuild uses /p:DCC_UnitSearchPath with <Target>\dependencies\DelphiAppTranslation\source for that MSBuild process only. BuildAndDeploy then atomically replaces the output Localization\Languages set directly, preventing obsolete locale files from surviving a Studio deployment.",
-        "TTargetBuildDeployer runs the baseline Win32 Release build even when no output folder existed, refreshes other supported configurations already in use, locates the configured executable output, and performs an additional atomic/hash-validated deployment. Configured application destinations use the same atomic routine. TIntegrationPackageGenerator and TDelphiIntegrationSourceEditor remain advanced source-edit machinery and are not invoked by the component workflow.",
+        "TTargetBuildDeployer runs the baseline Win32 Release build even when no output folder existed, refreshes other supported configurations already in use, locates the configured executable output, and performs an additional atomic/hash-validated deployment. ExistingBuildOutputDirectories is also the shared non-build discovery contract used by the Wizard and standalone glossary publication, preventing the two paths from drifting. Configured application destinations use the same atomic routine. TIntegrationPackageGenerator and TDelphiIntegrationSourceEditor remain advanced source-edit machinery and are not invoked by the component workflow.",
     ])
     document.add_heading("16.1 Persistent IDE Search Path Contract", level=2)
     add_callout(document, "Exact RAD Studio Search Path", r"$(PROJECTDIR)\dependencies\DelphiAppTranslation\source")
@@ -1474,6 +1483,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         "[ ] Five package projects build; Win32 Release design BPLs stream components in RAD Studio.",
         "[ ] Complete ComponentSource closure contains matching shared and framework units.",
         "[ ] Development catalogs, settings, preferences, glossaries, layout overrides, and packs pass atomic/recovery tests.",
+        "[ ] GlossaryPublishSmokeTests proves catalog correction, canonical/dependency pack identity, complete deployment to existing Win32/Win64 Debug/Release outputs, unchanged DPROJ content, and no executable build or replacement.",
         "[ ] Canonical scanner totals agree between Wizard and Maintenance for identical inputs.",
         "[ ] Provider timeout, cancellation, retries, placeholders, language codes, quota/auth errors, and credential isolation pass.",
         "[ ] Localization Review findings, glossary, suggestions, layout decisions, HTML package, and resume continuation pass.",

@@ -1164,7 +1164,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.PlatformDefault = False
             TextSettings.Font.Size = 13.000000000000000000
             TextSettings.FontColor = xFF365674
-            Text = 'Create and maintain approved project terminology without rerunning the Setup Wizard. Each project and target language has its own glossary. Save first, then apply it to a matching open catalog when immediate catalog corrections are needed.'
+            Text = 'Create and maintain approved project terminology without rerunning the Setup Wizard. Save terminology for later, or apply and deploy it now to regenerate the matching runtime pack and refresh every available application output without rebuilding the executable.'
           end
           object lblGlossaryLanguage: TLabel
             Position.X = 26.000000000000000000
@@ -1420,7 +1420,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 40.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 13
-            Text = 'Apply to Open Catalog'
+            Text = 'Apply and Deploy'
             OnClick = btnGlossaryApplyClick
           end
           object lblGlossarySummary: TLabel

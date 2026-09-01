@@ -572,8 +572,9 @@ def build_user_guide() -> Path:
 
     document.add_heading("23. Maintenance Page 4 - Glossary", level=1)
     add_paragraphs(document, [
-        "Glossary is the direct terminology workspace requested for day-to-day development. It sits immediately below Translate on the left rail and lets you create, correct, approve, save, and apply project terminology without rerunning the Setup Wizard. A glossary belongs to one opened Delphi application and one target language. You can create it before a development catalog exists; only the optional Apply to Open Catalog action requires a matching catalog.",
+        "Glossary is the direct terminology workspace requested for day-to-day development. It sits immediately below Translate on the left rail and lets you create, correct, approve, save, publish, and deploy project terminology without rerunning the Setup Wizard. A glossary belongs to one opened Delphi application and one target language. You may create and save it before a development catalog exists. Publishing requires that the Setup Wizard has completed at least once for that project and language, because the Studio must have a matching development catalog and managed dependency pack folder to update safely.",
         r"The authoritative file is %LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\<ApplicationId>\Glossaries\<ApplicationId>.<locale>.glossary.json. The Studio displays the resolved path on the page. Saving is atomic: the new JSON is validated before it replaces the active file, and the normal .previous/.tmp/.corrupt recovery contract protects the last usable copy.",
+        "Runtime language packs are external JSON files beside the executable; glossary terms are not compiled into the EXE. Apply and Deploy updates those pack files directly. No target rebuild is required for a terminology-only correction, although you must restart a running target application or otherwise cause it to reload the updated pack before judging the result.",
     ])
     add_screen_control_table(document, [
         ["Target language", "Chooses the application/locale glossary to open or create.", "Changing language first offers Save, Discard, or Cancel when the current glossary has unsaved changes."],
@@ -590,16 +591,16 @@ def build_user_guide() -> Path:
         ["Delete", "Removes the selected term after confirmation.", "The deletion remains pending until Save Glossary; Cancel Edits restores the saved file."],
         ["Cancel Edits", "Discards every unsaved change to the selected language glossary after confirmation.", "Use it to reload the last saved file. It does not close Maintenance Studio or cancel a scan/provider operation."],
         ["Save Glossary", "Atomically writes the complete glossary JSON.", "Save before leaving the page or applying terms. Closing, opening another project, or changing glossary language also protects dirty work with a prompt."],
-        ["Apply to Open Catalog", "Applies approved matching terms to the currently open catalog for the same target language.", "The Studio first saves dirty glossary work, skips Reviewed and Approved entries, records Project Glossary origin, saves the development catalog, and invalidates prior validation. Revalidate and re-export afterward."],
+        ["Apply and Deploy", "Publishes approved matching terms through the matching development catalog and current runtime pack, then deploys the verified pack set.", "The Studio saves dirty work, loads the matching catalog automatically, skips protected Reviewed and Approved entries, validates the result, atomically refreshes the canonical and managed dependency packs, and deploys the complete pack set to every detected existing build output and remembered destination. It reports every updated, unavailable, or failed destination."],
     ])
     add_steps(document, [
         "Open Maintenance Studio, open the Delphi project, and select Glossary on the left rail.",
         "Choose the target language. An existing glossary loads automatically; otherwise a new in-memory glossary is ready immediately and no Wizard run is required.",
         "Choose New, enter the required source term and preferred translation, add optional concept/note information, set Case-sensitive and Approved deliberately, then choose Add / Update Term.",
         "Repeat for additional terms and choose Save Glossary. To revise a term later, select it in the list, edit the fields, choose Add / Update Term, and save again.",
-        "If the matching development catalog is open on Translate, choose Apply to Open Catalog for immediate corrections. Then run Validation and export a fresh runtime pack before deploying it.",
+        "Choose Apply and Deploy. The matching catalog is loaded automatically; it does not have to be open on Translate. Read the completion report and confirm that the intended existing Win32/Win64 Debug/Release output folders and remembered application destinations were updated.",
     ])
-    add_callout(document, "What Apply does not do.", "It does not call DeepL or Google, rerun the Wizard, rescan the project, approve entries, export a runtime pack, deploy files, or edit Pascal/DFM/FMX/DPR/DPROJ. It updates only eligible unresolved records in the matching open development catalog.")
+    add_callout(document, "Safe terminology-only publication.", "Apply and Deploy does not call DeepL or Google, rerun the Wizard, rescan source, approve entries, rebuild an executable, replace an executable, or edit Pascal/DFM/FMX/DPR/DPROJ. It updates only eligible unprotected catalog records, validates and exports the affected external JSON pack, refreshes the managed dependency copy, and atomically deploys the complete pack set to destinations that already exist.")
 
     document.add_heading("24. Maintenance Page 5 - Validation", level=1)
     add_paragraphs(document, [
@@ -753,6 +754,7 @@ def build_user_guide() -> Path:
         ["RTL text is left-aligned or controls overlap", "Container/paragraph direction or baseline geometry contract is missing for that surface.", "Record the exact screen/control; correct the universal contract, then test RTL->LTR->RTL rather than adding a locale-specific coordinate fix."],
         ["A current JSON file is rejected", "Truncated/corrupt write or incompatible schema.", "Preserve the .corrupt file, inspect .previous recovery, and regenerate from a valid source/catalog."],
         ["A remembered key appears missing", "Provider selection changed, credential removed, or session-only mode used.", "Select the correct provider and inspect Windows Credential Manager target DelphiAppTranslationStudio/Providers/<Provider>."],
+        ["A saved glossary correction is absent at runtime", "Save Glossary persisted the terminology JSON but did not publish it, the matching Wizard catalog/dependency does not exist yet, or the running application has not reloaded its pack.", "Choose Glossary > Apply and Deploy, read the destination report, then restart the target from the reported output folder and select the corrected language."],
     ])
 
     document.add_heading("34. Complete First-Time Checklist", level=1)
@@ -771,6 +773,7 @@ def build_user_guide() -> Path:
         "[ ] Source and target locales verified; scan counts reviewed.",
         "[ ] Required safety ZIP, saved-project/application-closed confirmation, and authorization reviewed.",
         "[ ] Localization Review completed; glossary and layout decisions saved.",
+        "[ ] Any later terminology-only correction was published with Glossary > Apply and Deploy; the destination report names the intended outputs.",
         "[ ] Validation has no blocking errors; runtime packs exported.",
         "[ ] Prepare / Update Dependencies completed; dated previous-dependency snapshot recorded.",
         r"[ ] Complete dependency installed under dependencies\DelphiAppTranslation; target DPROJ hash unchanged.",

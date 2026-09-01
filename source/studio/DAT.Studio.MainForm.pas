@@ -378,6 +378,8 @@ uses
 
 {$R *.fmx}
 
+function FindStudioProjectRoot: string; forward;
+
 procedure TfrmTranslationStudio.btnGuidedSetupClick(Sender: TObject);
 var
   SetupWizard: TfrmSetupWizard;
@@ -687,20 +689,15 @@ end;
 procedure TfrmTranslationStudio.UpdateGlossaryActions;
 var
   GlossaryLoaded: Boolean;
-  MatchingCatalogLoaded: Boolean;
 begin
   GlossaryLoaded := FProjectGlossary <> nil;
-  MatchingCatalogLoaded := GlossaryLoaded and
-    (FTranslationCatalog <> nil) and
-    SameText(FTranslationCatalog.Locale.LanguageCode,
-      SelectedLanguageCode(cboGlossaryLanguage));
   btnGlossaryNew.Enabled := GlossaryLoaded;
   btnGlossaryAddUpdate.Enabled := GlossaryLoaded;
   btnGlossaryDelete.Enabled := GlossaryLoaded and
     (lstGlossaryTerms.ItemIndex >= 0);
   btnGlossaryCancelChanges.Enabled := GlossaryLoaded and FGlossaryDirty;
   btnGlossarySave.Enabled := GlossaryLoaded;
-  btnGlossaryApply.Enabled := MatchingCatalogLoaded;
+  btnGlossaryApply.Enabled := GlossaryLoaded;
 end;
 
 procedure TfrmTranslationStudio.RefreshGlossary;
@@ -982,32 +979,58 @@ end;
 
 procedure TfrmTranslationStudio.btnGlossaryApplyClick(Sender: TObject);
 var
-  AppliedCount: Integer;
+  LayoutProposalFileName: string;
+  PublishResult: TGlossaryPublishResult;
 begin
   if FProjectGlossary = nil then
     Exit;
   if FGlossaryDirty and not SaveProjectGlossary then
     Exit;
-  if (FTranslationCatalog = nil) or
-     not SameText(FTranslationCatalog.Locale.LanguageCode,
-       SelectedLanguageCode(cboGlossaryLanguage)) then
-  begin
-    lblStatus.Text :=
-      'Open or scan the matching target-language catalog before applying terms.';
-    UpdateGlossaryActions;
-    Exit;
+  PublishResult := nil;
+  ShowOperation('Publishing glossary',
+    'Validating the catalog and preparing runtime language packs...', False);
+  try
+    LayoutProposalFileName := TPath.Combine(FindStudioProjectRoot,
+      TPath.Combine('export\localization-review',
+        TPath.Combine(FProjectProfile.ProjectName,
+          TPath.Combine(SelectedLanguageCode(cboGlossaryLanguage),
+            'layout-proposal.json'))));
+    PublishResult := TGlossaryPublisher.Publish(FProjectProfile,
+      FGlossaryFileName, LayoutProposalFileName);
+    if (FTranslationCatalog <> nil) and
+      SameText(FTranslationCatalog.Locale.LanguageCode,
+        SelectedLanguageCode(cboGlossaryLanguage)) then
+    begin
+      FreeAndNil(FTranslationCatalog);
+      FTranslationCatalog := TCatalogJson.LoadFromFile(
+        PublishResult.CatalogFileName);
+      FCatalogFileName := PublishResult.CatalogFileName;
+      lblCatalogPathValue.Text := FCatalogFileName;
+      DisplayCatalogLanguage;
+      DisplayCatalogEntries;
+      InvalidateValidation;
+      UpdateCatalogReadiness;
+    end;
+    lblGlossarySummary.Text := PublishResult.Summary;
+    lblExportPathValue.Text := PublishResult.RuntimePackFileName;
+    if PublishResult.FailedDestinationCount = 0 then
+      lblStatus.Text := 'Glossary changes published without rebuilding the application.'
+    else
+      lblStatus.Text :=
+        'Glossary and canonical packs were updated, but one or more deployment destinations need attention.';
+    TDialogServiceSync.MessageDialog(PublishResult.Summary + sLineBreak +
+      sLineBreak + PublishResult.Messages.Text, TMsgDlgType.mtInformation,
+      [TMsgDlgBtn.mbOK], TMsgDlgBtn.mbOK, 0);
+  except
+    on E: Exception do
+    begin
+      lblGlossarySummary.Text := 'Glossary publishing did not complete.';
+      lblStatus.Text := E.Message;
+    end;
   end;
-  AppliedCount := FProjectGlossary.ApplyToCatalog(FTranslationCatalog);
-  if FCatalogFileName = '' then
-    FCatalogFileName := TTranslationWorkspace.DevelopmentCatalogFileName(
-      FProjectProfile, FTranslationCatalog.Locale.LanguageCode);
-  TCatalogJson.SaveToFile(FTranslationCatalog, FCatalogFileName);
-  DisplayCatalogEntries;
-  InvalidateValidation;
-  UpdateCatalogReadiness;
-  lblStatus.Text := Format(
-    '%d catalog entr%s updated from the saved project glossary.',
-    [AppliedCount, IfThen(AppliedCount = 1, 'y', 'ies')]);
+  PublishResult.Free;
+  HideOperation;
+  UpdateGlossaryActions;
 end;
 
 procedure TfrmTranslationStudio.ApplyTargetLanguageDefaults;

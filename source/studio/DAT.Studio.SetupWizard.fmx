@@ -33,11 +33,81 @@ object frmSetupWizard: TfrmSetupWizard
         Size.PlatformDefault = False
         Stroke.Kind = None
       end
+      object WizardBrandMark: TRectangle
+        Position.X = 832.000000000000000000
+        Position.Y = 17.000000000000000000
+        Size.Width = 58.000000000000000000
+        Size.Height = 58.000000000000000000
+        Size.PlatformDefault = False
+        Fill.Color = xFF0C315B
+        Stroke.Color = xFFFFFFFF
+        Stroke.Thickness = 2.000000000000000000
+        XRadius = 12.000000000000000000
+        YRadius = 12.000000000000000000
+        object WizardBrandMarkAccent: TRectangle
+          Align = Bottom
+          Fill.Color = xFFFF8A00
+          Size.Width = 54.000000000000000000
+          Size.Height = 8.000000000000000000
+          Size.PlatformDefault = False
+          Stroke.Kind = None
+          XRadius = 4.000000000000000000
+          YRadius = 4.000000000000000000
+        end
+        object lblWizardBrandInitials: TLabel
+          Align = Client
+          StyledSettings = []
+          Size.Width = 54.000000000000000000
+          Size.Height = 54.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 18.000000000000000000
+          TextSettings.Font.StyleExt = {00070000000000000004000000}
+          TextSettings.FontColor = claWhite
+          TextSettings.HorzAlign = Center
+          TextSettings.VertAlign = Center
+          Text = 'DAT'
+        end
+      end
+      object lblWizardBrandName: TLabel
+        StyledSettings = []
+        Position.X = 904.000000000000000000
+        Position.Y = 16.000000000000000000
+        Size.Width = 146.000000000000000000
+        Size.Height = 19.000000000000000000
+        Size.PlatformDefault = False
+        TextSettings.Font.Size = 10.000000000000000000
+        TextSettings.Font.StyleExt = {00070000000000000004000000}
+        TextSettings.FontColor = xFFB9D8F5
+        Text = 'DELPHI APP TRANSLATION'
+      end
+      object lblWizardBrandStudio: TLabel
+        StyledSettings = []
+        Position.X = 904.000000000000000000
+        Position.Y = 34.000000000000000000
+        Size.Width = 146.000000000000000000
+        Size.Height = 26.000000000000000000
+        Size.PlatformDefault = False
+        TextSettings.Font.Size = 17.000000000000000000
+        TextSettings.Font.StyleExt = {00070000000000000004000000}
+        TextSettings.FontColor = claWhite
+        Text = 'STUDIO'
+      end
+      object lblWizardBrandFamily: TLabel
+        StyledSettings = []
+        Position.X = 904.000000000000000000
+        Position.Y = 61.000000000000000000
+        Size.Width = 146.000000000000000000
+        Size.Height = 18.000000000000000000
+        Size.PlatformDefault = False
+        TextSettings.Font.Size = 9.000000000000000000
+        TextSettings.FontColor = xFFFFB45C
+        Text = 'VANGUARD SOFTWARE'
+      end
       object lblTitle: TLabel
         StyledSettings = []
         Position.X = 34.000000000000000000
         Position.Y = 18.000000000000000000
-        Size.Width = 760.000000000000000000
+        Size.Width = 770.000000000000000000
         Size.Height = 42.000000000000000000
         Size.PlatformDefault = False
         TextSettings.Font.Size = 25.000000000000000000
@@ -49,7 +119,7 @@ object frmSetupWizard: TfrmSetupWizard
         StyledSettings = []
         Position.X = 36.000000000000000000
         Position.Y = 60.000000000000000000
-        Size.Width = 940.000000000000000000
+        Size.Width = 770.000000000000000000
         Size.Height = 28.000000000000000000
         Size.PlatformDefault = False
         TextSettings.Font.Size = 14.000000000000000000
