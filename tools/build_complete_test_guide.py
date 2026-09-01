@@ -762,6 +762,11 @@ def build_document() -> Path:
         "Do not register a generated-kit path.",
         "Per-project component kits are replaceable output. Installing a BPL from a kit would make Delphi depend on a volatile path and could prevent clean kit regeneration. Always use Show Design BPL and the stable Studio bin\\packages\\Win32\\Release file.",
     )
+    add_callout(
+        document,
+        "Exact compiler Search Path for the target project.",
+        r"In RAD Studio, open Project > Options > Building > Delphi Compiler, select All configurations and All platforms, and append $(PROJECTDIR)\dependencies\DelphiAppTranslation\source to Search path exactly once. Preserve every existing entry and use a semicolon between entries when necessary.",
+    )
 
     add_test_case(
         document,
@@ -770,7 +775,7 @@ def build_document() -> Path:
         "Add one manager and one optional selector through normal Form Designer operations in the disposable target copy.",
         [
             r"Open C:\DelphiProjects\FMXPilot - Component Test\FMXPilot.dproj in RAD Studio.",
-            r"In Project Options, add $(PROJECTDIR)\dependencies\DelphiAppTranslation\source to the Delphi Search Path exactly once for all configurations and both Windows platforms. Retain every existing entry.",
+            r"Verify that Project Options contains $(PROJECTDIR)\dependencies\DelphiAppTranslation\source exactly once in the Delphi Compiler Search path for all configurations and both Windows platforms. Retain every existing entry.",
             "Open FMXPilot.MainForm.fmx (frmMainDashboard) in the FMX Form Designer.",
             "Drop one TDATFMXLanguageManager on the primary form.",
             "Set ApplicationId to FMXPilot, LanguagesFolder to Localization\\Languages, and SourceLanguage to en-US.",

@@ -176,10 +176,10 @@ def build_user_guide() -> Path:
         ("3. Get the Studio from GitHub", 4),
         ("4. Build and Open the Studio", 5),
         ("5. Prepare Your Delphi Application", 6),
-        ("6. Give Delphi Access to the DAT Dependencies", 6),
-        ("7. Understand the Files Under %LOCALAPPDATA%", 8),
-        ("8. Meet the Start Screen and Keyboard Controls", 10),
-        ("9. Move Through the Setup Wizard with Confidence", 11),
+        ("6. Give Delphi Access to the DAT Dependencies", 7),
+        ("7. Understand the Files Under %LOCALAPPDATA%", 9),
+        ("8. Meet the Start Screen and Keyboard Controls", 11),
+        ("9. Move Through the Setup Wizard with Confidence", 12),
         ("10. Wizard Step 1 - Welcome", 13),
         ("11. Wizard Step 2 - Delphi Project", 14),
         ("12. Wizard Step 3 - Deployment", 15),
@@ -190,11 +190,11 @@ def build_user_guide() -> Path:
         ("17. Localization Review Window", 22),
         ("18. Wizard Step 8 - Process and Finish", 23),
         ("19. Maintenance Studio Overview", 24),
-        ("20. Maintenance Page 1 - Project", 26),
-        ("21. Maintenance Page 2 - Scan", 27),
+        ("20. Maintenance Page 1 - Project", 25),
+        ("21. Maintenance Page 2 - Scan", 26),
         ("22. Maintenance Page 3 - Translate", 27),
         ("23. Maintenance Page 4 - Glossary", 29),
-        ("24. Maintenance Page 5 - Validation", 32),
+        ("24. Maintenance Page 5 - Validation", 31),
         ("25. Maintenance Page 6 - Export", 32),
         ("26. Maintenance Page 7 - Integration", 33),
         ("27. Maintenance Page 8 - Provider Settings", 34),
@@ -353,8 +353,16 @@ def build_user_guide() -> Path:
         ["FireMonkey target", "DAT.Runtime.FMX; DAT.Runtime.SplashTranslation.FMX; DAT.Runtime.TemplateRewrite.FMX; DAT.Components.FMX; DAT.Components.FMX.LanguageSelector"],
     ], widths=[2100, 7260])
     document.add_heading("6.3 Tell Delphi where the units are", level=2)
+    add_callout(document, "Exact compiler Search Path to enter", r"$(PROJECTDIR)\dependencies\DelphiAppTranslation\source")
+    add_steps(document, [
+        "Open the target project in RAD Studio, then choose Project > Options > Building > Delphi Compiler.",
+        "At the top of Project Options, select All configurations and All platforms so the setting applies to every normal IDE build of this project.",
+        "Locate Search path. Keep every existing entry and add the exact relative path shown above as one additional entry, separated from other entries by a semicolon when necessary.",
+        "Save Project Options. Enter this path once per target project; do not add it again when the Studio refreshes the managed dependency folder.",
+    ])
     add_paragraphs(document, [
-        r"The Studio never writes the DPROJ. For normal IDE builds, open Project > Options > Building > Delphi Compiler, select All configurations and All platforms, and add $(PROJECTDIR)\dependencies\DelphiAppTranslation\source to Search path without removing any existing entry. Do this once per target project. Repeated Studio runs refresh the same dependency folder and do not add duplicate paths.",
+        "The path is relative to the folder containing the target project file. It points to the PAS units automatically maintained under the target project's dependencies folder. Do not substitute the Studio repository path, the export\\component-integration path, or the deployment\\Languages path.",
+        "The Studio never writes the DPROJ. Studio-initiated builds pass the same dependency directory to MSBuild temporarily for that build process only. The persistent Project Options value above is the developer-owned setting used by ordinary RAD Studio builds.",
     ])
     add_callout(document, "What remains manual?", r"RAD Studio package registration remains deliberate: choose Component > Install Packages > Add and select the exact design BPL shown by the Studio. The verified bundle is in <Kit>\DesignPackages\Win32\Release; the required core and framework runtime BPLs are beside it. Component placement, Object Inspector values, and the one developer-owned Project Options Search path remain deliberate IDE actions. Folder creation, dependency refresh, Studio builds, and pack deployment are automatic.")
 

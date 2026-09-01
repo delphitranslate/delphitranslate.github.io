@@ -647,8 +647,16 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     ])
 
     document.add_heading(WIZARD_HEADINGS[13], level=1)
+    add_callout(document, "Exact compiler Search Path to enter", r"$(PROJECTDIR)\dependencies\DelphiAppTranslation\source")
+    add_steps(document, [
+        "Open the target project in RAD Studio and choose Project > Options > Building > Delphi Compiler.",
+        "Select All configurations and All platforms at the top of Project Options.",
+        "Locate Search path, preserve every existing entry, and add the exact relative path shown above as one additional entry. Use a semicolon between entries when necessary.",
+        "Save Project Options. This is a one-time setting for the target project; later Wizard or Maintenance runs refresh the same dependency folder and do not require another entry.",
+    ])
     add_paragraphs(document, [
-        r"The Wizard never edits the DPROJ. Wizard-initiated builds temporarily prepend <Target>\dependencies\DelphiAppTranslation\source to DCC_UnitSearchPath for that process only. For normal IDE builds, the developer opens Project > Options > Building > Delphi Compiler, selects All configurations and All platforms, and adds $(PROJECTDIR)\dependencies\DelphiAppTranslation\source without removing existing entries.",
+        "The path is relative to the target project file and points to the PAS dependency units prepared by the Studio. Do not use the Studio repository, the generated component-kit folder, or deployment\\Languages as the compiler Search Path.",
+        r"The Wizard never edits the DPROJ. Wizard-initiated builds temporarily prepend <Target>\dependencies\DelphiAppTranslation\source to DCC_UnitSearchPath for that process only. The Project Options value above is the developer-owned persistent setting for ordinary IDE builds.",
     ])
     add_callout(document, "One developer-owned Project Options entry.", "Add the dependency source path once. If preparation is repeated, the Studio refreshes the same folder and never adds or duplicates a DPROJ entry. The completion report gives the exact path and prior-dependency snapshot location.")
     add_callout(document, "Verified toolchain path.", r"RAD Studio environment: C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat. Win32 compiler: C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc32.exe.")
@@ -1241,8 +1249,20 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         r"The Studio never writes DCC_UnitSearchPath or an Import element into the DPROJ. RunHiddenBuild uses /p:DCC_UnitSearchPath with <Target>\dependencies\DelphiAppTranslation\source for that MSBuild process only. BuildAndDeploy then atomically replaces the output Localization\Languages set directly, preventing obsolete locale files from surviving a Studio deployment.",
         "TTargetBuildDeployer runs the baseline Win32 Release build even when no output folder existed, refreshes other supported configurations already in use, locates the configured executable output, and performs an additional atomic/hash-validated deployment. Configured application destinations use the same atomic routine. TIntegrationPackageGenerator and TDelphiIntegrationSourceEditor remain advanced source-edit machinery and are not invoked by the component workflow.",
     ])
+    document.add_heading("16.1 Persistent IDE Search Path Contract", level=2)
+    add_callout(document, "Exact RAD Studio Search Path", r"$(PROJECTDIR)\dependencies\DelphiAppTranslation\source")
+    add_steps(document, [
+        "Open Project > Options > Building > Delphi Compiler for the target project.",
+        "Select All configurations and All platforms.",
+        "Append the exact relative path above to Search path while preserving every existing entry. Use a semicolon as the delimiter when other entries are present.",
+        "Save the Project Options value once. Subsequent Studio dependency refreshes replace the contents of the same managed folder and do not require or authorize another path entry.",
+    ])
+    add_paragraphs(document, [
+        "$(PROJECTDIR) resolves to the directory containing the target DPROJ. The entry therefore remains portable when the entire target project is moved or cloned. It must not resolve into the Studio repository or a replaceable export kit.",
+        "Ownership is deliberately split: the developer owns this normal RAD Studio setting; the Studio owns only the managed dependency folder. For Studio-initiated builds, RunHiddenBuild supplies the absolute dependency source directory through the process-local /p:DCC_UnitSearchPath MSBuild property. No persistent DPROJ mutation, import, managed block, or post-build event is used.",
+    ])
     add_bullets(document, [
-        "The managed block must be uniquely marked, repeatable, and preserve $(DCC_UnitSearchPath). A second run replaces it instead of appending another path/import.",
+        "The Project Options Search path contains one developer-added relative entry. The Studio never inserts, replaces, or duplicates that entry in the DPROJ.",
         "The dependency folder is Studio-owned as one versioned unit. Do not combine its files with older DAT copies beside the DPR or in a legacy DAT_Runtime folder.",
         "Pack deployment is an explicit Studio build/deployment operation; stale target JSON is removed before the current set is promoted. Ordinary IDE builds do not import or execute hidden Studio project logic.",
         "Unavailable optional removable/network destinations warn and skip; they must not fail an otherwise valid local build.",
