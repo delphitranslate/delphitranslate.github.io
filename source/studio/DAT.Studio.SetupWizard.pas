@@ -26,9 +26,7 @@ type
     RootLayout: TLayout;
     HeaderBackground: TRectangle;
     HeaderAccent: TRectangle;
-    WizardBrandMark: TRectangle;
-    WizardBrandMarkAccent: TRectangle;
-    lblWizardBrandInitials: TLabel;
+    imgWizardBrand: TImage;
     lblWizardBrandName: TLabel;
     lblWizardBrandStudio: TLabel;
     lblWizardBrandFamily: TLabel;

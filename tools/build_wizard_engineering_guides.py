@@ -482,7 +482,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     add_focus_screen(document, "07-wizard-welcome.png", "Figure 4-2. Welcome-page navigation buttons.", "Back, Next, and Cancel buttons on the Welcome page", (55700, 75700, 0, 0), 5.2)
     add_paragraphs(document, [
         "The Welcome page is a quiet starting point. Nothing has been scanned, translated, backed up, exported, or deployed yet, so you can read the overview without affecting a project.",
-        "The header carries the DAT product mark, Delphi App Translation Studio name, and Vanguard Software family identity. These designer-owned brand controls identify the product consistently while remaining editable in the FMX Form Designer.",
+        "The header carries the genuine App Translate product icon from the project Images folder, the Delphi App Translation Studio name, and the Vanguard Software family identity. The icon is embedded in a designer-owned TImage so the same approved branding appears on every Wizard page without depending on an external file at runtime.",
         "Read the safety notice, then press Enter or select Next. The notice explains that final processing creates a backup and Studio-owned artifacts while your target Pascal, form, DPR, and DPROJ files remain read-only.",
     ])
     add_control_table(document, [
