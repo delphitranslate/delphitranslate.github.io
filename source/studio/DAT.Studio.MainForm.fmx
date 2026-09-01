@@ -164,56 +164,69 @@ object frmTranslationStudio: TfrmTranslationStudio
             Text = '3  Translate'
           OnClick = lblNavigationLanguagesClick
         end
-        object lblNavigationValidation: TLabel
+        object lblNavigationGlossary: TLabel
           HitTest = True
           StyledSettings = []
           Position.X = 30.000000000000000000
-          Position.Y = 248.000000000000000000
+          Position.Y = 244.000000000000000000
           Size.Width = 180.000000000000000000
           Size.Height = 32.000000000000000000
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
-          Text = '4  Validation'
+          Text = '4  Glossary'
+          OnClick = lblNavigationGlossaryClick
+        end
+        object lblNavigationValidation: TLabel
+          HitTest = True
+          StyledSettings = []
+          Position.X = 30.000000000000000000
+          Position.Y = 300.000000000000000000
+          Size.Width = 180.000000000000000000
+          Size.Height = 32.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 14.000000000000000000
+          TextSettings.FontColor = xFFD7E8FF
+          Text = '5  Validation'
           OnClick = lblNavigationValidationClick
         end
         object lblNavigationExport: TLabel
           HitTest = True
           StyledSettings = []
           Position.X = 30.000000000000000000
-          Position.Y = 304.000000000000000000
+          Position.Y = 356.000000000000000000
           Size.Width = 180.000000000000000000
           Size.Height = 32.000000000000000000
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
-          Text = '5  Export'
+          Text = '6  Export'
           OnClick = lblNavigationExportClick
         end
         object lblNavigationIntegration: TLabel
           HitTest = True
           StyledSettings = []
           Position.X = 30.000000000000000000
-          Position.Y = 360.000000000000000000
+          Position.Y = 412.000000000000000000
           Size.Width = 180.000000000000000000
           Size.Height = 32.000000000000000000
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
-          Text = '6  Integration'
+          Text = '7  Integration'
           OnClick = lblNavigationIntegrationClick
         end
         object lblNavigationSettings: TLabel
           HitTest = True
           StyledSettings = []
           Position.X = 30.000000000000000000
-          Position.Y = 416.000000000000000000
+          Position.Y = 468.000000000000000000
           Size.Width = 180.000000000000000000
           Size.Height = 32.000000000000000000
           Size.PlatformDefault = False
           TextSettings.Font.Size = 14.000000000000000000
           TextSettings.FontColor = xFFD7E8FF
-            Text = '7  Provider Settings'
+            Text = '8  Provider Settings'
           OnClick = lblNavigationSettingsClick
         end
       end
@@ -569,13 +582,26 @@ object frmTranslationStudio: TfrmTranslationStudio
             Align = Client
             StyledSettings = []
             Margins.Left = 24.000000000000000000
-            Margins.Right = 18.000000000000000000
-            Size.Width = 866.000000000000000000
+            Margins.Right = 142.000000000000000000
+            Size.Width = 742.000000000000000000
             Size.Height = 78.000000000000000000
             Size.PlatformDefault = False
             TextSettings.Font.Size = 14.000000000000000000
             TextSettings.FontColor = xFF163A63
             Text = 'Ready. Open a Delphi project to begin.'
+          end
+          object btnMaintenanceCancel: TButton
+            Anchors = [akTop, akRight]
+            Cancel = True
+            Visible = False
+            Position.X = 786.000000000000000000
+            Position.Y = 18.000000000000000000
+            Size.Width = 108.000000000000000000
+            Size.Height = 42.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 0
+            Text = 'Cancel'
+            OnClick = btnMaintenanceCancelClick
           end
         end
         object LanguagePageCard: TRectangle
@@ -1102,6 +1128,312 @@ object frmTranslationStudio: TfrmTranslationStudio
             TabOrder = 22
             Text = 'Translate Automatically'
             OnClick = btnTranslateMissingClick
+          end
+        end
+        object GlossaryPageCard: TRectangle
+          Align = Client
+          Fill.Color = claWhite
+          Size.Width = 916.000000000000000000
+          Size.Height = 504.000000000000000000
+          Size.PlatformDefault = False
+          Stroke.Color = xFFD7E5F6
+          Visible = False
+          XRadius = 18.000000000000000000
+          YRadius = 18.000000000000000000
+          object lblGlossaryPageTitle: TLabel
+            Anchors = [akLeft, akTop, akRight]
+            StyledSettings = []
+            Position.X = 26.000000000000000000
+            Position.Y = 18.000000000000000000
+            Size.Width = 850.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 21.000000000000000000
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'Project Glossary'
+          end
+          object lblGlossaryPageDescription: TLabel
+            Anchors = [akLeft, akTop, akRight]
+            StyledSettings = []
+            WordWrap = True
+            Position.X = 26.000000000000000000
+            Position.Y = 50.000000000000000000
+            Size.Width = 850.000000000000000000
+            Size.Height = 44.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 13.000000000000000000
+            TextSettings.FontColor = xFF365674
+            Text = 'Create and maintain approved project terminology without rerunning the Setup Wizard. Each project and target language has its own glossary. Save first, then apply it to a matching open catalog when immediate catalog corrections are needed.'
+          end
+          object lblGlossaryLanguage: TLabel
+            Position.X = 26.000000000000000000
+            Position.Y = 104.000000000000000000
+            Size.Width = 250.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Target language'
+          end
+          object cboGlossaryLanguage: TComboBox
+            TabOrder = 0
+            Position.X = 26.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 260.000000000000000000
+            Size.Height = 32.000000000000000000
+            Size.PlatformDefault = False
+            OnChange = cboGlossaryLanguageChange
+            Items.Strings = (
+              'Arabic (Saudi Arabia) [ar-SA]'
+              'Bulgarian [bg-BG]'
+              'Chinese (Simplified) [zh-CN]'
+              'Chinese (Traditional) [zh-TW]'
+              'Croatian [hr-HR]'
+              'Czech [cs-CZ]'
+              'Danish [da-DK]'
+              'Dutch [nl-NL]'
+              'English (United Kingdom) [en-GB]'
+              'English (United States) [en-US]'
+              'Estonian [et-EE]'
+              'Finnish [fi-FI]'
+              'French (Canada) [fr-CA]'
+              'French (France) [fr-FR]'
+              'German [de-DE]'
+              'Greek [el-GR]'
+              'Hebrew [he-IL]'
+              'Hindi [hi-IN]'
+              'Hungarian [hu-HU]'
+              'Indonesian [id-ID]'
+              'Italian [it-IT]'
+              'Japanese [ja-JP]'
+              'Korean [ko-KR]'
+              'Latvian [lv-LV]'
+              'Lithuanian [lt-LT]'
+              'Norwegian Bokmal [nb-NO]'
+              'Pashto (Afghanistan) [ps-AF]'
+              'Persian [fa-IR]'
+              'Polish [pl-PL]'
+              'Portuguese (Brazil) [pt-BR]'
+              'Portuguese (Portugal) [pt-PT]'
+              'Romanian [ro-RO]'
+              'Russian [ru-RU]'
+              'Serbian (Latin) [sr-Latn-RS]'
+              'Slovak [sk-SK]'
+              'Slovenian [sl-SI]'
+              'Spanish (Mexico) [es-MX]'
+              'Spanish (Spain) [es-ES]'
+              'Swedish [sv-SE]'
+              'Thai [th-TH]'
+              'Turkish [tr-TR]'
+              'Ukrainian [uk-UA]'
+              'Urdu [ur-PK]'
+              'Vietnamese [vi-VN]')
+          end
+          object lblGlossaryFileCaption: TLabel
+            Position.X = 310.000000000000000000
+            Position.Y = 104.000000000000000000
+            Size.Width = 130.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Glossary file'
+          end
+          object lblGlossaryFileValue: TLabel
+            Anchors = [akLeft, akTop, akRight]
+            StyledSettings = []
+            WordWrap = True
+            Position.X = 310.000000000000000000
+            Position.Y = 126.000000000000000000
+            Size.Width = 566.000000000000000000
+            Size.Height = 40.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 11.000000000000000000
+            TextSettings.FontColor = xFF365674
+            Text = 'Open a project and select a target language.'
+          end
+          object lblGlossaryTerms: TLabel
+            StyledSettings = []
+            Position.X = 26.000000000000000000
+            Position.Y = 178.000000000000000000
+            Size.Width = 350.000000000000000000
+            Size.Height = 22.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.StyleExt = {00070000000000000004000000}
+            TextSettings.FontColor = xFF163A63
+            Text = 'Saved and pending terms'
+          end
+          object lstGlossaryTerms: TListBox
+            Position.X = 26.000000000000000000
+            Position.Y = 204.000000000000000000
+            Size.Width = 350.000000000000000000
+            Size.Height = 218.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 1
+            OnChange = lstGlossaryTermsChange
+            ItemHeight = 24.000000000000000000
+          end
+          object lblGlossarySourceTerm: TLabel
+            Position.X = 400.000000000000000000
+            Position.Y = 178.000000000000000000
+            Size.Width = 220.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Source term'
+          end
+          object edtGlossarySourceTerm: TEdit
+            Position.X = 400.000000000000000000
+            Position.Y = 202.000000000000000000
+            Size.Width = 220.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 2
+            TextPrompt = 'Original application wording'
+          end
+          object lblGlossaryTargetTerm: TLabel
+            Position.X = 640.000000000000000000
+            Position.Y = 178.000000000000000000
+            Size.Width = 236.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Preferred translation'
+          end
+          object edtGlossaryTargetTerm: TEdit
+            Position.X = 640.000000000000000000
+            Position.Y = 202.000000000000000000
+            Size.Width = 236.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 3
+            TextPrompt = 'Approved target-language wording'
+          end
+          object lblGlossaryConcept: TLabel
+            Position.X = 400.000000000000000000
+            Position.Y = 250.000000000000000000
+            Size.Width = 220.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Semantic concept (optional)'
+          end
+          object edtGlossaryConcept: TEdit
+            Position.X = 400.000000000000000000
+            Position.Y = 274.000000000000000000
+            Size.Width = 220.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 4
+            TextPrompt = 'close-window, play-media...'
+          end
+          object lblGlossaryDeveloperNote: TLabel
+            Position.X = 640.000000000000000000
+            Position.Y = 250.000000000000000000
+            Size.Width = 236.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Developer note (optional)'
+          end
+          object edtGlossaryDeveloperNote: TEdit
+            Position.X = 640.000000000000000000
+            Position.Y = 274.000000000000000000
+            Size.Width = 236.000000000000000000
+            Size.Height = 34.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 5
+            TextPrompt = 'Why this wording is required'
+          end
+          object chkGlossaryCaseSensitive: TCheckBox
+            Position.X = 400.000000000000000000
+            Position.Y = 318.000000000000000000
+            Size.Width = 190.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 6
+            Text = 'Case-sensitive match'
+          end
+          object chkGlossaryApproved: TCheckBox
+            Position.X = 610.000000000000000000
+            Position.Y = 318.000000000000000000
+            Size.Width = 190.000000000000000000
+            Size.Height = 30.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 7
+            IsChecked = True
+            Text = 'Approved terminology'
+          end
+          object btnGlossaryNew: TButton
+            Enabled = False
+            Position.X = 400.000000000000000000
+            Position.Y = 362.000000000000000000
+            Size.Width = 94.000000000000000000
+            Size.Height = 40.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 8
+            Text = 'New'
+            OnClick = btnGlossaryNewClick
+          end
+          object btnGlossaryAddUpdate: TButton
+            Enabled = False
+            Position.X = 506.000000000000000000
+            Position.Y = 362.000000000000000000
+            Size.Width = 150.000000000000000000
+            Size.Height = 40.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 9
+            Text = 'Add / Update Term'
+            OnClick = btnGlossaryAddUpdateClick
+          end
+          object btnGlossaryDelete: TButton
+            Enabled = False
+            Position.X = 668.000000000000000000
+            Position.Y = 362.000000000000000000
+            Size.Width = 94.000000000000000000
+            Size.Height = 40.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 10
+            Text = 'Delete'
+            OnClick = btnGlossaryDeleteClick
+          end
+          object btnGlossaryCancelChanges: TButton
+            Enabled = False
+            Position.X = 774.000000000000000000
+            Position.Y = 362.000000000000000000
+            Size.Width = 102.000000000000000000
+            Size.Height = 40.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 11
+            Text = 'Cancel Edits'
+            OnClick = btnGlossaryCancelChangesClick
+          end
+          object btnGlossarySave: TButton
+            Enabled = False
+            Position.X = 400.000000000000000000
+            Position.Y = 420.000000000000000000
+            Size.Width = 142.000000000000000000
+            Size.Height = 40.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 12
+            Text = 'Save Glossary'
+            OnClick = btnGlossarySaveClick
+          end
+          object btnGlossaryApply: TButton
+            Enabled = False
+            Position.X = 554.000000000000000000
+            Position.Y = 420.000000000000000000
+            Size.Width = 190.000000000000000000
+            Size.Height = 40.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 13
+            Text = 'Apply to Open Catalog'
+            OnClick = btnGlossaryApplyClick
+          end
+          object lblGlossarySummary: TLabel
+            StyledSettings = []
+            WordWrap = True
+            Position.X = 26.000000000000000000
+            Position.Y = 432.000000000000000000
+            Size.Width = 350.000000000000000000
+            Size.Height = 48.000000000000000000
+            Size.PlatformDefault = False
+            TextSettings.Font.Size = 12.000000000000000000
+            TextSettings.FontColor = xFF365674
+            Text = 'No project glossary is loaded.'
           end
         end
         object ValidationPageCard: TRectangle

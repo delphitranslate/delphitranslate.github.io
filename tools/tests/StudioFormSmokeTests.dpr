@@ -220,6 +220,8 @@ begin
         raise Exception.Create('The Studio should open at its designed size rather than maximized.');
       if (frmTranslationStudio.LanguagePageCard.Align <>
           TAlignLayout.Client) or
+         (frmTranslationStudio.GlossaryPageCard.Align <>
+          TAlignLayout.Client) or
          (frmTranslationStudio.ValidationPageCard.Align <>
           TAlignLayout.Client) or
          (frmTranslationStudio.ExportPageCard.Align <>
@@ -235,11 +237,14 @@ begin
         frmTranslationStudio.memTranslatedText.Anchors) then
         raise Exception.Create('The translation work areas do not resize vertically.');
       if (frmTranslationStudio.cboSourceLanguage.Items.Count < 40) or
-         (frmTranslationStudio.cboTargetLanguage.Items.Count < 40) then
+         (frmTranslationStudio.cboTargetLanguage.Items.Count < 40) or
+         (frmTranslationStudio.cboGlossaryLanguage.Items.Count < 40) then
         raise Exception.Create('The built-in language selection list is incomplete.');
       if (frmTranslationStudio.cboSourceLanguage.Items.IndexOf(
           'Pashto (Afghanistan) [ps-AF]') < 0) or
          (frmTranslationStudio.cboTargetLanguage.Items.IndexOf(
+          'Pashto (Afghanistan) [ps-AF]') < 0) or
+         (frmTranslationStudio.cboGlossaryLanguage.Items.IndexOf(
           'Pashto (Afghanistan) [ps-AF]') < 0) then
         raise Exception.Create(
           'The built-in language lists omit a supported RTL language.');
@@ -254,9 +259,31 @@ begin
          (frmTranslationStudio.btnGuidedSetup.Text <> 'Start Setup Wizard') then
         raise Exception.Create('The recommended Setup Wizard action is unavailable.');
       if not Assigned(frmTranslationStudio.mnuFileExit.OnClick) or
-         not Assigned(frmTranslationStudio.btnOperationCancel.OnClick) then
+         not Assigned(frmTranslationStudio.btnOperationCancel.OnClick) or
+         not Assigned(frmTranslationStudio.btnMaintenanceCancel.OnClick) or
+         not frmTranslationStudio.btnMaintenanceCancel.Cancel then
         raise Exception.Create(
           'Exit or visible operation cancellation is not designer-wired.');
+      if not Assigned(frmTranslationStudio.cboGlossaryLanguage.OnChange) or
+         not Assigned(frmTranslationStudio.lstGlossaryTerms.OnChange) or
+         not Assigned(frmTranslationStudio.btnGlossaryNew.OnClick) or
+         not Assigned(frmTranslationStudio.btnGlossaryAddUpdate.OnClick) or
+         not Assigned(frmTranslationStudio.btnGlossaryDelete.OnClick) or
+         not Assigned(frmTranslationStudio.btnGlossaryCancelChanges.OnClick) or
+         not Assigned(frmTranslationStudio.btnGlossarySave.OnClick) or
+         not Assigned(frmTranslationStudio.btnGlossaryApply.OnClick) then
+        raise Exception.Create(
+          'The Maintenance Studio glossary actions are not designer-wired.');
+      if frmTranslationStudio.btnGlossaryApply.Position.Y +
+           frmTranslationStudio.btnGlossaryApply.Height >=
+           frmTranslationStudio.GlossaryPageCard.Height then
+        raise Exception.Create(
+          'The glossary actions extend below the workflow page.');
+      if frmTranslationStudio.lblNavigationSettings.Position.Y +
+           frmTranslationStudio.lblNavigationSettings.Height >=
+           frmTranslationStudio.NavigationCard.Height then
+        raise Exception.Create(
+          'The expanded workflow ladder extends below its navigation card.');
       if frmTranslationStudio.OperationCard.Visible then
         raise Exception.Create(
           'The operation progress card must start hidden.');
@@ -382,6 +409,7 @@ begin
       if not frmTranslationStudio.lblNavigationProject.HitTest or
          not frmTranslationStudio.lblNavigationScan.HitTest or
          not frmTranslationStudio.lblNavigationLanguages.HitTest or
+         not frmTranslationStudio.lblNavigationGlossary.HitTest or
          not frmTranslationStudio.lblNavigationValidation.HitTest or
          not frmTranslationStudio.lblNavigationExport.HitTest or
          not frmTranslationStudio.lblNavigationIntegration.HitTest or
@@ -390,6 +418,8 @@ begin
           'One or more workflow labels cannot receive mouse clicks.');
       if not Assigned(
         frmTranslationStudio.lblNavigationLanguages.OnClick) or
+         not Assigned(
+        frmTranslationStudio.lblNavigationGlossary.OnClick) or
          not Assigned(
         frmTranslationStudio.lblNavigationValidation.OnClick) or
          not Assigned(
@@ -417,6 +447,11 @@ begin
       if not frmTranslationStudio.LanguagePageCard.Visible then
         raise Exception.Create(
           'The Languages workflow label did not activate its page.');
+      frmTranslationStudio.lblNavigationGlossary.OnClick(
+        frmTranslationStudio.lblNavigationGlossary);
+      if not frmTranslationStudio.GlossaryPageCard.Visible then
+        raise Exception.Create(
+          'The Glossary workflow label did not activate its page.');
       frmTranslationStudio.lblNavigationSettingsClick(nil);
       if not frmTranslationStudio.SettingsPageCard.Visible then
         raise Exception.Create(

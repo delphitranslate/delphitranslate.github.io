@@ -16,6 +16,7 @@ uses
   FMX.Dialogs,
   FMX.Menus,
   DAT.Core.Types,
+  DAT.Core.Glossary,
   DAT.Provider.Settings,
   DAT.Provider.Types,
   DAT.Scan.Types,
@@ -41,6 +42,7 @@ type
     lblNavigationProject: TLabel;
     lblNavigationScan: TLabel;
     lblNavigationLanguages: TLabel;
+    lblNavigationGlossary: TLabel;
     lblNavigationValidation: TLabel;
     lblNavigationExport: TLabel;
     lblNavigationIntegration: TLabel;
@@ -117,6 +119,32 @@ type
     memTranslatedText: TMemo;
     btnApplyTranslation: TButton;
     btnTranslateMissing: TButton;
+    GlossaryPageCard: TRectangle;
+    lblGlossaryPageTitle: TLabel;
+    lblGlossaryPageDescription: TLabel;
+    lblGlossaryLanguage: TLabel;
+    cboGlossaryLanguage: TComboBox;
+    lblGlossaryFileCaption: TLabel;
+    lblGlossaryFileValue: TLabel;
+    lblGlossaryTerms: TLabel;
+    lstGlossaryTerms: TListBox;
+    lblGlossarySourceTerm: TLabel;
+    edtGlossarySourceTerm: TEdit;
+    lblGlossaryTargetTerm: TLabel;
+    edtGlossaryTargetTerm: TEdit;
+    lblGlossaryConcept: TLabel;
+    edtGlossaryConcept: TEdit;
+    lblGlossaryDeveloperNote: TLabel;
+    edtGlossaryDeveloperNote: TEdit;
+    chkGlossaryCaseSensitive: TCheckBox;
+    chkGlossaryApproved: TCheckBox;
+    btnGlossaryNew: TButton;
+    btnGlossaryAddUpdate: TButton;
+    btnGlossaryDelete: TButton;
+    btnGlossaryCancelChanges: TButton;
+    btnGlossarySave: TButton;
+    btnGlossaryApply: TButton;
+    lblGlossarySummary: TLabel;
     ValidationPageCard: TRectangle;
     lblValidationPageTitle: TLabel;
     lblValidationDescription: TLabel;
@@ -182,6 +210,7 @@ type
     lblOperationProgress: TLabel;
     prgOperation: TProgressBar;
     btnOperationCancel: TButton;
+    btnMaintenanceCancel: TButton;
     procedure btnOpenProjectClick(Sender: TObject);
     procedure btnGuidedSetupClick(Sender: TObject);
     procedure btnIntroMaintenanceClick(Sender: TObject);
@@ -190,6 +219,7 @@ type
     procedure lblNavigationProjectClick(Sender: TObject);
     procedure lblNavigationScanClick(Sender: TObject);
     procedure lblNavigationLanguagesClick(Sender: TObject);
+    procedure lblNavigationGlossaryClick(Sender: TObject);
     procedure lblNavigationValidationClick(Sender: TObject);
     procedure lblNavigationExportClick(Sender: TObject);
     procedure btnOpenCatalogClick(Sender: TObject);
@@ -232,6 +262,15 @@ type
     procedure datLanguageMenuItemClick(Sender: TObject);
     procedure mnuFileExitClick(Sender: TObject);
     procedure btnOperationCancelClick(Sender: TObject);
+    procedure btnMaintenanceCancelClick(Sender: TObject);
+    procedure cboGlossaryLanguageChange(Sender: TObject);
+    procedure lstGlossaryTermsChange(Sender: TObject);
+    procedure btnGlossaryNewClick(Sender: TObject);
+    procedure btnGlossaryAddUpdateClick(Sender: TObject);
+    procedure btnGlossaryDeleteClick(Sender: TObject);
+    procedure btnGlossaryCancelChangesClick(Sender: TObject);
+    procedure btnGlossarySaveClick(Sender: TObject);
+    procedure btnGlossaryApplyClick(Sender: TObject);
   private
     FProjectProfile: TProjectProfile;
     FScanResult: TProjectScanResult;
@@ -252,6 +291,10 @@ type
     FProviderCancelRequested: Integer;
     FCloseAfterProviderOperation: Boolean;
     FUpdatingTargetLanguage: Boolean;
+    FProjectGlossary: TProjectGlossary;
+    FGlossaryFileName: string;
+    FGlossaryDirty: Boolean;
+    FUpdatingGlossaryLanguage: Boolean;
     procedure ClearProjectSummary;
     procedure ClearScanSummary;
     procedure ResetCatalog;
@@ -287,6 +330,13 @@ type
     procedure ShowOperation(const ATitle, AStatus: string;
       const ACanCancel: Boolean);
     procedure HideOperation;
+    procedure ClearGlossary;
+    procedure ClearGlossaryEditor;
+    procedure LoadSelectedGlossary;
+    procedure RefreshGlossary;
+    procedure UpdateGlossaryActions;
+    function SaveProjectGlossary: Boolean;
+    function ConfirmGlossaryChanges: Boolean;
   public
     destructor Destroy; override;
   end;
@@ -379,8 +429,10 @@ begin
   cboBuildPlatform.ItemIndex := 0;
   cboBuildConfiguration.ItemIndex := 0;
   cboIntegrationMode.ItemIndex := 0;
+  cboGlossaryLanguage.ItemIndex := -1;
   UpdateIntegrationModeUI;
   LoadProviderSettings;
+  ClearGlossary;
   SetWorkflowStep(1);
 end;
 
@@ -414,6 +466,11 @@ begin
   lblOperationProgress.Text := 'Cancelling safely...';
 end;
 
+procedure TfrmTranslationStudio.btnMaintenanceCancelClick(Sender: TObject);
+begin
+  Close;
+end;
+
 procedure TfrmTranslationStudio.mnuFileExitClick(Sender: TObject);
 begin
   Close;
@@ -423,7 +480,10 @@ procedure TfrmTranslationStudio.FormCloseQuery(Sender: TObject;
   var CanClose: Boolean);
 begin
   if not FScanInProgress and not FProviderOperationInProgress then
+  begin
+    CanClose := ConfirmGlossaryChanges;
     Exit;
+  end;
   if FScanInProgress then
   begin
     TInterlocked.Exchange(FScanCancelRequested, 1);
@@ -505,6 +565,7 @@ end;
 
 procedure TfrmTranslationStudio.ClearProjectSummary;
 begin
+  ClearGlossary;
   FProjectProfile := Default(TProjectProfile);
   lblProjectNameValue.Text := 'No project selected';
   lblFrameworkValue.Text := '-';
@@ -546,6 +607,7 @@ end;
 
 destructor TfrmTranslationStudio.Destroy;
 begin
+  FProjectGlossary.Free;
   FProviderSettings.Free;
   FValidationResult.Free;
   FTranslationCatalog.Free;
@@ -595,6 +657,362 @@ begin
       end;
     end;
   end;
+end;
+
+procedure TfrmTranslationStudio.ClearGlossaryEditor;
+begin
+  lstGlossaryTerms.ItemIndex := -1;
+  edtGlossarySourceTerm.Text := '';
+  edtGlossaryTargetTerm.Text := '';
+  edtGlossaryConcept.Text := '';
+  edtGlossaryDeveloperNote.Text := '';
+  chkGlossaryCaseSensitive.IsChecked := False;
+  chkGlossaryApproved.IsChecked := True;
+end;
+
+procedure TfrmTranslationStudio.ClearGlossary;
+begin
+  FreeAndNil(FProjectGlossary);
+  FGlossaryFileName := '';
+  FGlossaryDirty := False;
+  FUpdatingGlossaryLanguage := True;
+  try
+    cboGlossaryLanguage.ItemIndex := -1;
+  finally
+    FUpdatingGlossaryLanguage := False;
+  end;
+  lstGlossaryTerms.Items.Clear;
+  ClearGlossaryEditor;
+  lblGlossaryFileValue.Text := 'Open a project and select a target language.';
+  lblGlossaryFileValue.Hint := '';
+  lblGlossarySummary.Text := 'No project glossary is loaded.';
+  UpdateGlossaryActions;
+end;
+
+procedure TfrmTranslationStudio.UpdateGlossaryActions;
+var
+  GlossaryLoaded: Boolean;
+  MatchingCatalogLoaded: Boolean;
+begin
+  GlossaryLoaded := FProjectGlossary <> nil;
+  MatchingCatalogLoaded := GlossaryLoaded and
+    (FTranslationCatalog <> nil) and
+    SameText(FTranslationCatalog.Locale.LanguageCode,
+      SelectedLanguageCode(cboGlossaryLanguage));
+  btnGlossaryNew.Enabled := GlossaryLoaded;
+  btnGlossaryAddUpdate.Enabled := GlossaryLoaded;
+  btnGlossaryDelete.Enabled := GlossaryLoaded and
+    (lstGlossaryTerms.ItemIndex >= 0);
+  btnGlossaryCancelChanges.Enabled := GlossaryLoaded and FGlossaryDirty;
+  btnGlossarySave.Enabled := GlossaryLoaded;
+  btnGlossaryApply.Enabled := MatchingCatalogLoaded;
+end;
+
+procedure TfrmTranslationStudio.RefreshGlossary;
+var
+  Term: TProjectGlossaryTerm;
+begin
+  lstGlossaryTerms.Items.BeginUpdate;
+  try
+    lstGlossaryTerms.Items.Clear;
+    if FProjectGlossary <> nil then
+      for Term in FProjectGlossary.Terms do
+        lstGlossaryTerms.Items.Add(Term.SourceText + '  ->  ' +
+          Term.TargetText);
+  finally
+    lstGlossaryTerms.Items.EndUpdate;
+  end;
+  if FProjectGlossary = nil then
+    lblGlossarySummary.Text := 'No project glossary is loaded.'
+  else if FGlossaryDirty then
+    lblGlossarySummary.Text := Format(
+      '%d term(s). Unsaved changes are waiting.',
+      [FProjectGlossary.Terms.Count])
+  else if TFile.Exists(FGlossaryFileName) then
+    lblGlossarySummary.Text := Format('%d saved project term(s).',
+      [FProjectGlossary.Terms.Count])
+  else
+    lblGlossarySummary.Text :=
+      'This glossary is new. Add terms, then choose Save Glossary.';
+  UpdateGlossaryActions;
+end;
+
+procedure TfrmTranslationStudio.LoadSelectedGlossary;
+var
+  LanguageCode: string;
+  SourceLanguage: string;
+begin
+  FreeAndNil(FProjectGlossary);
+  FGlossaryFileName := '';
+  FGlossaryDirty := False;
+  lstGlossaryTerms.Items.Clear;
+  ClearGlossaryEditor;
+  LanguageCode := SelectedLanguageCode(cboGlossaryLanguage);
+  if Trim(FProjectProfile.ProjectName) = '' then
+  begin
+    lblGlossaryFileValue.Text := 'Open a Delphi project first.';
+    lblGlossarySummary.Text :=
+      'A project is required because every glossary belongs to one application.';
+    UpdateGlossaryActions;
+    Exit;
+  end;
+  if LanguageCode = '' then
+  begin
+    lblGlossaryFileValue.Text := 'Select a target language.';
+    lblGlossarySummary.Text :=
+      'Choose the language whose preferred terminology you want to maintain.';
+    UpdateGlossaryActions;
+    Exit;
+  end;
+  try
+    FGlossaryFileName := TTranslationWorkspace.GlossaryFileName(
+      FProjectProfile, LanguageCode);
+    FProjectGlossary := TProjectGlossary.LoadFromFile(FGlossaryFileName);
+    FProjectGlossary.ApplicationId := FProjectProfile.ProjectName;
+    if FTranslationCatalog <> nil then
+      SourceLanguage := FTranslationCatalog.SourceLanguage
+    else
+      SourceLanguage := SelectedLanguageCode(cboSourceLanguage);
+    if SourceLanguage = '' then
+      SourceLanguage := 'en-US';
+    FProjectGlossary.SourceLanguage := SourceLanguage;
+    FProjectGlossary.TargetLanguage := LanguageCode;
+    lblGlossaryFileValue.Text := FGlossaryFileName;
+    lblGlossaryFileValue.Hint := FGlossaryFileName;
+    RefreshGlossary;
+    if TFile.Exists(FGlossaryFileName) then
+      lblStatus.Text := 'Project glossary loaded for ' + LanguageCode + '.'
+    else
+      lblStatus.Text :=
+        'New project glossary ready for ' + LanguageCode +
+        '. No Wizard run is required.';
+  except
+    on E: Exception do
+    begin
+      FreeAndNil(FProjectGlossary);
+      lblGlossarySummary.Text := 'The glossary could not be loaded safely.';
+      lblStatus.Text := E.Message;
+      UpdateGlossaryActions;
+    end;
+  end;
+end;
+
+function TfrmTranslationStudio.SaveProjectGlossary: Boolean;
+var
+  SourceLanguage: string;
+begin
+  Result := False;
+  if (FProjectGlossary = nil) or (FGlossaryFileName = '') then
+  begin
+    lblStatus.Text := 'Open a project and select a glossary language first.';
+    Exit;
+  end;
+  if FTranslationCatalog <> nil then
+    SourceLanguage := FTranslationCatalog.SourceLanguage
+  else
+    SourceLanguage := SelectedLanguageCode(cboSourceLanguage);
+  if SourceLanguage = '' then
+    SourceLanguage := 'en-US';
+  FProjectGlossary.ApplicationId := FProjectProfile.ProjectName;
+  FProjectGlossary.SourceLanguage := SourceLanguage;
+  FProjectGlossary.TargetLanguage :=
+    SelectedLanguageCode(cboGlossaryLanguage);
+  try
+    FProjectGlossary.SaveToFile(FGlossaryFileName);
+    FGlossaryDirty := False;
+    RefreshGlossary;
+    lblStatus.Text := 'Project glossary saved: ' + FGlossaryFileName;
+    Result := True;
+  except
+    on E: Exception do
+      lblStatus.Text := 'The glossary was not saved: ' + E.Message;
+  end;
+end;
+
+function TfrmTranslationStudio.ConfirmGlossaryChanges: Boolean;
+var
+  Response: Integer;
+begin
+  Result := True;
+  if not FGlossaryDirty then
+    Exit;
+  Response := TDialogServiceSync.MessageDialog(
+    'The project glossary has unsaved changes. Save them before continuing?',
+    TMsgDlgType.mtConfirmation,
+    [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo, TMsgDlgBtn.mbCancel],
+    TMsgDlgBtn.mbCancel, 0);
+  case Response of
+    mrYes:
+      Result := SaveProjectGlossary;
+    mrNo:
+      begin
+        FGlossaryDirty := False;
+        Result := True;
+      end;
+  else
+    Result := False;
+  end;
+end;
+
+procedure TfrmTranslationStudio.cboGlossaryLanguageChange(Sender: TObject);
+var
+  PreviousLanguage: string;
+begin
+  if FUpdatingGlossaryLanguage then
+    Exit;
+  PreviousLanguage := '';
+  if FProjectGlossary <> nil then
+    PreviousLanguage := FProjectGlossary.TargetLanguage;
+  if not ConfirmGlossaryChanges then
+  begin
+    FUpdatingGlossaryLanguage := True;
+    try
+      SelectLanguageCode(cboGlossaryLanguage, PreviousLanguage);
+    finally
+      FUpdatingGlossaryLanguage := False;
+    end;
+    Exit;
+  end;
+  LoadSelectedGlossary;
+end;
+
+procedure TfrmTranslationStudio.lstGlossaryTermsChange(Sender: TObject);
+var
+  Term: TProjectGlossaryTerm;
+begin
+  if (FProjectGlossary = nil) or
+     (lstGlossaryTerms.ItemIndex < 0) or
+     (lstGlossaryTerms.ItemIndex >= FProjectGlossary.Terms.Count) then
+  begin
+    UpdateGlossaryActions;
+    Exit;
+  end;
+  Term := FProjectGlossary.Terms[lstGlossaryTerms.ItemIndex];
+  edtGlossarySourceTerm.Text := Term.SourceText;
+  edtGlossaryTargetTerm.Text := Term.TargetText;
+  edtGlossaryConcept.Text := Term.SemanticConcept;
+  edtGlossaryDeveloperNote.Text := Term.DeveloperNote;
+  chkGlossaryCaseSensitive.IsChecked := Term.CaseSensitive;
+  chkGlossaryApproved.IsChecked := Term.Approved;
+  UpdateGlossaryActions;
+end;
+
+procedure TfrmTranslationStudio.btnGlossaryNewClick(Sender: TObject);
+begin
+  ClearGlossaryEditor;
+  edtGlossarySourceTerm.SetFocus;
+  UpdateGlossaryActions;
+end;
+
+procedure TfrmTranslationStudio.btnGlossaryAddUpdateClick(Sender: TObject);
+var
+  SelectedIndex: Integer;
+  Term: TProjectGlossaryTerm;
+begin
+  if FProjectGlossary = nil then
+    Exit;
+  if (Trim(edtGlossarySourceTerm.Text) = '') or
+     (Trim(edtGlossaryTargetTerm.Text) = '') then
+  begin
+    lblStatus.Text :=
+      'Enter both the source term and its preferred translation.';
+    Exit;
+  end;
+  SelectedIndex := lstGlossaryTerms.ItemIndex;
+  if (SelectedIndex >= 0) and
+     (SelectedIndex < FProjectGlossary.Terms.Count) then
+    Term := FProjectGlossary.Terms[SelectedIndex]
+  else
+  begin
+    Term := TProjectGlossaryTerm.Create;
+    FProjectGlossary.Terms.Add(Term);
+    SelectedIndex := FProjectGlossary.Terms.Count - 1;
+  end;
+  Term.SourceText := Trim(edtGlossarySourceTerm.Text);
+  Term.TargetText := Trim(edtGlossaryTargetTerm.Text);
+  Term.SemanticConcept := Trim(edtGlossaryConcept.Text);
+  Term.DeveloperNote := Trim(edtGlossaryDeveloperNote.Text);
+  Term.CaseSensitive := chkGlossaryCaseSensitive.IsChecked;
+  Term.Approved := chkGlossaryApproved.IsChecked;
+  FGlossaryDirty := True;
+  RefreshGlossary;
+  lstGlossaryTerms.ItemIndex := SelectedIndex;
+  lstGlossaryTermsChange(lstGlossaryTerms);
+  lblStatus.Text :=
+    'Glossary term updated. Choose Save Glossary to keep this change.';
+end;
+
+procedure TfrmTranslationStudio.btnGlossaryDeleteClick(Sender: TObject);
+var
+  Response: Integer;
+begin
+  if (FProjectGlossary = nil) or
+     (lstGlossaryTerms.ItemIndex < 0) or
+     (lstGlossaryTerms.ItemIndex >= FProjectGlossary.Terms.Count) then
+    Exit;
+  Response := TDialogServiceSync.MessageDialog(
+    'Delete the selected glossary term?', TMsgDlgType.mtConfirmation,
+    [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo], TMsgDlgBtn.mbNo, 0);
+  if Response <> mrYes then
+    Exit;
+  FProjectGlossary.Terms.Delete(lstGlossaryTerms.ItemIndex);
+  FGlossaryDirty := True;
+  ClearGlossaryEditor;
+  RefreshGlossary;
+  lblStatus.Text :=
+    'Glossary term deleted. Choose Save Glossary to keep this change.';
+end;
+
+procedure TfrmTranslationStudio.btnGlossaryCancelChangesClick(Sender: TObject);
+var
+  Response: Integer;
+begin
+  if not FGlossaryDirty then
+    Exit;
+  Response := TDialogServiceSync.MessageDialog(
+    'Discard all unsaved changes to this glossary?',
+    TMsgDlgType.mtConfirmation,
+    [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo], TMsgDlgBtn.mbNo, 0);
+  if Response = mrYes then
+  begin
+    LoadSelectedGlossary;
+    lblStatus.Text := 'Unsaved glossary changes were canceled.';
+  end;
+end;
+
+procedure TfrmTranslationStudio.btnGlossarySaveClick(Sender: TObject);
+begin
+  SaveProjectGlossary;
+end;
+
+procedure TfrmTranslationStudio.btnGlossaryApplyClick(Sender: TObject);
+var
+  AppliedCount: Integer;
+begin
+  if FProjectGlossary = nil then
+    Exit;
+  if FGlossaryDirty and not SaveProjectGlossary then
+    Exit;
+  if (FTranslationCatalog = nil) or
+     not SameText(FTranslationCatalog.Locale.LanguageCode,
+       SelectedLanguageCode(cboGlossaryLanguage)) then
+  begin
+    lblStatus.Text :=
+      'Open or scan the matching target-language catalog before applying terms.';
+    UpdateGlossaryActions;
+    Exit;
+  end;
+  AppliedCount := FProjectGlossary.ApplyToCatalog(FTranslationCatalog);
+  if FCatalogFileName = '' then
+    FCatalogFileName := TTranslationWorkspace.DevelopmentCatalogFileName(
+      FProjectProfile, FTranslationCatalog.Locale.LanguageCode);
+  TCatalogJson.SaveToFile(FTranslationCatalog, FCatalogFileName);
+  DisplayCatalogEntries;
+  InvalidateValidation;
+  UpdateCatalogReadiness;
+  lblStatus.Text := Format(
+    '%d catalog entr%s updated from the saved project glossary.',
+    [AppliedCount, IfThen(AppliedCount = 1, 'y', 'ies')]);
 end;
 
 procedure TfrmTranslationStudio.ApplyTargetLanguageDefaults;
@@ -773,6 +1191,7 @@ end;
 procedure TfrmTranslationStudio.DisplayProjectSummary(
   const AProfile: TProjectProfile);
 begin
+  ClearGlossary;
   FProjectProfile := AProfile;
   lblProjectNameValue.Text := AProfile.ProjectName;
   lblFrameworkValue.Text := TargetFrameworkToString(AProfile.Framework);
@@ -1028,6 +1447,7 @@ begin
   edtDecimalSeparator.Text := FTranslationCatalog.Locale.DecimalSeparator;
   edtThousandSeparator.Text := FTranslationCatalog.Locale.ThousandSeparator;
   edtCurrencySymbol.Text := FTranslationCatalog.Locale.CurrencySymbol;
+  UpdateGlossaryActions;
 end;
 
 procedure TfrmTranslationStudio.DisplayValidationResult;
@@ -1188,6 +1608,7 @@ begin
   btnApproveTranslation.Enabled := False;
   UpdateCatalogReadiness;
   DisplayValidationResult;
+  UpdateGlossaryActions;
 end;
 
 procedure TfrmTranslationStudio.SetWorkflowStep(const AStep: Integer);
@@ -1202,20 +1623,24 @@ begin
     ProjectCard.Visible := False;
     ProjectDetailsCard.Visible := False;
     LanguagePageCard.Visible := False;
+    GlossaryPageCard.Visible := False;
     ValidationPageCard.Visible := False;
     ExportPageCard.Visible := False;
     IntegrationPageCard.Visible := False;
     SettingsPageCard.Visible := False;
     NavigationSelection.Visible := False;
+    btnMaintenanceCancel.Visible := False;
     lblStatus.Text := 'Choose Setup Wizard for a new project or Maintenance Studio for existing work.';
     Exit;
   end;
   NavigationCard.Visible := True;
   IntroCard.Visible := False;
   NavigationSelection.Visible := True;
+  btnMaintenanceCancel.Visible := True;
   lblNavigationProject.TextSettings.FontColor := InactiveColor;
   lblNavigationScan.TextSettings.FontColor := InactiveColor;
   lblNavigationLanguages.TextSettings.FontColor := InactiveColor;
+  lblNavigationGlossary.TextSettings.FontColor := InactiveColor;
   lblNavigationValidation.TextSettings.FontColor := InactiveColor;
   lblNavigationExport.TextSettings.FontColor := InactiveColor;
   lblNavigationIntegration.TextSettings.FontColor := InactiveColor;
@@ -1224,10 +1649,11 @@ begin
   ProjectCard.Visible := AStep in [1, 2];
   ProjectDetailsCard.Visible := AStep in [1, 2];
   LanguagePageCard.Visible := AStep = 3;
-  ValidationPageCard.Visible := AStep = 4;
-  ExportPageCard.Visible := AStep = 5;
-  IntegrationPageCard.Visible := AStep = 6;
-  SettingsPageCard.Visible := AStep = 7;
+  GlossaryPageCard.Visible := AStep = 4;
+  ValidationPageCard.Visible := AStep = 5;
+  ExportPageCard.Visible := AStep = 6;
+  IntegrationPageCard.Visible := AStep = 7;
+  SettingsPageCard.Visible := AStep = 8;
 
   case AStep of
     1:
@@ -1255,30 +1681,57 @@ begin
     4:
       begin
         NavigationSelection.Position.Y := 240;
+        lblNavigationGlossary.TextSettings.FontColor := ActiveColor;
+        GlossaryPageCard.BringToFront;
+        if (Trim(FProjectProfile.ProjectName) <> '') and
+           (SelectedLanguageCode(cboGlossaryLanguage) = '') and
+           (SelectedLanguageCode(cboTargetLanguage) <> '') then
+        begin
+          FUpdatingGlossaryLanguage := True;
+          try
+            SelectLanguageCode(cboGlossaryLanguage,
+              SelectedLanguageCode(cboTargetLanguage));
+          finally
+            FUpdatingGlossaryLanguage := False;
+          end;
+          LoadSelectedGlossary;
+        end;
+        if Trim(FProjectProfile.ProjectName) = '' then
+          lblStatus.Text := 'Glossary: open a Delphi project first.'
+        else if SelectedLanguageCode(cboGlossaryLanguage) = '' then
+          lblStatus.Text :=
+            'Glossary: select a target language to create or open its terms.'
+        else
+          lblStatus.Text :=
+            'Glossary: create, correct, save, and apply project terminology without the Wizard.';
+      end;
+    5:
+      begin
+        NavigationSelection.Position.Y := 296;
         lblNavigationValidation.TextSettings.FontColor := ActiveColor;
         ValidationPageCard.BringToFront;
         lblStatus.Text :=
           'Validation: run checks; errors block export, while warnings request review.';
       end;
-    5:
+    6:
       begin
-        NavigationSelection.Position.Y := 296;
+        NavigationSelection.Position.Y := 352;
         lblNavigationExport.TextSettings.FontColor := ActiveColor;
         ExportPageCard.BringToFront;
         lblStatus.Text :=
           'Export: create the compact JSON runtime language pack after validation passes.';
       end;
-    6:
+    7:
       begin
-        NavigationSelection.Position.Y := 352;
+        NavigationSelection.Position.Y := 408;
         lblNavigationIntegration.TextSettings.FontColor := ActiveColor;
         IntegrationPageCard.BringToFront;
         lblStatus.Text :=
           'Integration: generate a component kit without modifying target source files.';
       end;
-    7:
+    8:
       begin
-        NavigationSelection.Position.Y := 408;
+        NavigationSelection.Position.Y := 464;
         lblNavigationSettings.TextSettings.FontColor := ActiveColor;
         SettingsPageCard.BringToFront;
         UpdateCredentialStatus;
@@ -1367,6 +1820,8 @@ end;
 procedure TfrmTranslationStudio.btnOpenProjectClick(Sender: TObject);
 begin
   if not dlgOpenProject.Execute then
+    Exit;
+  if not ConfirmGlossaryChanges then
     Exit;
 
   try
@@ -1505,24 +1960,29 @@ begin
   SetWorkflowStep(3);
 end;
 
-procedure TfrmTranslationStudio.lblNavigationValidationClick(Sender: TObject);
+procedure TfrmTranslationStudio.lblNavigationGlossaryClick(Sender: TObject);
 begin
   SetWorkflowStep(4);
 end;
 
-procedure TfrmTranslationStudio.lblNavigationExportClick(Sender: TObject);
+procedure TfrmTranslationStudio.lblNavigationValidationClick(Sender: TObject);
 begin
   SetWorkflowStep(5);
 end;
 
-procedure TfrmTranslationStudio.lblNavigationIntegrationClick(Sender: TObject);
+procedure TfrmTranslationStudio.lblNavigationExportClick(Sender: TObject);
 begin
   SetWorkflowStep(6);
 end;
 
-procedure TfrmTranslationStudio.lblNavigationSettingsClick(Sender: TObject);
+procedure TfrmTranslationStudio.lblNavigationIntegrationClick(Sender: TObject);
 begin
   SetWorkflowStep(7);
+end;
+
+procedure TfrmTranslationStudio.lblNavigationSettingsClick(Sender: TObject);
+begin
+  SetWorkflowStep(8);
 end;
 
 procedure TfrmTranslationStudio.cboTranslationProviderChange(Sender: TObject);
@@ -2349,7 +2809,7 @@ begin
     ApiKey := EffectiveApiKey(Provider);
     if ApiKey = '' then
     begin
-      SetWorkflowStep(7);
+      SetWorkflowStep(8);
       lblStatus.Text := Format(
         'Add and test a %s API key before translating.',
         [TranslationProviderDisplayName(Provider)]);
@@ -2627,7 +3087,7 @@ begin
     RunCatalogValidation;
     if FValidationResult.HasErrors then
     begin
-      SetWorkflowStep(4);
+      SetWorkflowStep(5);
       lblStatus.Text := 'Export is blocked by validation errors.';
       Exit;
     end;
