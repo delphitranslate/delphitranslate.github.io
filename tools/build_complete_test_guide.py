@@ -18,7 +18,6 @@ from build_guides import (
     PALE_BLUE,
     add_bullets,
     add_callout,
-    add_field,
     add_header_footer,
     add_paragraphs,
     add_steps,
@@ -39,7 +38,28 @@ ICON = (
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
 DOCX_PATH = GUIDES_DIR / "Delphi App Translation Studio Complete Test Guide.docx"
-LAST_CHANGED = "August 11, 2026"
+LAST_CHANGED = "September 1, 2026"
+
+TOC_ENTRIES = [
+    ("1. Purpose and Test Philosophy", 1),
+    ("2. Exact Folders and Files", 2),
+    ("3. Prerequisites and Test Data", 3),
+    ("4. Build the Studio Manually", 4),
+    ("5. Automated Release Gate", 5),
+    ("6. Manual Studio Acceptance", 7),
+    ("7. Component Integration Acceptance", 14),
+    ("8. Runtime Acceptance", 19),
+    ("9. VCL Acceptance Delta", 23),
+    ("10. Studio Self-Translation", 24),
+    ("11. Starting Over and Dependency Recovery", 24),
+    ("12. Negative and Recovery Tests", 25),
+    ("13. Performance and Large-Project Checks", 26),
+    ("14. Defect Recording", 27),
+    ("15. Final Acceptance Checklist", 27),
+    ("16. Appendix A - Exact Test Scripts", 28),
+    ("17. Appendix B - What Each JSON File Is", 29),
+    ("18. Appendix C - Current Verified Baseline", 29),
+]
 
 
 def set_run_font(
@@ -68,7 +88,11 @@ def add_cover(document: Document) -> None:
     logo = document.add_paragraph()
     logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     if ICON.exists():
-        logo.add_run().add_picture(str(ICON), width=Inches(1.45))
+        icon_shape = logo.add_run().add_picture(str(ICON), width=Inches(1.45))
+        icon_shape._inline.docPr.set(
+            "descr", "Delphi App Translation Studio application icon"
+        )
+        icon_shape._inline.docPr.set("title", "Delphi App Translation Studio")
     heading = document.add_paragraph(style="Title")
     heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
     heading.add_run("Complete Test Guide")
@@ -82,6 +106,10 @@ def add_cover(document: Document) -> None:
     set_cell_shading(accent.cell(0, 1), ORANGE)
     for cell in accent.rows[0].cells:
         cell.height = Inches(0.08)
+    accent_properties = accent.rows[0]._tr.get_or_add_trPr()
+    accent_marker = OxmlElement("w:tblHeader")
+    accent_marker.set(qn("w:val"), "false")
+    accent_properties.append(accent_marker)
     document.add_paragraph("")
     meta = document.add_paragraph()
     meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -107,8 +135,28 @@ def add_toc(document: Document) -> None:
     set_page_number_format(toc_section, "lowerRoman", 1)
     add_header_footer(toc_section, "Complete Test Guide", True)
     document.add_paragraph("Table of Contents", style="TOC Heading")
-    paragraph = document.add_paragraph()
-    add_field(paragraph, 'TOC \\o "1-2" \\h \\z \\u')
+    table = document.add_table(rows=0, cols=2)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.autofit = False
+    for heading, page_number in TOC_ENTRIES:
+        cells = table.add_row().cells
+        left = cells[0].paragraphs[0]
+        left.paragraph_format.space_after = Pt(1)
+        left.paragraph_format.keep_together = True
+        left_run = left.add_run(heading)
+        set_run_font(left_run, 9, BLUE)
+        right = cells[1].paragraphs[0]
+        right.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        right.paragraph_format.space_after = Pt(1)
+        right.paragraph_format.keep_together = True
+        right_run = right.add_run(str(page_number))
+        set_run_font(right_run, 9, GRAY, bold=True)
+    if table.rows:
+        properties = table.rows[0]._tr.get_or_add_trPr()
+        marker = OxmlElement("w:tblHeader")
+        marker.set(qn("w:val"), "false")
+        properties.append(marker)
+    set_table_geometry(table, [8200, 1160], indent=0)
     content_section = document.add_section(WD_SECTION.NEW_PAGE)
     configure_page(content_section)
     set_page_number_format(content_section, "decimal", 1)
@@ -119,6 +167,18 @@ def add_code(document: Document, lines: list[str]) -> None:
     for line in lines:
         paragraph = document.add_paragraph(style="Code Block")
         paragraph.add_run(line)
+
+
+def mark_first_rows_as_accessibility_headers(document: Document) -> None:
+    """Mark the first row of each data table for assistive technology."""
+    for table in document.tables:
+        if not table.rows:
+            continue
+        properties = table.rows[0]._tr.get_or_add_trPr()
+        if properties.find(qn("w:tblHeader")) is None:
+            marker = OxmlElement("w:tblHeader")
+            marker.set(qn("w:val"), "true")
+            properties.append(marker)
 
 
 def add_matrix(
@@ -350,7 +410,7 @@ def build_document() -> Path:
             "Choose Component > Install Packages.",
             "If DAT Language Manager FireMonkey design-time package is listed, select it, choose Remove, confirm the removal, and choose OK. If it is not listed, choose Cancel and continue.",
             "Close and restart RAD Studio. Confirm that no package-load error appears. Do not manually delete BPLs and do not edit the BDS registry.",
-            "Leave the target project closed until TC-10 installs the freshly generated design package.",
+            "Keep target files saved and leave the target application closed until TC-10 installs the freshly generated design package. The RAD Studio project may remain open.",
         ],
     )
     add_callout(
@@ -423,7 +483,7 @@ def build_document() -> Path:
             ["Studio", "Four builds, direct FMX form streaming, ordinary launch, maximized layout contracts, and Italian self-localization."],
             ["Translation core", "Detection, scanning, schema/provenance, catalog merge, provider contracts, validation, pack generation, and preference handling."],
             ["Safety", "Component-kit generation writes only below the export root and preserves target project/form SHA-256 hashes."],
-            ["Advanced fallback", "Preview, backup, transactional apply/rollback, deployment, restore, and complete-reset regression coverage."],
+            ["Project-file safety", "Dependency preparation, repeated-run idempotence, temporary build Search Path, direct deployment, and byte-for-byte target-file preservation."],
         ],
         [2200, 7160],
         9.0,
@@ -630,23 +690,29 @@ def build_document() -> Path:
     add_test_case(
         document,
         "TC-09",
-        "Generate the non-mutating component kit",
-        "Verify the recommended mode creates a complete kit under the Studio export folder and performs zero target writes.",
+        "Prepare the verified project-local dependencies",
+        "Verify the recommended mode creates the component kit, atomically installs one managed dependency tree, performs the baseline build/deployment, and leaves every target project/source/form file unchanged.",
         [
-            r'Before generation, run git -C "C:\DelphiProjects\FMXPilot - Component Test" status --short and record the expected Localization files only.',
+            r'Before preparation, run git -C "C:\DelphiProjects\FMXPilot - Component Test" status --short and record the expected Localization files. Also record the SHA-256 hash of FMXPilot.dproj.',
             "Select Integration and leave Component Integration (Recommended) selected.",
             "Choose Build Integration Plan.",
-            "Read the setup plan and choose Generate Component Kit.",
+            "Read the setup plan and choose Prepare / Update Dependencies.",
             "Select generated filenames in the left pane and inspect their text in the right pane.",
-            r'Run git -C "C:\DelphiProjects\FMXPilot - Component Test" status --short again and compare it with the pre-generation result.',
+            r'Confirm dependencies\DelphiAppTranslation contains source, deployment\Languages, integration-manifest.json, and integrity-sha256.json.',
+            "Confirm the status reports a baseline Release build using a temporary DAT dependency Search Path and direct pack deployment, or records a specific build error without undoing the valid dependency preparation.",
+            r'Run git -C "C:\DelphiProjects\FMXPilot - Component Test" status --short again. Confirm the only new integration area is dependencies\DelphiAppTranslation, plus expected generated Localization data.',
+            "Recalculate the FMXPilot.dproj hash and confirm it is identical to the pre-preparation value.",
+            "Choose Prepare / Update Dependencies a second time. Confirm it refreshes the same managed folder and does not create a second dependency tree or duplicate Search Path entry.",
         ],
         [
             r"Kit root: C:\DelphiProjects\Delphi App Translation\export\component-integration\FMXPilot.",
             "The kit contains README.txt, component-integration.json, Deploy-LanguagePacks.ps1, ComponentSource, and Localization\\Languages.",
             "The replaceable per-project kit contains no DelphiPackages folder, no BPL, and no automatic installer. Delphi's registered package comes from the Studio's stable bin\\packages\\Win32\\Release folder.",
             "The language folder contains the validated target pack plus an automatically generated en-US.json source pack.",
-            "Target Git status is unchanged by Build Integration Plan and Generate Component Kit.",
-            "Apply, Restore, Complete Reset, automatic target build, and source-authorization controls are hidden in recommended mode.",
+            r"Managed dependency root: <Target>\dependencies\DelphiAppTranslation. It contains the complete verified unit closure and canonical language packs.",
+            "Target Pascal, DPR, DPROJ, DFM, and FMX hashes are unchanged. No .targets file or project import is created.",
+            "The second run replaces the one managed dependency set atomically rather than nesting or duplicating it.",
+            "Apply, Restore, Complete Reset, and source-authorization controls remain unavailable in recommended mode.",
         ],
     )
 
@@ -704,7 +770,7 @@ def build_document() -> Path:
         "Add one manager and one optional selector through normal Form Designer operations in the disposable target copy.",
         [
             r"Open C:\DelphiProjects\FMXPilot - Component Test\FMXPilot.dproj in RAD Studio.",
-            r"In Project Options, add C:\DelphiProjects\Delphi App Translation\export\component-integration\FMXPilot\ComponentSource to the Delphi Search Path for all configurations and both Windows platforms.",
+            r"In Project Options, add $(PROJECTDIR)\dependencies\DelphiAppTranslation\source to the Delphi Search Path exactly once for all configurations and both Windows platforms. Retain every existing entry.",
             "Open FMXPilot.MainForm.fmx (frmMainDashboard) in the FMX Form Designer.",
             "Drop one TDATFMXLanguageManager on the primary form.",
             "Set ApplicationId to FMXPilot, LanguagesFolder to Localization\\Languages, and SourceLanguage to en-US.",
@@ -716,8 +782,8 @@ def build_document() -> Path:
             r'Run git -C "C:\DelphiProjects\FMXPilot - Component Test" status --short and inspect the exact diff before building.',
         ],
         [
-            "Only normal developer-authored integration changes appear: project search-path metadata if saved there, the primary form resource/component field, applicable uses entries, and the visible selector layout.",
-            "FMXPilot.MainForm.fmx, FMXPilot.MainForm.pas, and FMXPilot.dproj are saved on disk. The form resource contains TDATFMXLanguageManager and TDATFMXLanguageComboBox.",
+            "Only normal developer-authored Form Designer changes appear in the target diff. The Studio leaves target Pascal, DPR, DPROJ, DFM, and FMX files unchanged.",
+            "FMXPilot.MainForm.fmx contains the developer-placed TDATFMXLanguageManager and TDATFMXLanguageComboBox. The target Pascal and DPROJ files contain no Studio-written integration changes.",
             "No ordinary secondary form receives a manager component.",
             "No Studio-generated DPR startup call or translation unit is added in Component Integration mode.",
             "Every change is readable in Git and reversible before commit.",
@@ -954,41 +1020,42 @@ def build_document() -> Path:
         ],
     )
 
-    document.add_heading("11. Starting Over, Restore, and Reset", level=1)
+    document.add_heading("11. Starting Over and Dependency Recovery", level=1)
     document.add_heading("11.1 Recommended component path", level=2)
     add_paragraphs(
         document,
         [
-            "Component Integration performs no automatic target write, so its clean restart procedure is deliberately ordinary and transparent. In the disposable target, close the application, use Git to inspect/revert the manually added manager, selector, uses entries, and search-path change, then remove only the generated Localization data and regenerated kit after confirming the exact paths. Keep the pristine GA4 reference untouched.",
-            "Regenerating a component kit replaces generated files under the Studio export root but does not clean or modify a previously integrated target. Deployment copies the current kit JSON to each executable folder; remove obsolete locale JSON files explicitly when a language is retired.",
+            "Component Integration writes only generated localization data and the managed dependencies folder, so its clean restart procedure is deliberately ordinary and transparent. In the disposable target, close the application, use Git or the Form Designer to inspect/revert the manually added manager and selector, remove the one developer-owned Project Options Search Path entry when it is no longer needed, and remove only generated Localization and dependency data after confirming the exact paths.",
+            "Regenerating a component kit replaces generated files under the Studio export root. Preparing dependencies atomically refreshes the single project-local dependencies\\DelphiAppTranslation tree, and direct deployment replaces the canonical JSON set beside each selected executable so retired locale packs are not left stale.",
         ],
     )
     add_callout(
         document,
-        "Do not use Complete Reset for the recommended component path.",
-        "The Studio's Complete Reset control belongs to Automatic Source Integration (Advanced), because only that mode created an automatic baseline and transaction manifest. Component-mode changes are developer-authored IDE changes and should be reverted through Git or the Form Designer.",
+        "Target-source reset is intentionally unavailable.",
+        "Apply, Restore, and Complete Reset remain disabled because the Studio does not own target Pascal, form, DPR, or DPROJ files. Revert developer-authored IDE changes through Git or the Form Designer. Refresh or remove only the clearly named managed dependency and generated Localization areas after reviewing their exact paths.",
     )
 
-    document.add_heading("11.2 Advanced automatic-source reset test", level=2)
+    document.add_heading("11.2 Managed dependency recovery test", level=2)
     add_steps(
         document,
         [
-            "Use only a disposable target that previously completed Automatic Source Integration (Advanced).",
-            "Open and scan it in the Studio, choose Integration, then select Automatic Source Integration (Advanced).",
-            "Choose Prepare Complete Reset. Confirm the preview is read-only and identifies the original baseline.",
-            "Review the listed project/source restoration and Localization cleanup actions.",
-            "Check I reviewed this reset plan and authorize Complete Reset, then choose Reset Project.",
-            "Confirm the Studio creates a separate SHA-256-verified Complete Reset Safety backup before mutation.",
-            "Build and run the restored target, and compare Git status/diff with the expected original baseline.",
+            "Use only a disposable target that has completed Prepare / Update Dependencies.",
+            "Record the SHA-256 hash of the target DPROJ and one DAT unit under dependencies\\DelphiAppTranslation\\source.",
+            "Make a clearly disposable change to that dependency copy so it no longer matches the generated kit. Do not edit target source or project files.",
+            "Choose Prepare / Update Dependencies again.",
+            "Confirm the Studio reports the previous dependency snapshot and atomically restores the canonical DAT unit from the current kit.",
+            "Confirm the target DPROJ hash is unchanged, the dependency tree is present exactly once, and no DelphiAppTranslation.targets file exists.",
+            "Build and run the disposable target, then compare Git status/diff with the expected dependency-only refresh.",
         ],
     )
     add_bullets(
         document,
         [
-            "The operation refuses to guess when the automatic-integration baseline is absent.",
-            "On success, original pre-integration source is restored and project-local Localization development/runtime data is removed according to the preview.",
-            "The safety backup is retained.",
-            "On failure, the current project is restored from the safety backup and the failure is reported.",
+            "The stale dependency copy is replaced by the verified current kit version.",
+            "The one managed dependency location is refreshed rather than duplicated or nested.",
+            "The prior dependency snapshot is retained in the reported backup location.",
+            "Target Pascal, DPR, DPROJ, DFM, and FMX files remain byte-for-byte unchanged.",
+            "A failed staged copy or promotion restores the previous managed dependency tree and reports the failure.",
         ],
     )
 
@@ -1151,6 +1218,7 @@ def build_document() -> Path:
         ],
     )
 
+    mark_first_rows_as_accessibility_headers(document)
     finish_document(document, DOCX_PATH)
     return DOCX_PATH
 

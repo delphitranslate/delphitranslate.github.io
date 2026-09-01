@@ -275,12 +275,12 @@ def build_document() -> Path:
 
     document.add_heading("1. Read This Before Starting", level=1)
     add_paragraphs(document, [
-        "The Setup Wizard performs the first project scan, automatic provider translation, validation, JSON export, component-kit generation, Search Path configuration, and language-pack deployment configuration. It does not place components on a Delphi form; that remains a normal RAD Studio Form Designer operation.",
-        "The current workflow uses one protected Wizard processing pass. It creates the translated development catalog, automatically opens Localization Review, waits while the developer records terminology and layout decisions, and resumes automatically when the Review Center closes. The resumed pass applies those decisions before final validation, runtime JSON export, component-kit generation, Search Path configuration, and deployment configuration.",
+        "The Setup Wizard performs the first project scan, automatic provider translation, validation, JSON export, component-kit generation, project-local dependency preparation, and direct language-pack deployment. It does not place components on a Delphi form; that remains a normal RAD Studio Form Designer operation.",
+        "The current workflow uses one protected Wizard processing pass. It creates the translated development catalog, automatically opens Localization Review, waits while the developer records terminology and layout decisions, and resumes automatically when the Review Center closes. The resumed pass applies those decisions before final validation, runtime JSON export, component-kit generation, atomic dependency-folder refresh, a transient-path Win32 Release build, and direct deployment.",
         "After the single Wizard pass, the main Studio may be used for optional detailed inspection or manual correction. RAD Studio is then used to install the design package, place the manager and selector, build the target, and test runtime behavior.",
     ])
     add_info_callout(document, "Do not use an original project.",
-        "Create a new disposable test folder from the pristine copy. Keep the pristine folder and the original application untouched. The Wizard creates its own ZIP and DPROJ transaction backups, but those are additional safeguards, not substitutes for the pristine copy.")
+        "Create a new disposable test folder from the pristine copy. Keep the pristine folder and the original application untouched. The Wizard creates its own ZIP backup and preserves the previous managed dependency folder before replacement, but those are additional safeguards, not substitutes for the pristine copy.")
     add_info_callout(document, "Current automatic-layout boundary.",
         "The runtime can apply accepted, checksum-backed Width, Height, WordWrap, and AutoSize rules from a language pack. It does not automatically move neighboring controls, redesign a form, change fonts, or guarantee that a wider control will not overlap another control. Any proposal left Pending, Rejected, or Manual is not applied automatically.")
     add_info_callout(document, "Current glossary boundary.",
@@ -293,7 +293,7 @@ def build_document() -> Path:
         "The protected Wizard pass pauses for Localization Review before its definitive export.",
         "Closing Localization Review resumes the same Wizard pass and embeds accepted glossary/layout decisions.",
         "The main Studio opens the same catalog, validates it, and exports the final JSON pack.",
-        "The target project contains only intentional designer changes plus the marked DPROJ configuration block.",
+        "The target project contains only intentional designer changes; the Studio leaves its Pascal, DPR, DPROJ, DFM, and FMX files byte-for-byte unchanged.",
         "Win32 and Win64 builds receive the correct Localization\\Languages folder.",
         "The target starts in the expected language, switches immediately, restores layout on switching back, and remembers the user's choice after restart.",
         "Dynamic application text does not produce repeated characters.",
@@ -322,12 +322,12 @@ def build_document() -> Path:
         "Close the target project in RAD Studio. Saving is allowed before closing, but do not leave unsaved form changes.",
         "Locate the pristine project folder. Confirm that it is the known-good unlocalized source.",
         "Create a new sibling test folder by copying the entire pristine folder. Use a clear name such as <Application Name> - Translation Test.",
-        "Do not copy an earlier test folder. Earlier Localization folders, DPROJ Search Paths, components, and language preference files would invalidate the test.",
+        "Do not copy an earlier test folder. Earlier Localization folders, dependency folders, developer-owned Search Paths, components, and language preference files would invalidate the test.",
         "Open the new test folder in File Explorer. Confirm the expected .dproj or .dpr file is present.",
         "If the pristine copy contains old bin or dcu output folders, remove those only from the new disposable test copy or use Delphi Clean before the baseline build. Never clean the pristine source as part of this test.",
         "Open the new test project's .dproj in RAD Studio, perform a baseline Win32 Debug build, and run it once in its original language.",
         "Open every important form or page and confirm that the pristine application itself does not already contain mixed-language or runaway dynamic text.",
-        "Close the baseline executable. Choose File > Close All in RAD Studio so the target project is closed before Wizard final processing.",
+        "Close the baseline executable and choose File > Save All in RAD Studio. The project may remain open during Wizard final processing.",
     ])
     add_info_callout(document, "No Git requirement.",
         "Git is useful evidence but is not required. A pristine copy plus a fresh disposable test copy is an accepted safety baseline. If Git is available, record git status --short now; it should be empty.")
@@ -385,7 +385,7 @@ def build_document() -> Path:
         "Click Next. Cancel remains safe because the staged destinations are not saved until authorized final processing.",
     ])
     add_info_callout(document, "Automatic deployment.",
-        "Final processing deploys immediately to every configured destination that is currently available. Future builds retry the remembered destinations automatically. An unplugged drive is skipped with a warning and does not fail the build.")
+        "Final processing deploys immediately to every configured destination that is currently available. Later Studio runs repeat direct deployment to remembered destinations. An unplugged drive is skipped with a warning and does not fail processing. Ordinary IDE builds do not receive a Studio-written post-build target.")
 
     document.add_heading("5.4 Step 4 - Languages", level=2)
     add_steps(document, [
@@ -453,8 +453,8 @@ def build_document() -> Path:
     add_steps(document, [
         "Read the project, Application ID, framework, target language, workflow, provider, scan count, unresolved count, integration method, deployment statement, and backup statement.",
         "Confirm the required backup box is checked. It is intentionally mandatory.",
-        "Confirm RAD Studio has no target project open. If it does, close the project now and return to the Wizard.",
-        "Check Required: the target project is closed in RAD Studio.",
+        "Choose File > Save All in RAD Studio and close the running target application. The project itself may remain open.",
+        "Check Required: target files are saved and the target application is closed.",
         "Check I reviewed these choices and authorize final processing.",
         "Click Begin Final Processing only after both confirmations are checked.",
         "After processing begins, do not try to close the Wizard or Studio. Back, Cancel, and the step rail remain disabled. The Wizard will translate, open Localization Review, and automatically resume finalization after Review closes.",
@@ -497,7 +497,7 @@ def build_document() -> Path:
         "Confirm validation passed. Warnings may remain; blocking errors must not remain.",
         "Confirm Runtime JSON pack exported appears with a path under the disposable test project's Localization\\Languages folder.",
         "Confirm Component integration kit generated appears.",
-        "Confirm Project Search Path and automatic post-build deployment configured appears.",
+        "Confirm the managed dependency folder was refreshed, the transient-path Win32 Release build completed, direct pack deployment completed, and the target project file remained unchanged.",
         "Confirm the footer says Setup Wizard completed successfully. If it says stopped, do not continue to RAD Studio. Copy or photograph the entire progress log and footer message, close the Wizard only after processing has stopped safely, preserve the Wizard ZIP backup and disposable test folder, and send the exact STOPPED text and screenshots to the development team. Resume only after the cause is corrected and new test instructions are provided.",
         "Click the underlined blue component-kit path or Open Kit Folder. Confirm ComponentSource, Localization, component-integration.json, Deploy-LanguagePacks.ps1, README.txt, and Wizard-Completion-Report.txt exist.",
         "Read the repeat/troubleshooting explanation. No command or deployment button is required during a normal successful run. Final processing has already deployed detected build outputs and every available application destination entered earlier.",
@@ -595,10 +595,10 @@ def build_document() -> Path:
     add_steps(document, [
         "Choose Project > Options.",
         "Select Building > Delphi Compiler > Search path.",
-        "Inspect Value from All configurations. It should contain the generated kit's ComponentSource folder under C:\\New Delphi Projects\\Delphi App Translation\\export\\component-integration\\<ApplicationId>\\ComponentSource.",
-        "Use the Target selector to inspect Debug/Release and Windows 32-bit/64-bit as applicable. The Wizard-created DPROJ block is intended to cover all configurations and platforms.",
-        "If the path is absent, stop. Do not manually invent a different path during this acceptance test; record the missing configuration because the Wizard was supposed to add it.",
-        "Click Cancel in Project Options when no manual change is necessary.",
+        "Inspect Value from All configurations. It should contain $(PROJECTDIR)\\dependencies\\DelphiAppTranslation\\source exactly once.",
+        "Use the Target selector to inspect Debug/Release and Windows 32-bit/64-bit as applicable. The developer-owned entry should apply to every configuration and platform that builds the target.",
+        "If the path is absent, add that exact relative path once without removing or replacing any existing Search Path entry. This is the one required developer-owned Project Options step; the Studio deliberately does not edit the DPROJ.",
+        "Click OK to save the Project Options change, then use File > Save All.",
     ])
 
     document.add_heading("12. Build Win32 and Win64", level=1)
@@ -616,7 +616,7 @@ def build_document() -> Path:
 
     document.add_heading("12.1 Manual deployment fallback", level=2)
     add_paragraphs(document, [
-        "Use this only if automatic post-build deployment did not create the language folder. Substitute the actual kit and executable folder paths shown by the Wizard. The command explicitly uses ExecutionPolicy Bypass.",
+        "Use this only if direct Studio deployment did not create the language folder. Substitute the actual dependency and executable folder paths shown by the Wizard. Ordinary IDE builds do not contain a Studio-written post-build target.",
     ])
     add_code(document, [
         '& "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "C:\\New Delphi Projects\\Delphi App Translation\\export\\component-integration\\<ApplicationId>\\Deploy-LanguagePacks.ps1" -ApplicationDirectory "<Folder containing ApplicationId.exe>"',
@@ -695,7 +695,7 @@ def build_document() -> Path:
         "In RAD Studio, make the designer or source changes in the target application.",
         "Choose File > Save All.",
         "Close the running target executable.",
-        "Close the target project in RAD Studio before any Wizard final-processing pass.",
+        "Save all target files in RAD Studio and close the running target application before any Wizard final-processing pass. The project may remain open.",
         "Open the project in the Translation Studio.",
         "Open the existing development catalog before scanning.",
         "Run Scan Project.",
@@ -705,7 +705,7 @@ def build_document() -> Path:
         "Save the catalog, run validation, and resolve all errors.",
         "Export Runtime Pack.",
         "Regenerate the Component Kit so its Localization folder contains the final pack.",
-        "Build the target; confirm post-build deployment refreshes Localization\\Languages beside the executable.",
+        "Build the target after adding $(PROJECTDIR)\\dependencies\\DelphiAppTranslation\\source once through Project Options; then use the Studio's deploy action if the executable folder needs a refreshed Localization\\Languages pack set.",
         "Run the target and retest the changed form in the source and target language.",
     ])
 
@@ -721,7 +721,7 @@ def build_document() -> Path:
         "Confirm the translation provider and test its connection. Scan the project and review the scan total before continuing.",
         "Complete the component-information and authorization steps, then click Begin Final Processing.",
         "When Localization Review opens automatically, review terminology and layout proposals for the new language. Save the desired decisions and click Close.",
-        "Wait while the same Wizard pass resumes automatically. Confirm that final validation passes, the new runtime JSON pack is exported, the component kit is refreshed, deployment is configured, and the footer reports successful completion.",
+        "Wait while the same Wizard pass resumes automatically. Confirm that final validation passes, the new runtime JSON pack is exported, the component kit and project-local dependency folder are refreshed, direct deployment completes, and the footer reports successful completion.",
         "Click Finish. A separate Studio validation/export or second Wizard pass is not required when this single-pass completion succeeds. Use the main Studio only if a manual correction or detailed inspection is needed.",
         "Do not reinstall the design package and do not place another manager or selector. The components already in the target application serve every language pack that shares the same Application ID.",
         "Build the required Win32 and Win64 configurations. Confirm the new language JSON file appears under Localization\\Languages beside each executable and in every available application destination configured on the Wizard Deployment page.",
@@ -740,7 +740,7 @@ def build_document() -> Path:
         "Correct Win32 Release design BPL was installed through Component > Install Packages > Add.",
         "One manager and one connected visible selector were placed and saved on the primary form.",
         "ApplicationId, LanguagesFolder, SourceLanguage, and LanguageManager properties were verified in Object Inspector.",
-        "Search Path contains the generated ComponentSource folder for all required configurations/platforms.",
+        "Project Options contains $(PROJECTDIR)\\dependencies\\DelphiAppTranslation\\source exactly once for all required configurations/platforms; the target DPROJ remains unchanged by the Studio.",
         "Win32 and Win64 builds completed.",
         "Each executable folder contains Localization\\Languages with en-US.json and all target packs.",
         "First launch used the source language under the controlled test condition.",

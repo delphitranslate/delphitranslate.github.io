@@ -309,7 +309,7 @@ def build_user_guide() -> Path:
         r"Run the executable from bin\<Platform>\<Configuration>, for example bin\Win32\Release\DelphiAppTranslationStudio.exe.",
     ])
     add_paragraphs(document, [
-        r"If you prefer a command-line build, initialize Delphi with C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat. The Win32 compiler is C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc32.exe. These paths point to Delphi itself. The Studio later adds the project-local DAT Search Path automatically.",
+        r"If you prefer a command-line build, initialize Delphi with C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat. The Win32 compiler is C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc32.exe. These paths point to Delphi itself. Studio-initiated target builds pass the project-local DAT Search Path temporarily; the developer adds the same stable dependency path once through RAD Studio Project Options for normal IDE builds.",
     ])
     add_callout(document, "Where did the build go?", r"The executable is placed in bin\<Platform>\<Configuration>, and compiled DCUs go under dcu. Keep the repository folder structure intact so packages, localization files, exports, and documentation continue to resolve correctly.")
 
@@ -327,24 +327,24 @@ def build_user_guide() -> Path:
         "Set ApplicationId to the exact Delphi project name, LanguagesFolder to Localization\\Languages, and SourceLanguage to the source locale, normally en-US.",
         "Place one TDATVCLLanguageComboBox or TDATFMXLanguageComboBox and set its LanguageManager property to the manager. A designer-authored connected Language menu is an alternative, but the user needs a visible selection mechanism.",
         "Add any supporting Language label or menu captions in the designer, then choose File > Save All. Keeping these controls in the designer makes them easy to see and maintain in the Object Inspector.",
-        "Close the target project before the Setup Wizard's final-processing step.",
+        "Choose File > Save All and close the running target application before the Setup Wizard's final-processing step. The RAD Studio project may remain open because the Studio never writes its project files.",
     ])
     add_callout(document, "One manager is enough.", "The primary form owns the application's single language manager. You do not need another manager on every form. The manager retranslates forms that are already open and applies the active language to forms opened later.")
 
     document.add_heading("6. Give Delphi Access to the DAT Dependencies", level=1)
     add_paragraphs(document, [
         r"The Wizard and Maintenance Studio now prepare this dependency automatically. They stage and verify the complete framework-specific ComponentSource set, then install it as one versioned unit under dependencies\DelphiAppTranslation\source in the target project. You do not create the folder or copy individual PAS files.",
-        "The transaction also saves the original DPROJ, adds one clearly marked inherited Search Path and post-build deployment import, and writes an integration manifest. Repeating Prepare / Update Target Project replaces the managed set cleanly instead of mixing files from different Studio builds.",
+        "The dependency transaction stages and hash-checks the complete set, writes an integration manifest, and atomically promotes only dependencies\\DelphiAppTranslation. Repeating Prepare / Update Dependencies replaces that one managed set cleanly instead of mixing files from different Studio builds. Target Pascal, form, DPR, and DPROJ files remain read-only.",
     ])
     document.add_heading("6.1 The recommended folder layout", level=2)
     add_path(document, r"<Target Project>\dependencies\DelphiAppTranslation\source")
     add_path(document, r"<Target Project>\dependencies\DelphiAppTranslation\deployment\Languages")
     add_steps(document, [
-        "Complete the Setup Wizard, or choose Prepare / Update Target Project on Maintenance Studio > Integration.",
-        "The Studio creates a dated transaction backup before writing the managed dependency folder or DPROJ block.",
+        "Complete the Setup Wizard, or choose Prepare / Update Dependencies on Maintenance Studio > Integration.",
+        "The Studio creates a dated previous-dependency snapshot before replacing the managed dependency folder. It does not write the DPROJ.",
         r"The Studio stages and hash-checks ComponentSource, language packs, Apache license, manifest, and deployment target before promoting dependencies\DelphiAppTranslation.",
-        "The Studio performs the baseline Release build and deploys the current pack set. Future RAD Studio builds run the managed post-build target automatically.",
-        "Commit the managed dependency folder and marked DPROJ block with the target project when the project's licensing/distribution policy permits vendoring Apache-2.0 source.",
+        "The Studio performs the baseline Release build with a temporary compiler Search Path and directly deploys the current pack set. Later Studio-initiated builds repeat this safely; ordinary RAD Studio builds do not invoke the Studio.",
+        "Commit the managed dependency folder with the target project when the project's licensing/distribution policy permits vendoring Apache-2.0 source.",
     ])
     document.add_heading("6.2 Canonical framework unit set", level=2)
     add_table(document, ["Used by", "Units to copy"], [
@@ -354,9 +354,9 @@ def build_user_guide() -> Path:
     ], widths=[2100, 7260])
     document.add_heading("6.3 Tell Delphi where the units are", level=2)
     add_paragraphs(document, [
-        r"No manual Project Options work is required. The Studio adds one idempotent managed block to the DPROJ. Its DCC_UnitSearchPath begins with $(MSBuildProjectDirectory)\dependencies\DelphiAppTranslation\source and then preserves $(DCC_UnitSearchPath), so existing and inherited paths remain available.",
+        r"The Studio never writes the DPROJ. For normal IDE builds, open Project > Options > Building > Delphi Compiler, select All configurations and All platforms, and add $(PROJECTDIR)\dependencies\DelphiAppTranslation\source to Search path without removing any existing entry. Do this once per target project. Repeated Studio runs refresh the same dependency folder and do not add duplicate paths.",
     ])
-    add_callout(document, "What remains manual?", r"RAD Studio package registration remains deliberate: choose Component > Install Packages > Add and select the exact design BPL shown by the Studio. The verified bundle is in <Kit>\DesignPackages\Win32\Release; the required core and framework runtime BPLs are beside it. Component placement and Object Inspector values remain designer-owned decisions. Folder creation, source refresh, Search Path, builds, and pack deployment are automatic.")
+    add_callout(document, "What remains manual?", r"RAD Studio package registration remains deliberate: choose Component > Install Packages > Add and select the exact design BPL shown by the Studio. The verified bundle is in <Kit>\DesignPackages\Win32\Release; the required core and framework runtime BPLs are beside it. Component placement, Object Inspector values, and the one developer-owned Project Options Search path remain deliberate IDE actions. Folder creation, dependency refresh, Studio builds, and pack deployment are automatic.")
 
     document.add_heading("7. Understand the Files Under %LOCALAPPDATA%", level=1)
     add_paragraphs(document, [
@@ -483,11 +483,11 @@ def build_user_guide() -> Path:
     ])
 
     document.add_heading("16. Wizard Step 7 - Review and Authorize", level=1)
-    add_screen(document, "13-wizard-review.png", "Figure 16-1. Review and Authorize content area; the current Wizard uses this same confirmation contract in Step 7.", "Review and Authorize page showing project summary and required backup, project-closed, and authorization confirmations", crop=(26415, 16992, 1887, 24095), aspect_ratio=1.52)
+    add_screen(document, "13-wizard-review.png", "Figure 16-1. Review and Authorize content area; the current Wizard uses this same confirmation contract in Step 7.", "Review and Authorize page showing project summary and required backup, saved-files/application-closed, and authorization confirmations", crop=(26415, 16992, 1887, 24095), aspect_ratio=1.52)
     add_screen_control_table(document, [
         ["Review memo", "Brings your project, application ID, framework, locale, workflow, provider, counts, integration mode, and destinations together in one place.", "Read it from top to bottom; it is your chance to catch a wrong project or locale before work begins."],
         ["Required ZIP backup", "Confirms that the Wizard will create its pre-processing safety archive.", "It is required and selected by design."],
-        ["Target project is closed", "Confirms RAD Studio is no longer holding the application open.", "Close the target project, then select this confirmation."],
+        ["Target files saved; application closed", "Confirms the scanner sees the saved project and the executable is not locking a rebuild.", "Choose File > Save All, close the running target application, then select this confirmation."],
         ["Authorize final processing", "Records your explicit approval for the controlled processing pass.", "Select it only after the summary is correct."],
         ["Begin Final Processing", "Starts the backup, translation, review, validation, export, kit generation, configured builds/deployment, and completion report.", "After you choose it, Back and the step rail are disabled; Stop is still honored at safe boundaries."],
     ])
@@ -508,7 +508,7 @@ def build_user_guide() -> Path:
     add_screen(document, "14-wizard-processing.png", "Figure 18-1. Processing status area. The final build has a simplified Finish page; obsolete command and kit-path controls are not part of the current workflow.", "Processing and completion page showing current operation text and progress memo", crop=(27400, 18600, 1800, 43600), aspect_ratio=2.81)
     add_paragraphs(document, [
         "The progress memo lets you follow the work without having to interpret a console window. It records the safety backup, catalog work, translation, return from review, validation, runtime-pack export, component-kit generation, detected-output deployment, optional destination deployment, and completion report. If something cannot continue safely, the final diagnostic begins with STOPPED and Finish remains unavailable until you have a result you can close or retry.",
-        "After success, the page confirms that Pascal, DPR, DFM, and FMX source files were not edited. It also identifies the DPROJ transaction backup and the managed project-local dependency. Back and Cancel disappear; choose Finish when you are ready to return to the Studio. Win32 Release, existing target outputs, and available destinations have already been built or deployed automatically.",
+        "After success, the page confirms that Pascal, DPR, DPROJ, DFM, and FMX files were not edited. It also identifies the previous-dependency snapshot and the managed project-local dependency. Back and Cancel disappear; choose Finish when you are ready to return to the Studio. Win32 Release, existing target outputs, and available destinations have already been built or deployed automatically.",
     ])
     add_screen_control_table(document, [
         ["Progress memo", "Shows each operation and diagnostic with a time stamp.", "If processing stops, begin with the last few lines; they normally contain the cause and next action."],
@@ -621,7 +621,7 @@ def build_user_guide() -> Path:
         ["Language menu component", "Names an application-authored menu for advanced source integration.", "Not required for the connected component selector path."],
         ["Build Integration Plan", "Previews the framework, packs, generated files, and intended actions without changing your application.", "Always read the plan before you generate or authorize anything."],
         ["Plan list / exact text", "Shows each generated or proposed file and its content/diff.", "Select each important item before generating or applying."],
-        ["Prepare / Update Target Project", "Publishes the verified kit, creates a transaction backup, installs the complete project-local dependency, updates the marked DPROJ automation block, builds Release, and deploys packs.", "This is repeatable and is the recommended action for normal projects."],
+        ["Prepare / Update Dependencies", "Publishes the verified kit, snapshots the previous managed dependency, installs the complete project-local dependency, builds Release with a temporary Search Path, and deploys packs without editing project files.", "This is repeatable and is the recommended action for normal projects."],
         ["Show Design BPL", "Selects <Kit>\\DesignPackages\\Win32\\Release\\<framework design package>; its required runtime BPLs are beside it.", "Use RAD Studio Component > Install Packages > Add. The Studio does not register IDE packages automatically."],
         ["Open Kit Folder", "Opens the generated kit.", "Use to inspect ComponentSource, DesignPackages, README, license, manifests, and completion report; copying is not required."],
         ["Advanced Preview / Authorize / Apply / Restore / Complete Reset", "Supports explicitly authorized source integration with preview and recovery.", "Advanced only; protect the target with Git and a backup first."],
@@ -691,7 +691,7 @@ def build_user_guide() -> Path:
         "Confirm the matching design package is installed and the target primary form contains one manager plus a connected selector.",
         "Confirm ApplicationId, LanguagesFolder, SourceLanguage, and any FormIdentityMappings in Object Inspector.",
         r"Confirm the Studio reports the managed dependency at <Target>\dependencies\DelphiAppTranslation and the dated transaction backup.",
-        "Confirm the DPROJ contains exactly one marked DAT integration block; do not hand-edit or duplicate it.",
+        r"Confirm Project Options contains $(PROJECTDIR)\dependencies\DelphiAppTranslation\source exactly once in the Delphi Compiler Search path, and confirm the DPROJ remains unchanged by the Studio.",
         "Confirm the automatic build log reports language-pack deployment to <Executable Folder>\\Localization\\Languages.",
         "Clean and build Win32 Debug and Release. Build Win64 only when the application will ship it and the dependency/toolchain path is valid.",
         "Run the executable from the actual output folder. If Windows has another copy elsewhere, close it so you do not accidentally test stale code or stale packs.",
@@ -732,7 +732,7 @@ def build_user_guide() -> Path:
         "When something looks wrong, resist the urge to make several changes at once. Start with the symptom below, check the most likely cause, make one correction, and rebuild or rerun the affected step. That keeps a small configuration issue from turning into a hard-to-explain project change.",
     ])
     add_table(document, ["What you see", "What to check first", "What to do next"], [
-        ["Project will not compile: DAT unit not found", "Managed dependency or DPROJ block is missing, damaged, or shadowed by an old DAT unit beside the DPR.", "Run Prepare / Update Target Project again, inspect the transaction report, and remove/refresh only confirmed stale duplicate DAT copies."],
+        ["Project will not compile: DAT unit not found", "The managed dependency is missing, damaged, not present in the developer-owned Search path, or shadowed by an old DAT unit beside the DPR.", "Run Prepare / Update Dependencies again, verify $(PROJECTDIR)\\dependencies\\DelphiAppTranslation\\source in Project Options, and remove only confirmed stale duplicate DAT copies."],
         ["Design package will not install", "Wrong RAD Studio version, wrong framework bundle, stale BPL, or DPK selected through the wrong dialog.", "Use Show Design BPL, keep its adjacent runtime BPLs in place, then use Component > Install Packages > Add on the selected design BPL."],
         ["Language selector is empty", "No valid packs, wrong folder, wrong applicationId/framework/checksum, missing source pack, or stale executable copy.", "Deploy canonical English plus translated packs under the running EXE's Localization\\Languages and rebuild/run the correct output."],
         ["Switching back to English leaves translated text", "Missing/incompatible source pack or runtime text lacks a stable semantic key.", "Regenerate the canonical English pack and catalog the dynamic contract."],
@@ -758,14 +758,14 @@ def build_user_guide() -> Path:
         "[ ] Correct VCL/FMX design BPL installed through Install Packages.",
         "[ ] One manager and one connected selector saved on the primary form.",
         "[ ] ApplicationId, LanguagesFolder, and SourceLanguage verified.",
-        "[ ] Target project closed before final processing.",
+        "[ ] Target files saved and running target application closed before final processing.",
         "[ ] DeepL/Google key saved with the intended security policy and connection tested.",
         "[ ] Source and target locales verified; scan counts reviewed.",
-        "[ ] Required safety ZIP, project-closed confirmation, and authorization reviewed.",
+        "[ ] Required safety ZIP, saved-project/application-closed confirmation, and authorization reviewed.",
         "[ ] Localization Review completed; glossary and layout decisions saved.",
         "[ ] Validation has no blocking errors; runtime packs exported.",
-        "[ ] Prepare / Update Target Project completed; dated DPROJ/dependency backup recorded.",
-        r"[ ] Complete dependency installed under dependencies\DelphiAppTranslation; one marked DPROJ block present.",
+        "[ ] Prepare / Update Dependencies completed; dated previous-dependency snapshot recorded.",
+        r"[ ] Complete dependency installed under dependencies\DelphiAppTranslation; target DPROJ hash unchanged.",
         "[ ] Baseline Release build passed; canonical source and translated packs deployed automatically beside each executable.",
         "[ ] Full LTR, RTL, switch-back, restart, dynamic-text, HTML/report, and platform matrix passed.",
         "[ ] Intended files committed to Git; API keys and proprietary catalogs excluded.",

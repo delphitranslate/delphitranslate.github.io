@@ -1639,8 +1639,8 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.FontColor = xFF365674
             Text =
               'Recommended: install or refresh the project-local DAT dependency' +
-              ', persistent Search Path, automatic pack deployment, and verifie' +
-              'd kit.'
+              ', use a temporary Studio build path, deploy current packs, and ge' +
+              'nerate the verified kit without editing project files.'
           end
           object lblLanguageMenuName: TLabel
             Position.X = 296.000000000000000000
@@ -1842,7 +1842,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 44.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 5
-            Text = 'Prepare / Update Target Project'
+            Text = 'Prepare / Update Dependencies'
             OnClick = btnGenerateIntegrationPackageClick
           end
           object lblIntegrationOutput: TLabel

@@ -99,7 +99,7 @@ type
     lblReviewText: TLabel;
     memReview: TMemo;
     chkCreateBackup: TCheckBox;
-    chkTargetProjectClosed: TCheckBox;
+    chkTargetReady: TCheckBox;
     chkAuthorizeFinal: TCheckBox;
     lblFinalWarning: TLabel;
     lblFinishTitle: TLabel;
@@ -166,7 +166,7 @@ type
     FCatalogFileName: string;
     FKitDirectory: string;
     FBackupFileName: string;
-    FProjectConfigurationBackupDirectory: string;
+    FDependencyBackupDirectory: string;
     FSessionApiKey: string;
     FLastScanCompletedAt: TDateTime;
     FReviewOutputDirectory: string;
@@ -317,7 +317,7 @@ begin
   cboProviderChange(nil);
   chkCreateBackup.IsChecked := True;
   chkCreateBackup.Enabled := False;
-  chkTargetProjectClosed.IsChecked := False;
+  chkTargetReady.IsChecked := False;
   edtApiKey.Password := True;
   chkBuildNow.IsChecked := False;
   FBuildCompleted := False;
@@ -863,7 +863,7 @@ begin
   if FCurrentStep = 7 then
   begin
     btnNext.Text := 'Begin Final Processing';
-    btnNext.Enabled := chkTargetProjectClosed.IsChecked and
+    btnNext.Enabled := chkTargetReady.IsChecked and
       chkAuthorizeFinal.IsChecked;
   end
   else
@@ -978,10 +978,10 @@ begin
         Exit;
       end;
     7:
-      if not chkTargetProjectClosed.IsChecked then
+      if not chkTargetReady.IsChecked then
       begin
         lblFooterStatus.Text :=
-          'Close the target project in RAD Studio and confirm it before continuing.';
+          'Save the target project and close its running application before continuing.';
         Exit;
       end
       else if not chkAuthorizeFinal.IsChecked then
@@ -1005,7 +1005,7 @@ begin
     edtProjectFile.Text := FProjectProfile.ProjectFileName;
     edtApplicationId.Text := FProjectProfile.ProjectName;
     LoadDeploymentDestinations;
-    chkTargetProjectClosed.IsChecked := False;
+    chkTargetReady.IsChecked := False;
     chkAuthorizeFinal.IsChecked := False;
     lblProjectSummary.Text := Format('%s  |  %s  |  %s  |  %d form resources',
       [FProjectProfile.ProjectName,
@@ -1445,15 +1445,15 @@ begin
     'Provider: ' + TranslationProviderDisplayName(SelectedProvider) + sLineBreak +
     Format('Scanned entries: %d', [FScanResult.Items.Count]) + sLineBreak +
     Format('Unresolved entries to translate: %d', [MissingCount]) + sLineBreak +
-    'Integration: verified kit plus project-local managed dependency; Pascal, DPR, DFM, and FMX source remain read-only.' +
+    'Integration: verified kit plus project-local managed dependency; Pascal, DPR, DPROJ, DFM, and FMX files remain read-only.' +
       sLineBreak +
-    'Search Path: one backed-up, marked DPROJ block is installed automatically.' +
+    'Search Path: Wizard builds use the dependency folder temporarily; the developer-owned RAD Studio setting is never rewritten.' +
       sLineBreak +
-    'Deployment: automatic during final processing and every later project build.' +
+    'Deployment: automatic during final processing and Studio-initiated builds.' +
       sLineBreak +
     Format('Separate application destinations: %d (automatically deployed when available).',
       [lstDeploymentDestinations.Items.Count]) + sLineBreak +
-    'RAD Studio: target project must be closed before final processing.' +
+    'RAD Studio: save all target files and close the running target application.' +
       sLineBreak +
     'Backup: required ZIP before final processing.';
 end;
@@ -1741,7 +1741,7 @@ begin
   UpdateBuildChoice;
   UpdateRail;
   memProgress.Lines.Clear;
-  FProjectConfigurationBackupDirectory := '';
+  FDependencyBackupDirectory := '';
   try
     if FScanResult = nil then
       raise Exception.Create(
@@ -2179,13 +2179,13 @@ begin
       TPath.Combine(FindStudioRoot, 'source\runtime'),
       TPath.Combine(FindStudioRoot, 'source\components'));
     AddProgress('Component integration kit generated.');
-    FProjectConfigurationBackupDirectory :=
-      TComponentIntegrationPackageGenerator.ConfigureProject(
+    FDependencyBackupDirectory :=
+      TComponentIntegrationPackageGenerator.PrepareProjectDependencies(
         FProjectProfile, FKitDirectory,
         TPath.GetDirectoryName(FBackupFileName));
-    AddProgress('Project-local DAT dependency source, Search Path, and automatic post-build pack deployment configured.');
-    AddProgress('DPROJ transaction backup: ' +
-      FProjectConfigurationBackupDirectory);
+    AddProgress('Project-local DAT dependency source and deployment packs prepared without changing target project files.');
+    AddProgress('Previous dependency snapshot: ' +
+      FDependencyBackupDirectory);
     BuildDeploymentCommands;
     Destinations := lstDeploymentDestinations.Items.ToStringArray;
     TThread.CreateAnonymousThread(
@@ -2271,14 +2271,15 @@ begin
       Report.Add('Runtime pack: ' + ARuntimePackFileName);
       Report.Add('Component kit: ' + FKitDirectory);
       Report.Add('Backup: ' + FBackupFileName);
-      Report.Add('DPROJ transaction backup: ' +
-        FProjectConfigurationBackupDirectory);
+      Report.Add('Previous dependency snapshot: ' +
+        FDependencyBackupDirectory);
       Report.Add('Application ID: ' + FProjectProfile.ProjectName);
       Report.Add('Managed dependency source: ' + TPath.Combine(
         TPath.GetDirectoryName(FProjectProfile.ProjectFileName),
         'dependencies\DelphiAppTranslation\source'));
-      Report.Add('Managed Search Path: dependencies\DelphiAppTranslation\source');
-      Report.Add('Automatic post-build pack deployment: enabled');
+      Report.Add('Required RAD Studio Search Path: dependencies\DelphiAppTranslation\source');
+      Report.Add('Studio build Search Path: temporary command-line setting only');
+      Report.Add('Automatic project-file PostBuild import: disabled');
       Report.Add('Existing build outputs deployed: ' + ADeployedCount.ToString);
       Report.Add('Configured application destinations: ' +
         lstDeploymentDestinations.Items.Count.ToString);
@@ -2296,7 +2297,7 @@ begin
         Report.Add('Confirm that the primary form contains one TDATFMXLanguageManager and one connected TDATFMXLanguageComboBox.');
       Report.Add('ApplicationId: ' + FProjectProfile.ProjectName);
       Report.Add('LanguagesFolder: Localization\Languages');
-      Report.Add('No manual Search Path or language-pack copying is required.');
+      Report.Add('In RAD Studio Project Options, add dependencies\DelphiAppTranslation\source to the Search Path once. The Studio never edits the DPROJ.');
       Report.Add('');
       Report.Add('DEPLOYMENT COMMANDS');
       Report.AddStrings(FDeploymentCommands);
@@ -2308,18 +2309,18 @@ begin
     finally
       Report.Free;
     end;
-    AddProgress('Completion report written. Target Pascal, DPR, DFM, and FMX source files remain unchanged.');
+    AddProgress('Completion report written. Target Pascal, DPR, DPROJ, DFM, and FMX files remain unchanged.');
     FCompleted := True;
     UpdateBuildChoice;
     lblFinishText.Text :=
-      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation and export. The project-local DAT dependency, persistent Search Path, automatic post-build pack deployment, Win32 Release build, existing outputs, and available application destinations were prepared automatically. Target Pascal, DPR, DFM, and FMX source files were not edited.';
+      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation and export. The project-local DAT dependency, temporary Studio build path, Win32 Release build, existing outputs, and available application destinations were prepared automatically. Add the dependency source folder once through RAD Studio Project Options for normal IDE builds. Target Pascal, DPR, DPROJ, DFM, and FMX files were not edited.';
     lblFooterStatus.Text := 'Setup Wizard completed successfully.';
   except
     on E: Exception do
     begin
       AddProgress('STOPPED: ' + E.Message);
       lblFinishText.Text :=
-        'Processing stopped safely. Review the message below. Target Pascal, DPR, DFM, and FMX source files were not edited; any managed DPROJ change has a transaction backup.';
+        'Processing stopped safely. Review the message below. Target Pascal, DPR, DPROJ, DFM, and FMX files were not edited.';
       lblFooterStatus.Text := 'Setup Wizard did not complete: ' + E.Message;
       FCompleted := False;
     end;
@@ -2340,7 +2341,7 @@ procedure TfrmSetupWizard.StopFinalProcessing(const AMessage: string);
 begin
   AddProgress('STOPPED: ' + AMessage);
   lblFinishText.Text :=
-    'Processing stopped safely. Review the message below. Target Pascal, DPR, DFM, and FMX source files were not edited; any managed DPROJ change has a transaction backup.';
+    'Processing stopped safely. Review the message below. Target Pascal, DPR, DPROJ, DFM, and FMX files were not edited.';
   lblFooterStatus.Text := 'Setup Wizard did not complete: ' + AMessage;
   FCompleted := False;
   FFinalProcessing := False;

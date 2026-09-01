@@ -119,20 +119,26 @@ packages with the active toolchain, and add the newly built BPL.
    visible language selector on the primary form. Add supporting labels or
    menu items, set ApplicationId/LanguagesFolder/SourceLanguage, and choose
    **File > Save All**.
-4. Close the target project and start the Studio. Choose **Run Setup Wizard**.
+4. Choose **File > Save All**, close the running target application, and start
+   the Studio. Choose **Run Setup Wizard**. The RAD Studio project may remain
+   open because the Studio does not write its project files.
 5. Select the project, source and target languages, provider, and deployment
    destinations. The Wizard scans the saved project and translates unresolved
    entries during its single controlled processing pass.
 6. Review the generated catalog, terminology, validation results, layout
-   proposals, safety backup, and component kit. Final processing installs the
-   complete `dependencies\DelphiAppTranslation` tree and one marked DPROJ
-   Search Path/deployment block; it does not rewrite Pascal, DFM, FMX, or DPR
-   source.
+   proposals, safety backup, and component kit. Final processing atomically
+   installs the complete `dependencies\DelphiAppTranslation` tree without
+   rewriting Pascal, DFM, FMX, DPR, or DPROJ files.
 7. The Wizard builds Win32 Release automatically, refreshes supported target
    outputs already in use, and atomically writes the exact JSON set beside each
-   successful executable under `Localization\Languages`. Future ordinary RAD
-   Studio builds run the project-local deployment target automatically.
-8. Build and run the selected target copies. Test every language, form,
+   successful executable under `Localization\Languages`. Wizard-initiated
+   builds receive the dependency Search Path only for that build process.
+8. In RAD Studio Project Options, add
+   `$(PROJECTDIR)\dependencies\DelphiAppTranslation\source` to the Delphi
+   compiler Search path for all configurations and platforms, retaining every
+   existing entry. This one developer-owned IDE setting is never written by the
+   Studio.
+9. Build and run the selected target copies. Test every language, form,
    restart/persistence path, dynamic-data screen, and translated layout.
 
 For existing catalogs or maintenance work, choose **Open Maintenance Studio**
@@ -142,10 +148,10 @@ Translate, Validation, Export, Integration, and Provider Settings pages.
 ## Safety model
 
 Scanning is read-only. The Wizard creates a timestamped safety backup before
-final processing and uses a marked, transactional DPROJ configuration block for
-the ComponentSource Search Path and post-build pack deployment. The recommended
-Component Integration path does not rewrite target Pascal, DFM, FMX, or DPR
-files.
+final processing and transactionally manages only the project-local
+`dependencies\DelphiAppTranslation` folder. Studio-initiated builds use a
+temporary command-line Search Path, and language packs are deployed directly.
+The Studio does not rewrite target Pascal, DFM, FMX, DPR, or DPROJ files.
 
 Deployment is destination-specific. JSON packs may be created or replaced in a
 selected application folder. The application `.exe` is created or replaced

@@ -33,9 +33,12 @@ offline. No API key is added to the target application's source or deployment.
 8. Run **Validation**. Errors block export; warnings request review. Double-click
    an issue to open its catalog entry, then export the offline JSON pack.
 9. Under **Integration**, leave **Component Integration (Recommended)** selected
-   and choose **Prepare / Update Target Project**. The Studio creates a verified
-   kit, transaction backup, complete project-local dependency, persistent
-   Search Path, post-build pack deployment, and baseline Release build. Use
+   and choose **Prepare / Update Dependencies**. The Studio creates a verified
+   kit, previous-dependency snapshot, complete project-local dependency,
+   temporary build Search Path, direct pack deployment, and baseline Release
+   build without writing target project files. In RAD Studio Project Options,
+   add `$(PROJECTDIR)\dependencies\DelphiAppTranslation\source` once for normal
+   IDE builds. Use
    **Show Design BPL** for the one manual IDE step: Component > Install Packages
    > Add. The exact design BPL and its required runtime BPLs are together under
    the kit's `DesignPackages\Win32\Release` folder.
@@ -92,10 +95,12 @@ mark manual wiring confirmed only after reviewing that code location.
 ## Component Integration and Safety
 
 Scanning does not alter target source. Recommended Component Integration writes
-the external kit, the target's managed `dependencies\DelphiAppTranslation`
-tree, and one clearly marked idempotent DPROJ block. It does not rewrite target
-Pascal, DPR, DFM, or FMX source. Component placement remains in Delphi's Form
-Designer, where it stays visible and editable.
+the external kit and atomically refreshes the target's single managed
+`dependencies\DelphiAppTranslation` tree. It does not rewrite target Pascal,
+DPR, DPROJ, DFM, or FMX files. Studio-initiated builds receive a temporary
+Search Path and packs are deployed directly. The normal IDE Search Path remains
+a one-time developer-owned Project Options setting. Component placement remains
+in Delphi's Form Designer, where it stays visible and editable.
 
 Never select a `.dpk` in Delphi's **Component > Install Component** wizard.
 The `.dpk` is package source. Choose **Show Design BPL**, then use **Component >

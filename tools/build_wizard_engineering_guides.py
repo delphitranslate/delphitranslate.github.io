@@ -108,7 +108,7 @@ UNIT_DESCRIPTIONS = {
     "DAT.Design.FMX.Register": "Registers the FMX language manager and selector on the DAT Localization Tool Palette page. It is compiled only into the FMX design-time package, never into a deployed application.",
     "DAT.Design.VCL.Register": "Registers the VCL language manager and selector on the DAT Localization Tool Palette page. It is the VCL design-time bridge between package installation and Object Inspector use.",
     "DAT.Integration.BuildDeploy": "Builds selected Delphi platform/configuration targets and deploys matching packs to detected or authorized application folders while reporting command, output, timeout, and destination results.",
-    "DAT.Integration.ComponentPackage": "Generates and validates the complete framework-appropriate kit, including ComponentSource, packs, Apache license, manifest, README, deployment support, and the exact Win32 Release BPL bundle. ConfigureProject then stages and installs the project-local dependency and idempotent DPROJ automation block with rollback.",
+    "DAT.Integration.ComponentPackage": "Generates and validates the complete framework-appropriate kit, including ComponentSource, packs, Apache license, manifest, README, deployment support, and the exact Win32 Release BPL bundle. PrepareProjectDependencies then stages and atomically installs only the project-local dependency while target project files remain read-only.",
     "DAT.Integration.DelphiSource": "Implements the explicitly advanced source-integration editor with preview, authorization, transaction backup, bounded changes, and restoration; it is not used by the recommended component workflow.",
     "DAT.Integration.MenuResource": "Plans and applies controlled language-menu resource changes for advanced integration, including safe detection and reversal of the generated menu block.",
     "DAT.Integration.Package": "Builds the broader integration plan and coordinates package/source actions, generated artifacts, reset behavior, and safety transactions across supported integration modes.",
@@ -421,7 +421,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     add_paragraphs(document, [
         "Welcome to the Translation Setup Wizard. This guide walks beside you through all eight steps, explains what each choice means, and tells you what to look for before you move on. Use it for a first VCL or FireMonkey translation, for a later update after source changes, or when you want to add another language.",
         "You do not need to memorize the whole process. Follow the screens in order on your first run, and return to the individual step sections whenever you need a reminder. Each section includes the complete screen, a closer view of the important controls, and a plain-language explanation of what happens next.",
-        "During a normal run, the Wizard reads your selected Delphi project, creates or merges its development catalog, translates only eligible unresolved material, opens Localization Review, validates the result, exports the canonical source and translated packs, prepares the component integration kit, installs the project-local dependency and marked DPROJ automation block, builds Win32 Release, and deploys packs to the folders you approved. It does not rewrite target Pascal, DPR, DFM, or FMX source.",
+        "During a normal run, the Wizard reads your selected Delphi project, creates or merges its development catalog, translates only eligible unresolved material, opens Localization Review, validates the result, exports the canonical source and translated packs, prepares the component integration kit, atomically installs one project-local dependency, builds Win32 Release with a temporary Search Path, and directly deploys packs to the folders you approved. It does not rewrite target Pascal, DPR, DPROJ, DFM, or FMX files.",
         "Your finished application remains offline. Only the Studio contacts DeepL or Google, and it does so from the developer computer while translation work is under way. The application you ship reads validated local JSON packs and never receives the provider API key.",
     ])
     add_callout(document, "Start with a safe copy.", "Keep a pristine backup and perform the first localization run on a separate test copy of the target project. This gives you an easy way back while you learn the workflow. The Wizard also creates its own timestamped safety ZIP before final processing.")
@@ -453,7 +453,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         "Open the target primary form in the Form Designer. Place one TDATVCLLanguageManager or TDATFMXLanguageManager and one matching language combo box.",
         "In Object Inspector set ApplicationId to the exact Delphi project name, LanguagesFolder to Localization\\Languages, SourceLanguage to the authored locale, and connect the combo box LanguageManager property.",
         "Add and position any visible Language label or menu item in the designer. Choose File > Save All so the first scan sees every intended static string.",
-        "Close the target project before Wizard final processing. The Wizard verifies this explicitly at Review and Authorize.",
+        "Choose File > Save All and close the running target application before Wizard final processing. The Wizard verifies this explicitly at Review and Authorize; the RAD Studio project may remain open because its files are read-only to the Studio.",
     ])
     add_callout(document, "Keep the setup visible in Delphi.", "The supplied manager and selector are normal designer components. Place and configure them in the Form Designer and Object Inspector so another developer can see and maintain the setup later. The Wizard does not inject hidden runtime UI construction or silently rewrite the form.")
     document.add_heading("2.3 Provider and network readiness", level=2)
@@ -471,7 +471,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         ["Next", "Validates the current step and advances.", "Press Enter when Next is the default button."],
         ["Back", "Returns to the previous reached step.", "Use before final processing; it is hidden or disabled when backward movement is unsafe or meaningless."],
         ["Cancel", "Closes an ordinary Wizard session or a stopped run.", "Press Esc before final processing. After successful completion use Finish instead."],
-        ["Begin Final Processing", "Replaces Next on Review and Authorize.", "Select only after the project-closed and authorization checks are true."],
+        ["Begin Final Processing", "Replaces Next on Review and Authorize.", "Select only after the saved-files/running-application check and authorization check are true."],
         ["Finish", "Closes a successful completed run.", "Press Enter after reading the completion status."],
         ["Footer status", "Reports the last completed action and next requirement.", "Read it whenever a button remains disabled."],
     ])
@@ -575,11 +575,11 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     add_screen(document, "13-wizard-review.png", "Figure 10-1. Step 7 - Review and Authorize content area.", "Review and Authorize page summarizing project, language, provider, scan, translation, backup, and authorization")
     add_paragraphs(document, [
         "This page gives you one last chance to confirm the whole job before anything time-consuming begins. Read the summary from top to bottom and make sure it names the exact test project, framework, source and target locales, provider, scan state, unresolved work, backup, and component workflow you intended.",
-        "Close the target project in RAD Studio before you authorize the run. An open DPROJ or form can leave unsaved work in memory and make the selected source snapshot unreliable, even though the Wizard itself does not rewrite those files.",
+        "Choose File > Save All in RAD Studio and close the running target application before you authorize the run. The project itself may remain open because the Wizard does not write its DPROJ or form files.",
     ])
     add_control_table(document, [
         ["Review memo", "Prints the complete proposed operation in plain text.", "Read the path, application ID, locale, provider, counts, output, and backup line by line."],
-        ["Project closed confirmation", "Confirms RAD Studio no longer owns an in-memory target-project state.", "Close the project, then select it."],
+        ["Target files saved; application closed", "Confirms the target files are saved and the running target executable will not lock a rebuild.", "Choose File > Save All, close the running target application, then select it. The RAD Studio project may remain open."],
         ["Safety backup", "Requires the pre-processing ZIP.", "Leave enabled; final processing will not start without it."],
         ["Authorization", "Records that the developer reviewed the operation.", "Select only after all summary values are correct."],
         ["Begin Final Processing", "Starts backup, translation, review, validation, export, kit generation, and deployment.", "This is not a generic Next button; it crosses the controlled execution boundary."],
@@ -631,14 +631,14 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     document.add_heading(WIZARD_HEADINGS[12], level=1)
     add_paragraphs(document, [
         r"The Wizard places the verified kit under <Studio>\export\component-integration\<ApplicationId>, then automatically installs the compatible source set under <Target Project>\dependencies\DelphiAppTranslation\source. This project-local copy makes ordinary IDE and command-line builds independent of the Studio repository path.",
-        r"The same transaction installs deployment\Languages, DelphiAppTranslation.targets, the Apache license, and machine-readable manifests. It stages and hash-checks the complete set before promotion and records the replaced DPROJ/dependency state in a dated backup.",
+        r"The same transaction installs deployment\Languages, the Apache license, and machine-readable manifests. It stages and hash-checks the complete set before promotion and records the replaced managed dependency in a dated snapshot. It records and verifies the selected project-file hash without writing that file.",
     ])
     add_steps(document, [
         "Authorize final processing after the required project ZIP backup has completed.",
         "The Wizard generates the kit and copies the exact VCL or FMX source closure into a staging folder.",
         "It verifies hashes and application/framework identity, then atomically promotes the managed dependency folder.",
-        "It replaces or inserts one marked DPROJ block; a repeated run updates that block rather than duplicating it.",
-        "It performs the baseline Win32 Release build and deploys the exact current pack set. Commit the managed dependency and marked DPROJ block when repository policy permits.",
+        "It verifies that the selected project-file hash is unchanged; a repeated run refreshes the same managed dependency folder rather than creating duplicates.",
+        "It performs the baseline Win32 Release build with a process-local Search Path and deploys the exact current pack set. Commit the managed dependency when repository policy permits.",
     ])
     add_table(document, ["Framework scope", "Complete unit set"], [
         ["Shared by VCL and FMX", "DAT.Core.AtomicFile; DAT.Core.Diagnostics; DAT.Runtime.LanguagePack; DAT.Runtime.Preference; DAT.Runtime.Manager; DAT.Runtime.LayoutOverrides; DAT.Runtime.SplashTranslation; DAT.Runtime.TemplateRewrite; DAT.Components.Core"],
@@ -648,9 +648,9 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(WIZARD_HEADINGS[13], level=1)
     add_paragraphs(document, [
-        r"The Wizard configures the compiler path automatically. The marked DPROJ block prepends $(MSBuildProjectDirectory)\dependencies\DelphiAppTranslation\source and preserves $(DCC_UnitSearchPath), so existing and inherited entries continue to work. It also imports the project-local post-build target that replaces stale output packs after every successful build.",
+        r"The Wizard never edits the DPROJ. Wizard-initiated builds temporarily prepend <Target>\dependencies\DelphiAppTranslation\source to DCC_UnitSearchPath for that process only. For normal IDE builds, the developer opens Project > Options > Building > Delphi Compiler, selects All configurations and All platforms, and adds $(PROJECTDIR)\dependencies\DelphiAppTranslation\source without removing existing entries.",
     ])
-    add_callout(document, "No manual Project Options edit.", "Do not add a second DAT Search Path in Project Options. If preparation is repeated, the Studio refreshes its one managed block. The transaction report gives the backup location for recovery.")
+    add_callout(document, "One developer-owned Project Options entry.", "Add the dependency source path once. If preparation is repeated, the Studio refreshes the same folder and never adds or duplicates a DPROJ entry. The completion report gives the exact path and prior-dependency snapshot location.")
     add_callout(document, "Verified toolchain path.", r"RAD Studio environment: C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat. Win32 compiler: C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc32.exe.")
 
     document.add_heading(WIZARD_HEADINGS[14], level=1)
@@ -672,7 +672,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(WIZARD_HEADINGS[15], level=1)
     add_steps(document, [
-        "Confirm the completion report names the installed dependency folder, one managed DPROJ block, and transaction backup.",
+        "Confirm the completion report names the installed dependency folder, exact developer-owned Search Path, unchanged project-file boundary, and previous-dependency snapshot.",
         "The Wizard builds Win32 Release even when no output folder existed. It also refreshes supported configurations whose output folders show they are in use; build Win64 only when the target will ship it.",
         r"Confirm the build log reports automatic deployment of the canonical source pack and translated packs to each executable's Localization\Languages folder.",
         "Run the executable from the output folder you just built, not an older copy elsewhere on disk.",
@@ -725,7 +725,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         ["Mixed languages remain", "Previous-language dynamic/template text was not restored before applying the new pack.", "Verify source snapshot/dynamic reverse mapping and language-change refresh contracts."],
         ["English switch shows a blank page", "Current page was cleared without immediate rebuild/repaint.", "Verify the language-changed handler rebuilds current dynamic/HTML content synchronously."],
         ["RTL text is left aligned", "A paragraph/control direction contract is absent or overridden.", "Verify pack direction, framework applicator, and per-control ownership; preserve protected LTR tokens."],
-        ["Compiler cannot find DAT units", "Managed dependency/DPROJ block is missing or an older DAT unit shadows the managed set.", "Run Prepare / Update Target Project again, inspect its transaction report, and remove only confirmed stale duplicate DAT source."],
+        ["Compiler cannot find DAT units", "The managed dependency is missing, its developer-owned Search Path is absent, or an older DAT unit shadows the managed set.", "Run Prepare / Update Dependencies again, verify $(PROJECTDIR)\\dependencies\\DelphiAppTranslation\\source in Project Options, and remove only confirmed stale duplicate DAT source."],
         ["STOPPED in final log", "Controlled backup, translation, review, validation, export, kit, build, or deployment failure.", "Preserve the log/report, correct the specific last error, and rerun; do not treat partial output as complete."],
     ])
 
@@ -750,10 +750,10 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         "[ ] DeepL/Google key stored with intended policy and Test Connection passed.",
         "[ ] Project, source locale, target locale, native name, direction, and locale facts verified.",
         "[ ] Scan headline and supporting raw/recovered/duplicate counts reviewed.",
-        "[ ] Review and Authorize summary, safety ZIP, project-closed check, and authorization confirmed.",
+        "[ ] Review and Authorize summary, safety ZIP, saved-files/application-closed check, and authorization confirmed.",
         "[ ] Localization Review findings, glossary, suggestions, and layout decisions completed; later terminology-only corrections use Maintenance Studio > Glossary.",
         "[ ] Progress ends successfully; completion report and component kit exist.",
-        r"[ ] Managed dependencies\DelphiAppTranslation folder and one marked DPROJ block installed automatically.",
+        r"[ ] Managed dependencies\DelphiAppTranslation folder installed automatically; target DPROJ hash unchanged.",
         "[ ] Delphi Search path includes the exact dependency source for all shipped targets.",
         "[ ] Canonical source pack and every target pack deployed beside each actual EXE.",
         "[ ] LTR, RTL, non-English-to-non-English, switch-back, restart, dynamic, HTML, and layout matrix passes.",
@@ -1224,7 +1224,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     add_engineering_chapter(document, 15)
     add_paragraphs(document, [
         "ComponentSource is a generated source-closure distribution for one target framework. The package generator computes the exact shared and framework-specific set and copies all of it into the kit. The target compiler must see one internally consistent version of that set.",
-        r"The target-local dependency is <Target>\dependencies\DelphiAppTranslation. ConfigureProject creates or replaces this managed folder automatically after the required backup. source holds the complete PAS closure; deployment\Languages holds the canonical pack source; deployment\DelphiAppTranslation.targets performs future output deployment; license and manifests record provenance and integrity.",
+        r"The target-local dependency is <Target>\dependencies\DelphiAppTranslation. PrepareProjectDependencies creates or replaces this managed folder automatically after snapshotting any prior dependency. source holds the complete PAS closure; deployment\Languages holds the canonical pack source; license and manifests record provenance, integrity, the exact developer-owned Search Path, and the read-only project-file boundary.",
     ])
     add_table(document, ["Layer", "Units", "Why inseparable"], [
         ["Shared persistence/diagnostics", "DAT.Core.AtomicFile; DAT.Core.Diagnostics", "Preference/layout/runtime parsing depends on the same atomic/error contract."],
@@ -1237,16 +1237,16 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
 
     add_engineering_chapter(document, 16)
     add_paragraphs(document, [
-        "TComponentIntegrationPackageGenerator.Generate produces a staged, verified kit. ConfigureProject is the shared Wizard/Maintenance transaction: it validates kit identity, creates a dated DPROJ/dependency backup, stages the target dependency, verifies copied hashes, atomically promotes it, and writes one marked idempotent DPROJ block. It restores the saved DPROJ and previous dependency if any promotion or post-write validation fails.",
-        r"The managed DPROJ block prepends $(MSBuildProjectDirectory)\dependencies\DelphiAppTranslation\source while retaining $(DCC_UnitSearchPath). It imports dependencies\DelphiAppTranslation\deployment\DelphiAppTranslation.targets. That target clears the old output Languages directory and copies the exact managed JSON set after every successful build, preventing obsolete locale files from surviving.",
+        "TComponentIntegrationPackageGenerator.Generate produces a staged, verified kit. PrepareProjectDependencies is the shared Wizard/Maintenance transaction: it validates kit identity, creates a dated snapshot of any prior managed dependency, stages the replacement, verifies copied hashes, atomically promotes it, and verifies that the selected project-file hash did not change. It restores the previous dependency if promotion or post-promotion validation fails.",
+        r"The Studio never writes DCC_UnitSearchPath or an Import element into the DPROJ. RunHiddenBuild uses /p:DCC_UnitSearchPath with <Target>\dependencies\DelphiAppTranslation\source for that MSBuild process only. BuildAndDeploy then atomically replaces the output Localization\Languages set directly, preventing obsolete locale files from surviving a Studio deployment.",
         "TTargetBuildDeployer runs the baseline Win32 Release build even when no output folder existed, refreshes other supported configurations already in use, locates the configured executable output, and performs an additional atomic/hash-validated deployment. Configured application destinations use the same atomic routine. TIntegrationPackageGenerator and TDelphiIntegrationSourceEditor remain advanced source-edit machinery and are not invoked by the component workflow.",
     ])
     add_bullets(document, [
         "The managed block must be uniquely marked, repeatable, and preserve $(DCC_UnitSearchPath). A second run replaces it instead of appending another path/import.",
         "The dependency folder is Studio-owned as one versioned unit. Do not combine its files with older DAT copies beside the DPR or in a legacy DAT_Runtime folder.",
-        "Pack deployment is part of both the managed post-build target and Studio build/deployment verification; stale target JSON is removed before the current set is promoted.",
+        "Pack deployment is an explicit Studio build/deployment operation; stale target JSON is removed before the current set is promoted. Ordinary IDE builds do not import or execute hidden Studio project logic.",
         "Unavailable optional removable/network destinations warn and skip; they must not fail an otherwise valid local build.",
-        "No integration code writes target Pascal, DPR, DFM, or FMX source. Authorized writes are limited to Studio export/workspace, the target-managed dependency, the marked DPROJ block, transaction backups, build outputs, and configured destinations.",
+        "No integration code writes target Pascal, DPR, DPROJ, DFM, or FMX files. Authorized writes are limited to Studio export/workspace, the target-managed dependency, dependency snapshots, build outputs, and configured destinations.",
         "The BPL boundary is intentionally manual: the Studio locates and bundles exact files but never registers or unregisters a package in the IDE.",
     ])
 

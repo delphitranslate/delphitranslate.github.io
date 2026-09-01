@@ -1266,68 +1266,6 @@ begin
     'The framework-neutral language-transition transaction hooks are missing.');
 end;
 
-procedure TestExistingIntegrationSourcesAreSynchronized;
-var
-  ComponentSourceDirectory: string;
-  KitDirectory: string;
-  ProjectDirectory: string;
-  ProjectFileName: string;
-  RuntimeDirectory: string;
-  TestDirectory: string;
-  UpdatedCount: Integer;
-begin
-  TestDirectory := TPath.Combine(TPath.GetTempPath,
-    'DAT-Source-Sync-' + TPath.GetRandomFileName);
-  ProjectDirectory := TPath.Combine(TestDirectory, 'Project');
-  RuntimeDirectory := TPath.Combine(ProjectDirectory, 'DAT_Runtime');
-  KitDirectory := TPath.Combine(TestDirectory, 'Kit');
-  ComponentSourceDirectory := TPath.Combine(KitDirectory, 'ComponentSource');
-  TDirectory.CreateDirectory(ProjectDirectory);
-  TDirectory.CreateDirectory(RuntimeDirectory);
-  TDirectory.CreateDirectory(ComponentSourceDirectory);
-  try
-    ProjectFileName := TPath.Combine(ProjectDirectory, 'Fixture.dproj');
-    TFile.WriteAllText(ProjectFileName, '<Project/>', TEncoding.UTF8);
-    TFile.WriteAllText(TPath.Combine(ComponentSourceDirectory,
-      'DAT.Components.FMX.pas'), 'current component', TEncoding.UTF8);
-    TFile.WriteAllText(TPath.Combine(ComponentSourceDirectory,
-      'DAT.Runtime.FMX.pas'), 'current runtime', TEncoding.UTF8);
-    TFile.WriteAllText(TPath.Combine(ComponentSourceDirectory,
-      'DAT.Runtime.Manager.pas'), 'not already local', TEncoding.UTF8);
-    TFile.WriteAllText(TPath.Combine(ProjectDirectory,
-      'DAT.Components.FMX.pas'), 'stale component', TEncoding.UTF8);
-    TFile.WriteAllText(TPath.Combine(RuntimeDirectory,
-      'DAT.Runtime.FMX.pas'), 'stale runtime', TEncoding.UTF8);
-
-    UpdatedCount :=
-      TTargetBuildDeployer.SynchronizeExistingIntegrationSources(
-        ProjectFileName, KitDirectory);
-    Require(UpdatedCount = 2,
-      'The build did not refresh both stale local DAT integration units.');
-    Require(TFile.ReadAllText(TPath.Combine(ProjectDirectory,
-      'DAT.Components.FMX.pas'), TEncoding.UTF8) = 'current component',
-      'A DAT unit beside the DPR still shadows the current component kit.');
-    Require(TFile.ReadAllText(TPath.Combine(RuntimeDirectory,
-      'DAT.Runtime.FMX.pas'), TEncoding.UTF8) = 'current runtime',
-      'A DAT_Runtime unit still shadows the current component kit.');
-    Require(TFile.ReadAllText(TPath.Combine(ProjectDirectory,
-      'DAT.Components.FMX.pas.previous'), TEncoding.UTF8) = 'stale component',
-      'Synchronizing a generated unit did not retain its recovery copy.');
-    Require(TFile.ReadAllText(TPath.Combine(RuntimeDirectory,
-      'DAT.Runtime.FMX.pas.previous'), TEncoding.UTF8) = 'stale runtime',
-      'Synchronizing a runtime unit did not retain its recovery copy.');
-    Require(not TFile.Exists(TPath.Combine(ProjectDirectory,
-      'DAT.Runtime.Manager.pas')),
-      'Synchronization added a target source file that was not already present.');
-    Require(TTargetBuildDeployer.SynchronizeExistingIntegrationSources(
-      ProjectFileName, KitDirectory) = 0,
-      'An already current integration unit was rewritten unnecessarily.');
-  finally
-    if TDirectory.Exists(TestDirectory) then
-      TDirectory.Delete(TestDirectory, True);
-  end;
-end;
-
 procedure TestTransactionalPackageAndDeploymentContract;
 var
   BuildDeploySource: string;
@@ -1355,38 +1293,37 @@ begin
     ContainsText(BuildDeploySource, 'ReplaceFileAtomic') and
     ContainsText(BuildDeploySource, 'FileHash'),
     'Build deployment no longer verifies and atomically promotes its files.');
+  Require(not ContainsText(ComponentPackageSource, 'ManagedProjectBlock') and
+    not ContainsText(ComponentPackageSource, 'DelphiAppTranslation.targets') and
+    not ContainsText(ComponentPackageSource,
+      'TAtomicTextFile.WriteAllText(ProjectFileName'),
+    'Dependency preparation contains a forbidden target project-file write.');
+  Require(ContainsText(BuildDeploySource,
+    '/p:DCC_UnitSearchPath="%s;$(DCC_UnitSearchPath)"') and
+    not ContainsText(BuildDeploySource,
+      'SynchronizeExistingIntegrationSources'),
+    'Studio builds do not preserve the temporary, read-only Search Path boundary.');
   Require(not ContainsText(BuildDeploySource,
     'TFile.Copy(LanguagePackFileName'),
     'Build deployment again copies language packs directly into a live set.');
-end;
-
-function CountAutomationOccurrences(const AText, AValue: string): Integer;
-var
-  Offset: Integer;
-begin
-  Result := 0;
-  Offset := 1;
-  while PosEx(AValue, AText, Offset) > 0 do
-  begin
-    Offset := PosEx(AValue, AText, Offset) + Length(AValue);
-    Inc(Result);
-  end;
 end;
 
 procedure TestAutomaticProjectPreparation;
 var
   BackupDirectory: string;
   BuildResult: string;
+  DependencyFileName: string;
+  DependencyHash: string;
   FileName: string;
   KitDirectory: string;
+  ManifestText: string;
   OutputDirectory: string;
   Profile: TProjectProfile;
   ProjectDirectory: string;
   ProjectFileName: string;
+  ProjectHash: string;
   ProjectRoot: string;
-  ProjectText: string;
   SourceHash: string;
-  TargetsText: string;
   TestDirectory: string;
 begin
   ProjectRoot := TPath.GetFullPath(GetCurrentDir);
@@ -1402,37 +1339,39 @@ begin
     ProjectFileName := TPath.Combine(ProjectDirectory,
       'SampleVCLApp.dproj');
     Profile := TProjectDetector.Detect(ProjectFileName);
+    ProjectHash := THashSHA2.GetHashStringFromFile(ProjectFileName);
     SourceHash := THashSHA2.GetHashStringFromFile(TPath.Combine(
       ProjectDirectory, 'SampleVCL.MainForm.pas'));
     KitDirectory := TComponentIntegrationPackageGenerator.Generate(Profile,
       TPath.Combine(TestDirectory, 'Kit'),
       TPath.Combine(ProjectRoot, 'source\runtime'),
       TPath.Combine(ProjectRoot, 'source\components'));
-    BackupDirectory := TComponentIntegrationPackageGenerator.ConfigureProject(
-      Profile, KitDirectory, TPath.Combine(TestDirectory, 'Backups'));
+    BackupDirectory :=
+      TComponentIntegrationPackageGenerator.PrepareProjectDependencies(
+        Profile, KitDirectory, TPath.Combine(TestDirectory, 'Backups'));
     Require(TDirectory.Exists(BackupDirectory),
-      'Automatic preparation did not create its transaction backup.');
-    Require(TFile.Exists(TPath.Combine(ProjectDirectory,
-      'dependencies\DelphiAppTranslation\source\DAT.Components.VCL.pas')),
+      'Dependency preparation did not create its transaction directory.');
+    DependencyFileName := TPath.Combine(ProjectDirectory,
+      'dependencies\DelphiAppTranslation\source\DAT.Components.VCL.pas');
+    Require(TFile.Exists(DependencyFileName),
       'Automatic preparation did not install the canonical DAT source set.');
+    DependencyHash := THashSHA2.GetHashStringFromFile(DependencyFileName);
     Require(TFile.Exists(TPath.Combine(ProjectDirectory,
+      'dependencies\DelphiAppTranslation\deployment\Languages\en-US.json')),
+      'Dependency preparation did not install the canonical language packs.');
+    Require(not TFile.Exists(TPath.Combine(ProjectDirectory,
       'dependencies\DelphiAppTranslation\deployment\DelphiAppTranslation.targets')),
-      'Automatic preparation did not install post-build pack deployment.');
-    TargetsText := TFile.ReadAllText(TPath.Combine(ProjectDirectory,
-      'dependencies\DelphiAppTranslation\deployment\DelphiAppTranslation.targets'),
+      'Dependency preparation installed a forbidden persistent project-build import.');
+    ManifestText := TFile.ReadAllText(TPath.Combine(ProjectDirectory,
+      'dependencies\DelphiAppTranslation\integration-manifest.json'),
       TEncoding.UTF8);
-    Require(ContainsText(TargetsText, 'AfterTargets="Build"') and
-      ContainsText(TargetsText, '<RemoveDir') and
-      ContainsText(TargetsText, '<Copy'),
-      'The installed post-build target does not replace stale packs with the managed set.');
-    ProjectText := TFile.ReadAllText(ProjectFileName, TEncoding.UTF8);
-    Require(CountAutomationOccurrences(ProjectText,
-      'Delphi App Translation Studio managed integration: begin') = 1,
-      'Automatic preparation did not add exactly one managed DPROJ block.');
-    Require(ContainsText(ProjectText,
-      'dependencies\DelphiAppTranslation\source') and
-      ContainsText(ProjectText, 'DelphiAppTranslation.targets'),
-      'The managed DPROJ block is incomplete.');
+    Require(ContainsText(ManifestText, '"projectFilesReadOnly": true') and
+      ContainsText(ManifestText,
+        '"searchPathOwnership": "developer-managed in RAD Studio Project Options"'),
+      'The dependency manifest does not record the project-file safety boundary.');
+    Require(SameText(ProjectHash,
+      THashSHA2.GetHashStringFromFile(ProjectFileName)),
+      'Dependency preparation changed the DPROJ.');
 
     BuildResult := TTargetBuildDeployer.BuildAndDeploy(ProjectFileName,
       Profile.ProjectName, 'Win32', 'Release', KitDirectory);
@@ -1444,12 +1383,15 @@ begin
       OutputDirectory, 'Localization\Languages\en-US.json')),
       'The prepared project build did not receive its canonical source pack.');
 
-    TComponentIntegrationPackageGenerator.ConfigureProject(Profile,
+    TFile.WriteAllText(DependencyFileName, 'stale dependency', TEncoding.UTF8);
+    TComponentIntegrationPackageGenerator.PrepareProjectDependencies(Profile,
       KitDirectory, TPath.Combine(TestDirectory, 'Backups'));
-    ProjectText := TFile.ReadAllText(ProjectFileName, TEncoding.UTF8);
-    Require(CountAutomationOccurrences(ProjectText,
-      'Delphi App Translation Studio managed integration: begin') = 1,
-      'A repeated preparation duplicated the managed DPROJ block.');
+    Require(SameText(DependencyHash,
+      THashSHA2.GetHashStringFromFile(DependencyFileName)),
+      'A repeated preparation did not refresh the one managed dependency set.');
+    Require(SameText(ProjectHash,
+      THashSHA2.GetHashStringFromFile(ProjectFileName)),
+      'A repeated preparation changed the DPROJ.');
     Require(SameText(SourceHash, THashSHA2.GetHashStringFromFile(TPath.Combine(
       ProjectDirectory, 'SampleVCL.MainForm.pas'))),
       'Automatic preparation changed target Pascal source.');
@@ -3143,7 +3085,6 @@ begin
     TestProjectScanCancellationContract;
     TestStaleScanSourceContract;
     TestFMXBrowserTranslationRemainsBounded;
-    TestExistingIntegrationSourcesAreSynchronized;
     TestTransactionalPackageAndDeploymentContract;
     TestAutomaticProjectPreparation;
     TestStudioResponsivenessContract;

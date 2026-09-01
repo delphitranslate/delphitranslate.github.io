@@ -10,8 +10,6 @@ type
       ARequireExecutable: Boolean = False): string; static;
     class function BuildAndDeploy(const AProjectFileName, AProjectName,
       APlatform, AConfiguration, APackageDirectory: string): string; static;
-    class function SynchronizeExistingIntegrationSources(
-      const AProjectFileName, APackageDirectory: string): Integer; static;
     class function DeployBuildOutput(const AProjectFileName, AProjectName,
       APlatform, AConfiguration, ADestinationDirectory,
       APackageDirectory: string; AReplaceExecutable: Boolean): string; static;
@@ -119,21 +117,6 @@ begin
     Registry.Free;
     VersionNames.Free;
   end;
-end;
-
-function FilesHaveEqualBytes(const ALeftFileName,
-  ARightFileName: string): Boolean;
-var
-  LeftBytes: TBytes;
-  RightBytes: TBytes;
-begin
-  if not TFile.Exists(ALeftFileName) or not TFile.Exists(ARightFileName) then
-    Exit(False);
-  LeftBytes := TFile.ReadAllBytes(ALeftFileName);
-  RightBytes := TFile.ReadAllBytes(ARightFileName);
-  Result := (Length(LeftBytes) = Length(RightBytes)) and
-    ((Length(LeftBytes) = 0) or
-     CompareMem(@LeftBytes[0], @RightBytes[0], Length(LeftBytes)));
 end;
 
 function UniqueSiblingName(const APath, ASuffix: string): string;
@@ -269,51 +252,6 @@ begin
   end;
 end;
 
-class function TTargetBuildDeployer.SynchronizeExistingIntegrationSources(
-  const AProjectFileName, APackageDirectory: string): Integer;
-var
-  ComponentSourceDirectory: string;
-  DestinationDirectory: string;
-  ProjectDirectory: string;
-
-  procedure SynchronizeDirectory(const ADirectory: string);
-  var
-    DestinationFileName: string;
-    SourceFileName: string;
-  begin
-    if not TDirectory.Exists(ADirectory) then
-      Exit;
-    for SourceFileName in TDirectory.GetFiles(ComponentSourceDirectory,
-      'DAT.*.pas', TSearchOption.soTopDirectoryOnly) do
-    begin
-      DestinationFileName := TPath.Combine(ADirectory,
-        TPath.GetFileName(SourceFileName));
-      if not TFile.Exists(DestinationFileName) or
-        FilesHaveEqualBytes(SourceFileName, DestinationFileName) then
-        Continue;
-      { These are generated DAT integration units, not application source.
-        A copy beside the DPR takes precedence over the kit search path, so
-        leaving it stale silently compiles an old runtime into a new EXE. }
-      ReplaceFileAtomic(SourceFileName, DestinationFileName);
-      Inc(Result);
-    end;
-  end;
-
-begin
-  Result := 0;
-  if not TFile.Exists(AProjectFileName) then
-    raise EFileNotFoundException.CreateFmt(
-      'The target project was not found: %s', [AProjectFileName]);
-  ComponentSourceDirectory := TPath.Combine(APackageDirectory,
-    'ComponentSource');
-  if not TDirectory.Exists(ComponentSourceDirectory) then
-    Exit;
-  ProjectDirectory := TPath.GetDirectoryName(AProjectFileName);
-  SynchronizeDirectory(ProjectDirectory);
-  DestinationDirectory := TPath.Combine(ProjectDirectory, 'DAT_Runtime');
-  SynchronizeDirectory(DestinationDirectory);
-end;
-
 { The lines of a build log that say what went wrong.
 
   An MSBuild log for a failed Delphi build is mostly noise: the interesting
@@ -377,13 +315,20 @@ var
   WorkDirectory: string;
   LogFileName: string;
 begin
-  ComponentSourceDirectory := TPath.Combine(APackageDirectory,
-    'ComponentSource');
-  SearchPathProperty := '';
-  if TDirectory.Exists(ComponentSourceDirectory) then
-    SearchPathProperty := Format(
-      ' /p:DCC_UnitSearchPath="%s;$(DCC_UnitSearchPath)"',
-      [ComponentSourceDirectory]);
+  WorkDirectory := TPath.GetDirectoryName(AProjectFileName);
+  ComponentSourceDirectory := TPath.Combine(WorkDirectory,
+    'dependencies\DelphiAppTranslation\source');
+  if not TDirectory.Exists(ComponentSourceDirectory) then
+    ComponentSourceDirectory := TPath.Combine(APackageDirectory,
+      'ComponentSource');
+  if not TDirectory.Exists(ComponentSourceDirectory) then
+    raise EDirectoryNotFoundException.CreateFmt(
+      'The DAT dependency source folder was not found: %s',
+      [TPath.Combine(WorkDirectory,
+        'dependencies\DelphiAppTranslation\source')]);
+  SearchPathProperty := Format(
+    ' /p:DCC_UnitSearchPath="%s;$(DCC_UnitSearchPath)"',
+    [ComponentSourceDirectory]);
   { The output goes to a file rather than nowhere.
 
     This used to run with the output discarded and report only the exit
@@ -397,7 +342,6 @@ begin
     'cmd.exe /d /s /c ""%s" && msbuild "%s" /t:Build /p:Platform=%s /p:Config=%s%s > "%s" 2>&1"',
     [AEnvironmentFile, AProjectFileName, APlatform, AConfiguration,
      SearchPathProperty, LogFileName]);
-  WorkDirectory := TPath.GetDirectoryName(AProjectFileName);
   ZeroMemory(@StartupInfo, SizeOf(StartupInfo));
   ZeroMemory(@ProcessInfo, SizeOf(ProcessInfo));
   StartupInfo.cb := SizeOf(StartupInfo);
@@ -555,10 +499,7 @@ var
   DestinationDirectory: string;
   DestinationLanguageDirectory: string;
   DelphiEnvironmentFileName: string;
-  ExecutableFileName: string;
-  ProjectDirectory: string;
   SourceLanguageDirectory: string;
-  SynchronizedSourceCount: Integer;
 begin
   if not TFile.Exists(AProjectFileName) then
     raise EFileNotFoundException.CreateFmt(
@@ -568,14 +509,11 @@ begin
     raise EFileNotFoundException.Create(
       'No RAD Studio environment was found. Set DAT_RAD_STUDIO_ROOT to the ' +
       'installed RAD Studio root directory and try again.');
-  ProjectDirectory := TPath.GetDirectoryName(AProjectFileName);
   BuildProjectFileName := AProjectFileName;
   if SameText(TPath.GetExtension(BuildProjectFileName), '.dpr') and
     TFile.Exists(TPath.ChangeExtension(BuildProjectFileName, '.dproj')) then
     BuildProjectFileName := TPath.ChangeExtension(
       BuildProjectFileName, '.dproj');
-  SynchronizedSourceCount := SynchronizeExistingIntegrationSources(
-    BuildProjectFileName, APackageDirectory);
   RunHiddenBuild(BuildProjectFileName, APlatform, AConfiguration,
     APackageDirectory, DelphiEnvironmentFileName);
   DestinationDirectory := FindBuildOutputDirectory(BuildProjectFileName,
@@ -586,9 +524,6 @@ begin
       'output folder. Checked the project output setting, bin\%s\%s, and ' +
       '%s\%s.', [APlatform, AConfiguration, AProjectName, APlatform,
       AConfiguration, APlatform, AConfiguration]);
-  ExecutableFileName := TPath.Combine(DestinationDirectory,
-    AProjectName + '.exe');
-
   SourceLanguageDirectory := TPath.Combine(
     APackageDirectory, 'Localization\Languages');
   DestinationLanguageDirectory := TPath.Combine(
@@ -596,9 +531,8 @@ begin
   DeployLanguagePacksAtomic(SourceLanguageDirectory,
     DestinationLanguageDirectory, AProjectName);
   Result := Format(
-    '%s %s built with %d existing DAT integration source(s) refreshed. Language packs deployed to %s.',
-    [APlatform, AConfiguration, SynchronizedSourceCount,
-     DestinationLanguageDirectory]);
+    '%s %s built with a temporary DAT dependency Search Path. Language packs deployed to %s.',
+    [APlatform, AConfiguration, DestinationLanguageDirectory]);
 end;
 
 class procedure TTargetBuildDeployer.DeployLanguagePacks(

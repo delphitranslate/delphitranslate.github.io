@@ -338,9 +338,9 @@ begin
         raise Exception.Create(
           'Component Integration is not the designer-wired default mode.');
       if frmTranslationStudio.btnGenerateIntegrationPackage.Text <>
-          'Prepare / Update Target Project' then
+          'Prepare / Update Dependencies' then
         raise Exception.Create(
-          'The recommended target-project automation action is not displayed.');
+          'The safe dependency-preparation action is not displayed.');
       if not Assigned(
            frmTranslationStudio.btnOpenDesignPackageLocation.OnClick) or
          not frmTranslationStudio.btnOpenDesignPackageLocation.Visible or

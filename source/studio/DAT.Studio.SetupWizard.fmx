@@ -836,13 +836,13 @@ object frmSetupWizard: TfrmSetupWizard
               Size.PlatformDefault = False
               Text = 'Required: create a timestamped ZIP safety backup before processing'
             end
-            object chkTargetProjectClosed: TCheckBox
+            object chkTargetReady: TCheckBox
               Position.X = 8.000000000000000000
               Position.Y = 324.000000000000000000
               Size.Width = 670.000000000000000000
               Size.Height = 32.000000000000000000
               Size.PlatformDefault = False
-              Text = 'Required: the target project is closed in RAD Studio'
+              Text = 'Required: target files are saved and the target application is closed'
               OnChange = chkAuthorizeFinalChange
             end
             object chkAuthorizeFinal: TCheckBox

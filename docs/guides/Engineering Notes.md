@@ -1,6 +1,6 @@
 # Delphi App Translation Studio — Engineering Notes
 
-Last changed: August 10, 2026
+Last changed: September 1, 2026
 
 ## the first VCL pilot FMX Coverage and Context Repair - August 10, 2026
 
@@ -22,7 +22,13 @@ Last changed: August 10, 2026
 - Resolution order is contextual translation memory, vetted UI terminology, then the configured provider. Reused terms remain Machine translated and do not inherit approval.
 - DeepL requests include the official `context` field. Google Basic v2 receives no unsupported fields; short or unknown-context Google results are marked for review.
 - Consistency validation is scoped by source text plus semantic context, so legitimate contextual differences do not create false inconsistency warnings.
-- Wizard DPROJ settings are inserted inside Delphi's existing native Base compiler property group. The target project must be closed in RAD Studio first.
+- The Wizard installs the verified DAT unit closure under the target's
+  `dependencies\DelphiAppTranslation\source` folder and never edits the target
+  DPROJ. Wizard-initiated builds pass that folder as a process-local compiler
+  Search Path; normal IDE builds use the one-time, developer-owned Search Path
+  entry in Project Options. Target files must be saved and the target
+  application must be closed before final processing; the project may remain
+  open in RAD Studio.
 - Portable deployment selects a folder containing the exact project EXE and writes only `Localization\Languages` below that folder.
 
 ## Purpose of This Document
@@ -1223,6 +1229,12 @@ alters a backup and confirms that Restore rejects it under Win32 and Win64.
 
 Implementation date: August 7, 2026
 
+> Historical record — superseded. Target-source integration and Complete Reset
+> are disabled under the current read-only target-file policy. Current
+> dependency recovery replaces only the managed
+> `dependencies\DelphiAppTranslation` tree and never restores or rewrites
+> target Pascal, DPR, DPROJ, DFM, or FMX files.
+
 The Integration page includes a designer-authored **Prepare Complete Reset**
 control. Reset preparation is read-only. It searches the external project
 backup folder and the portable in-project fallback for the newest manifest
@@ -1472,6 +1484,11 @@ manager-reference streaming, two-pack discovery, and language selection. See
 
 Completion date: August 8, 2026
 
+> Historical record — superseded where it mentions Automatic Source
+> Integration. The current Studio exposes only non-mutating Component
+> Integration; source mutation, authorization, Apply, Restore, and Complete
+> Reset controls remain disabled.
+
 The Studio's Integration page now defaults to Component Integration. It creates
 a self-contained kit under `export\component-integration` containing validated
 JSON packs, the English source pack, applicable runtime/component units, a JSON
@@ -1515,6 +1532,10 @@ The first VCL pilot's startup contract. See
 ## TDATLanguageManager Phase 10 Release Decision
 
 Completed August 8, 2026.
+
+> Historical release record. Automatic Source Integration mentioned below is
+> no longer available; the current supported workflow is read-only Component
+> Integration with a project-local managed dependency folder.
 
 Component Integration is now the recommended production workflow. Automatic
 Source Integration remains an advanced fallback. The complete release harness
@@ -1652,9 +1673,9 @@ if newly placed designer components were not first persisted. The supported
 manual workflow now requires `File > Save All`, closing and reopening the
 primary form, confirming that the manager and selector remain visible with
 their Object Inspector properties, and inspecting the on-disk Git diff before
-the first target build. Expected changed files include the primary `.fmx`, its
-`.pas` unit, and the `.dproj` search-path metadata. Testing must stop if those
-files do not contain the component integration.
+the first target build. Expected changes are the developer's intentional
+designer-owned form-resource edits. The Studio must not change the target
+`.pas`, `.dpr`, `.dproj`, `.dfm`, or `.fmx` files; testing must stop if it does.
 
 The deployment instructions now use an explicit PowerShell executable with
 `-NoProfile -ExecutionPolicy Bypass -File`, preventing the documented local
@@ -1698,9 +1719,10 @@ Process and Finish. Completed steps are selectable in the left rail; future
 steps cannot be skipped. Back and Cancel remain available until the developer
 authorizes final processing. During final processing the rail, Back, Cancel,
 and window closing are disabled. If processing stops on an error, the wizard
-returns control without automatically editing Delphi Pascal, form, or DPR
-files. A DPROJ configuration change is allowed only during authorized final
-processing and is transactionally backed up.
+returns control without editing Delphi Pascal, form, DPR, or DPROJ files. The
+project-local `dependencies\DelphiAppTranslation` directory is the only
+integration area replaced by final processing, and its previous version is
+transactionally backed up.
 
 Final processing performs these operations in order:
 
@@ -1711,22 +1733,25 @@ Final processing performs these operations in order:
 4. Validate the catalog and stop on blocking errors.
 5. Export the offline runtime JSON pack.
 6. Generate the component integration kit under the Studio `export` folder.
-7. Deploy packs to existing detected output folders.
-8. Add one marked DPROJ block that inherits the generated ComponentSource
-   Search Path through all configurations/platforms and runs pack deployment
-   after each future build.
-9. Write a completion report and manual fallback PowerShell commands using
-   `-NoProfile -ExecutionPolicy Bypass`.
+7. Atomically install the verified DAT unit closure and packs under the target
+   project's `dependencies\DelphiAppTranslation` folder.
+8. Build Win32 Release with a process-local compiler Search Path and deploy the
+   canonical packs directly to detected output folders and authorized
+   application destinations.
+9. Verify that the selected project file is byte-for-byte unchanged and write
+   the completion report, including the one-time developer-owned Project
+   Options Search Path instruction for ordinary IDE builds.
 
 The wizard does not automate RAD Studio design-package registration. It opens
 the exact verified Win32 Release design BPL and instructs the developer to use
 **Component > Install Packages > Add**. It also does not place controls on a
 target form; those edits remain visible, designer-authored Delphi changes.
 
-The Finish page can repeat pack deployment for build output folders that
-already exist. Normal future deployment is automatic through the active
-`DCC_ExeOutput`, covering Win32/Win64 and Debug/Release without four manual
-commands. Every command remains visible and copyable as a fallback.
+The Finish page reports the dependency folder, transient build result, and
+directly deployed outputs. Re-running final processing refreshes the same
+managed dependency folder atomically instead of adding another integration
+copy. Future IDE builds use the developer's single Project Options Search Path
+entry; the Studio never inserts a post-build target into the DPROJ.
 
 The Wizard displays the detected `ApplicationId` explicitly and provides a
 Copy ID action. A visible language choice is required: the supplied language

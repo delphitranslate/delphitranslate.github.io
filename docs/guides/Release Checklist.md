@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last changed: August 10, 2026
+Last changed: September 1, 2026
 
 - Confirm `.git/index.lock` is absent or remove it only when zero bytes and no
   Git process is running.
@@ -37,12 +37,14 @@ Last changed: August 10, 2026
 - Verify the required typed language selector populates validated packs and
   changes the linked manager while preserving inherited `OnChange` behavior.
   A connected designer-authored language menu is the supported alternative.
-- Verify the Setup Wizard displays the exact detected `ApplicationId`, adds one
-  marked and inherited Search Path/post-build block to the target `.dproj`,
-  deploys packs to existing output folders, and does not modify Pascal source,
-  form resources, or the `.dpr` file.
-- For the advanced fallback, generate VCL and FMX previews and verify the final
-  authorization gate, transaction backup, Apply, Restore, and Complete Reset.
+- Verify the Setup Wizard displays the exact detected `ApplicationId`,
+  atomically refreshes the project-local
+  `dependencies\DelphiAppTranslation` folder, uses only a process-local Search
+  Path for Studio-initiated builds, deploys packs directly to existing output
+  folders, and leaves Pascal source, form resources, `.dpr`, and `.dproj` files
+  byte-for-byte unchanged.
+- Verify target-source Apply, Restore, and Complete Reset remain disabled and
+  that Component Integration is the only available integration workflow.
 - Verify that target preferences are written under `%LOCALAPPDATA%` and packs
   are read from `Localization\Languages` beside the executable.
 - Regenerate the editable DOCX guides from the reviewed source-backed guide builder.

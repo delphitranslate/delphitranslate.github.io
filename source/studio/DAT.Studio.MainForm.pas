@@ -1722,7 +1722,7 @@ begin
         lblNavigationIntegration.TextSettings.FontColor := ActiveColor;
         IntegrationPageCard.BringToFront;
         lblStatus.Text :=
-          'Integration: prepare the managed dependency, build path, and pack deployment without rewriting Pascal or form source.';
+          'Integration: prepare the managed dependency, temporary build path, and direct pack deployment without rewriting project files.';
       end;
     8:
       begin
@@ -2155,13 +2155,13 @@ begin
       lstIntegrationPlan.Items.Add(
         '3. Install the complete DAT source set under dependencies\DelphiAppTranslation\source.');
       lstIntegrationPlan.Items.Add(
-        '4. Add one marked, repeatable DPROJ block for the persistent Search Path and post-build pack deployment.');
+        '4. Keep Pascal, DPR, DPROJ, DFM, and FMX files read-only; Studio builds use a temporary dependency Search Path.');
       lstIntegrationPlan.Items.Add(
-        '5. Rebuild Win32 Release and deploy the current packs automatically.');
+        '5. Rebuild Win32 Release and deploy the current packs directly.');
       lstIntegrationPlan.Items.Add(
-        '6. In the Form Designer, place the manager and connected selector if the project does not already contain them.');
+        '6. Add dependencies\DelphiAppTranslation\source once through RAD Studio Project Options for normal IDE builds.');
       lstIntegrationPlan.Items.Add(
-        '7. Test every platform and configuration you distribute. Pascal and form source remain designer-owned.');
+        '7. In the Form Designer, place the manager and connected selector if needed, then test every distributed target.');
       Languages := TLanguagePackDiscovery.Discover(
         TTranslationWorkspace.LanguagesDirectory(FProjectProfile),
         FProjectProfile.ProjectName);
@@ -2178,7 +2178,7 @@ begin
       memIntegrationDiff.Text :=
         'The Studio first creates a safety copy, stages and verifies the full ' +
         'dependency set, then atomically promotes it. Only the project-local ' +
-        'dependency folder and one clearly marked DPROJ block are managed.';
+        'dependencies\DelphiAppTranslation folder is managed. Project files are read-only.';
       btnGenerateIntegrationPackage.Enabled := True;
       btnOpenDesignPackageLocation.Enabled := True;
       lblStatus.Text :=
@@ -2311,7 +2311,7 @@ begin
         TPath.Combine('Delphi App Translation Backups',
           FProjectProfile.ProjectName));
       FLastIntegrationBackupDirectory :=
-        TComponentIntegrationPackageGenerator.ConfigureProject(
+        TComponentIntegrationPackageGenerator.PrepareProjectDependencies(
           FProjectProfile, OutputDirectory, BackupRoot);
       btnOpenComponentKitFolder.Enabled := True;
       lstIntegrationPlan.Items.Clear;
@@ -2329,7 +2329,7 @@ begin
       end;
       lblIntegrationOutput.Text := OutputDirectory;
       memIntegrationDiff.Lines.Insert(0,
-        'Transaction backup: ' + FLastIntegrationBackupDirectory);
+        'Previous dependency snapshot: ' + FLastIntegrationBackupDirectory);
       BuildResult := '';
       try
         if FProjectProfile.SupportsWin32 then
@@ -2348,10 +2348,10 @@ begin
       if BuildResult <> '' then
         memIntegrationDiff.Lines.Insert(1, BuildResult);
       lblIntegrationSummary.Text := Format(
-        '%d verified kit file(s); project-local dependency and automation installed.',
+        '%d verified kit file(s); project-local dependency prepared without changing project files.',
         [lstIntegrationPlan.Items.Count]);
       lblStatus.Text :=
-        'Target preparation complete. Use Show Design BPL for the one manual IDE package step.';
+        'Dependency preparation complete. Add the Search Path in RAD Studio once, then use Show Design BPL.';
       Exit;
     end;
     lstIntegrationPlan.Items.Clear;

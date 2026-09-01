@@ -11,7 +11,7 @@ type
     class function Generate(const AProfile: TProjectProfile;
       const AOutputRoot, ARuntimeSourceDirectory,
       AComponentSourceDirectory: string): string; static;
-    class function ConfigureProject(const AProfile: TProjectProfile;
+    class function PrepareProjectDependencies(const AProfile: TProjectProfile;
       const AKitDirectory, ABackupDirectory: string): string; static;
   end;
 
@@ -206,73 +206,21 @@ begin
   end;
 end;
 
-function ManagedProjectBlock: string;
-begin
-  Result :=
-    '    <!-- Delphi App Translation Studio managed integration: begin -->' +
-      sLineBreak +
-    '    <PropertyGroup>' + sLineBreak +
-    '        <DCC_UnitSearchPath>$(MSBuildProjectDirectory)\dependencies\DelphiAppTranslation\source;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>' +
-      sLineBreak +
-    '    </PropertyGroup>' + sLineBreak +
-    '    <Import Project="dependencies\DelphiAppTranslation\deployment\DelphiAppTranslation.targets" Condition="Exists(''dependencies\DelphiAppTranslation\deployment\DelphiAppTranslation.targets'')"/>' +
-      sLineBreak +
-    '    <!-- Delphi App Translation Studio managed integration: end -->' +
-      sLineBreak;
-end;
-
-function ProjectDeploymentTargets: string;
-begin
-  Result :=
-    '<?xml version="1.0" encoding="utf-8"?>' + sLineBreak +
-    '<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">' +
-      sLineBreak +
-    '  <PropertyGroup>' + sLineBreak +
-    '    <DATExecutableOutput Condition="$([System.IO.Path]::IsPathRooted(''$(DCC_ExeOutput)''))">$(DCC_ExeOutput)</DATExecutableOutput>' +
-      sLineBreak +
-    '    <DATExecutableOutput Condition="!$([System.IO.Path]::IsPathRooted(''$(DCC_ExeOutput)''))">$(MSBuildProjectDirectory)\$(DCC_ExeOutput)</DATExecutableOutput>' +
-      sLineBreak +
-    '    <DATLanguagePackOutput>$(DATExecutableOutput)\Localization\Languages</DATLanguagePackOutput>' +
-      sLineBreak +
-    '  </PropertyGroup>' + sLineBreak +
-    '  <ItemGroup>' + sLineBreak +
-    '    <DATLanguagePack Include="$(MSBuildThisFileDirectory)Languages\*.json" />' +
-      sLineBreak +
-    '  </ItemGroup>' + sLineBreak +
-    '  <Target Name="DATDeployLanguagePacks" AfterTargets="Build" Condition="''@(DATLanguagePack)'' != ''''">' +
-      sLineBreak +
-    '    <RemoveDir Directories="$(DATLanguagePackOutput)" Condition="Exists(''$(DATLanguagePackOutput)'')" />' +
-      sLineBreak +
-    '    <MakeDir Directories="$(DATLanguagePackOutput)" />' + sLineBreak +
-    '    <Copy SourceFiles="@(DATLanguagePack)" DestinationFolder="$(DATLanguagePackOutput)" SkipUnchangedFiles="true" />' +
-      sLineBreak +
-    '    <Message Text="Delphi App Translation language packs deployed to $(DATLanguagePackOutput)" Importance="high" />' +
-      sLineBreak +
-    '  </Target>' + sLineBreak +
-    '</Project>' + sLineBreak;
-end;
-
-class function TComponentIntegrationPackageGenerator.ConfigureProject(
+class function TComponentIntegrationPackageGenerator.PrepareProjectDependencies(
   const AProfile: TProjectProfile; const AKitDirectory,
   ABackupDirectory: string): string;
-const
-  ManagedStart = '<!-- Delphi App Translation Studio managed integration: begin -->';
-  ManagedEnd = '<!-- Delphi App Translation Studio managed integration: end -->';
 var
   BackupRoot: string;
-  BackupProjectFileName: string;
   DependencyDirectory: string;
   DependencyPreviousDirectory: string;
   DependencyStagedDirectory: string;
   DeploymentDirectory: string;
-  EndAt: Integer;
-  InsertAt: Integer;
   JsonRoot: TJSONObject;
+  KitFileName: string;
   ProjectDirectory: string;
   ProjectFileName: string;
-  ProjectText: string;
+  ProjectFileHash: string;
   SourceDirectory: string;
-  StartAt: Integer;
   TransactionDirectory: string;
 begin
   if not TDirectory.Exists(AKitDirectory) then
@@ -282,11 +230,10 @@ begin
     AProfile.Framework);
 
   ProjectFileName := AProfile.ProjectFileName;
-  if SameText(TPath.GetExtension(ProjectFileName), '.dpr') then
-    ProjectFileName := TPath.ChangeExtension(ProjectFileName, '.dproj');
   if not TFile.Exists(ProjectFileName) then
     raise EFileNotFoundException.CreateFmt(
-      'The Delphi project options file was not found: %s', [ProjectFileName]);
+      'The selected Delphi project file was not found: %s', [ProjectFileName]);
+  ProjectFileHash := THashSHA2.GetHashStringFromFile(ProjectFileName);
   ProjectDirectory := TPath.GetDirectoryName(ProjectFileName);
   BackupRoot := Trim(ABackupDirectory);
   if BackupRoot = '' then
@@ -295,13 +242,6 @@ begin
   TransactionDirectory := UniqueSiblingDirectory(TPath.Combine(BackupRoot,
     'Integration-' + FormatDateTime('yyyymmdd-hhnnss-zzz', Now)), '');
   TDirectory.CreateDirectory(TransactionDirectory);
-
-  BackupProjectFileName := TPath.Combine(TransactionDirectory,
-    TPath.GetFileName(ProjectFileName));
-  TFile.Copy(ProjectFileName, BackupProjectFileName, True);
-  if not SameText(THashSHA2.GetHashStringFromFile(ProjectFileName),
-    THashSHA2.GetHashStringFromFile(BackupProjectFileName)) then
-    raise EInOutError.Create('The DPROJ safety copy failed verification.');
 
   DependencyDirectory := TPath.Combine(ProjectDirectory,
     'dependencies\DelphiAppTranslation');
@@ -322,15 +262,11 @@ begin
     CopyDirectoryContents(TPath.Combine(AKitDirectory,
       'Localization\Languages'), TPath.Combine(DeploymentDirectory,
       'Languages'));
-    TDirectory.CreateDirectory(DeploymentDirectory);
-    TAtomicTextFile.WriteAllText(TPath.Combine(DeploymentDirectory,
-      'DelphiAppTranslation.targets'), ProjectDeploymentTargets,
-      TEncoding.UTF8);
-    for SourceDirectory in ['LICENSE', 'component-integration.json',
+    for KitFileName in ['LICENSE', 'component-integration.json',
       'README.txt'] do
-      if TFile.Exists(TPath.Combine(AKitDirectory, SourceDirectory)) then
-        TFile.Copy(TPath.Combine(AKitDirectory, SourceDirectory),
-          TPath.Combine(DependencyStagedDirectory, SourceDirectory), True);
+      if TFile.Exists(TPath.Combine(AKitDirectory, KitFileName)) then
+        TFile.Copy(TPath.Combine(AKitDirectory, KitFileName),
+          TPath.Combine(DependencyStagedDirectory, KitFileName), True);
 
     JsonRoot := TJSONObject.Create;
     try
@@ -340,8 +276,12 @@ begin
       JsonRoot.AddPair('framework',
         TargetFrameworkToString(AProfile.Framework));
       JsonRoot.AddPair('projectFile', TPath.GetFileName(ProjectFileName));
+      JsonRoot.AddPair('projectFileSha256', LowerCase(ProjectFileHash));
+      JsonRoot.AddPair('projectFilesReadOnly', TJSONBool.Create(True));
       JsonRoot.AddPair('searchPath',
         'dependencies\DelphiAppTranslation\source');
+      JsonRoot.AddPair('searchPathOwnership',
+        'developer-managed in RAD Studio Project Options');
       JsonRoot.AddPair('languagePackSource',
         'dependencies\DelphiAppTranslation\deployment\Languages');
       JsonRoot.AddPair('configuredAt', DateToISO8601(Now, False));
@@ -353,46 +293,17 @@ begin
     WriteIntegrityManifest(DependencyStagedDirectory);
 
     PromoteStagedDirectory(DependencyStagedDirectory, DependencyDirectory);
-    ProjectText := TFile.ReadAllText(ProjectFileName, TEncoding.UTF8);
-    StartAt := Pos(ManagedStart, ProjectText);
-    if StartAt > 0 then
-    begin
-      EndAt := Pos(ManagedEnd, ProjectText);
-      if EndAt < StartAt then
-        raise EInvalidOpException.Create(
-          'The existing managed DPROJ block is incomplete. Restore the project backup before retrying.');
-      while (StartAt > 1) and
-        not CharInSet(ProjectText[StartAt - 1], [#10, #13]) do
-        Dec(StartAt);
-      Delete(ProjectText, StartAt,
-        EndAt + Length(ManagedEnd) - StartAt);
-      Insert(ManagedProjectBlock, ProjectText, StartAt);
-    end
-    else
-    begin
-      InsertAt := Pos('</Project>', ProjectText);
-      if InsertAt = 0 then
-        raise EInvalidOpException.Create(
-          'The DPROJ file has no closing Project element. No project change was retained.');
-      Insert(ManagedProjectBlock, ProjectText, InsertAt);
-    end;
-    TAtomicTextFile.WriteAllText(ProjectFileName, ProjectText, TEncoding.UTF8);
-    ProjectText := TFile.ReadAllText(ProjectFileName, TEncoding.UTF8);
-    if (Pos(ManagedStart, ProjectText) = 0) or
-      (Pos('dependencies\DelphiAppTranslation\source', ProjectText) = 0) or
-      (Pos('DelphiAppTranslation.targets', ProjectText) = 0) then
+    if not SameText(ProjectFileHash,
+      THashSHA2.GetHashStringFromFile(ProjectFileName)) then
       raise EInvalidOpException.Create(
-        'The project automation block failed post-write validation.');
+        'The selected project file changed while dependencies were prepared. ' +
+        'The dependency update was rolled back; the Studio did not write the project file.');
     if TDirectory.Exists(DependencyPreviousDirectory) then
       TDirectory.Delete(DependencyPreviousDirectory, True);
     Result := TransactionDirectory;
   except
     if TDirectory.Exists(DependencyStagedDirectory) then
       TDirectory.Delete(DependencyStagedDirectory, True);
-    if TFile.Exists(BackupProjectFileName) then
-      TAtomicTextFile.WriteAllText(ProjectFileName,
-        TFile.ReadAllText(BackupProjectFileName, TEncoding.UTF8),
-        TEncoding.UTF8);
     if TDirectory.Exists(DependencyDirectory) then
       TDirectory.Delete(DependencyDirectory, True);
     if TDirectory.Exists(DependencyPreviousDirectory) then
@@ -507,40 +418,42 @@ begin
     'Target: ' + AProfile.ProjectName + sLineBreak +
     'Framework: ' + TargetFrameworkToString(AProfile.Framework) +
       sLineBreak + sLineBreak +
-    'The Studio prepares the target project automatically from this kit. It ' +
-      'installs the complete DAT source set under ' +
-      'dependencies\DelphiAppTranslation\source, adds one marked Search Path ' +
-      'and deployment block to the DPROJ, rebuilds the selected target, and ' +
-      'deploys the language packs. Target Pascal, DPR, DFM, and FMX source ' +
-      'remain developer-owned and are not rewritten.' +
+    'The Studio prepares the project-local dependency from this kit. It ' +
+      'atomically installs the complete DAT source set under ' +
+      'dependencies\DelphiAppTranslation\source, uses that folder temporarily ' +
+      'for Studio-initiated builds, and deploys the current language packs ' +
+      'directly. Target Pascal, DPR, DPROJ, DFM, and FMX files remain ' +
+      'developer-owned and are never rewritten.' +
       sLineBreak + sLineBreak +
-    '1. Keep the target project closed while the Studio prepares it.' +
+    '1. Choose Prepare / Update Dependencies. Repeating this operation refreshes ' +
+      'one managed dependency folder without creating duplicate copies.' +
       sLineBreak +
-    '2. After preparation, choose Show Design BPL. The Studio selects ' +
+    '2. In RAD Studio, open Project > Options > Building > Delphi Compiler. ' +
+      'For all configurations and platforms, add ' +
+      '$(PROJECTDIR)\dependencies\DelphiAppTranslation\source to Search path. ' +
+      'Keep all existing entries. The Studio deliberately does not edit the DPROJ.' +
+      sLineBreak +
+    '3. After preparation, choose Show Design BPL. The Studio selects ' +
       'DesignPackages\Win32\Release\' + APackageName + ' inside this kit. ' +
       'The matching core and framework runtime BPLs are beside it.' + sLineBreak +
-    '3. In RAD Studio choose Component > Install Packages, then choose Add.' +
+    '4. In RAD Studio choose Component > Install Packages, then choose Add.' +
       sLineBreak +
-    '4. Select that exact design BPL and choose Open. Never use Install ' +
+    '5. Select that exact design BPL and choose Open. Never use Install ' +
       'Component and never select a DPK.' +
       sLineBreak +
-    '5. Confirm the DAT Language Manager package is checked, then choose OK.' +
+    '6. Confirm the DAT Language Manager package is checked, then choose OK.' +
       sLineBreak +
-    '6. Open the target application and its primary form in the Form Designer.' +
+    '7. Open the target application and its primary form in the Form Designer.' +
       sLineBreak +
-    '7. Place one ' + AManagerClass + ' from the DAT Localization palette page.' +
+    '8. Place one ' + AManagerClass + ' from the DAT Localization palette page.' +
       sLineBreak +
-    '8. Set ApplicationId to "' + AProfile.ProjectName + '".' + sLineBreak +
-    '9. Leave LanguagesFolder as "Localization\Languages" and ' +
+    '9. Set ApplicationId to "' + AProfile.ProjectName + '".' + sLineBreak +
+    '10. Leave LanguagesFolder as "Localization\Languages" and ' +
       'SourceLanguage as "en-US".' + sLineBreak +
-    '10. Place one ' + ASelectorClass + '. In Object Inspector, set its ' +
+    '11. Place one ' + ASelectorClass + '. In Object Inspector, set its ' +
       'LanguageManager property to the manager component. Do not leave this ' +
       'property blank. A visible selector is required unless the ' +
       'application provides an equivalent connected Language menu.' + sLineBreak +
-    '11. No manual Search Path or language-pack copy is required. The marked ' +
-      'DPROJ block points to the project-local dependency folder and its ' +
-      'post-build target replaces the output pack set after every build.' +
-      sLineBreak +
     '12. Build and test every platform and configuration you distribute. ' +
       'Changing the selector applies the ' +
       'language immediately and saves the preference.' + sLineBreak +
