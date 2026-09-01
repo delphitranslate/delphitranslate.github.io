@@ -151,7 +151,7 @@ UNIT_DESCRIPTIONS = {
     "DAT.Scan.TextCodec": "Loads Delphi text safely across BOM/code-page variants, repairs known mojibake, and decodes Delphi string expressions without executing source code.",
     "DAT.Scan.Types": "Defines scan items, diagnostics, kinds, progress/cancellation callbacks, source snapshots, counts, and the result object passed into catalog merge and UI reporting.",
     "DAT.Studio.LocalizationReview": "Implements the Localization Review FMX window: findings, glossary terms, translation suggestions, layout proposals, decision persistence, HTML package generation, and controlled return to Wizard processing.",
-    "DAT.Studio.MainForm": "Implements the landing screen and seven-page Maintenance Studio. It coordinates project detection, scanning, catalog editing, provider translation, validation, export, integration, settings, keyboard defaults, and status reporting.",
+    "DAT.Studio.MainForm": "Implements the landing screen and eight-page Maintenance Studio. It coordinates project detection, scanning, catalog editing, direct project-glossary maintenance, provider translation, validation, export, integration, settings, safe cancellation, keyboard defaults, and status reporting.",
     "DAT.Studio.SetupWizard": "Implements the eight-step Setup Wizard state machine, prerequisite validation, scan/translation/review/final-processing sequence, cancellation boundaries, safety backup, kit generation, deployment, and Finish behavior.",
     "DAT.Studio.Translation": "Self-localizes the Studio interface by loading its own packs, applying them to FMX forms, maintaining the interface-language menu, and keeping Studio language state separate from target-project catalogs.",
     "DAT.Validation.Catalog": "Performs blocking structural validation and non-blocking review warnings for locale metadata, required text, placeholders, accelerators, duplicate keys, source changes, runtime wiring, and export readiness.",
@@ -166,7 +166,7 @@ TEST_PURPOSE = {
     "ContextSmokeTests": "Checks semantic role, concept, description, and confidence inference for representative UI text.",
     "FormScanContracts": "Runs the formal DFM/FMX scan contract fixtures and compares the canonical expected results.",
     "FoundationSmokeTests": "Covers foundational types, JSON, locale, workspace, validation, and runtime-pack construction contracts.",
-    "StudioFormSmokeTests": "Streams and creates the production Studio forms to detect missing components, invalid properties, and form-resource regressions.",
+    "StudioFormSmokeTests": "Streams and creates the production Studio forms to detect missing components, invalid properties, form-resource regressions, missing Glossary/Cancel event wiring, incomplete language lists, and workflow pages or actions that do not fit or activate.",
 }
 
 
@@ -601,6 +601,17 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
     ])
     add_callout(document, "Layout decision rule.", "Use natural word wrapping first, then intelligent hyphenation for long unbroken words, then a modest readable font reduction only when necessary. Never shift neighboring columns or controls merely to make one translated heading fit.")
 
+    document.add_heading("11.1 Maintain the glossary later without rerunning the Wizard", level=2)
+    add_paragraphs(document, [
+        "Localization Review is the right place to make terminology decisions while a Wizard run is already in progress. It is no longer the only way to maintain those decisions. After the run, open Maintenance Studio and select Glossary directly below Translate on the left rail. The standalone page opens the same authoritative per-project, per-language glossary and does not rerun setup, scanning, or provider translation.",
+        r"The saved file is %LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\<ApplicationId>\Glossaries\<ApplicationId>.<locale>.glossary.json. Select the target language, add or revise the source term and preferred translation, record optional semantic-concept and developer-note information, choose case sensitivity and approval deliberately, then choose Add / Update Term followed by Save Glossary.",
+        "Apply to Open Catalog is available only when Maintenance Studio has a development catalog open for the same target language. It saves pending glossary edits, applies approved matches only to entries that are not already Reviewed or Approved, saves the catalog, and invalidates prior validation. Run Validation and export/deploy a new runtime pack afterward. It does not call a provider, rebuild the project, or edit Delphi source/forms/project files.",
+    ])
+    add_control_table(document, [
+        ["Cancel Edits", "Reloads the last saved glossary after a confirmation.", "Use only to discard every pending change for the selected target language."],
+        ["Maintenance Cancel / Esc", "Requests the normal safe exit from Maintenance Studio.", "Unsaved glossary work receives Save, Discard, or Cancel; active scans/provider requests first reach a safe cancellation boundary."],
+    ])
+
     document.add_heading(WIZARD_HEADINGS[11], level=1)
     add_screen(document, "14-wizard-processing.png", "Figure 12-1. Step 8 - Process and Finish status area.", "Processing and completion page with operation text and progress memo", aspect_ratio=1.51)
     add_paragraphs(document, [
@@ -655,7 +666,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         [r"%LOCALAPPDATA%\DelphiAppTranslationStudio\language.ini", "Contains the Studio interface locale. It keeps the Studio UI language independent of target projects."],
         [r"%LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\<ApplicationId>\Development", "Contains full development catalogs. It preserves stable keys, source, translations, status, context, and scan provenance."],
         [r"...\Languages", "Contains canonical source and translated runtime packs. It provides the workspace copy used for kit generation and deployment."],
-        [r"...\Glossaries", "Contains project terminology JSON. It preserves approved product wording across runs."],
+        [r"...\Glossaries\<ApplicationId>.<locale>.glossary.json", "Contains the authoritative project/locale terminology JSON used by both Wizard review and Maintenance Studio > Glossary. It preserves approved product wording across runs and can be created without a Wizard run."],
         [r"...\Deployment", "Contains additional application destinations. It remembers authorized pack-deployment folders."],
         [r"%LOCALAPPDATA%\<ApplicationId>\language.ini", "Contains the target application's selected locale unless PreferenceLocation is customized. It restores the end user's language at startup."],
         [r"<Studio>\export\localization-review\<ApplicationId>\<locale>", "Contains HTML/JSON review artifacts. It creates a durable linguistic and layout audit trail."],
@@ -702,7 +713,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         "Make source/form changes in the test project and choose Save All.",
         "Run the Wizard with the same ApplicationId and target locale, then scan again.",
         "Review new, changed, unchanged, recovered, and obsolete counts before authorization.",
-        "Translate unresolved work, complete Localization Review, validate, export, regenerate the kit, and redeploy.",
+        "Translate unresolved work, complete Localization Review, validate, export, regenerate the kit, and redeploy. For terminology-only corrections afterward, use Maintenance Studio > Glossary instead of rerunning the entire Wizard.",
         "Refresh the complete vendored dependency set only when runtime/component source changed; do not replace it for ordinary catalog-only updates.",
         "For another language, select that target locale and repeat scan/translation/review/export. Deploy the canonical source pack and all translated packs together.",
     ])
@@ -746,7 +757,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         "[ ] Project, source locale, target locale, native name, direction, and locale facts verified.",
         "[ ] Scan headline and supporting raw/recovered/duplicate counts reviewed.",
         "[ ] Review and Authorize summary, safety ZIP, project-closed check, and authorization confirmed.",
-        "[ ] Localization Review findings, glossary, suggestions, and layout decisions completed.",
+        "[ ] Localization Review findings, glossary, suggestions, and layout decisions completed; later terminology-only corrections use Maintenance Studio > Glossary.",
         "[ ] Progress ends successfully; completion report and component kit exist.",
         "[ ] Full ComponentSource copied to optional project dependencies folder when vendoring.",
         "[ ] Delphi Search path includes the exact dependency source for all shipped targets.",
@@ -933,6 +944,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         document,
         "Engineering Guide",
         "Architecture, Source Units, Dependencies, Formats, Runtime Contracts, Tests, and Release Controls",
+        last_changed="August 31, 2026",
     )
     add_static_toc(document, title, toc_entries(ENGINEERING_HEADINGS, toc_pages))
 
@@ -1113,6 +1125,26 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["Provider context", "Advisory description supplied with DeepL-capable requests", "Improve disambiguation but never override structural validation."],
         ["Provider draft", "Unreviewed external result", "Populate eligible unresolved target text as machine origin."],
     ])
+    document.add_heading("8.1 Authoritative glossary ownership and path", level=2)
+    add_paragraphs(document, [
+        r"TTranslationWorkspace.GlossaryFileName derives the authoritative path as %LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\<ApplicationId>\Glossaries\<ApplicationId>.<locale>.glossary.json. The filename is built from the detected project identity and normalized target locale. The source and target language plus ApplicationId are also stored inside the JSON, so moving a file into another workspace does not silently change its identity.",
+        "TProjectGlossary owns a list of TProjectGlossaryTerm records. Each record carries SourceText, TargetText, optional SemanticConcept, optional ContextKind, optional DeveloperNote, CaseSensitive, and Approved. SaveToFile serializes schema version 1 and delegates to TAtomicTextFile, which validates the candidate before atomic replacement and preserves normal recovery artifacts.",
+    ])
+    document.add_heading("8.2 Matching and catalog-application rules", level=2)
+    add_bullets(document, [
+        "Only Approved terms with nonblank target text are eligible.",
+        "Case-sensitive terms require exact source text. Other terms compare trimmed source text without case sensitivity.",
+        "A nonblank ContextKind is a real filter and must match the entry. SemanticConcept is a preference, not a filter: an exact concept match wins, an untagged term is next, and a differently tagged but otherwise matching term remains a fallback.",
+        "ApplyToCatalog never overwrites Reviewed or Approved entries. Matching unresolved entries receive the preferred target, Project Glossary origin, high confidence, a review note, and Machine Translated status so human approval remains a separate decision.",
+        "Applying terms changes the development catalog only. It does not export a pack, call a provider, rescan source, deploy files, or edit the target project.",
+    ])
+    document.add_heading("8.3 Standalone Maintenance Studio glossary state", level=2)
+    add_paragraphs(document, [
+        "MainForm owns FProjectGlossary, FGlossaryFileName, FGlossaryDirty, and FUpdatingGlossaryLanguage. Opening the Glossary page derives the selected language file and loads it, or creates a new in-memory model when no file exists. This is intentionally independent of the Setup Wizard and independent of whether a development catalog has already been created.",
+        "The designer-owned page contains the language selector, exact file-path label, term list, source/target/concept/note editors, case-sensitive and approved check boxes, and New, Add / Update Term, Delete, Cancel Edits, Save Glossary, and Apply to Open Catalog buttons. FGlossaryDirty becomes true after add/update/delete. RefreshGlossary rebuilds the list and reports whether the model is new, saved, or pending.",
+        "ConfirmGlossaryChanges protects three transitions: changing the glossary language, opening another Delphi project, and closing Maintenance Studio. Yes saves atomically, No discards the in-memory changes, and Cancel vetoes the transition. Cancel Edits is narrower: after confirmation it reloads the selected glossary and remains on the page.",
+        "Apply to Open Catalog is enabled only when FTranslationCatalog exists and its locale equals the selected glossary locale. The handler saves dirty glossary work first, applies the terms, creates a development-catalog path when needed, saves through TCatalogJson, refreshes catalog UI, invalidates validation, and recomputes readiness. This makes the required revalidation/export boundary explicit.",
+    ])
 
     add_engineering_chapter(document, 8)
     add_paragraphs(document, [
@@ -1223,11 +1255,12 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
 
     add_engineering_chapter(document, 17)
     add_paragraphs(document, [
-        "TfrmTranslationStudio is the landing and seven-page Maintenance state owner. TfrmSetupWizard is an eight-step validation state machine whose downstream state is invalidated when project/language/provider inputs change. TfrmLocalizationReview is modal within final processing and returns saved decisions to a continuation. DAT.Studio.Translation owns the Studio's own interface-language runtime.",
-        "The forms are designer-authored FMX resources. Runtime code should update state, enablement, text, and data; it should not rebuild the form hierarchy that belongs in the FMX designer. Default buttons, Enter/Esc behavior, hidden irrelevant buttons, and asynchronous provider state are explicit UI contracts.",
+        "TfrmTranslationStudio is the landing and eight-page Maintenance state owner: Project, Scan, Translate, Glossary, Validation, Export, Integration, and Provider Settings. TfrmSetupWizard is an eight-step validation state machine whose downstream state is invalidated when project/language/provider inputs change. TfrmLocalizationReview is modal within final processing and returns saved decisions to a continuation. DAT.Studio.Translation owns the Studio's own interface-language runtime.",
+        "The forms are designer-authored FMX resources. Runtime code updates state, enablement, text, and data; it does not rebuild the form hierarchy that belongs in the FMX designer. Default buttons, Enter/Esc behavior, hidden irrelevant buttons, and asynchronous provider state are explicit UI contracts. MainForm.SetWorkflowStep is the single page-routing contract: Glossary is step 4, later pages are steps 5 through 8, and the designer rail positions and page visibility must remain synchronized.",
+        "btnMaintenanceCancel is a persistent designer-owned Cancel button while Maintenance Studio is active and has the FMX Cancel property, so Esc calls Close. FormCloseQuery closes immediately only when no scan/provider operation is active and ConfirmGlossaryChanges permits it. Otherwise it sets atomic cancellation flags, records close-after-operation intent, vetoes the current close, and lets the queued completion handler call Close again after the operation reaches a safe boundary. The second close then performs the glossary Save/Discard/Cancel decision if needed.",
     ])
     add_table(document, ["Form", "Primary state", "Critical transition"], [
-        ["MainForm", "Opened project, scan result, catalog, selected maintenance page, provider/settings, validation/export/integration status.", "Landing to Wizard or Maintenance; language refresh must rebuild current visible content immediately."],
+        ["MainForm", "Opened project, scan result, catalog, selected maintenance page, selected project/locale glossary and dirty state, provider/settings, validation/export/integration status.", "Landing to Wizard or Maintenance; page changes protect pending glossary work; Cancel/Esc safely bounds active work; language refresh rebuilds current visible content immediately."],
         ["SetupWizard", "Current/highest step, project/profile, destinations, locales, provider, scan/catalog, authorization, final-processing continuation.", "Begin Final Processing disables navigation; Localization Review temporarily suspends and resumes the pipeline."],
         ["LocalizationReview", "Findings, glossary, suggestions, proposals, decisions, output package.", "Close saves accepted decisions and returns to Wizard validation/export."],
     ])
@@ -1257,6 +1290,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ["Scan", "Progress by stage/file and source snapshot.", "EProjectScanCancelled; prior catalog remains valid."],
         ["Atomic save", "One candidate validation and replace operation.", "Prior valid file and corruption quarantine."],
         ["Language switch", "Admitted pack lookup plus managed open objects.", "Reentrancy/main-thread guards and error behavior event/exception policy."],
+        ["Maintenance close", "One close request plus any already-active scan/provider boundary.", "Atomic cancel flag and deferred close; then glossary Save/Discard/Cancel. No UI-thread busy wait."],
     ])
 
     add_engineering_chapter(document, 20)
@@ -1346,7 +1380,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         add_key_value(document, "Change rule", "A schema change requires compatible reader/writer changes, version handling, fixtures, round-trip tests, and release notes; never change emitted structure alone.")
     document.add_heading("26.2 Production FMX form resources", level=2)
     form_descriptions = {
-        "DAT.Studio.MainForm.fmx": "Designer-authored landing screen and seven Maintenance pages, navigation rail, dialogs, status, and control defaults.",
+        "DAT.Studio.MainForm.fmx": "Designer-authored landing screen and eight Maintenance pages, including the standalone Glossary page, expanded navigation rail, persistent Maintenance Cancel button, dialogs, status, and control defaults.",
         "DAT.Studio.SetupWizard.fmx": "Designer-authored eight-step Wizard, step rail, page controls, keyboard defaults, authorization, and final-processing layout.",
         "DAT.Studio.LocalizationReview.fmx": "Designer-authored findings/glossary/suggestions/layout-decision review window.",
     }
@@ -1370,10 +1404,10 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         ("tools\\run_layout_contracts.ps1", "Builds/runs layout and direction contracts.", "Protects designer ownership, wrapping, fitting, RTL, and code-positioned exclusions."),
         ("tools\\run_pascal_scan_contracts.ps1", "Builds/runs Pascal resourcestring/runtime-assignment contracts.", "Protects text extraction without executing target source or translating arbitrary literals."),
         ("tools\\Install-DATLanguageManagerComponents.ps1", "Builds/locates and guides installation of design components.", "Keeps Tool Palette setup repeatable without copying arbitrary BPLs into RAD Studio folders."),
-        ("tools\\render_guides_pdf.py", "Converts documentation DOCX files to companion PDFs through LibreOffice.", "Keeps printable output tied to editable source documents."),
+        ("tools\\render_guides_pdf.py", "Creates alternate print PDFs from guide content through an HTML and Playwright rendering path.", "Provides a separate print-rendering and page-map utility; it is not the maintained LibreOffice release-export path."),
         ("tools\\build_user_guide.py", "Builds the detailed source-driven User Guide and its static printable TOC.", "Documents actual application behavior and provides deterministic regeneration."),
         ("tools\\build_wizard_engineering_guides.py", "Builds this Wizard Guide and Engineering Guide from current source inventories and curated architecture descriptions.", "Keeps exhaustive file/dependency reference synchronized with repository content."),
-        ("tools\\finalize_guides.ps1", "Performs the maintained guide finalization workflow.", "Ensures DOCX/PDF artifacts and verification steps remain repeatable."),
+        ("tools\\finalize_guides.ps1", "Exports the maintained companion PDFs directly from the editable DOCX guides through LibreOffice.", "Keeps the release PDFs tied to the reviewed DOCX sources and makes finalization repeatable."),
     ]
     for path, what, why in tools:
         add_important_file(document, path, what, why)
