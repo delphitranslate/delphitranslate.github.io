@@ -1360,6 +1360,105 @@ begin
     'Build deployment again copies language packs directly into a live set.');
 end;
 
+function CountAutomationOccurrences(const AText, AValue: string): Integer;
+var
+  Offset: Integer;
+begin
+  Result := 0;
+  Offset := 1;
+  while PosEx(AValue, AText, Offset) > 0 do
+  begin
+    Offset := PosEx(AValue, AText, Offset) + Length(AValue);
+    Inc(Result);
+  end;
+end;
+
+procedure TestAutomaticProjectPreparation;
+var
+  BackupDirectory: string;
+  BuildResult: string;
+  FileName: string;
+  KitDirectory: string;
+  OutputDirectory: string;
+  Profile: TProjectProfile;
+  ProjectDirectory: string;
+  ProjectFileName: string;
+  ProjectRoot: string;
+  ProjectText: string;
+  SourceHash: string;
+  TargetsText: string;
+  TestDirectory: string;
+begin
+  ProjectRoot := TPath.GetFullPath(GetCurrentDir);
+  TestDirectory := TPath.Combine(TPath.GetTempPath,
+    'DAT-Project-Automation-' + TPath.GetRandomFileName);
+  ProjectDirectory := TPath.Combine(TestDirectory, 'Project');
+  TDirectory.CreateDirectory(ProjectDirectory);
+  try
+    for FileName in TDirectory.GetFiles(TPath.Combine(ProjectRoot,
+      'samples\VCLBasic'), '*', TSearchOption.soTopDirectoryOnly) do
+      TFile.Copy(FileName, TPath.Combine(ProjectDirectory,
+        TPath.GetFileName(FileName)), True);
+    ProjectFileName := TPath.Combine(ProjectDirectory,
+      'SampleVCLApp.dproj');
+    Profile := TProjectDetector.Detect(ProjectFileName);
+    SourceHash := THashSHA2.GetHashStringFromFile(TPath.Combine(
+      ProjectDirectory, 'SampleVCL.MainForm.pas'));
+    KitDirectory := TComponentIntegrationPackageGenerator.Generate(Profile,
+      TPath.Combine(TestDirectory, 'Kit'),
+      TPath.Combine(ProjectRoot, 'source\runtime'),
+      TPath.Combine(ProjectRoot, 'source\components'));
+    BackupDirectory := TComponentIntegrationPackageGenerator.ConfigureProject(
+      Profile, KitDirectory, TPath.Combine(TestDirectory, 'Backups'));
+    Require(TDirectory.Exists(BackupDirectory),
+      'Automatic preparation did not create its transaction backup.');
+    Require(TFile.Exists(TPath.Combine(ProjectDirectory,
+      'dependencies\DelphiAppTranslation\source\DAT.Components.VCL.pas')),
+      'Automatic preparation did not install the canonical DAT source set.');
+    Require(TFile.Exists(TPath.Combine(ProjectDirectory,
+      'dependencies\DelphiAppTranslation\deployment\DelphiAppTranslation.targets')),
+      'Automatic preparation did not install post-build pack deployment.');
+    TargetsText := TFile.ReadAllText(TPath.Combine(ProjectDirectory,
+      'dependencies\DelphiAppTranslation\deployment\DelphiAppTranslation.targets'),
+      TEncoding.UTF8);
+    Require(ContainsText(TargetsText, 'AfterTargets="Build"') and
+      ContainsText(TargetsText, '<RemoveDir') and
+      ContainsText(TargetsText, '<Copy'),
+      'The installed post-build target does not replace stale packs with the managed set.');
+    ProjectText := TFile.ReadAllText(ProjectFileName, TEncoding.UTF8);
+    Require(CountAutomationOccurrences(ProjectText,
+      'Delphi App Translation Studio managed integration: begin') = 1,
+      'Automatic preparation did not add exactly one managed DPROJ block.');
+    Require(ContainsText(ProjectText,
+      'dependencies\DelphiAppTranslation\source') and
+      ContainsText(ProjectText, 'DelphiAppTranslation.targets'),
+      'The managed DPROJ block is incomplete.');
+
+    BuildResult := TTargetBuildDeployer.BuildAndDeploy(ProjectFileName,
+      Profile.ProjectName, 'Win32', 'Release', KitDirectory);
+    Require(ContainsText(BuildResult, 'Language packs deployed'),
+      'The automatically prepared project did not complete its Release build and deployment.');
+    OutputDirectory := TTargetBuildDeployer.FindBuildOutputDirectory(
+      ProjectFileName, Profile.ProjectName, 'Win32', 'Release', True);
+    Require((OutputDirectory <> '') and TFile.Exists(TPath.Combine(
+      OutputDirectory, 'Localization\Languages\en-US.json')),
+      'The prepared project build did not receive its canonical source pack.');
+
+    TComponentIntegrationPackageGenerator.ConfigureProject(Profile,
+      KitDirectory, TPath.Combine(TestDirectory, 'Backups'));
+    ProjectText := TFile.ReadAllText(ProjectFileName, TEncoding.UTF8);
+    Require(CountAutomationOccurrences(ProjectText,
+      'Delphi App Translation Studio managed integration: begin') = 1,
+      'A repeated preparation duplicated the managed DPROJ block.');
+    Require(SameText(SourceHash, THashSHA2.GetHashStringFromFile(TPath.Combine(
+      ProjectDirectory, 'SampleVCL.MainForm.pas'))),
+      'Automatic preparation changed target Pascal source.');
+  finally
+    if TDirectory.Exists(TestDirectory) then
+      TDirectory.Delete(TestDirectory, True);
+  end;
+end;
+
 procedure TestStudioResponsivenessContract;
 var
   MainFormSource: string;
@@ -3046,6 +3145,7 @@ begin
     TestFMXBrowserTranslationRemainsBounded;
     TestExistingIntegrationSourcesAreSynchronized;
     TestTransactionalPackageAndDeploymentContract;
+    TestAutomaticProjectPreparation;
     TestStudioResponsivenessContract;
     TestObsoleteEntriesStayOutOfReview;
     TestProjectScanning;

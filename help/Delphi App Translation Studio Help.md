@@ -33,11 +33,12 @@ offline. No API key is added to the target application's source or deployment.
 8. Run **Validation**. Errors block export; warnings request review. Double-click
    an issue to open its catalog entry, then export the offline JSON pack.
 9. Under **Integration**, leave **Component Integration (Recommended)** selected
-   and select **Install / Repair Components** if the Tool Palette is not set up.
-   Close RAD Studio when requested; the installer builds, verifies, copies, and
-   registers the matching design BPL. Generate the kit, place one manager
-   on the primary form, set its `ApplicationId`, add the kit's component source
-   path, deploy `Localization\Languages` beside the executable, and build.
+   and choose **Prepare / Update Target Project**. The Studio creates a verified
+   kit, transaction backup, complete project-local dependency, persistent
+   Search Path, post-build pack deployment, and baseline Release build. Use
+   **Show Design BPL** for the one manual IDE step: Component > Install Packages
+   > Add. The exact design BPL and its required runtime BPLs are together under
+   the kit's `DesignPackages\Win32\Release` folder.
 10. Optionally place the matching language combo box and assign its
     `LanguageManager` property in the Object Inspector.
 
@@ -91,18 +92,16 @@ mark manual wiring confirmed only after reviewing that code location.
 ## Component Integration and Safety
 
 Scanning does not alter target source. Recommended Component Integration writes
-only to `export\component-integration`; target project, source, DFM, and FMX
-files are not opened for writing. The developer makes the small integration
-change in Delphi's Form Designer, where it remains visible and editable.
+the external kit, the target's managed `dependencies\DelphiAppTranslation`
+tree, and one clearly marked idempotent DPROJ block. It does not rewrite target
+Pascal, DPR, DFM, or FMX source. Component placement remains in Delphi's Form
+Designer, where it stays visible and editable.
 
 Never select a `.dpk` in Delphi's **Component > Install Component** wizard.
-The `.dpk` is package source. The automated installer registers the compiled
-Win32 design `.bpl`; the advanced manual alternative is **Component > Install
-Packages > Add**. The design BPL is self-contained with respect to DAT units, so
-missing DAT runtime-package search paths cannot prevent the IDE from loading it.
-Generated kits include `Install-Components.cmd`; double-click it after closing
-RAD Studio. The launcher supplies PowerShell ExecutionPolicy Bypass and leaves
-the success or failure message visible.
+The `.dpk` is package source. Choose **Show Design BPL**, then use **Component >
+Install Packages > Add** on that exact Win32 design BPL. Keep the adjacent core
+and framework runtime BPLs in place. The Studio deliberately does not register
+or unregister IDE packages automatically.
 
 The component kit creates a complete English runtime pack from the latest scan,
 normalizes and de-duplicates language names, and installs all JSON packs. A

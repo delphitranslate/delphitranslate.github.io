@@ -1638,9 +1638,9 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.Font.Size = 13.000000000000000000
             TextSettings.FontColor = xFF365674
             Text =
-              'Build a reviewable VCL or FMX runtime package. Menu controls rema' +
-              'in designer-authored; the package supplies language choices and ' +
-              'event integration.'
+              'Recommended: install or refresh the project-local DAT dependency' +
+              ', persistent Search Path, automatic pack deployment, and verifie' +
+              'd kit.'
           end
           object lblLanguageMenuName: TLabel
             Position.X = 296.000000000000000000
@@ -1798,7 +1798,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             TextSettings.Font.Size = 11.000000000000000000
             TextSettings.Font.StyleExt = {00070000000000000004000000}
             TextSettings.FontColor = xFF163A63
-            Text = 'Exact changes'
+            Text = 'Setup instructions and generated files'
           end
           object memIntegrationDiff: TMemo
             Anchors = [akLeft, akTop, akRight, akBottom]
@@ -1842,7 +1842,7 @@ object frmTranslationStudio: TfrmTranslationStudio
             Size.Height = 44.000000000000000000
             Size.PlatformDefault = False
             TabOrder = 5
-            Text = 'Generate Preview'
+            Text = 'Prepare / Update Target Project'
             OnClick = btnGenerateIntegrationPackageClick
           end
           object lblIntegrationOutput: TLabel

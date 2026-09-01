@@ -168,7 +168,7 @@ def build_user_guide() -> Path:
         document,
         "User Guide",
         "Delphi App Translation Studio",
-        last_changed="August 31, 2026",
+        last_changed="September 1, 2026",
     )
     add_static_toc(document, title, [
         ("1. Welcome - How This Guide Will Help You", 1),
@@ -211,7 +211,7 @@ def build_user_guide() -> Path:
 
     document.add_heading("1. Welcome - How This Guide Will Help You", level=1)
     add_paragraphs(document, [
-        "Welcome to Delphi App Translation Studio. This guide is here to help you take a Delphi application from its original language to a tested, offline multilingual build without making you guess what happens next. It follows the current Pascal source, FMX form definitions, package projects, scanner contracts, provider code, workspace code, and verified application behavior as of August 31, 2026. The same workflow supports VCL and FireMonkey applications.",
+        "Welcome to Delphi App Translation Studio. This guide is here to help you take a Delphi application from its original language to a tested, offline multilingual build without making you guess what happens next. It follows the current Pascal source, FMX form definitions, package projects, scanner contracts, provider code, workspace code, and verified application behavior as of September 1, 2026. The same workflow supports VCL and FireMonkey applications.",
         "You can read the guide from beginning to end for your first project, or jump directly to the screen or task you need. Along the way, you will learn how to install the Studio, prepare a safe project copy, connect a translation provider, review translations, build language packs, add the runtime components, set Delphi's compiler path, deploy the result, and test both left-to-right and right-to-left languages.",
         "The Studio is currently distributed as source rather than through an installer. That gives you full visibility into what you are building, but it also means the first setup includes a few Delphi steps. They are all explained here. For your first run, work with a disposable copy of your application until it passes the verification checklist in Chapter 34.",
     ])
@@ -261,13 +261,13 @@ def build_user_guide() -> Path:
         "A little preparation makes the rest of the process straightforward. Gather the items below before you open the Studio. If your Delphi project does not already build cleanly, fix that first; translation should not be asked to hide an unrelated compiler problem.",
     ])
     add_table(document, ["You will need", "What to have ready"], [
-        ["Windows", "A current 64-bit Windows development system with permission to write the selected project copy, Local AppData, and the Studio export folder."],
-        ["RAD Studio", r"RAD Studio 13 Florence. The verified toolchain is under C:\Program Files (x86)\Embarcadero\Studio\37.0\bin."],
+        ["Windows", "A current 32- or 64-bit Windows development system with permission to write the selected project copy, Local AppData, and the Studio export folder."],
+        ["RAD Studio", r"RAD Studio 12 Athens or RAD Studio 13 Florence. The verified RAD Studio 13 toolchain is under C:\Program Files (x86)\Embarcadero\Studio\37.0\bin."],
         ["Delphi project", "A saved VCL or FMX .dproj/.dpr that builds successfully before localization."],
         ["Source form format", "Text DFM/FMX resources are preferred for auditability. Save all designer changes before scanning."],
         ["Internet", "Required only while testing a provider connection or translating unresolved entries."],
-        ["Provider account", "A DeepL API Free/Pro key or Google Cloud Translation API key. DeepL is the recommended default."],
-        ["Version control", "Git or an equivalent recoverable baseline for both the Studio source and the disposable target copy."],
+        ["Provider account", "A DeepL API Free/Pro key or Google Cloud Translation API key. DeepL is the recommended default. Obtaining a provider key is outside this guide; consult the provider's current account and API documentation."],
+        ["Version control", "Git or an equivalent recoverable baseline for both the Studio source and the disposable target copy. Git and GitHub are essential to this workflow because they provide the authoritative recoverable backup source."],
     ])
     add_callout(document, "Start safely.", "Keep a pristine backup and make a separate test copy of the Delphi application. Build that test copy successfully before you add DAT components or language packs. This gives you a clean point of comparison at every stage.")
 
@@ -299,7 +299,7 @@ def build_user_guide() -> Path:
 
     document.add_heading("4. Build and Open the Studio", level=1)
     add_paragraphs(document, [
-        "Once the repository is extracted, building the Studio is a normal Delphi project build. Win32 Release is the friendliest first choice because the design-time packages also use Win32.",
+        "Once the repository is extracted, building the Studio is a normal Delphi project build. Win32 Release is the friendliest first choice because the design-time packages also use Win32. All examples that follow use RAD Studio 13 Florence.",
     ])
     add_steps(document, [
         "Start RAD Studio 13 Florence.",
@@ -309,7 +309,7 @@ def build_user_guide() -> Path:
         r"Run the executable from bin\<Platform>\<Configuration>, for example bin\Win32\Release\DelphiAppTranslationStudio.exe.",
     ])
     add_paragraphs(document, [
-        r"If you prefer a command-line build, initialize Delphi with C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat. The Win32 compiler is C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc32.exe. These paths point to Delphi itself. They are separate from the DAT unit Search Path you will add to your application in Chapter 6.",
+        r"If you prefer a command-line build, initialize Delphi with C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat. The Win32 compiler is C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc32.exe. These paths point to Delphi itself. The Studio later adds the project-local DAT Search Path automatically.",
     ])
     add_callout(document, "Where did the build go?", r"The executable is placed in bin\<Platform>\<Configuration>, and compiled DCUs go under dcu. Keep the repository folder structure intact so packages, localization files, exports, and documentation continue to resolve correctly.")
 
@@ -333,19 +333,18 @@ def build_user_guide() -> Path:
 
     document.add_heading("6. Give Delphi Access to the DAT Dependencies", level=1)
     add_paragraphs(document, [
-        r"The component kit generated by the Studio contains a ComponentSource folder. For a dependable, portable build, copy that complete source set into dependencies\DelphiAppTranslation\source inside your application. The Studio does not create this project-local folder automatically because you, not the Studio, control your application's source tree.",
-        "Copy the complete set rather than choosing individual units. The files are designed and versioned as one dependency set; a partial mixture can compile in one configuration and fail in another when a shared unit is needed.",
+        r"The Wizard and Maintenance Studio now prepare this dependency automatically. They stage and verify the complete framework-specific ComponentSource set, then install it as one versioned unit under dependencies\DelphiAppTranslation\source in the target project. You do not create the folder or copy individual PAS files.",
+        "The transaction also saves the original DPROJ, adds one clearly marked inherited Search Path and post-build deployment import, and writes an integration manifest. Repeating Prepare / Update Target Project replaces the managed set cleanly instead of mixing files from different Studio builds.",
     ])
     document.add_heading("6.1 The recommended folder layout", level=2)
     add_path(document, r"<Target Project>\dependencies\DelphiAppTranslation\source")
-    add_path(document, r"<Target Project>\Localization\Languages")
+    add_path(document, r"<Target Project>\dependencies\DelphiAppTranslation\deployment\Languages")
     add_steps(document, [
-        "Complete the Setup Wizard, or generate a component kit from Maintenance Studio.",
-        r"Open export\component-integration\<ApplicationId>\ComponentSource.",
-        r"Create <Target Project>\dependencies\DelphiAppTranslation\source if it does not exist.",
-        "Copy every .pas file from ComponentSource into that source folder, replacing the previous DAT set as one versioned unit.",
-        "Commit the dependency units with the target test project if the project's licensing/distribution policy permits vendoring them.",
-        "Whenever the Studio runtime is updated, regenerate the kit and refresh the whole set together; do not mix files from different builds.",
+        "Complete the Setup Wizard, or choose Prepare / Update Target Project on Maintenance Studio > Integration.",
+        "The Studio creates a dated transaction backup before writing the managed dependency folder or DPROJ block.",
+        r"The Studio stages and hash-checks ComponentSource, language packs, Apache license, manifest, and deployment target before promoting dependencies\DelphiAppTranslation.",
+        "The Studio performs the baseline Release build and deploys the current pack set. Future RAD Studio builds run the managed post-build target automatically.",
+        "Commit the managed dependency folder and marked DPROJ block with the target project when the project's licensing/distribution policy permits vendoring Apache-2.0 source.",
     ])
     document.add_heading("6.2 Canonical framework unit set", level=2)
     add_table(document, ["Used by", "Units to copy"], [
@@ -355,21 +354,9 @@ def build_user_guide() -> Path:
     ], widths=[2100, 7260])
     document.add_heading("6.3 Tell Delphi where the units are", level=2)
     add_paragraphs(document, [
-        "Copying the files is only half of the setup. Delphi also needs the folder on the project's compiler Search Path. Set it for all configurations and platforms so Debug, Release, Win32, and Win64 do not quietly use different unit locations.",
+        r"No manual Project Options work is required. The Studio adds one idempotent managed block to the DPROJ. Its DCC_UnitSearchPath begins with $(MSBuildProjectDirectory)\dependencies\DelphiAppTranslation\source and then preserves $(DCC_UnitSearchPath), so existing and inherited paths remain available.",
     ])
-    add_steps(document, [
-        "Open the target project in RAD Studio.",
-        "Choose Project > Options.",
-        "At the top of the Options dialog choose All configurations and All platforms unless a platform intentionally uses a different dependency copy.",
-        "Open Building > Delphi Compiler.",
-        "Locate Search path.",
-        r"Append .\dependencies\DelphiAppTranslation\source. Preserve every existing entry and preserve inherited macros such as $(DCC_UnitSearchPath).",
-        "Choose Save, then OK.",
-        "Build Win32 Debug, Win32 Release, and any supported Win64 configurations. A clean build verifies that no DAT unit is being found accidentally from an unrelated global path.",
-    ])
-    add_path(document, r"Recommended portable entry: .\dependencies\DelphiAppTranslation\source")
-    add_path(document, r"Example absolute entry: C:\DelphiProjects\MyApplication\dependencies\DelphiAppTranslation\source")
-    add_callout(document, "You can point to the export folder, but...", r"A project may use export\component-integration\<ApplicationId>\ComponentSource directly. That works, but it ties the application to a generated Studio location. The project-local dependencies folder is easier to archive, clone, and build on another computer.")
+    add_callout(document, "What remains manual?", r"RAD Studio package registration remains deliberate: choose Component > Install Packages > Add and select the exact design BPL shown by the Studio. The verified bundle is in <Kit>\DesignPackages\Win32\Release; the required core and framework runtime BPLs are beside it. Component placement and Object Inspector values remain designer-owned decisions. Folder creation, source refresh, Search Path, builds, and pack deployment are automatic.")
 
     document.add_heading("7. Understand the Files Under %LOCALAPPDATA%", level=1)
     add_paragraphs(document, [
@@ -521,7 +508,7 @@ def build_user_guide() -> Path:
     add_screen(document, "14-wizard-processing.png", "Figure 18-1. Processing status area. The final build has a simplified Finish page; obsolete command and kit-path controls are not part of the current workflow.", "Processing and completion page showing current operation text and progress memo", crop=(27400, 18600, 1800, 43600), aspect_ratio=2.81)
     add_paragraphs(document, [
         "The progress memo lets you follow the work without having to interpret a console window. It records the safety backup, catalog work, translation, return from review, validation, runtime-pack export, component-kit generation, detected-output deployment, optional destination deployment, and completion report. If something cannot continue safely, the final diagnostic begins with STOPPED and Finish remains unavailable until you have a result you can close or retry.",
-        "After success, the page confirms that your Pascal, form, DPR, and DPROJ files were not edited. Back and Cancel disappear; choose Finish when you are ready to return to the Studio. The optional deployment card can send the application to the destinations from Step 3. Normally leave Rebuild before deploying clear, because final processing has already built the available target. Select it only when you truly need another compile.",
+        "After success, the page confirms that Pascal, DPR, DFM, and FMX source files were not edited. It also identifies the DPROJ transaction backup and the managed project-local dependency. Back and Cancel disappear; choose Finish when you are ready to return to the Studio. Win32 Release, existing target outputs, and available destinations have already been built or deployed automatically.",
     ])
     add_screen_control_table(document, [
         ["Progress memo", "Shows each operation and diagnostic with a time stamp.", "If processing stops, begin with the last few lines; they normally contain the cause and next action."],
@@ -634,9 +621,9 @@ def build_user_guide() -> Path:
         ["Language menu component", "Names an application-authored menu for advanced source integration.", "Not required for the connected component selector path."],
         ["Build Integration Plan", "Previews the framework, packs, generated files, and intended actions without changing your application.", "Always read the plan before you generate or authorize anything."],
         ["Plan list / exact text", "Shows each generated or proposed file and its content/diff.", "Select each important item before generating or applying."],
-        ["Generate Component Kit", "Publishes the safe, non-mutating kit under export.", "This is the recommended action for normal projects."],
-        ["Show Design BPL", "Selects the matching compiled Win32 design BPL in File Explorer.", "Use before RAD Studio Component > Install Packages > Add."],
-        ["Open Kit Folder", "Opens the generated kit.", "Use to copy ComponentSource or inspect README/manifest/completion report."],
+        ["Prepare / Update Target Project", "Publishes the verified kit, creates a transaction backup, installs the complete project-local dependency, updates the marked DPROJ automation block, builds Release, and deploys packs.", "This is repeatable and is the recommended action for normal projects."],
+        ["Show Design BPL", "Selects <Kit>\\DesignPackages\\Win32\\Release\\<framework design package>; its required runtime BPLs are beside it.", "Use RAD Studio Component > Install Packages > Add. The Studio does not register IDE packages automatically."],
+        ["Open Kit Folder", "Opens the generated kit.", "Use to inspect ComponentSource, DesignPackages, README, license, manifests, and completion report; copying is not required."],
         ["Advanced Preview / Authorize / Apply / Restore / Complete Reset", "Supports explicitly authorized source integration with preview and recovery.", "Advanced only; protect the target with Git and a backup first."],
     ])
 
@@ -703,9 +690,9 @@ def build_user_guide() -> Path:
     add_steps(document, [
         "Confirm the matching design package is installed and the target primary form contains one manager plus a connected selector.",
         "Confirm ApplicationId, LanguagesFolder, SourceLanguage, and any FormIdentityMappings in Object Inspector.",
-        "Confirm the complete current dependency set is in the selected ComponentSource or project-local dependencies folder.",
-        "Confirm the Delphi Compiler Search Path resolves that exact folder for every supported configuration/platform.",
-        "Copy or deploy the canonical English source pack and every translated pack to <Executable Folder>\\Localization\\Languages.",
+        r"Confirm the Studio reports the managed dependency at <Target>\dependencies\DelphiAppTranslation and the dated transaction backup.",
+        "Confirm the DPROJ contains exactly one marked DAT integration block; do not hand-edit or duplicate it.",
+        "Confirm the automatic build log reports language-pack deployment to <Executable Folder>\\Localization\\Languages.",
         "Clean and build Win32 Debug and Release. Build Win64 only when the application will ship it and the dependency/toolchain path is valid.",
         "Run the executable from the actual output folder. If Windows has another copy elsewhere, close it so you do not accidentally test stale code or stale packs.",
         "Test startup in English, every translated locale, switching between two non-English locales, switching RTL to LTR and back, switching back to English, closing/restarting, and a stale/missing preference.",
@@ -745,8 +732,8 @@ def build_user_guide() -> Path:
         "When something looks wrong, resist the urge to make several changes at once. Start with the symptom below, check the most likely cause, make one correction, and rebuild or rerun the affected step. That keeps a small configuration issue from turning into a hard-to-explain project change.",
     ])
     add_table(document, ["What you see", "What to check first", "What to do next"], [
-        ["Project will not compile: DAT unit not found", "Search Path points to no ComponentSource/dependency folder or an incomplete set.", "Populate the complete framework set and add the exact folder under All configurations/All platforms."],
-        ["Design package will not install", "Wrong RAD Studio version, wrong platform, stale BPL, or .dpk selected through the wrong dialog.", "Rebuild with Studio 37.0; use Component > Install Packages > Add and the Win32 Release design BPL."],
+        ["Project will not compile: DAT unit not found", "Managed dependency or DPROJ block is missing, damaged, or shadowed by an old DAT unit beside the DPR.", "Run Prepare / Update Target Project again, inspect the transaction report, and remove/refresh only confirmed stale duplicate DAT copies."],
+        ["Design package will not install", "Wrong RAD Studio version, wrong framework bundle, stale BPL, or DPK selected through the wrong dialog.", "Use Show Design BPL, keep its adjacent runtime BPLs in place, then use Component > Install Packages > Add on the selected design BPL."],
         ["Language selector is empty", "No valid packs, wrong folder, wrong applicationId/framework/checksum, missing source pack, or stale executable copy.", "Deploy canonical English plus translated packs under the running EXE's Localization\\Languages and rebuild/run the correct output."],
         ["Switching back to English leaves translated text", "Missing/incompatible source pack or runtime text lacks a stable semantic key.", "Regenerate the canonical English pack and catalog the dynamic contract."],
         ["Mixed languages after switching", "Previous-language runtime text was not rebuilt or a form/content surface is outside manager refresh.", "Add/repair semantic runtime keys and the form/content language-change refresh contract; do not add a replay timer."],
@@ -777,9 +764,9 @@ def build_user_guide() -> Path:
         "[ ] Required safety ZIP, project-closed confirmation, and authorization reviewed.",
         "[ ] Localization Review completed; glossary and layout decisions saved.",
         "[ ] Validation has no blocking errors; runtime packs exported.",
-        "[ ] Component kit generated; complete ComponentSource vendored if using dependencies.",
-        "[ ] Delphi Search Path contains the exact dependency source folder for all shipped targets.",
-        "[ ] Canonical English and every translated JSON pack deployed beside each executable.",
+        "[ ] Prepare / Update Target Project completed; dated DPROJ/dependency backup recorded.",
+        r"[ ] Complete dependency installed under dependencies\DelphiAppTranslation; one marked DPROJ block present.",
+        "[ ] Baseline Release build passed; canonical source and translated packs deployed automatically beside each executable.",
         "[ ] Full LTR, RTL, switch-back, restart, dynamic-text, HTML/report, and platform matrix passed.",
         "[ ] Intended files committed to Git; API keys and proprietary catalogs excluded.",
     ])
@@ -797,7 +784,8 @@ def build_user_guide() -> Path:
         ["Per-project workspace", r"%LOCALAPPDATA%\DelphiAppTranslationStudio\Workspaces\<ApplicationId>"],
         ["Target preference", r"%LOCALAPPDATA%\<ApplicationId>\language.ini"],
         ["Generated component kit", r"<Studio>\export\component-integration\<ApplicationId>"],
-        ["Optional vendored dependencies", r"<Target Project>\dependencies\DelphiAppTranslation\source"],
+        ["Managed target dependency", r"<Target Project>\dependencies\DelphiAppTranslation"],
+        ["Verified BPL bundle", r"<Studio>\export\component-integration\<ApplicationId>\DesignPackages\Win32\Release"],
         ["Deployed packs", r"<Target EXE Folder>\Localization\Languages"],
         ["Guides", r"<Studio>\docs\guides and <Studio>\docs\pdf"],
     ])

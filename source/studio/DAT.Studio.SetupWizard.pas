@@ -1445,11 +1445,11 @@ begin
     'Provider: ' + TranslationProviderDisplayName(SelectedProvider) + sLineBreak +
     Format('Scanned entries: %d', [FScanResult.Items.Count]) + sLineBreak +
     Format('Unresolved entries to translate: %d', [MissingCount]) + sLineBreak +
-    'Integration: component kit only; target project files remain read-only.' +
+    'Integration: verified kit plus project-local managed dependency; Pascal, DPR, DFM, and FMX source remain read-only.' +
       sLineBreak +
-    'Search Path: passed temporarily to Wizard-initiated MSBuild commands.' +
+    'Search Path: one backed-up, marked DPROJ block is installed automatically.' +
       sLineBreak +
-    'Deployment: automatic during final processing and Wizard-initiated builds.' +
+    'Deployment: automatic during final processing and every later project build.' +
       sLineBreak +
     Format('Separate application destinations: %d (automatically deployed when available).',
       [lstDeploymentDestinations.Items.Count]) + sLineBreak +
@@ -1639,19 +1639,24 @@ begin
   end;
 end;
 
-{ Deployment must never copy a stale executable. Rebuild every platform and
-  configuration that already has a build-output folder so each one matches the
-  runtime and language packs produced by this pass, before anything is copied
-  to build outputs or configured destinations. }
+{ Win32 Release is the safe automatic baseline even for a project that has
+  never been built on this computer. Other supported configurations are
+  refreshed when their output folders show that the developer uses them. }
 procedure TfrmSetupWizard.RebuildAllTargetConfigurations;
 var
   BuiltCount: Integer;
   Configuration: string;
+  MustBuild: Boolean;
   OutputDirectory: string;
   Platform: string;
 begin
   BuiltCount := 0;
   for Platform in ['Win32', 'Win64'] do
+  begin
+    if SameText(Platform, 'Win32') and not FProjectProfile.SupportsWin32 then
+      Continue;
+    if SameText(Platform, 'Win64') and not FProjectProfile.SupportsWin64 then
+      Continue;
     for Configuration in ['Debug', 'Release'] do
     begin
       if TInterlocked.CompareExchange(
@@ -1660,7 +1665,10 @@ begin
       OutputDirectory := TTargetBuildDeployer.FindBuildOutputDirectory(
         FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
         Platform, Configuration, False);
-      if (OutputDirectory = '') or not TDirectory.Exists(OutputDirectory) then
+      MustBuild := SameText(Platform, 'Win32') and
+        SameText(Configuration, 'Release');
+      if not MustBuild and ((OutputDirectory = '') or
+        not TDirectory.Exists(OutputDirectory)) then
         Continue;
       AddProgress(Format('Rebuilding %s %s before deployment...',
         [Platform, Configuration]));
@@ -1669,8 +1677,9 @@ begin
         Platform, Configuration, FKitDirectory));
       Inc(BuiltCount);
     end;
+  end;
   if BuiltCount = 0 then
-    AddProgress('No existing build-output folders were found to rebuild.')
+    AddProgress('No supported Windows target configuration was available to build.')
   else
     AddProgress(Format('%d target configuration(s) rebuilt with the current runtime.',
       [BuiltCount]));
@@ -1683,7 +1692,6 @@ const
   RetryDelayMilliseconds = 2000;
 var
   DestinationDirectory: string;
-  FileName: string;
   SourceDirectory: string;
   Attempt: Integer;
 begin
@@ -1697,9 +1705,8 @@ begin
         reaches deployment. Create the root and destination on every retry. }
       TDirectory.CreateDirectory(AApplicationDirectory);
       TDirectory.CreateDirectory(DestinationDirectory);
-      for FileName in TDirectory.GetFiles(SourceDirectory, '*.json') do
-        TFile.Copy(FileName, TPath.Combine(DestinationDirectory,
-          TPath.GetFileName(FileName)), True);
+      TTargetBuildDeployer.DeployLanguagePacks(SourceDirectory,
+        DestinationDirectory, FProjectProfile.ProjectName);
       Result := True;
       Exit;
     except
@@ -2172,6 +2179,13 @@ begin
       TPath.Combine(FindStudioRoot, 'source\runtime'),
       TPath.Combine(FindStudioRoot, 'source\components'));
     AddProgress('Component integration kit generated.');
+    FProjectConfigurationBackupDirectory :=
+      TComponentIntegrationPackageGenerator.ConfigureProject(
+        FProjectProfile, FKitDirectory,
+        TPath.GetDirectoryName(FBackupFileName));
+    AddProgress('Project-local DAT dependency source, Search Path, and automatic post-build pack deployment configured.');
+    AddProgress('DPROJ transaction backup: ' +
+      FProjectConfigurationBackupDirectory);
     BuildDeploymentCommands;
     Destinations := lstDeploymentDestinations.Items.ToStringArray;
     TThread.CreateAnonymousThread(
@@ -2244,8 +2258,7 @@ begin
         'Automatic deployment completed for %d of %d configured application destination(s).',
         [AConfiguredDestinationCount,
          lstDeploymentDestinations.Items.Count]));
-    FProjectConfigurationBackupDirectory := '';
-    AddProgress('Target project source and project files were not modified.');
+    AddProgress('Target Pascal, DPR, DFM, and FMX source files were not modified.');
     Report := TStringList.Create;
     try
       Report.Add('DELPHI APP TRANSLATION - SETUP WIZARD COMPLETION REPORT');
@@ -2258,10 +2271,14 @@ begin
       Report.Add('Runtime pack: ' + ARuntimePackFileName);
       Report.Add('Component kit: ' + FKitDirectory);
       Report.Add('Backup: ' + FBackupFileName);
-      Report.Add('DPROJ transaction backup: not created; target project file was not modified');
+      Report.Add('DPROJ transaction backup: ' +
+        FProjectConfigurationBackupDirectory);
       Report.Add('Application ID: ' + FProjectProfile.ProjectName);
-      Report.Add('ComponentSource Search Path: ' +
-        TPath.Combine(FKitDirectory, 'ComponentSource'));
+      Report.Add('Managed dependency source: ' + TPath.Combine(
+        TPath.GetDirectoryName(FProjectProfile.ProjectFileName),
+        'dependencies\DelphiAppTranslation\source'));
+      Report.Add('Managed Search Path: dependencies\DelphiAppTranslation\source');
+      Report.Add('Automatic post-build pack deployment: enabled');
       Report.Add('Existing build outputs deployed: ' + ADeployedCount.ToString);
       Report.Add('Configured application destinations: ' +
         lstDeploymentDestinations.Items.Count.ToString);
@@ -2279,7 +2296,7 @@ begin
         Report.Add('Confirm that the primary form contains one TDATFMXLanguageManager and one connected TDATFMXLanguageComboBox.');
       Report.Add('ApplicationId: ' + FProjectProfile.ProjectName);
       Report.Add('LanguagesFolder: Localization\Languages');
-      Report.Add('For a manual RAD Studio build, add the ComponentSource folder listed above to the project Search Path.');
+      Report.Add('No manual Search Path or language-pack copying is required.');
       Report.Add('');
       Report.Add('DEPLOYMENT COMMANDS');
       Report.AddStrings(FDeploymentCommands);
@@ -2291,19 +2308,18 @@ begin
     finally
       Report.Free;
     end;
-    AddProgress('Completion report written. Target Pascal, form, DPR, and DPROJ files remain unchanged.');
+    AddProgress('Completion report written. Target Pascal, DPR, DFM, and FMX source files remain unchanged.');
     FCompleted := True;
     UpdateBuildChoice;
     lblFinishText.Text :=
-      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation, runtime-pack export, and component-kit generation. Existing build outputs and every available application destination were deployed automatically. Target Pascal, form, DPR, and DPROJ files were not edited. If needed, use the build panel to build and deploy selected targets now.';
+      'Single-pass automatic processing is complete. Translation review decisions were applied before final validation and export. The project-local DAT dependency, persistent Search Path, automatic post-build pack deployment, Win32 Release build, existing outputs, and available application destinations were prepared automatically. Target Pascal, DPR, DFM, and FMX source files were not edited.';
     lblFooterStatus.Text := 'Setup Wizard completed successfully.';
   except
     on E: Exception do
     begin
       AddProgress('STOPPED: ' + E.Message);
-      FProjectConfigurationBackupDirectory := '';
       lblFinishText.Text :=
-        'Processing stopped safely. Review the message below. Target Pascal, form, DPR, and DPROJ files were not edited.';
+        'Processing stopped safely. Review the message below. Target Pascal, DPR, DFM, and FMX source files were not edited; any managed DPROJ change has a transaction backup.';
       lblFooterStatus.Text := 'Setup Wizard did not complete: ' + E.Message;
       FCompleted := False;
     end;
@@ -2323,9 +2339,8 @@ end;
 procedure TfrmSetupWizard.StopFinalProcessing(const AMessage: string);
 begin
   AddProgress('STOPPED: ' + AMessage);
-  FProjectConfigurationBackupDirectory := '';
   lblFinishText.Text :=
-    'Processing stopped safely. Review the message below. Target Pascal, form, DPR, and DPROJ files were not edited.';
+    'Processing stopped safely. Review the message below. Target Pascal, DPR, DFM, and FMX source files were not edited; any managed DPROJ change has a transaction backup.';
   lblFooterStatus.Text := 'Setup Wizard did not complete: ' + AMessage;
   FCompleted := False;
   FFinalProcessing := False;

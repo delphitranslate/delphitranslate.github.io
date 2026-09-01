@@ -531,11 +531,6 @@ begin
   btnOpenComponentKitFolder.Visible := True;
   btnOpenDesignPackageLocation.Enabled := False;
   btnOpenComponentKitFolder.Enabled := False;
-  btnGenerateIntegrationPackage.Text := 'Generate Component Kit';
-  lblIntegrationDescription.Text :=
-    'Recommended: generate a component setup kit without modifying any ' +
-    'target project or source file.';
-  lblIntegrationDiffTitle.Text := 'Setup instructions and generated files';
   chkIntegrationReviewConfirmed.IsChecked := False;
   btnApplyIntegration.Enabled := False;
   btnRestoreIntegration.Enabled := False;
@@ -1727,7 +1722,7 @@ begin
         lblNavigationIntegration.TextSettings.FontColor := ActiveColor;
         IntegrationPageCard.BringToFront;
         lblStatus.Text :=
-          'Integration: generate a component kit without modifying target source files.';
+          'Integration: prepare the managed dependency, build path, and pack deployment without rewriting Pascal or form source.';
       end;
     8:
       begin
@@ -2148,7 +2143,7 @@ begin
     begin
       lstIntegrationPlan.Items.Clear;
       lstIntegrationPlan.Items.Add(
-        '1. Generate a self-contained component integration kit.');
+        '1. Generate a verified, self-contained component integration kit.');
       if FProjectProfile.Framework = tfVCL then
         lstIntegrationPlan.Items.Add(
           '2. In Delphi, add DATLanguageManagerVCLDesign.bpl through ' +
@@ -2158,15 +2153,15 @@ begin
           '2. In Delphi, add DATLanguageManagerFMXDesign.bpl through ' +
           'Component > Install Packages.');
       lstIntegrationPlan.Items.Add(
-        '3. Place one DAT language manager on the primary form.');
+        '3. Install the complete DAT source set under dependencies\DelphiAppTranslation\source.');
       lstIntegrationPlan.Items.Add(
-        '4. Use the detected ApplicationId and LanguagesFolder in Object Inspector.');
+        '4. Add one marked, repeatable DPROJ block for the persistent Search Path and post-build pack deployment.');
       lstIntegrationPlan.Items.Add(
-        '5. Place the matching DAT language combo box, or connect an equivalent Language menu.');
+        '5. Rebuild Win32 Release and deploy the current packs automatically.');
       lstIntegrationPlan.Items.Add(
-        '6. Configure automatic Search Path and JSON-pack deployment.');
+        '6. In the Form Designer, place the manager and connected selector if the project does not already contain them.');
       lstIntegrationPlan.Items.Add(
-        '7. Build and test Win32 and Win64. Pascal and form source remain designer-owned.');
+        '7. Test every platform and configuration you distribute. Pascal and form source remain designer-owned.');
       Languages := TLanguagePackDiscovery.Discover(
         TTranslationWorkspace.LanguagesDirectory(FProjectProfile),
         FProjectProfile.ProjectName);
@@ -2181,12 +2176,13 @@ begin
         Languages.Free;
       end;
       memIntegrationDiff.Text :=
-        'The kit is written only under the Studio export folder. The target ' +
-        'project is not opened for writing.';
+        'The Studio first creates a safety copy, stages and verifies the full ' +
+        'dependency set, then atomically promotes it. Only the project-local ' +
+        'dependency folder and one clearly marked DPROJ block are managed.';
       btnGenerateIntegrationPackage.Enabled := True;
       btnOpenDesignPackageLocation.Enabled := True;
       lblStatus.Text :=
-        'Component plan ready. No target project or source files were changed.';
+        'Automation plan ready. No target files have been changed yet.';
       Exit;
     end;
     lstIntegrationPlan.Items.Clear;
@@ -2245,9 +2241,17 @@ begin
       DesignPackageFileName := 'DATLanguageManagerVCLDesign.bpl'
     else
       DesignPackageFileName := 'DATLanguageManagerFMXDesign.bpl';
-    StudioProjectRoot := FindStudioProjectRoot;
-    DesignPackageFileName := TPath.Combine(StudioProjectRoot,
-      TPath.Combine('bin\packages\Win32\Release', DesignPackageFileName));
+    if (FIntegrationPackageDirectory <> '') and
+      TDirectory.Exists(FIntegrationPackageDirectory) then
+      DesignPackageFileName := TPath.Combine(FIntegrationPackageDirectory,
+        TPath.Combine('DesignPackages\Win32\Release',
+          DesignPackageFileName))
+    else
+    begin
+      StudioProjectRoot := FindStudioProjectRoot;
+      DesignPackageFileName := TPath.Combine(StudioProjectRoot,
+        TPath.Combine('bin\packages\Win32\Release', DesignPackageFileName));
+    end;
     if not TFile.Exists(DesignPackageFileName) then
       raise EFileNotFoundException.CreateFmt(
         'Verified Win32 Release design package not found: %s. Run the ' +
@@ -2284,6 +2288,8 @@ end;
 procedure TfrmTranslationStudio.btnGenerateIntegrationPackageClick(
   Sender: TObject);
 var
+  BackupRoot: string;
+  BuildResult: string;
   FileName: string;
   OutputDirectory: string;
   StudioProjectRoot: string;
@@ -2301,6 +2307,12 @@ begin
         TPath.Combine(StudioProjectRoot, 'source\runtime'),
         TPath.Combine(StudioProjectRoot, 'source\components'));
       FIntegrationPackageDirectory := OutputDirectory;
+      BackupRoot := TPath.Combine(TPath.GetDocumentsPath,
+        TPath.Combine('Delphi App Translation Backups',
+          FProjectProfile.ProjectName));
+      FLastIntegrationBackupDirectory :=
+        TComponentIntegrationPackageGenerator.ConfigureProject(
+          FProjectProfile, OutputDirectory, BackupRoot);
       btnOpenComponentKitFolder.Enabled := True;
       lstIntegrationPlan.Items.Clear;
       for FileName in TDirectory.GetFiles(OutputDirectory, '*',
@@ -2316,11 +2328,30 @@ begin
         DisplaySelectedIntegrationChange;
       end;
       lblIntegrationOutput.Text := OutputDirectory;
+      memIntegrationDiff.Lines.Insert(0,
+        'Transaction backup: ' + FLastIntegrationBackupDirectory);
+      BuildResult := '';
+      try
+        if FProjectProfile.SupportsWin32 then
+          BuildResult := TTargetBuildDeployer.BuildAndDeploy(
+            FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+            'Win32', 'Release', OutputDirectory)
+        else if FProjectProfile.SupportsWin64 then
+          BuildResult := TTargetBuildDeployer.BuildAndDeploy(
+            FProjectProfile.ProjectFileName, FProjectProfile.ProjectName,
+            'Win64', 'Release', OutputDirectory);
+      except
+        on E: Exception do
+          BuildResult := 'Project preparation succeeded, but the automatic ' +
+            'Release build needs attention: ' + E.Message;
+      end;
+      if BuildResult <> '' then
+        memIntegrationDiff.Lines.Insert(1, BuildResult);
       lblIntegrationSummary.Text := Format(
-        '%d component-kit file(s) generated; target changes: zero.',
+        '%d verified kit file(s); project-local dependency and automation installed.',
         [lstIntegrationPlan.Items.Count]);
       lblStatus.Text :=
-        'Component integration kit generated. The target project is unchanged.';
+        'Target preparation complete. Use Show Design BPL for the one manual IDE package step.';
       Exit;
     end;
     lstIntegrationPlan.Items.Clear;

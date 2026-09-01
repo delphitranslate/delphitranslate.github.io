@@ -98,6 +98,8 @@ packages from source with RAD Studio 13 Florence:
    by the target application.
 5. In RAD Studio, choose **Component > Install Packages > Add** and select the
    matching Win32 Release design BPL from `bin\packages\Win32\Release`.
+   The design BPL's required core and framework runtime BPLs are in that same
+   folder and must remain beside it.
    Do not use **Install Component** and do not select a `.dpk` file there.
 6. Open a disposable copy of the target Delphi project, place the appropriate
    DAT language manager and connected language selector on its primary form,
@@ -122,12 +124,14 @@ packages with the active toolchain, and add the newly built BPL.
    destinations. The Wizard scans the saved project and translates unresolved
    entries during its single controlled processing pass.
 6. Review the generated catalog, terminology, validation results, layout
-   proposals, safety backup, and component kit. Final processing does not
-   rewrite Pascal, DFM, FMX, or DPR source.
-7. On the final page, optionally authorize creating/replacing the deployed
-   application executable, select Win32/Win64 and Debug/Release targets, and
-   choose the build action. JSON packs are written beside each successful
-   executable under `Localization\\Languages`.
+   proposals, safety backup, and component kit. Final processing installs the
+   complete `dependencies\DelphiAppTranslation` tree and one marked DPROJ
+   Search Path/deployment block; it does not rewrite Pascal, DFM, FMX, or DPR
+   source.
+7. The Wizard builds Win32 Release automatically, refreshes supported target
+   outputs already in use, and atomically writes the exact JSON set beside each
+   successful executable under `Localization\Languages`. Future ordinary RAD
+   Studio builds run the project-local deployment target automatically.
 8. Build and run the selected target copies. Test every language, form,
    restart/persistence path, dynamic-data screen, and translated layout.
 

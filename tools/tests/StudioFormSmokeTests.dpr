@@ -338,9 +338,9 @@ begin
         raise Exception.Create(
           'Component Integration is not the designer-wired default mode.');
       if frmTranslationStudio.btnGenerateIntegrationPackage.Text <>
-          'Generate Component Kit' then
+          'Prepare / Update Target Project' then
         raise Exception.Create(
-          'The recommended component-kit action is not displayed.');
+          'The recommended target-project automation action is not displayed.');
       if not Assigned(
            frmTranslationStudio.btnOpenDesignPackageLocation.OnClick) or
          not frmTranslationStudio.btnOpenDesignPackageLocation.Visible or

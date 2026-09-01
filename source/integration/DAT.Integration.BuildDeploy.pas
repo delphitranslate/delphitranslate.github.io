@@ -15,6 +15,8 @@ type
     class function DeployBuildOutput(const AProjectFileName, AProjectName,
       APlatform, AConfiguration, ADestinationDirectory,
       APackageDirectory: string; AReplaceExecutable: Boolean): string; static;
+    class procedure DeployLanguagePacks(const ASourceDirectory,
+      ADestinationDirectory, AApplicationId: string); static;
   end;
 
 implementation
@@ -597,6 +599,14 @@ begin
     '%s %s built with %d existing DAT integration source(s) refreshed. Language packs deployed to %s.',
     [APlatform, AConfiguration, SynchronizedSourceCount,
      DestinationLanguageDirectory]);
+end;
+
+class procedure TTargetBuildDeployer.DeployLanguagePacks(
+  const ASourceDirectory, ADestinationDirectory,
+  AApplicationId: string);
+begin
+  DeployLanguagePacksAtomic(ASourceDirectory, ADestinationDirectory,
+    AApplicationId);
 end;
 
 class function TTargetBuildDeployer.DeployBuildOutput(
