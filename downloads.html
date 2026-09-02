@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Download the Delphi App Translation Studio Beta source distribution and open the current User, Setup Wizard, Engineering, and Test guides.">
+  <meta name="theme-color" content="#214f80">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delphi App Translation Studio">
+  <meta property="og:title" content="Delphi App Translation Studio Beta downloads">
+  <meta property="og:description" content="Source code, current documentation, build requirements, and Beta testing guidance for Delphi App Translation Studio.">
+  <meta property="og:image" content="assets/studio-welcome.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title translate="no">Downloads | Delphi App Translation Studio Beta</title>
+  <link rel="icon" href="assets/app-translation-icon.png" type="image/png">
+  <link rel="stylesheet" href="assets/site.css">
+  <link rel="preconnect" href="https://cdn.gtranslate.net">
+  <link rel="preconnect" href="https://translate.google.com">
+  <link rel="preconnect" href="https://translate.googleapis.com">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="shell nav-shell">
+      <a class="brand notranslate" translate="no" href="index.html" aria-label="Delphi App Translation Studio home">
+        <img src="assets/app-translation-icon.png" width="54" height="54" alt="">
+        <span><strong>Delphi App Translation</strong><small>Studio</small></span>
+      </a>
+      <button class="menu-button" type="button" aria-expanded="false" aria-controls="primary-navigation">Menu</button>
+      <nav id="primary-navigation" class="site-nav" aria-label="Primary navigation">
+        <a href="index.html">Overview</a>
+        <a href="index.html#workflow">Workflow</a>
+        <a href="#documentation">Documentation</a>
+        <a href="#requirements">Requirements</a>
+        <a class="nav-cta" href="downloads.html" aria-current="page">Downloads</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="download-hero" aria-labelledby="download-title">
+      <div class="shell download-hero-grid">
+        <div>
+          <p class="eyebrow"><span></span>Source and documentation</p>
+          <h1 id="download-title">Start with the Beta source. Keep the matching guides beside it.</h1>
+          <p>There is no supported binary installer yet. Beta testers build the Studio and its VCL or FMX design packages from the current source with RAD Studio 13 Florence.</p>
+        </div>
+        <aside class="release-summary">
+          <span class="release-pill">LIMITED BETA</span>
+          <strong>Source release</strong>
+          <ul>
+            <li>Windows Win32 and Win64 projects</li>
+            <li>VCL and FireMonkey target applications</li>
+            <li>DeepL and Google providers</li>
+            <li>Apache License 2.0</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <section class="release-alert" aria-label="Beta safety notice">
+      <div class="shell">
+        <div class="alert-card"><span class="alert-icon">!</span><div><strong>Use a test copy</strong><p>Do not begin with the only copy of an important Delphi project. Keep a pristine backup, use version control, and verify every generated pack and translated screen.</p></div><span class="status-pill">BETA TESTING</span></div>
+      </div>
+    </section>
+
+    <section class="section download-section" id="source" aria-labelledby="source-title">
+      <div class="shell">
+        <div class="section-heading compact">
+          <p class="eyebrow dark"><span></span>Application source</p>
+          <h2 id="source-title">Build the complete Studio in Delphi.</h2>
+          <p>The source distribution includes the FMX Studio, Setup Wizard, VCL and FMX language components, package projects, schemas, tools, tests, and current documentation.</p>
+        </div>
+        <div class="download-grid">
+          <article class="download-card featured">
+            <div class="file-icon source-icon">&lt;/&gt;</div>
+            <div class="download-content">
+              <div class="card-kicker">CURRENT BETA PACKAGE</div>
+              <h3>Delphi App Translation Studio source distribution</h3>
+              <p>A source-only package for developers who want a stable snapshot of the current Beta.</p>
+              <ul><li>Studio, Wizard, and Localization Review forms</li><li>Framework-neutral, VCL, and FMX runtime source</li><li>Design packages and component integration material</li><li>Guides, samples, schemas, validation, and license</li></ul>
+              <div class="download-actions">
+                <a class="button button-primary" href="source%20distributions/DelphiAppTranslationStudio-1.0-source.zip" download>Download source ZIP</a>
+                <a href="https://github.com/tmartindub/DelphiAppTranslationStudio">View on GitHub</a>
+              </div>
+            </div>
+          </article>
+          <article class="download-card unavailable">
+            <div class="file-icon windows-icon">⊞</div>
+            <div class="download-content">
+              <div class="card-kicker">WINDOWS INSTALLER</div>
+              <h3>Compiled application</h3>
+              <p>A supported installer is not part of the limited Beta. Build locally so the Studio and design packages match your RAD Studio installation.</p>
+              <div class="release-meta"><span><b>Status</b>Not released</span><span><b>Recommended first build</b>Win32 Release</span></div>
+              <button class="button button-disabled" type="button" disabled>Installer coming after Beta</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section docs-section" id="documentation" aria-labelledby="docs-title">
+      <div class="shell">
+        <div class="section-heading compact">
+          <p class="eyebrow dark"><span></span>Documentation library</p>
+          <h2 id="docs-title">Choose the guide that matches the work in front of you.</h2>
+          <p>DOCX files are editable and printable. The companion PDFs are ready for reading and distribution.</p>
+        </div>
+        <div class="docs-grid">
+          <article class="doc-card"><div class="doc-icon">U</div><div><span>START HERE</span><h3>User Guide</h3><p>Installation, first project preparation, every Studio screen, providers, dependencies, deployment, security, and troubleshooting.</p><div><a href="docs/guides/Delphi%20App%20Translation%20Studio%20User%20Guide.docx">DOCX</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf">PDF</a></div></div></article>
+          <article class="doc-card"><div class="doc-icon">W</div><div><span>FIRST-TIME WORKFLOW</span><h3>Setup Wizard Guide</h3><p>A screen-by-screen path from selecting a Delphi project through review, pack generation, integration, and verification.</p><div><a href="docs/guides/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.docx">DOCX</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.pdf">PDF</a></div></div></article>
+          <article class="doc-card"><div class="doc-icon">E</div><div><span>DEVELOPER REFERENCE</span><h3>Engineering Guide</h3><p>Plain-language architecture followed by detailed source-unit, dependency, schema, runtime, testing, and release references.</p><div><a href="docs/guides/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.docx">DOCX</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.pdf">PDF</a></div></div></article>
+          <article class="doc-card"><div class="doc-icon">T</div><div><span>CONTROLLED EVALUATION</span><h3>Complete Test Guide</h3><p>A repeatable acceptance sequence for testing project safety, providers, packs, VCL, FMX, language switching, layout, and recovery.</p><div><a href="docs/guides/Delphi%20App%20Translation%20Studio%20Complete%20Test%20Guide.docx">DOCX</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Complete%20Test%20Guide.pdf">PDF</a></div></div></article>
+        </div>
+        <p class="docs-note"><strong>Keep versions together:</strong> use the guides distributed with the same source snapshot. Interfaces, package paths, and Beta behavior can change between revisions.</p>
+      </div>
+    </section>
+
+    <section class="section requirements-section" id="requirements" aria-labelledby="requirements-title">
+      <div class="shell requirements-grid">
+        <div>
+          <p class="eyebrow dark"><span></span>Before building</p>
+          <h2 id="requirements-title">Current validated development environment</h2>
+          <p>Compatibility is intentionally described narrowly during Beta testing. Broader Delphi-version coverage requires additional clean-machine validation.</p>
+        </div>
+        <div class="requirements-card">
+          <div><span>IDE and compiler</span><strong>RAD Studio 13 Florence</strong></div>
+          <div><span>Verified toolchain</span><strong class="notranslate" translate="no">Studio 37.0</strong></div>
+          <div><span>Host operating system</span><strong>Windows</strong></div>
+          <div><span>Target frameworks</span><strong>VCL and FireMonkey</strong></div>
+          <div><span>Platforms</span><strong>Win32 and Win64</strong></div>
+          <div><span>Translation providers</span><strong>DeepL API or Google Cloud Translation Basic v2</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section start-section" aria-labelledby="start-title">
+      <div class="shell start-grid">
+        <div>
+          <p class="eyebrow dark"><span></span>Safe first run</p>
+          <h2 id="start-title">From ZIP file to first translated test application.</h2>
+          <ol class="start-steps">
+            <li><b>1</b><span><strong>Extract the complete repository.</strong> Do not build inside the compressed archive or a temporary preview folder.</span></li>
+            <li><b>2</b><span><strong>Build the Studio and design packages.</strong> Use RAD Studio 13 Florence; Win32 Release is the simplest starting configuration.</span></li>
+            <li><b>3</b><span><strong>Prepare a disposable target copy.</strong> Confirm it builds before adding the appropriate manager and connected selector in the Form Designer.</span></li>
+            <li><b>4</b><span><strong>Run the Setup Wizard.</strong> Select the project, languages, provider, review decisions, and authorized output destinations.</span></li>
+            <li><b>5</b><span><strong>Compile and inspect the result.</strong> Test every language, important form, restart path, dynamic message, HTML report, and layout used by the application.</span></li>
+          </ol>
+        </div>
+        <aside class="license-card">
+          <p class="eyebrow dark"><span></span>License</p>
+          <h3>Apache License 2.0</h3>
+          <p>The Studio source and project documentation are available under Apache 2.0 unless a particular file or third-party component states different terms.</p>
+          <p>Keep the license and applicable notices with distributed covered material, and state significant changes to modified files.</p>
+          <a class="button button-outline" href="LICENSE">Read the complete license</a>
+        </aside>
+      </div>
+    </section>
+
+    <section class="feedback-band" aria-labelledby="feedback-title">
+      <div class="shell feedback-inner">
+        <div><p class="eyebrow light"><span></span>Beta feedback</p><h2 id="feedback-title">Report what happened, without sharing private project material.</h2><p>Include the Delphi version, framework, platform, exact steps, expected result, actual result, and privacy-reviewed screenshots. Never post API keys, credentials, customer data, or proprietary source.</p></div>
+        <a class="button button-light" href="https://github.com/tmartindub/DelphiAppTranslationStudio/issues">Open GitHub Issues</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div class="footer-brand notranslate" translate="no"><strong>Delphi App Translation Studio</strong><span>Open-source localization tooling for Delphi VCL and FireMonkey applications.</span></div>
+      <div><strong>Product</strong><a href="index.html">Overview</a><a href="index.html#workflow">Workflow</a><a href="downloads.html">Downloads</a></div>
+      <div><strong>Documentation</strong><a href="#documentation">All guides</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf">User Guide</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.pdf">Engineering Guide</a></div>
+      <div><strong>Project</strong><a href="https://github.com/tmartindub/DelphiAppTranslationStudio">GitHub repository</a><a href="LICENSE">Apache 2.0 license</a><span>Windows · VCL · FMX</span></div>
+    </div>
+    <div class="shell footer-bottom"><span>Beta software. Test with backed-up development projects.</span><span>Not affiliated with Embarcadero Technologies.</span></div>
+  </footer>
+
+  <div class="gtranslate_wrapper notranslate" translate="no" aria-label="Translate this website"></div>
+  <script src="assets/site.js"></script>
+  <script src="assets/translation-selector.js"></script>
+  <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
+</body>
+</html>

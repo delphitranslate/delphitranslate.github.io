@@ -68,12 +68,15 @@ __screen_*.png
 ~$*
 .~lock.*#
 
-# Local website mockups - review only; do not commit or publish yet.
-/index.html
-/downloads.html
-/assets/site.css
-/assets/site.js
-/assets/app-translation-icon.png
-/assets/studio-welcome.png
-/assets/studio-translation-screen.png
-/assets/translation-selector.js
+# Local generated test and working artifacts
+/DAT_FMX_Dialog_*/
+/DAT_FMX_Manager_*/
+/DAT_VCL_Manager_*/
+/dat-fmx-discovery/
+/dat-memory-tests/
+/dat-override-tests/
+/dat-splash-test/
+/__work/
+
+# Local documentation review screenshot
+/docs/guides/User Guide Screenshots/02-maintenance-project.png

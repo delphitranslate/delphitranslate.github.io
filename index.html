@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Delphi App Translation Studio helps developers translate Windows VCL and FireMonkey applications and deploy validated offline JSON language packs.">
+  <meta name="theme-color" content="#214f80">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delphi App Translation Studio">
+  <meta property="og:title" content="Delphi App Translation Studio — Multilingual VCL and FMX applications">
+  <meta property="og:description" content="A Delphi development tool for scanning, translating, reviewing, validating, and deploying offline language packs.">
+  <meta property="og:image" content="assets/studio-welcome.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title translate="no">Delphi App Translation Studio | Offline language packs for VCL and FMX</title>
+  <link rel="icon" href="assets/app-translation-icon.png" type="image/png">
+  <link rel="stylesheet" href="assets/site.css">
+  <link rel="preconnect" href="https://cdn.gtranslate.net">
+  <link rel="preconnect" href="https://translate.google.com">
+  <link rel="preconnect" href="https://translate.googleapis.com">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Delphi App Translation Studio",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Windows",
+    "softwareRequirements": "Embarcadero Delphi/RAD Studio 13 Florence",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "codeRepository": "https://github.com/tmartindub/DelphiAppTranslationStudio",
+    "downloadUrl": "https://github.com/tmartindub/DelphiAppTranslationStudio/archive/refs/heads/main.zip"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="shell nav-shell">
+      <a class="brand notranslate" translate="no" href="index.html" aria-label="Delphi App Translation Studio home" aria-current="page">
+        <img src="assets/app-translation-icon.png" width="54" height="54" alt="">
+        <span><strong>Delphi App Translation</strong><small>Studio</small></span>
+      </a>
+      <button class="menu-button" type="button" aria-expanded="false" aria-controls="primary-navigation">Menu</button>
+      <nav id="primary-navigation" class="site-nav" aria-label="Primary navigation">
+        <a href="index.html" aria-current="page">Overview</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#runtime">Runtime</a>
+        <a href="#beta">Beta</a>
+        <a class="nav-cta" href="downloads.html">Downloads</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-orbit hero-orbit-one" aria-hidden="true"></div>
+      <div class="hero-orbit hero-orbit-two" aria-hidden="true"></div>
+      <div class="shell hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow"><span></span>Open-source localization for Delphi</p>
+          <h1 id="hero-title">Build multilingual Delphi applications with no cloud dependency.</h1>
+          <p class="hero-lead"><span class="notranslate" translate="no">Delphi App Translation Studio</span> scans VCL and FireMonkey projects, creates reviewable translations, validates the result, and exports compact JSON language packs that work offline in the finished application.</p>
+          <div class="actions">
+            <a class="button button-primary" href="downloads.html#source">Download the Beta source</a>
+            <a class="button button-secondary" href="docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf">Read the User Guide</a>
+          </div>
+          <div class="beta-note">
+            <strong>Limited Beta</strong>
+            <span>Use a version-controlled test copy of your Delphi project and review every translated screen before release.</span>
+          </div>
+        </div>
+
+        <figure class="hero-product-shot">
+          <img src="assets/studio-translation-screen.png" alt="Actual Delphi App Translation Studio Languages and automatic translation screen">
+          <figcaption>An actual Studio screen: review source entries, translation context, suggestions, and approval status.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="proof-band" aria-label="Product highlights">
+      <div class="shell proof-grid">
+        <div><strong>VCL + FMX</strong><span>One localization workflow</span></div>
+        <div><strong>DeepL + Google</strong><span>Developer-time providers</span></div>
+        <div><strong>Offline JSON</strong><span>No end-user API key</span></div>
+        <div><strong>Apache 2.0</strong><span>Open-source licensing</span></div>
+      </div>
+    </section>
+
+    <section class="section intro-section" aria-labelledby="development-title">
+      <div class="shell intro-grid">
+        <div>
+          <p class="eyebrow dark"><span></span>A development tool, not an EXE translator</p>
+          <h2 id="development-title">Localization stays inside the development process.</h2>
+        </div>
+        <div class="intro-copy">
+          <p>Run the Studio while forms, resources, messages, and layouts can still be examined in Delphi. Rescan as the application changes, preserve translations that still match, and send only new or revised eligible text to the provider.</p>
+          <p>Machine translation can be very useful, but it cannot guarantee perfect wording or layout. The developer remains responsible for terminology, dynamic messages, custom controls, right-to-left behavior, and final visual review.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section workflow-section" id="workflow" aria-labelledby="workflow-title">
+      <div class="shell">
+        <div class="section-heading">
+          <p class="eyebrow dark"><span></span>Guided from source to deployment</p>
+          <h2 id="workflow-title">A controlled path from Delphi project to offline language pack.</h2>
+          <p>The Setup Wizard handles the repeatable work and keeps the important decisions visible.</p>
+        </div>
+        <div class="steps-grid">
+          <article><span>01</span><div class="step-mark">P</div><h3>Select the project</h3><p>Detect the application identity, VCL or FMX framework, forms, source units, targets, and normal build outputs.</p></article>
+          <article><span>02</span><div class="step-mark">A</div><h3>Scan and translate</h3><p>Build a stable catalog from saved forms and approved Delphi text, then translate unresolved entries with DeepL or Google.</p></article>
+          <article><span>03</span><div class="step-mark">✓</div><h3>Review and validate</h3><p>Inspect terminology, placeholders, source changes, language direction, and conservative layout proposals before export.</p></article>
+          <article><span>04</span><div class="step-mark">{ }</div><h3>Integrate and deploy</h3><p>Generate the VCL or FMX component kit and place compatible source and target packs beside the intended executable.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section context-section" aria-labelledby="context-title">
+      <div class="shell split-grid">
+        <div class="context-copy">
+          <p class="eyebrow dark"><span></span>Translation with application context</p>
+          <h2 id="context-title">Short interface words need more than a dictionary.</h2>
+          <p>“Play,” “Close,” “Schedule,” and “Enable” can mean different things in different applications. The Studio adds proper context, control roles, surrounding evidence, terminology, and review status with each entry.</p>
+          <ul class="check-list">
+            <li>Preserves approved and reviewed work during later scans</li>
+            <li>Protects Delphi placeholders, accelerators, identifiers, and markup</li>
+            <li>Uses project glossary and translation-memory evidence</li>
+            <li>Separates machine drafts from human review and approval</li>
+          </ul>
+        </div>
+        <aside class="meaning-card">
+          <div><span>Source text</span><strong>Play</strong></div>
+          <div><span>Control role</span><strong>Media action</strong></div>
+          <div class="rejected"><span>Wrong context</span><del>Theatrical performance</del></div>
+          <div class="approved"><span>Approved meaning</span><strong>Start playback</strong></div>
+          <p><span>Context confidence</span><i><b></b></i><strong>High</strong></p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section runtime-section" id="runtime" aria-labelledby="runtime-title">
+      <div class="shell runtime-grid">
+        <figure class="product-shot">
+          <img src="assets/studio-welcome.png" alt="Delphi App Translation Studio welcome screen with Setup Wizard and Maintenance Studio choices">
+          <figcaption>The Studio keeps first-time setup and ongoing maintenance as distinct workflows.</figcaption>
+        </figure>
+        <div>
+          <p class="eyebrow light"><span></span>Designer-owned integration</p>
+          <h2 id="runtime-title">Normal Delphi components. Offline application runtime.</h2>
+          <p>Place one framework-appropriate language manager and one connected selector on the primary form. Their published properties remain visible in Object Inspector, and ordinary forms are managed through the application lifecycle.</p>
+          <div class="runtime-points">
+            <article><strong>Source stays readable</strong><span>The recommended workflow does not rewrite Pascal, DFM, FMX, DPR, or DPROJ source.</span></article>
+            <article><strong>Switching is reversible</strong><span>The runtime restores the designer baseline before applying the next language.</span></article>
+            <article><strong>Layout is language-aware</strong><span>LTR, RTL, wrapping, intelligent hyphenation, and reviewed layout rules are applied conservatively.</span></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section safety-section" aria-labelledby="safety-title">
+      <div class="shell">
+        <div class="section-heading narrow">
+          <p class="eyebrow dark"><span></span>Built around valuable source code</p>
+          <h2 id="safety-title">Safety is part of the workflow, not a final checkbox.</h2>
+        </div>
+        <div class="safety-grid">
+          <article><i>1</i><h3>Read-only discovery</h3><p>Project detection and scanning inspect saved source without executing it.</p></article>
+          <article><i>2</i><h3>Explicit authorization</h3><p>Final processing begins only after the project, backup, and intended actions are reviewed.</p></article>
+          <article><i>3</i><h3>Atomic project data</h3><p>Catalogs, packs, settings, glossaries, and preferences use validated replacement and recovery files.</p></article>
+          <article><i>4</i><h3>Offline trust boundary</h3><p>Provider keys stay on the developer computer and never belong in the target application.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="beta-cta" id="beta" aria-labelledby="beta-title">
+      <div class="shell beta-cta-inner">
+        <div>
+          <p class="eyebrow light"><span></span>Limited Beta testing is open</p>
+          <h2 id="beta-title">Help test multilingual Delphi applications in real development projects.</h2>
+          <p>Build from source, work on a safe project copy, and report functional, layout, translation, RTL, and documentation issues without sharing private source or credentials.</p>
+        </div>
+        <div class="actions">
+          <a class="button button-light" href="downloads.html">Open the download center</a>
+          <a class="text-button" href="https://github.com/tmartindub/DelphiAppTranslationStudio/issues">Report a Beta issue</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div class="footer-brand notranslate" translate="no"><strong>Delphi App Translation Studio</strong><span>Open-source localization tooling for Delphi VCL and FireMonkey applications.</span></div>
+      <div><strong>Product</strong><a href="index.html">Overview</a><a href="#workflow">Workflow</a><a href="downloads.html">Downloads</a></div>
+      <div><strong>Documentation</strong><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf">User Guide</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.pdf">Wizard Guide</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.pdf">Engineering Guide</a></div>
+      <div><strong>Project</strong><a href="https://github.com/tmartindub/DelphiAppTranslationStudio">GitHub repository</a><a href="LICENSE">Apache 2.0 license</a><span>Windows · VCL · FMX</span></div>
+    </div>
+    <div class="shell footer-bottom"><span>Beta software. Test with backed-up development projects.</span><span>Not affiliated with Embarcadero Technologies.</span></div>
+  </footer>
+
+  <div class="gtranslate_wrapper notranslate" translate="no" aria-label="Translate this website"></div>
+  <script src="assets/site.js"></script>
+  <script src="assets/translation-selector.js"></script>
+  <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
+</body>
+</html>
