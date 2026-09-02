@@ -67,3 +67,13 @@ __screen_*.png
 # LibreOffice and Word lock files, present while a document is open.
 ~$*
 .~lock.*#
+
+# Local website mockups - review only; do not commit or publish yet.
+/index.html
+/downloads.html
+/assets/site.css
+/assets/site.js
+/assets/app-translation-icon.png
+/assets/studio-welcome.png
+/assets/studio-translation-screen.png
+/assets/translation-selector.js
