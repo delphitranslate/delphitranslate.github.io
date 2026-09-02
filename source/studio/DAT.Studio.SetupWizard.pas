@@ -29,7 +29,6 @@ type
     imgWizardBrand: TImage;
     lblWizardBrandName: TLabel;
     lblWizardBrandStudio: TLabel;
-    lblWizardBrandFamily: TLabel;
     lblTitle: TLabel;
     lblSubtitle: TLabel;
     BodyLayout: TLayout;
