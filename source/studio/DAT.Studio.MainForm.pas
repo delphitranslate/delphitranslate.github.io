@@ -33,6 +33,10 @@ type
     RootLayout: TLayout;
     HeaderBackground: TRectangle;
     HeaderAccent: TRectangle;
+    imgStudioBrand: TImage;
+    lblStudioBrandName: TLabel;
+    lblStudioBrandStudio: TLabel;
+    lblStudioBrandFamily: TLabel;
     lblApplicationTitle: TLabel;
     lblApplicationSubtitle: TLabel;
     BodyLayout: TLayout;
