@@ -387,15 +387,57 @@ h3 {
 }
 
 .beta-note {
-  max-width: 760px;
+  display: grid;
+  max-width: 790px;
   margin: 27px 0 0;
   padding: 16px 19px;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 15px;
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-left: 5px solid var(--orange);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.09);
   color: #e9f3ff;
   font-size: 15px;
+}
+
+.beta-note-label {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #202936;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.beta-note strong {
+  display: block;
+  color: #fff;
+}
+
+.beta-note p {
+  margin: 5px 0 0;
+  color: #e9f3ff;
+  line-height: 1.55;
+}
+
+.beta-note-links,
+.alert-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 18px;
+  margin-top: 10px;
+}
+
+.beta-note-links a {
+  color: #fff;
+  font-weight: 800;
+  text-underline-offset: 3px;
 }
 
 .hero-product-shot {
@@ -1137,6 +1179,13 @@ h3 {
   color: var(--text);
 }
 
+.alert-links a {
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 850;
+  text-underline-offset: 3px;
+}
+
 .alert-icon {
   display: inline-flex;
   width: 42px;
@@ -1753,6 +1802,14 @@ h3 {
 
   .alert-card .status-pill {
     grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .beta-note {
+    grid-template-columns: 1fr;
+  }
+
+  .beta-note-label {
     justify-self: start;
   }
 

@@ -44,12 +44,13 @@
         <div>
           <p class="eyebrow"><span></span>Source and documentation</p>
           <h1 id="download-title">Start with the Beta source. Keep the matching guides beside it.</h1>
-          <p>There is no supported binary installer yet. Beta testers build the Studio and its VCL or FMX design packages from the current source with RAD Studio 13 Florence.</p>
+          <p>This is Beta test software for controlled developer evaluation, not a production release. Before downloading or building it, read the User Guide and Setup Wizard Guide. Beta testers build the Studio and its VCL or FMX design packages from the current source with RAD Studio 13 Florence.</p>
         </div>
         <aside class="release-summary">
           <span class="release-pill">LIMITED BETA</span>
           <strong>Source release</strong>
           <ul>
+            <li>Documentation review required before use</li>
             <li>Windows Win32 and Win64 projects</li>
             <li>VCL and FireMonkey target applications</li>
             <li>DeepL and Google providers</li>
@@ -59,9 +60,22 @@
       </div>
     </section>
 
-    <section class="release-alert" aria-label="Beta safety notice">
+    <section class="release-alert" aria-labelledby="beta-safety-title">
       <div class="shell">
-        <div class="alert-card"><span class="alert-icon">!</span><div><strong>Use a test copy</strong><p>Do not begin with the only copy of an important Delphi project. Keep a pristine backup, use version control, and verify every generated pack and translated screen.</p></div><span class="status-pill">BETA TESTING</span></div>
+        <div class="alert-card">
+          <span class="alert-icon" aria-hidden="true">!</span>
+          <div class="alert-copy">
+            <strong id="beta-safety-title">Beta test software — read the documentation before you begin</strong>
+            <p>Download and read the User Guide and Setup Wizard Guide before installing components, opening a working project in the Studio, or generating language packs. Engineering and test personnel should also read the Engineering Guide and Complete Test Guide. Use only a backed-up, version-controlled test copy, and verify every generated pack and translated screen.</p>
+            <div class="alert-links" aria-label="Required Beta documentation">
+              <a href="docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf">User Guide</a>
+              <a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.pdf">Setup Wizard Guide</a>
+              <a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.pdf">Engineering Guide</a>
+              <a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Complete%20Test%20Guide.pdf">Complete Test Guide</a>
+            </div>
+          </div>
+          <span class="status-pill">BETA TESTING</span>
+        </div>
       </div>
     </section>
 
@@ -76,11 +90,12 @@
           <article class="download-card featured">
             <div class="file-icon source-icon">&lt;/&gt;</div>
             <div class="download-content">
-              <div class="card-kicker">CURRENT BETA PACKAGE</div>
+              <div class="card-kicker">AFTER READING THE GUIDES</div>
               <h3>Delphi App Translation Studio source distribution</h3>
-              <p>A source-only package for developers who want a stable snapshot of the current Beta.</p>
+              <p>A source-only package for developers who have reviewed the current Beta documentation and want a stable snapshot for controlled testing.</p>
               <ul><li>Studio, Wizard, and Localization Review forms</li><li>Framework-neutral, VCL, and FMX runtime source</li><li>Design packages and component integration material</li><li>Guides, samples, schemas, validation, and license</li></ul>
               <div class="download-actions">
+                <a class="button button-outline" href="#documentation">Review all guides</a>
                 <a class="button button-primary" href="source%20distributions/DelphiAppTranslationStudio-1.0-source.zip" download>Download source ZIP</a>
                 <a href="https://github.com/tmartindub/DelphiAppTranslationStudio">View on GitHub</a>
               </div>
