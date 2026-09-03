@@ -2,6 +2,20 @@
 
 ![BETA TEST - testing and feedback welcome](images%20and%20icons/README-Beta-Test-Banner.svg)
 
+## Website and Beta downloads
+
+The project website and dedicated download center are the preferred starting
+points for Beta testers:
+
+- [Delphi App Translation Studio website](https://tmartindub.github.io/DelphiAppTranslationStudio/)
+- [Beta download center and documentation](https://tmartindub.github.io/DelphiAppTranslationStudio/downloads.html)
+
+**Read the current User Guide and Setup Wizard Guide before downloading,
+building, or using the Studio.** Engineering and test personnel should also
+read the Engineering Guide and Complete Test Guide. The download center keeps
+the source package, build requirements, documentation, license, and Beta
+safety guidance together in one place.
+
 > [!IMPORTANT]
 > **Beta testing is open.** You may download, build, use, evaluate, and fork
 > Delphi App Translation Studio. Active development is still underway, so a
@@ -55,18 +69,57 @@ Internet access or an API key at runtime.
 - Windows Credential Manager storage or session-only provider keys.
 - Incremental catalogs, terminology review, validation, layout proposals,
   immediate language switching, and offline runtime packs.
+- A dedicated Project Glossary page for creating, correcting, saving, and
+  deploying approved terminology without rerunning the complete Wizard.
 - A Setup Wizard that leads a first-time project through scanning, translation,
-  validation, component-kit generation, deployment, and optional builds.
+  validation, dependency installation, component-kit generation, deployment,
+  and optional builds.
 
 macOS, iOS, Android, Linux, C++Builder, and runtime cloud translation are not
 part of the current beta scope. Delphi 12.x and clean-machine installation
 remain compatibility items to be tested.
 
+## Recent Beta improvements
+
+- The Setup Wizard and Maintenance Studio now use the approved App Translate
+  branding throughout their shared headers.
+- Maintenance Studio includes a separate **Glossary** step. Developers can add,
+  revise, or delete project terminology without repeating first-time setup.
+- **Save Glossary** preserves terminology for later work. **Apply and Deploy**
+  validates the saved terms, updates matching catalog entries, regenerates the
+  affected runtime language pack, and refreshes every available configured
+  application output without rebuilding the executable.
+- The Wizard creates and maintains the complete project-local
+  `dependencies\DelphiAppTranslation` tree as one compatible unit. It does not
+  modify the target project's Pascal, DFM, FMX, DPR, or DPROJ files.
+- Wizard-initiated builds receive the dependency Search Path temporarily. For
+  ordinary builds started in RAD Studio, the developer adds
+  `$(PROJECTDIR)\dependencies\DelphiAppTranslation\source` once to the Delphi
+  compiler Search path for all configurations and platforms.
+- Safe Cancel actions are available in Maintenance Studio where leaving the
+  current workflow cannot damage project data.
+- The new project website provides Beta notices, a dedicated download center,
+  direct access to all current guides, build requirements, and reporting
+  guidance.
+
 ## Downloading the beta source
+
+### Download from the project website
+
+1. Open the [Beta download center](https://tmartindub.github.io/DelphiAppTranslationStudio/downloads.html).
+2. Read the User Guide and Setup Wizard Guide linked near the top of the page.
+3. Choose **Download source ZIP** only after reviewing the Beta requirements
+   and safety notice.
+4. Extract the entire archive to a normal development folder. Do not build
+   inside the compressed archive or a temporary preview folder.
+5. Keep the extracted folder structure intact so the Studio, package,
+   dependency, documentation, and localization paths remain valid.
 
 ### Download a ZIP archive
 
-1. On the repository's GitHub page, choose **Code**.
+If the website is unavailable, download directly from the repository:
+
+1. On the [repository's GitHub page](https://github.com/tmartindub/DelphiAppTranslationStudio), choose **Code**.
 2. Choose **Download ZIP**.
 3. Extract the entire archive to a normal development folder. Do not build
    directly inside the ZIP archive or a temporary preview folder.
@@ -143,7 +196,10 @@ packages with the active toolchain, and add the newly built BPL.
 
 For existing catalogs or maintenance work, choose **Open Maintenance Studio**
 instead of the Wizard. The maintenance workflow provides direct Project, Scan,
-Translate, Validation, Export, Integration, and Provider Settings pages.
+Translate, Glossary, Validation, Export, Integration, and Provider Settings
+pages. Use **Apply and Deploy** on the Glossary page when corrected terminology
+must be written into the current catalog and runtime language packs immediately;
+the complete Setup Wizard does not need to be rerun.
 
 ## Safety model
 
@@ -203,13 +259,13 @@ tools/tests/         Automated validation and smoke tests
 ## Documentation
 
 Documentation was reviewed and regenerated with LibreOffice on
-**August 31, 2026**. The DOCX guides contain real generated tables of contents;
+**September 1, 2026**. The DOCX guides contain real generated tables of contents;
 matching PDFs are provided for convenient reading.
 
-- [Setup Wizard Guide](docs/guides/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.docx)
-- [User Guide](docs/guides/Delphi%20App%20Translation%20Studio%20User%20Guide.docx)
-- [Engineering Guide](docs/guides/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.docx)
-- Companion PDFs are in [`docs/pdf`](docs/pdf/).
+- [User Guide — DOCX](docs/guides/Delphi%20App%20Translation%20Studio%20User%20Guide.docx) · [PDF](docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf)
+- [Setup Wizard Guide — DOCX](docs/guides/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.docx) · [PDF](docs/pdf/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.pdf)
+- [Engineering Guide — DOCX](docs/guides/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.docx) · [PDF](docs/pdf/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.pdf)
+- [Complete Test Guide — DOCX](docs/guides/Delphi%20App%20Translation%20Studio%20Complete%20Test%20Guide.docx) · [PDF](docs/pdf/Delphi%20App%20Translation%20Studio%20Complete%20Test%20Guide.pdf)
 - Engineering history is in [`docs/guides/Engineering Notes.md`](docs/guides/Engineering%20Notes.md).
 
 ## Reporting beta feedback
