@@ -168,7 +168,7 @@ def build_user_guide() -> Path:
         document,
         "User Guide",
         "Delphi App Translation Studio",
-        last_changed="September 1, 2026",
+        last_changed="September 3, 2026",
     )
     add_static_toc(document, title, [
         ("1. Welcome - How This Guide Will Help You", 1),
@@ -211,7 +211,7 @@ def build_user_guide() -> Path:
 
     document.add_heading("1. Welcome - How This Guide Will Help You", level=1)
     add_paragraphs(document, [
-        "Welcome to Delphi App Translation Studio. This guide is here to help you take a Delphi application from its original language to a tested, offline multilingual build without making you guess what happens next. It follows the current Pascal source, FMX form definitions, package projects, scanner contracts, provider code, workspace code, and verified application behavior as of September 1, 2026. The same workflow supports VCL and FireMonkey applications.",
+        "Welcome to Delphi App Translation Studio. This guide is here to help you take a Delphi application from its original language to a tested, offline multilingual build without making you guess what happens next. It follows the current Pascal source, FMX form definitions, package projects, scanner contracts, provider code, workspace code, and verified application behavior as of September 3, 2026. The same workflow supports VCL and FireMonkey applications.",
         "You can read the guide from beginning to end for your first project, or jump directly to the screen or task you need. Along the way, you will learn how to install the Studio, prepare a safe project copy, connect a translation provider, review translations, build language packs, add the runtime components, set Delphi's compiler path, deploy the result, and test both left-to-right and right-to-left languages.",
         "The Studio is currently distributed as source rather than through an installer. That gives you full visibility into what you are building, but it also means the first setup includes a few Delphi steps. They are all explained here. For your first run, work with a disposable copy of your application until it passes the verification checklist in Chapter 34.",
     ])
@@ -273,7 +273,7 @@ def build_user_guide() -> Path:
 
     document.add_heading("3. Get the Studio from GitHub", level=1)
     add_paragraphs(document, [
-        "The official repository is https://github.com/tmartindub/DelphiAppTranslationStudio. Download the whole repository so the Delphi projects, packages, runtime units, images, localization files, tests, tools, and documentation stay together in the folder structure they expect.",
+        "Start at https://delphitranslate.github.io/downloads.html, where the current Beta source ZIP and matching guides are kept together. The official repository is https://github.com/delphitranslate/delphitranslate.github.io. Download the whole repository so the Delphi projects, packages, runtime units, images, localization files, tests, tools, and documentation stay together in the folder structure they expect.",
         "A single .pas file, .dproj, or component BPL is not enough. Those files rely on neighboring source and package files, and a partial download is the most common way to end up with missing-unit or missing-resource errors.",
     ])
     document.add_heading("3.1 Download a ZIP", level=2)
@@ -286,7 +286,7 @@ def build_user_guide() -> Path:
         "Open the extracted root and make sure you can see DelphiAppTranslationStudio.dproj together with the source, packages, Localization, docs, tools, and images and icons folders. If those are present, you have the complete source tree.",
     ])
     document.add_heading("3.2 Clone with Git", level=2)
-    add_path(document, "git clone https://github.com/tmartindub/DelphiAppTranslationStudio.git")
+    add_path(document, "git clone https://github.com/delphitranslate/delphitranslate.github.io.git")
     add_paragraphs(document, [
         "Cloning is the easiest choice if you expect to receive updates. Keep your local work on a separate branch, review incoming changes before merging them, and never commit provider credentials or proprietary application catalogs.",
     ])

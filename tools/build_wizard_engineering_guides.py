@@ -413,7 +413,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         document,
         "Setup Wizard Guide",
         "A Detailed, Screen-by-Screen Path from Delphi Source to Offline Language Packs",
-        last_changed="September 1, 2026",
+        last_changed="September 3, 2026",
     )
     add_static_toc(document, title, toc_entries(WIZARD_HEADINGS, toc_pages))
 
@@ -436,11 +436,11 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(WIZARD_HEADINGS[1], level=1)
     add_paragraphs(document, [
-        "A few minutes of preparation makes the Wizard much easier to use. Complete the checks below once, then keep this section nearby as your setup checklist.",
+        "A few minutes of preparation makes the Wizard much easier to use. Complete the checks below once, then keep this section nearby as your setup checklist. The current Beta source ZIP and matching guides are published together at https://delphitranslate.github.io/downloads.html.",
     ])
     document.add_heading("2.1 Obtain and build the Studio", level=2)
     add_steps(document, [
-        "Download or clone the complete repository from https://github.com/tmartindub/DelphiAppTranslationStudio. Do not download isolated PAS, DPK, BPL, or JSON files.",
+        "Download or clone the complete repository from https://github.com/delphitranslate/delphitranslate.github.io. Do not download isolated PAS, DPK, BPL, or JSON files.",
         r"Extract it to a short writable path, for example C:\DelphiProjects\Delphi App Translation.",
         "Open DelphiAppTranslationStudio.dproj in RAD Studio 13 Florence and build Win32 Release for the simplest first run.",
         r"The verified RAD Studio environment is C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat and the Win32 compiler is dcc32.exe in the same folder.",

@@ -7,8 +7,8 @@
 The project website and dedicated download center are the preferred starting
 points for Beta testers:
 
-- [Delphi App Translation Studio website](https://tmartindub.github.io/DelphiAppTranslationStudio/)
-- [Beta download center and documentation](https://tmartindub.github.io/DelphiAppTranslationStudio/downloads.html)
+- [Delphi App Translation Studio website](https://delphitranslate.github.io/)
+- [Beta download center and documentation](https://delphitranslate.github.io/downloads.html)
 
 **Read the current User Guide and Setup Wizard Guide before downloading,
 building, or using the Studio.** Engineering and test personnel should also
@@ -106,7 +106,7 @@ remain compatibility items to be tested.
 
 ### Download from the project website
 
-1. Open the [Beta download center](https://tmartindub.github.io/DelphiAppTranslationStudio/downloads.html).
+1. Open the [Beta download center](https://delphitranslate.github.io/downloads.html).
 2. Read the User Guide and Setup Wizard Guide linked near the top of the page.
 3. Choose **Download source ZIP** only after reviewing the Beta requirements
    and safety notice.
@@ -119,7 +119,7 @@ remain compatibility items to be tested.
 
 If the website is unavailable, download directly from the repository:
 
-1. On the [repository's GitHub page](https://github.com/tmartindub/DelphiAppTranslationStudio), choose **Code**.
+1. On the [repository's GitHub page](https://github.com/delphitranslate/delphitranslate.github.io), choose **Code**.
 2. Choose **Download ZIP**.
 3. Extract the entire archive to a normal development folder. Do not build
    directly inside the ZIP archive or a temporary preview folder.
@@ -131,7 +131,7 @@ If the website is unavailable, download directly from the repository:
 Clone the repository when you want to receive later beta updates:
 
 ```text
-git clone https://github.com/tmartindub/DelphiAppTranslationStudio.git
+git clone https://github.com/delphitranslate/delphitranslate.github.io.git
 ```
 
 You are also welcome to fork the repository through GitHub and develop or test

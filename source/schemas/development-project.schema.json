@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/tmartindub/DelphiAppTranslationStudio/schemas/development-project.schema.json",
+  "$id": "https://delphitranslate.github.io/source/schemas/development-project.schema.json",
   "title": "Delphi App Translation Studio Project",
   "type": "object",
   "required": [

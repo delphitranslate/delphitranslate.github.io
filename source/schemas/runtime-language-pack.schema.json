@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/tmartindub/DelphiAppTranslationStudio/schemas/runtime-language-pack.schema.json",
+  "$id": "https://delphitranslate.github.io/source/schemas/runtime-language-pack.schema.json",
   "title": "Delphi App Translation Runtime Language Pack",
   "type": "object",
   "required": [

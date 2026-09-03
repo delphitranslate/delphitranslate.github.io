@@ -72,7 +72,7 @@ will not appear on the RAD Studio Tool Palette.
 
 The public source repository is:
 
-`https://github.com/tmartindub/DelphiAppTranslationStudio`
+`https://github.com/delphitranslate/delphitranslate.github.io`
 
 ## Primary Workflow
 
