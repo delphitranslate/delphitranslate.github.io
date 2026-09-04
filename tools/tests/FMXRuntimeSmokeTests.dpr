@@ -4,6 +4,7 @@ program FMXRuntimeSmokeTests;
 
 uses
   System.StartUpCopy,
+  System.Classes,
   System.Math,
   System.TypInfo,
   System.SysUtils,
@@ -376,13 +377,17 @@ begin
         'A control with no layout rule was not restored from the snapshot.');
       RTLPack := RTLTestPack;
       TFMXTranslationApplicator.ApplyToForm(frmFMXSample, RTLPack);
+      Require(frmFMXSample.BiDiMode = bdRightToLeft,
+        'The FMX form did not enter RTL paragraph reading mode.');
       Require(RTLParagraphLabel.TextSettings.HorzAlign =
-        TTextAlign.Trailing,
+        TTextAlign.Leading,
         'An ordinary RTL label did not follow the paragraph reading edge.');
       Require(RTLCenteredLabel.TextSettings.HorzAlign = TTextAlign.Center,
         'RTL paragraph alignment changed a centered heading.');
       TFMXTranslationApplicator.RestoreSourceLanguage(frmFMXSample,
         RTLPack, frmFMXSample.Name);
+      Require(frmFMXSample.BiDiMode = bdLeftToRight,
+        'Returning to the source language did not restore LTR reading mode.');
       Require(RTLParagraphLabel.TextSettings.HorzAlign =
         TTextAlign.Leading,
         'Returning to LTR did not restore the designed label alignment.');

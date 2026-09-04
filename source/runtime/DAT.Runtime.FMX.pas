@@ -295,10 +295,12 @@ end;
   rather than clipping it. }
 { Which edge the text sits against.
 
-  FireMonkey has no BiDiMode and no FlipChildren, so under a right-to-left
-  language this is the whole of what the framework contributes and the planner
-  does everything else. StyledSettings has to give up HorzAlign first or the
-  style puts it straight back. }
+  FireMonkey keeps paragraph reading direction on the root form's BiDiMode and
+  text placement on each control's HorzAlign.  They are separate contracts:
+  BiDiMode gives the text layout its right-to-left reading direction, while the
+  planner and this runtime decide where the control and its text belong.
+  StyledSettings has to give up HorzAlign first or the style puts it straight
+  back. }
 { Anchors as the designer would write them, through RTTI. }
 function ReadAnchorsText(const AComponent: TComponent): string;
 var
@@ -429,11 +431,10 @@ end;
   gain by casting down. }
 { Entry fields a right-to-left reader is going to type into.
 
-  The VCL half of this sets BiDiMode to bdRightToLeft, which moves the caret
-  to the edge the reader starts from. FireMonkey has no BiDiMode at all, so
-  the same outcome is reached by the only lever it offers: the field's text
-  alignment. A field left aligned under Arabic puts the first character
-  somebody types at the far end of the box from where they are looking.
+  The form's BiDiMode supplies FireMonkey's reading direction.  The controls
+  still need an explicit alignment because a field left aligned under Arabic
+  puts the first character somebody types at the far end of the box from where
+  they are looking.
 
   Ordinary labels also carry the reading direction of their paragraph.  A
   translated Arabic or Urdu paragraph at the mirrored side of its card is
@@ -500,9 +501,13 @@ var
       Settings := (AObject as ITextSettings).TextSettings;
       if Settings <> nil then
       begin
-        if ARightToLeft and not FMXInputRequiresLeftToRight(AObject) then
+        if ARightToLeft and FMXInputRequiresLeftToRight(AObject) then
+          { Under an RTL root, Trailing is the physical left edge retained for
+            technical values such as paths, URLs and email addresses. }
           Desired := TTextAlign.Trailing
         else
+          { Leading follows the paragraph direction: right in RTL and left in
+            LTR. }
           Desired := TTextAlign.Leading;
         if Settings.HorzAlign <> Desired then
         begin
@@ -519,7 +524,7 @@ var
       Settings := (AObject as ITextSettings).TextSettings;
       if (Settings <> nil) and
         (Settings.HorzAlign <> TTextAlign.Center) and
-        ApplyHorzAlignSetting(TComponent(AObject), 'Trailing') then
+        ApplyHorzAlignSetting(TComponent(AObject), 'Leading') then
         Inc(Applied);
     end;
     { A grid creates its cell editor only when editing begins, after this walk
@@ -530,10 +535,7 @@ var
     if AObject is TCustomGrid then
     begin
       Grid := TCustomGrid(AObject);
-      if ARightToLeft then
-        Desired := TTextAlign.Trailing
-      else
-        Desired := TTextAlign.Leading;
+      Desired := TTextAlign.Leading;
       for ColumnIndex := 0 to Grid.ColumnCount - 1 do
         if Grid.Columns[ColumnIndex].HorzAlign <> Desired then
         begin
@@ -2522,6 +2524,10 @@ begin
   Result := 0;
   if (AForm = nil) or (APack = nil) then
     Exit;
+  { Restore is also the boundary between language generations.  Reset the
+    root form before restoring its source text so a following LTR pack cannot
+    inherit the preceding Arabic, Hebrew or Urdu reading direction. }
+  AForm.BiDiMode := bdLeftToRight;
   FormIdentity := Trim(AFormIdentity);
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
@@ -2688,6 +2694,15 @@ begin
   FormIdentity := Trim(AFormIdentity);
   if FormIdentity = '' then
     FormIdentity := AForm.Name;
+  { HorzAlign only chooses the edge against which text is placed.  The root
+    form's BiDiMode is what TControl.FillTextFlags passes to FireMonkey's text
+    layout, where it becomes the paragraph reading direction.  State both
+    directions explicitly so repeated RTL/LTR switches never inherit the
+    preceding language. }
+  if SameText(Trim(APack.TextDirection), 'rtl') then
+    AForm.BiDiMode := bdRightToLeft
+  else
+    AForm.BiDiMode := bdLeftToRight;
   SnapshotOriginalGeometry(AForm, FormIdentity);
   { Back to the form as it was drawn before anything is applied, exactly as
     the VCL applicator does.
@@ -2743,11 +2758,10 @@ begin
     Inc(Result, ApplyDirectionMirror(AForm, APack, FormIdentity));
     { Last, because it reads the widths every pass above settled. }
     RecentreSelfPlacedText(AForm, FormIdentity);
-    { Where the caret starts, which is the reader's property rather than the
-      layout's. VCL reaches this through BiDiMode; FireMonkey has none, so it
-      is reached through the field or grid column alignment. It must follow
-      layout application because a pack can also carry the designed alignment
-      and would otherwise overwrite the active language's input direction. }
+    { Where the caret starts must follow the form-level reading direction.
+      Field and grid-column alignment is applied last because a pack can also
+      carry the designed alignment and would otherwise overwrite the active
+      language's input edge. }
     Inc(Result, FMXApplyInputReadingOrder(AForm,
       SameText(Trim(APack.TextDirection), 'rtl')));
   finally

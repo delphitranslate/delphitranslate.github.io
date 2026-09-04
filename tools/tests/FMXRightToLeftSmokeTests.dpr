@@ -1,23 +1,23 @@
 program FMXRightToLeftSmokeTests;
 
-{ The right-to-left mirror under FireMonkey.
+{ The right-to-left mirror and reading direction under FireMonkey.
 
-  The VCL has BiDiMode for reading order and FireMonkey has neither a reading
-  direction nor a geometry mirror. Both runtimes therefore implement the same
-  MirrorChildren pack contract against each live parent width. This is
+  FireMonkey takes paragraph reading direction from the root form's BiDiMode,
+  but it does not provide a geometry mirror. Both runtimes therefore implement
+  the same MirrorChildren pack contract against each live parent width. This is
   deliberately resolved at application time rather than frozen into numeric
   design-time coordinates: maximised forms, DPI scaling, tab-page placeholder
   widths and responsive application layout all remain valid.
 
-  What is left for the framework here is small and specific - which edge the
-  text sits against - and it has to go through TextSettings with StyledSettings
-  giving up its claim, or the style puts it back at paint time and the
-  assignment looks like it worked. }
+  Text placement is a separate contract and has to go through TextSettings
+  with StyledSettings giving up its claim, or the style puts it back at paint
+  time and the assignment looks like it worked. }
 
 {$APPTYPE CONSOLE}
 
 uses
   System.StartUpCopy,
+  System.Classes,
   System.SysUtils,
   System.Types,
   System.UITypes,
@@ -346,6 +346,8 @@ begin
         [Ord(Nav.Align), Ord(TAlignLayout.Left), Ord(TAlignLayout.Right)]));
       Writeln;
 
+      Check(Form.BiDiMode = bdRightToLeft,
+        'The FMX root form supplies right-to-left paragraph reading order.');
       Check(Abs(Name_.Position.X - 304) < 1, Format(
         'The caption is mirrored to the right of its box: %.0f, expected 304.',
         [Name_.Position.X]));
@@ -393,13 +395,13 @@ begin
         'A large centred heading is centred after its translated width changes.');
       Check(Heading.TextSettings.HorzAlign = TTextAlign.Center,
         'A designer-centred heading remains centred under an RTL pack.');
-      Check(Name_.TextSettings.HorzAlign = TTextAlign.Trailing,
-        'The text sits against the opposite edge.');
-      Check(Box.TextSettings.HorzAlign = TTextAlign.Trailing,
+      Check(Name_.TextSettings.HorzAlign = TTextAlign.Leading,
+        'The caption uses the RTL paragraph''s right-hand leading edge.');
+      Check(Box.TextSettings.HorzAlign = TTextAlign.Leading,
         'A FireMonkey edit starts input at the right-hand reading edge.');
-      Check(EmailBox.TextSettings.HorzAlign = TTextAlign.Leading,
-        'An email address keeps its technical left-to-right ordering inside the RTL form.');
-      Check(GridColumn.HorzAlign = TTextAlign.Trailing,
+      Check(EmailBox.TextSettings.HorzAlign = TTextAlign.Trailing,
+        'An email address stays on the physical left edge inside the RTL form.');
+      Check(GridColumn.HorzAlign = TTextAlign.Leading,
         'A future FireMonkey grid editor copies right-to-left alignment from its column.');
       Check(RuntimeMemo.Text = ExpectedRuntimeMemo,
         'Exact application-owned text in an editable memo is translated: ' +
@@ -457,6 +459,8 @@ begin
         [Name_.Position.X, Ord(Name_.TextSettings.HorzAlign),
          Ord(Nav.Align)]));
       Writeln;
+      Check(Form.BiDiMode = bdLeftToRight,
+        'The FMX root form returns to left-to-right paragraph reading order.');
       Check(Abs(Name_.Position.X - 16) < 1,
         Format('The caption is back where it was drawn: %.0f, expected 16.',
           [Name_.Position.X]));
