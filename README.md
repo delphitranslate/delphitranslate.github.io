@@ -38,7 +38,8 @@ Machine translation is useful but is not a substitute for review by a fluent
 speaker. Feedback is especially valuable for right-to-left languages and
 non-Latin writing systems. Report wording, direction, wrapping, or cultural
 formatting problems through GitHub Issues without including confidential
-project material.
+project material. We are particularly interested in right-to-left languages
+like Arabic, Hebrew, Urdu, Farsi and Pashto and getting feedback about them.
 
 DeepL is the recommended first-choice provider for this beta. The Studio sends
 eligible source text with available context to improve translation quality.
