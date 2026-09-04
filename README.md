@@ -22,7 +22,9 @@ safety guidance together in one place.
 > feature may be incomplete, may change without notice, or may not behave as
 > a beta tester expects. Use test copies of Delphi projects, keep them under
 > version control, and verify every generated catalog, language pack, component
-> setting, and translated screen before relying on the result.
+> setting, and translated screen before relying on the result. While this beta
+> version may perform well, it still may have unfound bugs and should not be
+> expected to perform like an official final release.
 >
 > Beta feedback is welcome through the repository's GitHub issue tracker.
 > Reports are most useful when they include the Delphi version, framework,
