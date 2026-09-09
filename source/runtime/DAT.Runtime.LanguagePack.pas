@@ -984,8 +984,10 @@ var
       At := PosEx(ASource, Result, SearchFrom);
       if At = 0 then
         Break;
-      BeforeIsWord := (At > 1) and IsWordCharacter(Result[At - 1]);
-      AfterIsWord := (At + Length(ASource) <= Length(Result)) and
+      BeforeIsWord := IsWordCharacter(ASource[1]) and
+        (At > 1) and IsWordCharacter(Result[At - 1]);
+      AfterIsWord := IsWordCharacter(ASource[Length(ASource)]) and
+        (At + Length(ASource) <= Length(Result)) and
         IsWordCharacter(Result[At + Length(ASource)]);
       if not BeforeIsWord and not AfterIsWord then
       begin
@@ -1014,8 +1016,13 @@ begin
     ATranslatedText := ASourceText;
     Exit(False);
   end;
-  if TryTranslateSource(ASourceText, ATranslatedText) then
-    Exit(True);
+  { Exact entries also protect intentionally unchanged product names. }
+  if FSourceStrings.TryGetValue(ASourceText, ATranslatedText) then
+  begin
+    if StringReplace(ATranslatedText, #$00AD, '', [rfReplaceAll]) = ASourceText then
+      ATranslatedText := ASourceText;
+    Exit(ATranslatedText <> ASourceText);
+  end;
   { Runtime templates are exact or format-aware UI strings. Resolve them
     before looking for shorter terms inside the text; otherwise a term such
     as Schedule can corrupt Scheduled or a longer dialog title. }
