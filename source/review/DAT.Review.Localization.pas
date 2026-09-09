@@ -3620,6 +3620,24 @@ begin
             Control.PlannedTop);
       end;
     end;
+    { Preserve the designer's gap between adjacent containers. Content fitting
+      runs next; growing a card into its neighbour cannot create usable space. }
+    for Other in AReview.Controls do
+    begin
+      if (Other = Control) or not IsVisualContainer(Other) or
+        not Other.HasPosition or not Other.HasSize or
+        not SameText(Other.FormName, Control.FormName) or
+        not SameText(Other.ParentName, Control.ParentName) then
+        Continue;
+      if (Other.Left >= Control.Left + Control.Width) and
+        (Other.Top < Control.Top + Control.Height) and
+        (Other.Top + Other.Height > Control.Top) then
+        NeededWidth := Min(NeededWidth, Control.Width);
+      if (Other.Top >= Control.Top + Control.Height) and
+        (Other.Left < Control.Left + Control.Width) and
+        (Other.Left + Other.Width > Control.Left) then
+        NeededHeight := Min(NeededHeight, Control.Height);
+    end;
     { Never past the edge of what holds the frame itself. A frame pushed off
       the form takes its children with it. }
     ContainerWasCentred := False;

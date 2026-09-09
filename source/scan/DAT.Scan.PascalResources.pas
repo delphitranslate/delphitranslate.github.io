@@ -1,4 +1,4 @@
-﻿unit DAT.Scan.PascalResources;
+unit DAT.Scan.PascalResources;
 
 interface
 
@@ -1098,7 +1098,11 @@ var
 begin
   LowerLeft := LowerCase(StringReplace(ALeftSide, ' ', '', [rfReplaceAll]));
   LowerText := LowerCase(Trim(ASourceText));
-  Result := ContainsText(LowerLeft, '.sql.') or
+  Result := ContainsText(LowerText, '\s') or
+    ContainsText(LowerText, '\w') or
+    ContainsText(LowerText, '(?=') or
+    ContainsText(LowerText, '(?:') or
+    ContainsText(LowerLeft, '.sql.') or
     EndsText('.sql.text', LowerLeft) or
     StartsText('select ', LowerText) or StartsText('update ', LowerText) or
     StartsText('insert ', LowerText) or StartsText('delete ', LowerText) or
@@ -1123,15 +1127,8 @@ begin
     ContainsText(LowerText, 'apps.googleusercontent.com');
 end;
 
-{ Every literal in a statement, run together, regardless of what lies between.
-
-  This is the reading that must never be used on an assignment: it invents
-  strings that appear nowhere in the program, and it is how a file name lost
-  its separator and a run of Pascal reached the translator. It is right for one
-  caller only. Markup is genuinely built in pieces across a statement, and what
-  is done with the result here - taking only the text that sits between tags -
-  cannot mistake code for a caption even when the joining is careless, because
-  code carries no tags. }
+{ Join markup fragments within an argument. Separate arguments must remain
+  separate text segments because they are rendered independently. }
 function JoinAllLiterals(const AExpression: string;
   out APhrase: string): Boolean;
 var
@@ -1147,6 +1144,8 @@ begin
   begin
     if AExpression[Index] <> '''' then
     begin
+      if AExpression[Index] = ',' then
+        APhrase := APhrase + sLineBreak;
       Inc(Index);
       Continue;
     end;
@@ -1250,6 +1249,10 @@ begin
     TextValue := DecodeVisibleText(RawSegment);
     if (TextValue <> '') and (Pos('<', TextValue) = 0) and
       (Pos('>', TextValue) = 0) and
+      not ContainsText(TextValue, '\s') and
+      not ContainsText(TextValue, '\w') and
+      not ContainsText(TextValue, '(?=') and
+      not ContainsText(TextValue, '(?:') and
       not ContainsText(TextValue, '%s') and
       not ContainsText(TextValue, '%d') then
     begin
