@@ -47,6 +47,9 @@ implementation
 
 uses
   System.SysUtils,
+{$IFDEF MSWINDOWS}
+  Winapi.Windows,
+{$ENDIF}
   FMX.Forms,
   DAT.Runtime.LanguagePack,
   DAT.Runtime.SplashTranslation,
@@ -80,6 +83,11 @@ end;
 
 class procedure TDATFMXSplashTranslation.Install;
 begin
+{$IFDEF MSWINDOWS}
+  if GetModuleHandle(PChar('designide' + IntToStr(Trunc(RTLVersion * 10)) +
+    '.bpl')) <> 0 then
+    Exit;
+{$ENDIF}
   if FInstalled then
     Exit;
   FInstalled := True;
@@ -95,6 +103,7 @@ begin
   FInstalled := False;
   TMessageManager.DefaultManager.Unsubscribe(
     TFormBeforeShownMessage, FSubscriptionId);
+  FSubscriptionId := 0;
 end;
 
 initialization

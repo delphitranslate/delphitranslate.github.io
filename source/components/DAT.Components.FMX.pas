@@ -135,6 +135,9 @@ implementation
 
 uses
   System.Math,
+{$IFDEF MSWINDOWS}
+  Winapi.Windows,
+{$ENDIF}
   System.UITypes,
   FMX.Controls,
   FMX.Dialogs,
@@ -690,6 +693,11 @@ procedure InstallFMXBrowserTranslationService;
 var
   BrowserService: IFMXWBService;
 begin
+{$IFDEF MSWINDOWS}
+  if GetModuleHandle(PChar('designide' + IntToStr(Trunc(RTLVersion * 10)) +
+    '.bpl')) <> 0 then
+    Exit;
+{$ENDIF}
   if DATFMXProxyBrowserService <> nil then
     Exit;
   if TPlatformServices.Current = nil then
@@ -2266,10 +2274,10 @@ initialization
     unit uses it. Decorate that factory before any application form is
     streamed; never replace it from a component constructor. }
   InstallFMXBrowserTranslationService;
-  RegisterClass(TDATFMXLanguageManager);
+  System.Classes.RegisterClass(TDATFMXLanguageManager);
 
 finalization
   UninstallFMXBrowserTranslationService;
-  UnregisterClass(TDATFMXLanguageManager);
+  System.Classes.UnregisterClass(TDATFMXLanguageManager);
 
 end.

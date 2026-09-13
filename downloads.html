@@ -12,7 +12,7 @@
   </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Download the Delphi App Translation Studio Beta source distribution and open the current User, Setup Wizard, Engineering, and Test guides.">
+  <meta name="description" content="Download the Delphi App Translation Studio Beta maintenance release and open the current User, Setup Wizard, Engineering, and Test guides.">
   <meta name="theme-color" content="#214f80">
   <link rel="canonical" href="https://delphitranslate.github.io/downloads.html">
   <meta property="og:type" content="website">
@@ -29,6 +29,11 @@
   <link rel="preconnect" href="https://cdn.gtranslate.net">
   <link rel="preconnect" href="https://translate.google.com">
   <link rel="preconnect" href="https://translate.googleapis.com">
+  <style>
+    .download-card, .download-content { min-width: 0; }
+    .download-content code { overflow-wrap: anywhere; }
+    .download-actions .button { max-width: 100%; white-space: normal; text-align: center; }
+  </style>
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -54,13 +59,13 @@
     <section class="download-hero" aria-labelledby="download-title">
       <div class="shell download-hero-grid">
         <div>
-          <p class="eyebrow"><span></span>Source and documentation</p>
-          <h1 id="download-title">Start with the Beta source. Keep the matching guides beside it.</h1>
-          <p>This is Beta test software for controlled developer evaluation, not a production release. Before downloading or building it, read the User Guide and Setup Wizard Guide. Beta testers build the Studio and its VCL or FMX design packages from the current source with RAD Studio 13 Florence.</p>
+          <p class="eyebrow"><span></span>Software and documentation</p>
+          <h1 id="download-title">Download the Beta maintenance release.</h1>
+          <p>This is Beta test software for controlled developer evaluation, not a production release. Read the User Guide and Setup Wizard Guide before use. This update fixes an access violation that could occur when closing RAD Studio. The download includes the compiled Studio, updated component packages for RAD Studio 13 Florence, and source code.</p>
         </div>
         <aside class="release-summary">
           <span class="release-pill">LIMITED BETA</span>
-          <strong>Source release</strong>
+          <strong>Beta maintenance release</strong>
           <ul>
             <li>Documentation review required before use</li>
             <li>Windows Win32 and Win64 projects</li>
@@ -94,33 +99,33 @@
     <section class="section download-section" id="source" aria-labelledby="source-title">
       <div class="shell">
         <div class="section-heading compact">
-          <p class="eyebrow dark"><span></span>Application source</p>
-          <h2 id="source-title">Build the complete Studio in Delphi.</h2>
-          <p>The source distribution includes the FMX Studio, Setup Wizard, VCL and FMX language components, package projects, schemas, tools, tests, and current documentation.</p>
+          <p class="eyebrow dark"><span></span>Beta maintenance release</p>
+          <h2 id="source-title">Get the corrected Studio and component packages.</h2>
+          <p>The ZIP includes the compiled Windows Studio, updated VCL and FMX component packages, source code, samples, and guides. Follow the <a href="index.html#beta-maintenance">maintenance update instructions</a> to replace your installed packages.</p>
         </div>
         <div class="download-grid">
           <article class="download-card featured">
             <div class="file-icon source-icon">&lt;/&gt;</div>
             <div class="download-content">
               <div class="card-kicker">AFTER READING THE GUIDES</div>
-              <h3>Delphi App Translation Studio source distribution</h3>
-              <p>A source-only package for developers who have reviewed the current Beta documentation and want a stable snapshot for controlled testing.</p>
-              <ul><li>Studio, Wizard, and Localization Review forms</li><li>Framework-neutral, VCL, and FMX runtime source</li><li>Design packages and component integration material</li><li>Guides, samples, schemas, validation, and license</li></ul>
+              <h3>Delphi App Translation Studio — Beta maintenance release</h3>
+              <p>Download and extract the complete ZIP. Preserve your existing projects, language packs, glossaries, and translation memories when replacing the software.</p>
+              <ul><li>Compiled Studio application and source code</li><li>Framework-neutral, VCL, and FMX runtime source</li><li>All five updated Win32 Release component packages</li><li>Guides, samples, schemas, and license</li></ul>
               <div class="download-actions">
                 <a class="button button-outline" href="#documentation">Review all guides</a>
-                <a class="button button-primary" href="source%20distributions/DelphiAppTranslationStudio-1.0-source.zip" download>Download source ZIP</a>
+                <a class="button button-primary" href="source%20distributions/DelphiAppTranslationStudio-1.0-beta-maintenance.zip" download>Download Beta maintenance ZIP</a>
                 <a href="https://github.com/delphitranslate/delphitranslate.github.io">View on GitHub</a>
               </div>
             </div>
           </article>
-          <article class="download-card unavailable">
+          <article class="download-card">
             <div class="file-icon windows-icon">⊞</div>
             <div class="download-content">
-              <div class="card-kicker">WINDOWS INSTALLER</div>
-              <h3>Compiled application</h3>
-              <p>A supported installer is not part of the limited Beta. Build locally so the Studio and design packages match your RAD Studio installation.</p>
-              <div class="release-meta"><span><b>Status</b>Not released</span><span><b>Recommended first build</b>Win32 Release</span></div>
-              <button class="button button-disabled" type="button" disabled>Installer coming after Beta</button>
+              <div class="card-kicker">AFTER EXTRACTION</div>
+              <h3>Where to find the updated files</h3>
+              <p>Open <code class="notranslate" translate="no">bin\Win32\Release\DelphiAppTranslationStudio.exe</code> to run the Studio. The five updated component <code>.bpl</code> files are in <code class="notranslate" translate="no">bin\packages\Win32\Release</code>.</p>
+              <div class="release-meta"><span><b>Compiler</b>RAD Studio 13 Florence</span><span><b>Studio application</b>Win32 Release</span></div>
+              <a class="button button-outline" href="index.html#beta-maintenance">Read the update instructions</a>
             </div>
           </article>
         </div>

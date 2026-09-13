@@ -32,12 +32,14 @@ type
     { Chains onto Screen.OnActiveFormChange. Called from initialization; safe
       to call more than once. }
     class procedure Install; static;
+    class procedure Remove; static;
   end;
 
 implementation
 
 uses
   System.SysUtils,
+  Winapi.Windows,
   Vcl.Forms,
   DAT.Runtime.LanguagePack,
   DAT.Runtime.SplashTranslation,
@@ -76,6 +78,11 @@ end;
 
 class procedure TDATVCLSplashTranslation.Install;
 begin
+  { Component packages must not hook the IDE's own windows. Runtime-package
+    applications do not load designide and retain normal splash translation. }
+  if GetModuleHandle(PChar('designide' + IntToStr(Trunc(RTLVersion * 10)) +
+    '.bpl')) <> 0 then
+    Exit;
   if FInstalled or (Screen = nil) then
     Exit;
   FInstalled := True;
@@ -83,10 +90,26 @@ begin
   Screen.OnActiveFormChange := TDATVCLSplashTranslation.ActiveFormChanged;
 end;
 
+class procedure TDATVCLSplashTranslation.Remove;
+var
+  Handler: TNotifyEvent;
+begin
+  if not FInstalled then
+    Exit;
+  Handler := TDATVCLSplashTranslation.ActiveFormChanged;
+  if (Screen <> nil) and
+    (TMethod(Screen.OnActiveFormChange).Code = TMethod(Handler).Code) and
+    (TMethod(Screen.OnActiveFormChange).Data = TMethod(Handler).Data) then
+    Screen.OnActiveFormChange := FPreviousHandler;
+  FPreviousHandler := nil;
+  FInstalled := False;
+end;
+
 initialization
   TDATVCLSplashTranslation.Install;
 
 finalization
+  TDATVCLSplashTranslation.Remove;
   TDATSplashTranslation.Cleanup;
 
 end.

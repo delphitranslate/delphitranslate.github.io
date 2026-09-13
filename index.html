@@ -39,9 +39,17 @@
     "softwareRequirements": "Embarcadero Delphi/RAD Studio 13 Florence",
     "license": "https://www.apache.org/licenses/LICENSE-2.0",
     "codeRepository": "https://github.com/delphitranslate/delphitranslate.github.io",
-    "downloadUrl": "https://delphitranslate.github.io/source%20distributions/DelphiAppTranslationStudio-1.0-source.zip"
+    "downloadUrl": "https://delphitranslate.github.io/source%20distributions/DelphiAppTranslationStudio-1.0-beta-maintenance.zip"
   }
   </script>
+  <style>
+    .maintenance-update { padding: 24px 0; font-size: 16px; line-height: 1.55; }
+    .maintenance-update h2 { margin: 0 0 8px; font-size: 22px; line-height: 1.3; }
+    .maintenance-update p { margin: 0 0 10px; }
+    .maintenance-update ol { margin: 0; padding-left: 23px; }
+    .maintenance-update li { margin: 5px 0; }
+    .maintenance-update code { font-size: .93em; overflow-wrap: anywhere; }
+  </style>
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -73,7 +81,7 @@
           <h1 id="hero-title">Build multilingual Delphi applications with no cloud dependency.</h1>
           <p class="hero-lead"><span class="notranslate" translate="no">Delphi App Translation Studio</span> scans VCL and FireMonkey projects, creates reviewable translations, validates the result, and exports compact JSON language packs that work offline in the finished application.</p>
           <div class="actions">
-            <a class="button button-primary" href="downloads.html#source">Download the Beta source</a>
+            <a class="button button-primary" href="downloads.html#source">Download the Beta maintenance release</a>
             <a class="button button-secondary" href="docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf">Read the User Guide</a>
           </div>
           <div class="beta-note">
@@ -99,6 +107,19 @@
       </div>
     </section>
 
+    <section class="maintenance-update" id="beta-maintenance" aria-labelledby="maintenance-title">
+      <div class="shell">
+        <h2 id="maintenance-title">Beta Maintenance Release — RAD Studio Shutdown Fix</h2>
+        <p>This release fixes an issue that could cause an access violation when closing <span class="notranslate" translate="no">RAD Studio</span>.</p>
+        <ol>
+          <li>In <span class="notranslate" translate="no">RAD Studio</span>, open <strong>Component → Install Packages</strong> and select a DAT package to see its installation path. Note the folder, then save your work and close the IDE.</li>
+          <li>Download the <strong>Beta Maintenance Release</strong> from the <a href="downloads.html">Downloads</a> page and extract it into a new folder.</li>
+          <li>Replace your existing <span class="notranslate" translate="no">Translation Studio</span> software with the updated version. Preserve your projects, language packs, glossaries, and translation memories.</li>
+          <li>In the extracted release, open <code class="notranslate" translate="no">bin\packages\Win32\Release</code>. Copy all five DAT <code class="notranslate" translate="no">.bpl</code> files into the installation folder you noted, replacing the existing files. Keep the complete set together.</li>
+          <li>Restart <span class="notranslate" translate="no">RAD Studio</span> and open your project. Confirm that the form opens correctly and the IDE closes without an error.</li>
+        </ol>
+      </div>
+    </section>
     <section class="proof-band" aria-label="Product highlights">
       <div class="shell proof-grid">
         <div><strong>VCL + FMX</strong><span>One localization workflow</span></div>
@@ -203,7 +224,7 @@
         </div>
         <div class="actions">
           <a class="button button-light" href="downloads.html#documentation">Read the Beta guides</a>
-          <a class="text-button" href="downloads.html#source">Download the Beta source</a>
+          <a class="text-button" href="downloads.html#source">Download the Beta maintenance release</a>
           <a class="text-button" href="https://github.com/delphitranslate/delphitranslate.github.io/issues">Report a Beta issue</a>
         </div>
       </div>
