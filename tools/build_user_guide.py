@@ -168,13 +168,13 @@ def build_user_guide() -> Path:
         document,
         "User Guide",
         "Delphi App Translation Studio",
-        last_changed="September 3, 2026",
+        last_changed="September 30, 2026",
     )
     add_static_toc(document, title, [
         ("1. Welcome - How This Guide Will Help You", 1),
         ("2. Before You Begin", 3),
-        ("3. Get the Studio from GitHub", 4),
-        ("4. Build and Open the Studio", 5),
+        ("3. Get the Studio", 4),
+        ("4. Open or Build the Studio", 5),
         ("5. Prepare Your Delphi Application", 6),
         ("6. Give Delphi Access to the DAT Dependencies", 7),
         ("7. Understand the Files Under %LOCALAPPDATA%", 9),
@@ -211,9 +211,9 @@ def build_user_guide() -> Path:
 
     document.add_heading("1. Welcome - How This Guide Will Help You", level=1)
     add_paragraphs(document, [
-        "Welcome to Delphi App Translation Studio. This guide is here to help you take a Delphi application from its original language to a tested, offline multilingual build without making you guess what happens next. It follows the current Pascal source, FMX form definitions, package projects, scanner contracts, provider code, workspace code, and verified application behavior as of September 3, 2026. The same workflow supports VCL and FireMonkey applications.",
+        "Welcome to Delphi App Translation Studio. This guide is here to help you take a Delphi application from its original language to a tested, offline multilingual build without making you guess what happens next. It follows the current Pascal source, FMX form definitions, package projects, scanner contracts, provider code, workspace code, and verified application behavior as of September 30, 2026. The same workflow supports VCL and FireMonkey applications.",
         "You can read the guide from beginning to end for your first project, or jump directly to the screen or task you need. Along the way, you will learn how to install the Studio, prepare a safe project copy, connect a translation provider, review translations, build language packs, add the runtime components, set Delphi's compiler path, deploy the result, and test both left-to-right and right-to-left languages.",
-        "The Studio is currently distributed as source rather than through an installer. That gives you full visibility into what you are building, but it also means the first setup includes a few Delphi steps. They are all explained here. For your first run, work with a disposable copy of your application until it passes the verification checklist in Chapter 34.",
+        "The Studio is distributed in a versioned ZIP with compiled Win32 and Win64 Release applications, matching component packages, source, samples, and guides. There is no separate installer. For your first run, work with a backed-up project copy until it passes the verification checklist in Chapter 34.",
     ])
     add_callout(document, "Your project remains yours.", "Scanning reads the Delphi project you select. Final Setup Wizard processing creates a safety ZIP, workspace files, runtime packs, review artifacts, and a component kit. In the recommended workflow, it does not rewrite your Pascal, DFM, FMX, DPR, or DPROJ files.")
 
@@ -262,7 +262,7 @@ def build_user_guide() -> Path:
     ])
     add_table(document, ["You will need", "What to have ready"], [
         ["Windows", "A current 32- or 64-bit Windows development system with permission to write the selected project copy, Local AppData, and the Studio export folder."],
-        ["RAD Studio", r"RAD Studio 12 Athens or RAD Studio 13 Florence. The verified RAD Studio 13 toolchain is under C:\Program Files (x86)\Embarcadero\Studio\37.0\bin."],
+        ["RAD Studio", r"RAD Studio 13 Florence (the validated version 1.0.0 toolchain), under C:\Program Files (x86)\Embarcadero\Studio\37.0\bin."],
         ["Delphi project", "A saved VCL or FMX .dproj/.dpr that builds successfully before localization."],
         ["Source form format", "Text DFM/FMX resources are preferred for auditability. Save all designer changes before scanning."],
         ["Internet", "Required only while testing a provider connection or translating unresolved entries."],
@@ -271,19 +271,19 @@ def build_user_guide() -> Path:
     ])
     add_callout(document, "Start safely.", "Keep a pristine backup and make a separate test copy of the Delphi application. Build that test copy successfully before you add DAT components or language packs. This gives you a clean point of comparison at every stage.")
 
-    document.add_heading("3. Get the Studio from GitHub", level=1)
+    document.add_heading("3. Get the Studio", level=1)
     add_paragraphs(document, [
-        "Start at https://delphitranslate.github.io/downloads.html, where the current Beta source ZIP and matching guides are kept together. The official repository is https://github.com/delphitranslate/delphitranslate.github.io. Download the whole repository so the Delphi projects, packages, runtime units, images, localization files, tests, tools, and documentation stay together in the folder structure they expect.",
+        "Start at https://delphitranslate.github.io/downloads.html, where the version 1.0.0 production ZIP and matching guides are kept together. The official source repository is https://github.com/delphitranslate/delphitranslate.github.io. Download the complete versioned ZIP for compiled Studio applications, matched packages, source, samples, and guides; a GitHub source snapshot may omit compiled binaries.",
         "A single .pas file, .dproj, or component BPL is not enough. Those files rely on neighboring source and package files, and a partial download is the most common way to end up with missing-unit or missing-resource errors.",
     ])
     document.add_heading("3.1 Download a ZIP", level=2)
     add_steps(document, [
-        "Open the repository URL in your browser.",
-        "Use the branch selector to choose the published beta or release branch specified on the repository page. If a signed release is available, prefer its release tag; otherwise use the public beta branch or main branch identified by the project owner.",
-        "Choose Code, then Download ZIP.",
+        "Open https://delphitranslate.github.io/downloads.html in your browser and read the linked User and Setup Wizard guides.",
+        "Choose Download version 1.0.0 ZIP. If you need repository source instead, use the GitHub release tag when available or the main branch; repository snapshots do not necessarily contain prebuilt binaries.",
+        "Keep the complete versioned ZIP together; do not download isolated PAS, DPK, BPL, or JSON files.",
         "Save the ZIP to your normal Downloads folder. Extract it before opening anything; Delphi cannot build the project correctly from inside the compressed ZIP.",
         r"Extract the complete archive to a short, writable development path such as C:\DelphiProjects\Delphi App Translation.",
-        "Open the extracted root and make sure you can see DelphiAppTranslationStudio.dproj together with the source, packages, Localization, docs, tools, and images and icons folders. If those are present, you have the complete source tree.",
+        "Open the extracted root and make sure you can see DelphiAppTranslationStudio.dproj together with README.md, bin, source, packages, docs, and samples. If those are present, you have the complete release package.",
     ])
     document.add_heading("3.2 Clone with Git", level=2)
     add_path(document, "git clone https://github.com/delphitranslate/delphitranslate.github.io.git")
@@ -292,17 +292,17 @@ def build_user_guide() -> Path:
     ])
     document.add_heading("3.3 Avoid these partial-install shortcuts", level=2)
     add_bullets(document, [
-        "Do not treat bin as an installer. Local executables and BPLs must match the active RAD Studio toolchain.",
-        "Do not install a .dpk through Install Component. Build the package and add the Win32 design BPL through Component > Install Packages.",
-        "Do not rely on an older source-distribution ZIP if its date predates the selected repository branch. The full branch archive is authoritative until a signed release package is published.",
+        "Do not treat the release ZIP as a Windows installer. Extract it to a normal folder, keeping the executable and matching packages together.",
+        "Do not install a .dpk through Install Component. Add the supplied Win32 design BPL through Component > Install Packages.",
+        "Do not mix executable, source, or BPL files from different release ZIPs. Use the complete versioned package.",
     ])
 
-    document.add_heading("4. Build and Open the Studio", level=1)
+    document.add_heading("4. Open or Build the Studio", level=1)
     add_paragraphs(document, [
-        "Once the repository is extracted, building the Studio is a normal Delphi project build. Win32 Release is the friendliest first choice because the design-time packages also use Win32. All examples that follow use RAD Studio 13 Florence.",
+        "The production ZIP includes freshly built Win32 and Win64 Release Studio executables. Run the matching executable from bin\\Win32\\Release or bin\\Win64\\Release. Rebuilding from source is optional and requires RAD Studio 13 Florence.",
     ])
     add_steps(document, [
-        "Start RAD Studio 13 Florence.",
+        "For a source rebuild, start RAD Studio 13 Florence. Skip these build steps if you use the supplied Release executable.",
         "Open DelphiAppTranslationStudio.dproj from the extracted repository root.",
         "Choose Win32 or Win64 and Debug or Release. Win32 Release is the simplest first build and is also the platform used for Delphi design-time packages.",
         "Choose Project > Build DelphiAppTranslationStudio and wait for a successful build message.",
@@ -320,7 +320,7 @@ def build_user_guide() -> Path:
     add_steps(document, [
         "Create a pristine backup, then make a separate test copy of the application for localization work.",
         "Open the test copy in RAD Studio and build every platform/configuration you intend to support. Correct pre-existing build errors before localization.",
-        "Build the matching DAT runtime and design packages from the Studio repository.",
+        "Use the matching DAT runtime and design packages supplied in the same release ZIP, or rebuild the full set together from source.",
         r"In RAD Studio choose Component > Install Packages > Add and select DATLanguageManagerVCLDesign.bpl or DATLanguageManagerFMXDesign.bpl from bin\packages\Win32\Release.",
         "Open the target application's primary form in the Form Designer.",
         "Place one TDATVCLLanguageManager or TDATFMXLanguageManager on the primary form. It is nonvisual, so it will appear in the designer's component tray.",

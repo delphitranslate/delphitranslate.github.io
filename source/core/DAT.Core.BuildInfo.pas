@@ -27,9 +27,9 @@ unit DAT.Core.BuildInfo;
 interface
 
 const
-  { Year, month, day, and a counter within the day. Bumped by hand; see above
-    for why that is not automated. }
-  StudioBuildLabel = 'Build 2026.08.22.129';
+  { Public release version, selected by the developer rather than inferred
+    from the executable timestamp. }
+  StudioBuildLabel = 'Version 1.0.0';
 
 { ' (built 2026-08-22 14:41)', taken from the executable's file date, or an
   empty string if that cannot be read. }

@@ -413,7 +413,7 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
         document,
         "Setup Wizard Guide",
         "A Detailed, Screen-by-Screen Path from Delphi Source to Offline Language Packs",
-        last_changed="September 3, 2026",
+        last_changed="September 30, 2026",
     )
     add_static_toc(document, title, toc_entries(WIZARD_HEADINGS, toc_pages))
 
@@ -436,20 +436,20 @@ def build_wizard_guide(toc_pages: dict[str, int]) -> Path:
 
     document.add_heading(WIZARD_HEADINGS[1], level=1)
     add_paragraphs(document, [
-        "A few minutes of preparation makes the Wizard much easier to use. Complete the checks below once, then keep this section nearby as your setup checklist. The current Beta source ZIP and matching guides are published together at https://delphitranslate.github.io/downloads.html.",
+        "A few minutes of preparation makes the Wizard much easier to use. Complete the checks below once, then keep this section nearby as your setup checklist. The version 1.0.0 production ZIP and matching guides are published together at https://delphitranslate.github.io/downloads.html.",
     ])
-    document.add_heading("2.1 Obtain and build the Studio", level=2)
+    document.add_heading("2.1 Obtain and run the Studio", level=2)
     add_steps(document, [
-        "Download or clone the complete repository from https://github.com/delphitranslate/delphitranslate.github.io. Do not download isolated PAS, DPK, BPL, or JSON files.",
+        "Download the complete version 1.0.0 production ZIP from https://delphitranslate.github.io/downloads.html. The source repository is https://github.com/delphitranslate/delphitranslate.github.io. Do not download isolated PAS, DPK, BPL, or JSON files.",
         r"Extract it to a short writable path, for example C:\DelphiProjects\Delphi App Translation.",
-        "Open DelphiAppTranslationStudio.dproj in RAD Studio 13 Florence and build Win32 Release for the simplest first run.",
+        "The ZIP includes freshly built Win32 and Win64 Release Studio executables. Building from DelphiAppTranslationStudio.dproj in RAD Studio 13 Florence is optional.",
         r"The verified RAD Studio environment is C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat and the Win32 compiler is dcc32.exe in the same folder.",
-        r"Run bin\Win32\Release\DelphiAppTranslationStudio.exe from the repository copy you just built.",
+        r"Run bin\Win32\Release\DelphiAppTranslationStudio.exe or its Win64 equivalent from the extracted release ZIP.",
     ])
     document.add_heading("2.2 Prepare the target application", level=2)
     add_steps(document, [
         "Create a pristine backup and a separate test copy. Build and briefly run the test copy before localization work begins.",
-        "Build the DAT runtime and design packages supplied with the Studio. In RAD Studio choose Component > Install Packages > Add and install the matching Win32 Release design BPL.",
+        "Use the matching DAT runtime and design packages supplied with the release, or rebuild the full set together. In RAD Studio choose Component > Install Packages > Add and install the matching Win32 Release design BPL.",
         "Open the target primary form in the Form Designer. Place one TDATVCLLanguageManager or TDATFMXLanguageManager and one matching language combo box.",
         "In Object Inspector set ApplicationId to the exact Delphi project name, LanguagesFolder to Localization\\Languages, SourceLanguage to the authored locale, and connect the combo box LanguageManager property.",
         "Add and position any visible Language label or menu item in the designer. Choose File > Save All so the first scan sees every intended static string.",
@@ -948,7 +948,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
         document,
         "Engineering Guide",
         "Architecture, Source Units, Dependencies, Formats, Runtime Contracts, Tests, and Release Controls",
-        last_changed="September 1, 2026",
+        last_changed="September 30, 2026",
     )
     add_static_toc(document, title, toc_entries(ENGINEERING_HEADINGS, toc_pages))
 
@@ -1421,7 +1421,7 @@ def build_engineering_guide(toc_pages: dict[str, int]) -> Path:
     document.add_heading("27.1 Build, verification, distribution, and guide tools", level=2)
     tools = [
         ("tools\\build_packages.ps1", "Builds the five runtime/design package projects in controlled platform/configuration order.", "Package installation and ComponentSource correctness depend on reproducible package outputs."),
-        ("tools\\verify_all.ps1", "Runs the broad engineering verification suite.", "Primary pre-release gate across foundation, scanner, runtime, components, Studio, and artifacts."),
+        ("tools\\verify_all.ps1", "Runs the broad engineering verification suite.", "Primary release-validation gate across foundation, scanner, runtime, components, Studio, and artifacts."),
         ("tools\\check_shipped_units_complete.ps1", "Compares required runtime/component units with shipped packages/kits/distributions.", "Prevents a compile/runtime failure caused by an omitted dependency."),
         ("tools\\check_build_paths_agree.ps1", "Checks project, script, and documentation output/search-path agreement.", "Prevents testing one binary while shipping another."),
         ("tools\\check_source_encoding.ps1", "Audits source encoding and known text hazards.", "Scanner/provider/UI correctness depends on stable Unicode source."),

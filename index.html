@@ -39,7 +39,7 @@
     "softwareRequirements": "Embarcadero Delphi/RAD Studio 13 Florence",
     "license": "https://www.apache.org/licenses/LICENSE-2.0",
     "codeRepository": "https://github.com/delphitranslate/delphitranslate.github.io",
-    "downloadUrl": "https://delphitranslate.github.io/source%20distributions/DelphiAppTranslationStudio-1.0-beta-maintenance.zip?v=20260913"
+    "downloadUrl": "https://delphitranslate.github.io/source%20distributions/DelphiAppTranslationStudio-1.0.0-Windows.zip"
   }
   </script>
   <style>
@@ -65,7 +65,7 @@
         <a href="index.html" aria-current="page">Home</a>
         <a href="#workflow">Workflow</a>
         <a href="#runtime">Runtime</a>
-        <a href="#beta">Beta</a>
+        <a href="#release">Release</a>
         <a href="before-you-choose.html">Compare tools</a>
         <a class="nav-cta" href="downloads.html">Downloads</a>
       </nav>
@@ -82,17 +82,16 @@
           <h1 id="hero-title">Build multilingual Delphi applications with no cloud dependency.</h1>
           <p class="hero-lead"><span class="notranslate" translate="no">Delphi App Translation Studio</span> scans VCL and FireMonkey projects, creates reviewable translations, validates the result, and exports compact JSON language packs that work offline in the finished application.</p>
           <div class="actions">
-            <a class="button button-primary" href="downloads.html#source">Download the Beta maintenance release</a>
+            <a class="button button-primary" href="downloads.html#source">Download version 1.0.0</a>
             <a class="button button-secondary" href="docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf">Read the User Guide</a>
           </div>
-          <div class="beta-note">
-            <span class="beta-note-label">Beta test software</span>
+          <div class="release-note">
+            <span class="release-note-label">Production release</span>
             <div>
               <strong>Read the guides before you download, build, or use the Studio.</strong>
-              <p>This release is intended for controlled developer evaluation during active Delphi development. Begin with a version-controlled test copy, follow the Setup Wizard Guide, and inspect every translated screen and generated output before considering production use.</p>
-              <p><strong>Beta test update — September 3, 2026</strong> A reported FireMonkey right-to-left paragraph-direction defect affecting languages such as Arabic and Hebrew has been corrected. The runtime now applies the language pack's reading direction at the form level and restores left-to-right direction when returning to the source language. Automated Win32 and Win64 tests pass; native-language review is continuing.</p>
-              <p><strong>Package improvement — September 4, 2026</strong> The VCL and FireMonkey runtime and design-time BPL set has been refreshed and validated for closer consistency between the Studio, generated integration kits, and the packages used by RAD Studio. Runtime packages were verified in Win32 and Win64 Debug and Release configurations, and IDE design packages were verified in Win32 Debug and Release configurations.</p>
-              <div class="beta-note-links">
+              <p>Version 1.0.0 is ready for production development with the validated Windows and RAD Studio configuration described in the guides. Keep your Delphi project under version control, follow the Setup Wizard Guide, and review machine-translated wording and every deployed screen before shipping your application.</p>
+              <p>Localization remains a developer-owned process: short phrases, specialized terminology, dynamic text, right-to-left layouts, and custom controls can require corrections or additional integration.</p>
+              <div class="release-note-links">
                 <a href="docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf">User Guide</a>
                 <a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.pdf">Setup Wizard Guide</a>
                 <a href="downloads.html#documentation">All documentation</a>
@@ -108,16 +107,15 @@
       </div>
     </section>
 
-    <section class="maintenance-update" id="beta-maintenance" aria-labelledby="maintenance-title">
+    <section class="maintenance-update" id="release-notes" aria-labelledby="maintenance-title">
       <div class="shell">
-        <h2 id="maintenance-title">Beta Maintenance Release — RAD Studio Shutdown Fix</h2>
-        <p>This release fixes an issue that could cause an access violation when closing <span class="notranslate" translate="no">RAD Studio</span>.</p><p>The September 13 update also preserves spacing between neighboring cards, improves text scanning, and protects names intentionally left untranslated while improving punctuation-aware translation.</p>
+        <h2 id="maintenance-title">Version 1.0.0 — production release</h2>
+        <p>The current release brings together the Studio, VCL and FireMonkey integration packages, source, samples, and current guides. It includes the earlier RAD Studio shutdown correction, improved text scanning, spacing safeguards, and punctuation-aware translation.</p>
         <ol>
-          <li>In <span class="notranslate" translate="no">RAD Studio</span>, open <strong>Component → Install Packages</strong> and select a DAT package to see its installation path. Note the folder, then save your work and close the IDE.</li>
-          <li>Download the <strong>Beta Maintenance Release</strong> from the <a href="downloads.html">Downloads</a> page and extract it into a new folder.</li>
-          <li>Replace your existing <span class="notranslate" translate="no">Translation Studio</span> software with the updated version. Preserve your projects, language packs, glossaries, and translation memories.</li>
-          <li>In the extracted release, open <code class="notranslate" translate="no">bin\packages\Win32\Release</code>. Copy all five DAT <code class="notranslate" translate="no">.bpl</code> files into the installation folder you noted, replacing the existing files. Keep the complete set together.</li>
-          <li>Restart <span class="notranslate" translate="no">RAD Studio</span> and open your project. Confirm that the form opens correctly and the IDE closes without an error.</li>
+          <li>Read the <a href="downloads.html#documentation">User and Setup Wizard guides</a> before installing components or opening a target project.</li>
+          <li>Download and extract the complete <a href="downloads.html#source">version 1.0.0 package</a> to a new folder. Do not merge it with an older release.</li>
+          <li>If upgrading, preserve your projects, language packs, glossaries, and translation memories. Replace the complete matching package set; do not mix BPLs from different builds.</li>
+          <li>In <span class="notranslate" translate="no">RAD Studio</span>, use <strong>Component → Install Packages → Add</strong> for the matching design-time BPL. Follow the package instructions in the guides.</li>
         </ol>
       </div>
     </section>
@@ -216,17 +214,17 @@
       </div>
     </section>
 
-    <section class="beta-cta" id="beta" aria-labelledby="beta-title">
-      <div class="shell beta-cta-inner">
+    <section class="release-cta" id="release" aria-labelledby="release-title">
+      <div class="shell release-cta-inner">
         <div>
-          <p class="eyebrow light"><span></span>Limited Beta testing is open</p>
-          <h2 id="beta-title">Help test multilingual Delphi applications in real development projects.</h2>
-          <p>This is Beta test software, not a production release. Read the current guides first, use the matching Beta maintenance release, work on a safe project copy, and report functional, layout, translation, RTL, and documentation issues without sharing private source or credentials.</p>
+          <p class="eyebrow light"><span></span>Version 1.0.0 is available</p>
+          <h2 id="release-title">Bring multilingual support into active Delphi development.</h2>
+          <p>Download the matched software and guides, work from a backed-up project, and verify the generated language packs in the actual application. Report functional, layout, translation, RTL, and documentation issues without sharing private source or credentials.</p>
         </div>
         <div class="actions">
-          <a class="button button-light" href="downloads.html#documentation">Read the Beta guides</a>
-          <a class="text-button" href="downloads.html#source">Download the Beta maintenance release</a>
-          <a class="text-button" href="https://github.com/delphitranslate/delphitranslate.github.io/issues">Report a Beta issue</a>
+          <a class="button button-light" href="downloads.html#documentation">Read the guides</a>
+          <a class="text-button" href="downloads.html#source">Download version 1.0.0</a>
+          <a class="text-button" href="https://github.com/delphitranslate/delphitranslate.github.io/issues">Report an issue</a>
         </div>
       </div>
     </section>
@@ -234,14 +232,14 @@
     <section class="feedback-band" id="feedback" aria-labelledby="feedback-title">
       <div class="shell feedback-inner">
         <div class="feedback-copy">
-          <p class="eyebrow light"><span></span>Your Beta feedback matters</p>
+          <p class="eyebrow light"><span></span>Your feedback matters</p>
           <h2 id="feedback-title">Help us make Delphi App Translation Studio better.</h2>
-          <p>Beta testing is most valuable when developers tell us what worked, what did not work, and what could be clearer. Errors that are not reported cannot be investigated or corrected, and the application cannot continue to improve without feedback from the people using it in real Delphi projects.</p>
+          <p>Tell us what worked, what did not work, and what could be clearer. Errors that are not reported cannot be investigated or corrected, and the application cannot continue to improve without feedback from developers using it in real projects.</p>
           <p>Please report translation problems, right-to-left display issues, unexpected program behavior, component or package problems, documentation questions, and anything that made the workflow confusing. Even a small observation can identify an improvement that benefits every user.</p>
           <p>When reporting an issue, please include the Delphi framework, target platform, selected language, screen or workflow involved, and the steps needed to reproduce the problem. Screenshots are helpful, but please remove API keys, private source code, personal information, and other sensitive material before submitting them.</p>
         </div>
         <div class="actions">
-          <a class="button button-light" href="https://github.com/delphitranslate/delphitranslate.github.io/issues">Report a Beta issue</a>
+          <a class="button button-light" href="https://github.com/delphitranslate/delphitranslate.github.io/issues">Report an issue</a>
           <a class="button button-secondary" href="downloads.html#documentation">Review the documentation</a>
         </div>
       </div>
@@ -255,7 +253,7 @@
       <div><strong>Documentation</strong><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf">User Guide</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.pdf">Wizard Guide</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.pdf">Engineering Guide</a></div>
       <div><strong>Project</strong><a href="https://github.com/delphitranslate/delphitranslate.github.io">GitHub repository</a><a href="LICENSE">Apache 2.0 license</a><span>Windows · VCL · FMX</span></div>
     </div>
-    <div class="shell footer-bottom"><span>Beta software. Test with backed-up development projects.</span><span>Not affiliated with Embarcadero Technologies.</span></div>
+    <div class="shell footer-bottom"><span>Version 1.0.0. Review every translation before shipping.</span><span>Not affiliated with Embarcadero Technologies.</span></div>
   </footer>
 
   <div class="gtranslate_wrapper notranslate" translate="no" aria-label="Translate this website"></div>

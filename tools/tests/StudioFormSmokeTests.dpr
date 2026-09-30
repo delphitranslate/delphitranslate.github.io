@@ -11,6 +11,7 @@ uses
   FMX.Forms,
   FMX.Controls,
   FMX.TabControl,
+  DAT.Core.BuildInfo in '..\..\source\core\DAT.Core.BuildInfo.pas',
   DAT.Studio.MainForm in '..\..\source\studio\DAT.Studio.MainForm.pas'
     {frmTranslationStudio},
   DAT.Studio.SetupWizard in '..\..\source\studio\DAT.Studio.SetupWizard.pas'
@@ -205,7 +206,7 @@ begin
       if not StartsText('Delphi App Translation Studio',
         frmTranslationStudio.Caption) then
         raise Exception.Create('The main form caption is incorrect.');
-      if not ContainsText(frmTranslationStudio.Caption, 'Build ') then
+      if not ContainsText(frmTranslationStudio.Caption, StudioBuildLabel) then
         raise Exception.Create('The main form caption omits the build label.');
       { Opens at the size it was drawn, not filling the screen.
 

@@ -1,110 +1,67 @@
-# Delphi App Translation Studio 1.0 Release Notes
+# Delphi App Translation Studio 1.0.0 Release Notes
 
-Last changed: August 8, 2026
+Last changed: September 30, 2026
 
-## Release Summary
+## Release status and scope
 
-Version 1.0 delivers a Windows Win32/Win64, offline-first localization workflow
-for Delphi VCL and FireMonkey applications. The Studio scans designer text and
-Pascal `resourcestring` declarations, maintains development JSON catalogs,
-translates unresolved text automatically through Google Cloud Translation or
-DeepL, validates Delphi formatting contracts, exports compact runtime packs,
-and generates a non-mutating component-integration kit for an offline runtime.
+Version 1.0.0 is the production release for Delphi VCL and FireMonkey
+applications developed on Windows with RAD Studio 13 Florence (Studio 37.0).
+The target application can use offline JSON language packs on Win32 and Win64.
+The included Studio executables and component packages were freshly built
+with that toolchain. Other IDE versions and target operating systems are not
+claimed as validated by this release.
 
-Only the Studio uses provider Internet access and credentials. Target
-applications do not contain API keys and do not require Internet access.
+## What is in the download
 
-## Professional Workflow
+`DelphiAppTranslationStudio-1.0.0-Windows.zip` contains Win32 and Win64
+Release Studio executables, the matched Win32 Release runtime and design-time
+BPL set, Win64 Release runtime BPLs, product and package source, sample
+projects, schemas, current guides in DOCX and PDF, this release note, README,
+and the Apache 2.0 license. There is no separate installer. Extract the whole
+archive into a new folder; do not mix its BPLs with packages from older builds.
+Install only the appropriate **Win32 design-time BPL** in the RAD Studio IDE
+using **Component > Install Packages > Add**. See the User and Setup Wizard
+guides before installing components or processing a target project.
 
-- Read-only VCL/FMX project detection and text-resource scanning.
-- Stable catalog keys and source-checksum incremental merge.
-- Built-in Google Cloud Translation Basic v2 and DeepL API Free/Pro clients.
-- Masked key entry, session-only use, or Windows Credential Manager storage.
-- Provider connection test, bounded batching, retries for transient failures,
-  provider provenance, and automatic catalog saving.
-- Machine translated, Imported, Edited, Reviewed, and Approved linguistic
-  states with selected-entry and confirmed catalog-wide review progression.
-- Safe UTF-8 CSV interchange as an optional collaboration path.
-- Context-ranked exact-source suggestions that require explicit acceptance and
-  never inherit approval.
-- Delphi argument-aware placeholder and accelerator validation.
-- Separate structural, linguistic, automatic-runtime, and manual
-  `resourcestring` wiring readiness.
-- Recommended Component Integration writes a complete setup kit only under the
-  Studio export tree and makes zero automatic changes to the selected target.
-- One `TDATVCLLanguageManager` or `TDATFMXLanguageManager` on the primary form
-  supervises the application; ordinary forms need no component.
-- Optional designer-owned VCL and FMX language combo boxes bind to the manager,
-  list validated packs, and switch open forms immediately.
-- Separate core, VCL, and FMX runtime packages and framework-specific Win32 IDE
-  design packages register the controls on **DAT Localization**.
-- Self-contained design BPLs eliminate custom runtime-package loader failures;
-  one supported installer builds, verifies, copies, and registers components.
-- Automatic Source Integration remains an explicitly labeled advanced fallback
-  with exact preview, one authorization gate, verified backup, atomic Apply,
-  Restore, and Complete Reset.
-- Automatic English source-pack creation, normalized/de-duplicated language
-  menus, and immediate open-form switching, including return to English.
-- Optional elevated target build and JSON deployment after Apply; the Studio
-  never launches the target automatically.
-- Automatic pre-change backup with manifest-recorded SHA-256 verification,
-  atomic writes, rollback, and verified Restore.
-- Designer-persisted VCL and FMX language menus, created on the primary form
-  when the named menu does not already exist.
-- DPR integration supports compiler directives such as `{$R *.res}` between
-  the `uses` clause and the project `begin` block.
-- Form-unit integration supports resource directives between `implementation`
-  and an existing implementation `uses` clause without creating a duplicate.
-- Multi-form FMX integration applies saved languages from each form's
-  designer-persisted `OnCreate`, never from nil pre-`Application.Run` DPR form
-  variables, and includes a defensive nil-form guard.
-- Studio-created FMX and VCL menu containers include designer-authored
-  **File > Exit** and **Language** menus; older generated containers are
-  upgraded idempotently.
-- The maximized Integration page uses larger designer-persisted gutters around
-  planning, exact-review, and authorization controls.
-- Stable scrolling row heights, page-specific status guidance, an active JSON
-  catalog path, wrapped summaries, and issue-to-entry validation navigation.
-- Offline JSON pack discovery and per-user language preference.
-- Complete Reset preview and one-confirmation execution, with automatic
-  SHA-256 safety backup, original-source restoration, generated-file cleanup,
-  and preservation of unrelated developer files and all backups.
+## Main workflow
 
-## Provider-Only Automatic Translation
+The Studio scans saved Delphi projects, creates an incremental catalog,
+translates eligible text through DeepL or Google Cloud Translation, supports
+terminology correction and review, validates the result, and exports compact
+runtime language packs. The Setup Wizard guides first-time setup; Maintenance
+Studio supports subsequent scans, glossary edits, and deployment. The
+project-local `dependencies\DelphiAppTranslation` tree is created and
+maintained as a matched source set. The Studio does not rewrite target Pascal,
+DFM, FMX, DPR, or DPROJ files. Developers add the documented compiler Search
+path in RAD Studio for ordinary IDE builds.
 
-The former command-line Codex/Claude experiment has been removed from the
-product UI, project, source distribution, and smoke-test surface. The Studio no
-longer asks developers to install or authenticate a separate AI command-line
-tool. **Translate Automatically** now means one thing: translate eligible
-catalog entries through the configured Google or DeepL API and save them as
-Machine translated drafts for review.
+Provider keys remain on the developer computer; the target application does
+not need cloud access or a provider key at runtime. The release includes
+right-to-left handling for supported languages and the corrected RAD Studio
+package-shutdown behavior from the preceding maintenance work.
 
-## FMX Interface
+## Validation performed
 
-The Studio starts maximized. All seven designer-authored pages expand into the
-available workspace. Provider Settings contains only Google and DeepL controls,
-and the Translate page presents a single primary automatic-translation action.
-All controls remain persisted in the FMX resource and editable in RAD Studio.
+The repository's `tools\verify_all.ps1` gate passed on September 30, 2026:
+package and Studio builds, source-encoding and source/scan contracts, smoke
+and runtime harnesses, an end-to-end VCL sample, build-path and shipped-unit
+checks, and freshness checks for compiled artifacts. One layout-fitting
+smoke test reported **skipped, cannot run here**; no claim is made that this
+environment ran that test. The Win64 Release Studio was also built separately.
+Live provider acceptance and every target application's visual/linguistic
+behavior are not covered by the automated gate.
 
-## Validation
+## Developer responsibilities
 
-The deterministic Win32 and Win64 suites cover project detection, VCL/FMX
-scanning, catalog persistence, provider request/response contracts, validation,
-runtime export, integration, deployed offline packs, form streaming, launch,
-and Studio self-localization. The component path additionally covers lifecycle
-guards, state preservation, package streaming, selector binding, target
-non-mutation, and real-application Win32/Win64 pilots for both VCL and FMX. Live
-provider acceptance requires an
-owner-supplied restricted key and is intentionally kept out of automated
-fixtures.
+This is a development tool, not a translator for a finished EXE. Keep the
+target project under version control and preserve backups. Machine
+translation is a useful first draft, not a guarantee of correct meaning.
+Review terminology, placeholders, dynamic text, RTL behavior, custom
+controls, layout, all selected languages, and the final deployed application.
+Report reproducible defects through GitHub Issues without posting keys,
+private source, customer data, or unreviewed screenshots.
 
-## Scope
+## License
 
-Supported targets are Delphi VCL and FireMonkey applications for Windows Win32
-and Win64. macOS, iOS, Android, Linux, C++Builder, automatic layout reflow,
-arbitrary Pascal-literal rewriting, Google Advanced v3, and runtime cloud
-translation are outside version 1.0.
-
-Provider connectivity depends on third-party accounts, billing, quotas,
-network access, current API behavior, and service terms. Human review remains
-required before shipping machine-translated text.
+Apache License 2.0; see `LICENSE` for the complete terms. Third-party tools
+and translation-provider services retain their own terms and costs.

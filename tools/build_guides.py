@@ -270,7 +270,7 @@ def add_cover(
     meta = document.add_paragraph()
     meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = meta.add_run(
-        f"Version 1.0\nLast changed: {last_changed or LAST_CHANGED}\n"
+        f"Version 1.0.0\nLast changed: {last_changed or LAST_CHANGED}\n"
         "Windows • Delphi VCL and FireMonkey • Win32 and Win64"
     )
     run.font.name = "Aptos"

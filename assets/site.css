@@ -386,7 +386,7 @@ h3 {
   content: "\2192";
 }
 
-.beta-note {
+.release-note {
   display: grid;
   max-width: 790px;
   margin: 27px 0 0;
@@ -402,7 +402,7 @@ h3 {
   font-size: 15px;
 }
 
-.beta-note-label {
+.release-note-label {
   display: inline-flex;
   padding: 6px 10px;
   border-radius: 999px;
@@ -415,18 +415,18 @@ h3 {
   white-space: nowrap;
 }
 
-.beta-note strong {
+.release-note strong {
   display: block;
   color: #fff;
 }
 
-.beta-note p {
+.release-note p {
   margin: 5px 0 0;
   color: #e9f3ff;
   line-height: 1.55;
 }
 
-.beta-note-links,
+.release-note-links,
 .alert-links {
   display: flex;
   flex-wrap: wrap;
@@ -434,7 +434,7 @@ h3 {
   margin-top: 10px;
 }
 
-.beta-note-links a {
+.release-note-links a {
   color: #fff;
   font-weight: 800;
   text-underline-offset: 3px;
@@ -1030,12 +1030,12 @@ h3 {
   color: var(--text);
 }
 
-.beta-cta {
+.release-cta {
   padding: 0 0 96px;
   background: #fff;
 }
 
-.beta-cta-inner {
+.release-cta-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1047,21 +1047,21 @@ h3 {
   box-shadow: var(--shadow);
 }
 
-.beta-cta h2,
-.beta-cta p {
+.release-cta h2,
+.release-cta p {
   color: #fff;
 }
 
-.beta-cta .text-button {
+.release-cta .text-button {
   color: #fff;
 }
 
-.beta-cta h2 {
+.release-cta h2 {
   margin-bottom: 10px;
   font-size: clamp(30px, 3vw, 45px);
 }
 
-.beta-cta p {
+.release-cta p {
   max-width: 770px;
   margin-bottom: 0;
   color: #e1efff;
@@ -1937,7 +1937,7 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .beta-cta-inner,
+  .release-cta-inner,
   .feedback-inner {
     align-items: flex-start;
     flex-direction: column;
@@ -2040,15 +2040,15 @@ h3 {
     justify-self: start;
   }
 
-  .beta-note {
+  .release-note {
     grid-template-columns: 1fr;
   }
 
-  .beta-note-label {
+  .release-note-label {
     justify-self: start;
   }
 
-  .beta-cta-inner {
+  .release-cta-inner {
     padding: 38px 28px;
   }
 

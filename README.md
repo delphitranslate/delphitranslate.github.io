@@ -1,32 +1,28 @@
 # Delphi App Translation Studio
 
-![BETA TEST - testing and feedback welcome](images%20and%20icons/README-Beta-Test-Banner.svg)
-
-## Website and Beta downloads
+## Website and production downloads
 
 The project website and dedicated download center are the preferred starting
-points for Beta testers:
+points for developers:
 
 - [Delphi App Translation Studio website](https://delphitranslate.github.io/)
-- [Beta download center and documentation](https://delphitranslate.github.io/downloads.html)
+- [Version 1.0.0 downloads and documentation](https://delphitranslate.github.io/downloads.html)
 
 **Read the current User Guide and Setup Wizard Guide before downloading,
 building, or using the Studio.** Engineering and test personnel should also
 read the Engineering Guide and Complete Test Guide. The download center keeps
-the source package, build requirements, documentation, license, and Beta
-safety guidance together in one place.
+the versioned software package, build requirements, documentation, license,
+and safety guidance together in one place.
 
 > [!IMPORTANT]
-> **Beta testing is open.** You may download, build, use, evaluate, and fork
-> Delphi App Translation Studio. Active development is still underway, so a
-> feature may be incomplete, may change without notice, or may not behave as
-> a beta tester expects. Use test copies of Delphi projects, keep them under
-> version control, and verify every generated catalog, language pack, component
-> setting, and translated screen before relying on the result. While this beta
-> version may perform well, it still may have unfound bugs and should not be
-> expected to perform like an official final release.
+> **Version 1.0.0 is the production release for the validated Windows/RAD
+> Studio 13 Florence scope.** You may download, build, use, evaluate, and fork
+> Delphi App Translation Studio under its license. Keep Delphi projects under
+> version control and verify every generated catalog, language pack, component
+> setting, and translated screen before distributing an application. Machine
+> translation and custom UI integration still require developer review.
 >
-> Beta feedback is welcome through the repository's GitHub issue tracker.
+> Feedback is welcome through the repository's GitHub issue tracker.
 > Reports are most useful when they include the Delphi version, framework,
 > platform, exact steps, expected result, actual result, and privacy-reviewed
 > screenshots. Never post API keys, credentials, customer data, personal
@@ -41,7 +37,7 @@ formatting problems through GitHub Issues without including confidential
 project material. We are particularly interested in right-to-left languages
 like Arabic, Hebrew, Urdu, Farsi and Pashto and getting feedback about them.
 
-DeepL is the recommended first-choice provider for this beta. The Studio sends
+DeepL is the recommended first-choice provider. The Studio sends
 eligible source text with available context to improve translation quality.
 
 ## What it is
@@ -64,7 +60,7 @@ Internet access only while calling the selected provider. After deployment,
 the target application reads its local language packs and does not need
 Internet access or an API key at runtime.
 
-## Beta scope
+## Supported scope
 
 - Delphi VCL and FMX target applications on Windows Win32 and Win64.
 - Translation Studio builds for Win32 and Win64, Debug and Release.
@@ -79,10 +75,10 @@ Internet access or an API key at runtime.
   and optional builds.
 
 macOS, iOS, Android, Linux, C++Builder, and runtime cloud translation are not
-part of the current beta scope. Delphi 12.x and clean-machine installation
-remain compatibility items to be tested.
+part of the validated version 1.0.0 scope. Delphi 12.x and other toolchains
+require separate compatibility validation.
 
-## Recent Beta improvements
+## Version 1.0.0 capabilities
 
 - The Setup Wizard and Maintenance Studio now use the approved App Translate
   branding throughout their shared headers.
@@ -101,18 +97,18 @@ remain compatibility items to be tested.
   compiler Search path for all configurations and platforms.
 - Safe Cancel actions are available in Maintenance Studio where leaving the
   current workflow cannot damage project data.
-- The new project website provides Beta notices, a dedicated download center,
+- The project website provides a dedicated download center,
   direct access to all current guides, build requirements, and reporting
   guidance.
 
-## Downloading the beta source
+## Downloading version 1.0.0
 
 ### Download from the project website
 
-1. Open the [Beta download center](https://delphitranslate.github.io/downloads.html).
+1. Open the [download center](https://delphitranslate.github.io/downloads.html).
 2. Read the User Guide and Setup Wizard Guide linked near the top of the page.
-3. Choose **Download source ZIP** only after reviewing the Beta requirements
-   and safety notice.
+3. Choose **Download version 1.0.0 ZIP** after reviewing the requirements
+   and safety guidance.
 4. Extract the entire archive to a normal development folder. Do not build
    inside the compressed archive or a temporary preview folder.
 5. Keep the extracted folder structure intact so the Studio, package,
@@ -131,33 +127,33 @@ If the website is unavailable, download directly from the repository:
 
 ### Clone or fork with Git
 
-Clone the repository when you want to receive later beta updates:
+Clone the repository when you want to review source changes:
 
 ```text
 git clone https://github.com/delphitranslate/delphitranslate.github.io.git
 ```
 
 You are also welcome to fork the repository through GitHub and develop or test
-against your own fork. Keep local work on a separate branch so upstream beta
+against your own fork. Keep local work on a separate branch so upstream
 changes can be reviewed before they are merged.
 
-## Installing and starting the beta
+## Installing and starting version 1.0.0
 
-There is no supported binary installer yet. Build the Studio and its design
-packages from source with RAD Studio 13 Florence:
+The versioned production ZIP includes compiled Win32 and Win64 Release Studio applications and
+matching release packages. There is no separate installer. With RAD Studio 13
+Florence:
 
-1. Open `DelphiAppTranslationStudio.dproj` in RAD Studio.
-2. Select Win32 or Win64 and Debug or Release, then build the project.
-3. Run the generated Studio executable from
-   `bin\<Platform>\<Configuration>`.
-4. Build the VCL or FMX DAT Language Manager runtime and design packages needed
-   by the target application.
-5. In RAD Studio, choose **Component > Install Packages > Add** and select the
+1. Extract the full ZIP to a normal development folder, keeping its paths.
+2. Run `bin\Win32\Release\DelphiAppTranslationStudio.exe` or the Win64
+   equivalent. Developers may
+   alternatively open `DelphiAppTranslationStudio.dproj` and build from source.
+3. Keep each supplied design package with its matching runtime packages.
+4. In RAD Studio, choose **Component > Install Packages > Add** and select the
    matching Win32 Release design BPL from `bin\packages\Win32\Release`.
    The design BPL's required core and framework runtime BPLs are in that same
    folder and must remain beside it.
    Do not use **Install Component** and do not select a `.dpk` file there.
-6. Open a disposable copy of the target Delphi project, place the appropriate
+5. Open a version-controlled copy of the target Delphi project, place the appropriate
    DAT language manager and connected language selector on its primary form,
    save the project, and follow the Setup Wizard.
 
@@ -217,7 +213,7 @@ selected application folder. The application `.exe` is created or replaced
 only when the developer explicitly checks the executable deployment
 authorization. The source project is not replaced by that operation.
 
-## Known beta limitations
+## Review and integration boundaries
 
 - Dynamic runtime text requires explicit application integration; it is not
   always discoverable as static form text.
@@ -240,13 +236,14 @@ Win64 compilers. Open `DelphiAppTranslationStudio.dproj` in RAD Studio and
 build the desired platform/configuration. Local executables are written under
 `bin\\<Platform>\\<Configuration>` and compiler units under `dcu`.
 
-The repository does not currently publish a supported installer. Source users
-should build locally and evaluate with a clean test project.
+The release ZIP contains freshly built Win32 and Win64 applications and release package
+set; source users can build other configurations locally. No separate
+installer is published.
 
 ## Repository layout
 
 ```text
-bin/                 Local executables; not a stable binary distribution
+bin/                 Locally built executables; release ZIP includes validated binaries
 dcu/                 Local compiler output
 docs/guides/         User, Setup Wizard, and Engineering guides
 docs/pdf/            Companion PDFs
@@ -261,8 +258,8 @@ tools/tests/         Automated validation and smoke tests
 
 ## Documentation
 
-Documentation was reviewed and regenerated with LibreOffice on
-**September 1, 2026**. The DOCX guides contain real generated tables of contents;
+Documentation was reviewed for production wording on **September 30, 2026**.
+The DOCX guides contain generated tables of contents;
 matching PDFs are provided for convenient reading.
 
 - [User Guide — DOCX](docs/guides/Delphi%20App%20Translation%20Studio%20User%20Guide.docx) · [PDF](docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf)
@@ -271,20 +268,20 @@ matching PDFs are provided for convenient reading.
 - [Complete Test Guide — DOCX](docs/guides/Delphi%20App%20Translation%20Studio%20Complete%20Test%20Guide.docx) · [PDF](docs/pdf/Delphi%20App%20Translation%20Studio%20Complete%20Test%20Guide.pdf)
 - Engineering history is in [`docs/guides/Engineering Notes.md`](docs/guides/Engineering%20Notes.md).
 
-## Reporting beta feedback
+## Reporting feedback
 
 Please include the RAD Studio/Delphi version, VCL or FMX, Win32 or Win64,
 Debug or Release, exact Wizard step, expected and actual behavior, screenshots,
 and relevant catalog counts or paths. Never publish API keys, credentials,
 private source, customer data, or proprietary language packs.
 
-## Release decision
+## Release status
 
-This repository is ready for limited beta testing by Delphi developers. It is
-pre-release software, not a general-availability production release. Beta users
-should work with version-controlled test copies, review machine translation,
-and validate every supported framework, platform, language, layout, and runtime
-path used by their application.
+Version 1.0.0 is the production release for Windows Delphi VCL and FireMonkey
+development with RAD Studio 13 Florence. Developers should work with
+version-controlled projects, review machine translation, and validate every
+framework, platform, language, layout, and runtime path used by their own
+application.
 
 ## License
 

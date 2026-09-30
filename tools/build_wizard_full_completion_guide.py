@@ -42,7 +42,7 @@ ICON = (
     / "images and icons"
     / "DelphiAppTranslationStudio-Icon-Master-v2_150.png"
 )
-LAST_CHANGED = "August 12, 2026"
+LAST_CHANGED = "September 30, 2026"
 
 
 def set_run_font(run, size=11, color=INK, bold=False, italic=False):
@@ -82,7 +82,7 @@ def add_cover(document: Document) -> None:
     meta = document.add_paragraph()
     meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = meta.add_run(
-        "Current pre-release test workflow\n"
+        "Current production workflow\n"
         f"Last changed: {LAST_CHANGED}\n"
         "Windows - Delphi VCL and FireMonkey - Win32 and Win64\n"
         "Printable, start-to-finish operator procedure"
@@ -275,7 +275,7 @@ def build_document() -> Path:
 
     document.add_heading("1. Read This Before Starting", level=1)
     add_paragraphs(document, [
-        "The Setup Wizard performs the first project scan, automatic provider translation, validation, JSON export, component-kit generation, project-local dependency preparation, and direct language-pack deployment. It does not place components on a Delphi form; that remains a normal RAD Studio Form Designer operation.",
+        "The Setup Wizard performs the first project scan, automatic provider translation, validation, JSON export, component-kit generation, project-local dependency preparation, and direct language-pack deployment. It does not place components on a Delphi form; that remains a normal RAD Studio Form Designer operation. It also does not edit the DPROJ: the developer adds the documented compiler Search Path in Project Options.",
         "The current workflow uses one protected Wizard processing pass. It creates the translated development catalog, automatically opens Localization Review, waits while the developer records terminology and layout decisions, and resumes automatically when the Review Center closes. The resumed pass applies those decisions before final validation, runtime JSON export, component-kit generation, atomic dependency-folder refresh, a transient-path Win32 Release build, and direct deployment.",
         "After the single Wizard pass, the main Studio may be used for optional detailed inspection or manual correction. RAD Studio is then used to install the design package, place the manager and selector, build the target, and test runtime behavior.",
     ])
@@ -772,7 +772,7 @@ def build_document() -> Path:
         "Stop if the Wizard Search Path is absent rather than masking the defect with an unrelated global path.",
         "Stop if runtime packs beside the executable do not match the Application ID or selected language.",
         "Stop a target executable that generates unbounded repeated text; preserve evidence before restarting.",
-        "Do not distribute or publish this pre-release test output as a production localization solution.",
+        "Before distributing the localized application, review its machine-translated wording and verify every supported language, screen, and deployed output in the actual target application.",
     ])
 
     finish_document(document, DOCX_PATH)
