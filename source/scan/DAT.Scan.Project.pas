@@ -466,6 +466,7 @@ begin
     (Name = '.git') or (Name = '.agents') or
     (Name = '__history') or (Name = '__recovery') or
     (Name = 'backup') or (Name = 'backups') or
+    (Name = 'contracts') or (Name = 'dependencies') or
     (Name = 'bin') or (Name = 'build') or (Name = 'dcu') or
     (Name = 'debug') or (Name = 'release') or
     (Name = 'win32') or (Name = 'win64') or

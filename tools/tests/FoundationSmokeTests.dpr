@@ -828,6 +828,8 @@ end;
 
 procedure TestGeneratedAndTestTreeExclusion;
 var
+  BundledDirectory: string;
+  ContractsDirectory: string;
   GeneratedDirectory: string;
   Profile: TProjectProfile;
   ScanResult: TProjectScanResult;
@@ -837,9 +839,14 @@ begin
   TempDirectory := TPath.Combine(TPath.GetTempPath,
     'DAT-Generated-Tree-' + FormatDateTime('hhnnsszzz', Now));
   TestsDirectory := TPath.Combine(TempDirectory, 'tests');
+  BundledDirectory := TPath.Combine(TempDirectory,
+    'dependencies\DelphiAppTranslation\source');
+  ContractsDirectory := TPath.Combine(TempDirectory, 'contracts');
   GeneratedDirectory := TPath.Combine(TestsDirectory,
     'round11_contract_output6\contract_case\source');
   TDirectory.CreateDirectory(GeneratedDirectory);
+  TDirectory.CreateDirectory(BundledDirectory);
+  TDirectory.CreateDirectory(ContractsDirectory);
   TDirectory.CreateDirectory(TPath.Combine(TempDirectory, 'Source'));
   TDirectory.CreateDirectory(TPath.Combine(TempDirectory, 'build'));
   TDirectory.CreateDirectory(TPath.Combine(TempDirectory,
@@ -849,6 +856,7 @@ begin
     '<FrameworkType>FMX</FrameworkType>' + sLineBreak +
     '<DCCReference Include="Source\Additional.pas" />' + sLineBreak +
     '<DCCReference Include="tests\ExplicitReferenced.pas" />' + sLineBreak +
+    '<DCCReference Include="dependencies\DelphiAppTranslation\source\ExplicitReferenced.pas" />' + sLineBreak +
     '</Project>', TEncoding.UTF8);
   TFile.WriteAllText(TPath.Combine(TempDirectory, 'Main.fmx'),
     'object frmMain: TForm' + sLineBreak +
@@ -871,6 +879,27 @@ begin
     'implementation' + sLineBreak +
     'end.',
     TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(BundledDirectory,
+    'ExplicitReferenced.pas'),
+    'unit ExplicitReferencedDependency;' + sLineBreak +
+    'interface' + sLineBreak +
+    'resourcestring' + sLineBreak +
+    '  SExplicit = ''Explicit dependency text'';' + sLineBreak +
+    'implementation' + sLineBreak + 'end.', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(BundledDirectory, 'Ignored.pas'),
+    'unit IgnoredDependency;' + sLineBreak + 'interface' + sLineBreak +
+    'resourcestring' + sLineBreak +
+    '  SIgnored = ''Bundled Studio text'';' + sLineBreak +
+    'implementation' + sLineBreak + 'end.', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(BundledDirectory, 'Ignored.fmx'),
+    'object frmBundled: TForm' + sLineBreak +
+    '  Caption = ''Bundled Studio window''' + sLineBreak +
+    'end', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(ContractsDirectory, 'Ignored.pas'),
+    'unit IgnoredContract;' + sLineBreak + 'interface' + sLineBreak +
+    'resourcestring' + sLineBreak +
+    '  SIgnored = ''Contract fixture text'';' + sLineBreak +
+    'implementation' + sLineBreak + 'end.', TEncoding.UTF8);
   TFile.WriteAllText(TPath.Combine(GeneratedDirectory, 'Ignored.pas'),
     'unit Ignored;' + sLineBreak + 'interface' + sLineBreak +
     'resourcestring' + sLineBreak +
@@ -899,6 +928,11 @@ begin
       stkResourceString);
     RequireSourceText(ScanResult, 'Explicit referenced test text',
       stkResourceString);
+    RequireSourceText(ScanResult, 'Explicit dependency text',
+      stkResourceString);
+    RequireNoSourceText(ScanResult, 'Bundled Studio text');
+    RequireNoSourceText(ScanResult, 'Bundled Studio window');
+    RequireNoSourceText(ScanResult, 'Contract fixture text');
     RequireNoSourceText(ScanResult, 'Claude round output text');
     RequireNoSourceText(ScanResult, 'Generated build text');
     RequireNoSourceText(ScanResult, 'Generated output text');
