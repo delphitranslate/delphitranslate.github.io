@@ -1,6 +1,6 @@
 # Delphi App Translation Studio 1.0.0 Release Notes
 
-Last changed: September 30, 2026
+Last changed: October 4, 2026
 
 ## Release status and scope
 
@@ -13,7 +13,7 @@ claimed as validated by this release.
 
 ## What is in the download
 
-`DelphiAppTranslationStudio-1.0.0-Windows.zip` contains Win32 and Win64
+`DelphiAppTranslationStudio-1.0.0-2026-10-04-Windows.zip` contains Win32 and Win64
 Release Studio executables, the matched Win32 Release runtime and design-time
 BPL set, Win64 Release runtime BPLs, product and package source, sample
 projects, schemas, current guides in DOCX and PDF, this release note, README,
@@ -40,9 +40,18 @@ not need cloud access or a provider key at runtime. The release includes
 right-to-left handling for supported languages and the corrected RAD Studio
 package-shutdown behavior from the preceding maintenance work.
 
+## October 2026 maintenance improvement
+
+Project scanning now excludes bundled dependency and test-contract files
+when discovering supplemental source files. Files explicitly referenced by
+the Delphi project remain eligible. This keeps the translation catalog
+focused on application text; rescan an existing project to apply the improved
+discovery behavior. The Studio executables and component packages in this
+download were rebuilt and verified together.
+
 ## Validation performed
 
-The repository's `tools\verify_all.ps1` gate passed on September 30, 2026:
+The repository's `tools\verify_all.ps1` gate passed on October 4, 2026:
 package and Studio builds, source-encoding and source/scan contracts, smoke
 and runtime harnesses, an end-to-end VCL sample, build-path and shipped-unit
 checks, and freshness checks for compiled artifacts. One layout-fitting
