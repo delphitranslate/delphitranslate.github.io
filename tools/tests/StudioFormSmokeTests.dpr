@@ -3,10 +3,13 @@ program StudioFormSmokeTests;
 {$APPTYPE CONSOLE}
 
 uses
+  System.Classes,
+  System.IOUtils,
   System.StrUtils,
   System.SysUtils,
   System.Types,
   System.UITypes,
+  System.Zip,
   FMX.Types,
   FMX.Forms,
   FMX.Controls,
@@ -113,6 +116,91 @@ begin
       'the page content.', [Checked]);
 end;
 
+procedure TestSafetyBackup;
+var
+  TestDirectory: string;
+  ProjectDirectory: string;
+  CacheDirectory: string;
+  ExportDirectory: string;
+  ProjectFileName: string;
+  BackupFileName: string;
+  FailedBackupFileName: string;
+  LockedFileName: string;
+  LockedFile: TFileStream;
+  Wizard: TfrmSetupWizard;
+  Archive: TZipFile;
+  UniqueId: TGUID;
+  BackupFailed: Boolean;
+begin
+  CreateGUID(UniqueId);
+  TestDirectory := TPath.Combine(TPath.GetTempPath,
+    'DAT-BackupSmoke-' + GUIDToString(UniqueId));
+  ProjectDirectory := TPath.Combine(TestDirectory, 'project');
+  CacheDirectory := TPath.Combine(ProjectDirectory,
+    'export\release-final\TestProject.exe.WebView2');
+  ExportDirectory := TPath.Combine(ProjectDirectory, 'export\release-final');
+  TDirectory.CreateDirectory(CacheDirectory);
+  try
+    ProjectFileName := TPath.Combine(ProjectDirectory, 'TestProject.dproj');
+    BackupFileName := TPath.Combine(TestDirectory, 'safety.zip');
+    FailedBackupFileName := TPath.Combine(TestDirectory, 'failed.zip');
+    TFile.WriteAllText(ProjectFileName, '<Project/>');
+    TFile.WriteAllText(TPath.Combine(ProjectDirectory, 'Main.pas'),
+      'unit Main;');
+    TFile.WriteAllText(TPath.Combine(ExportDirectory, 'package.txt'),
+      'Keep this existing output.');
+    TFile.WriteAllText(TPath.Combine(CacheDirectory, 'cache.db-wal'),
+      'Disposable browser cache.');
+    Wizard := TfrmSetupWizard.Create(nil);
+    try
+      Wizard.CreateSafetyBackup(ProjectDirectory, ProjectFileName,
+        BackupFileName);
+      Archive := TZipFile.Create;
+      try
+        Archive.Open(BackupFileName, zmRead);
+        try
+          if (Archive.FileCount <> 3) or
+             (Archive.IndexOf('TestProject.dproj') < 0) or
+             (Archive.IndexOf('Main.pas') < 0) or
+             (Archive.IndexOf('export/release-final/package.txt') < 0) or
+             (Archive.IndexOf(
+               'export/release-final/TestProject.exe.WebView2/cache.db-wal') >= 0) then
+            raise Exception.Create(
+              'Safety backup lost project files or included WebView2 cache.');
+        finally
+          Archive.Close;
+        end;
+      finally
+        Archive.Free;
+      end;
+      LockedFileName := TPath.Combine(ProjectDirectory, 'Locked.pas');
+      TFile.WriteAllText(LockedFileName, 'unit Locked;');
+      LockedFile := TFileStream.Create(LockedFileName,
+        fmOpenReadWrite or fmShareExclusive);
+      try
+        BackupFailed := False;
+        try
+          Wizard.CreateSafetyBackup(ProjectDirectory, ProjectFileName,
+            FailedBackupFileName);
+        except
+          on Exception do
+            BackupFailed := True;
+        end;
+        if not BackupFailed or TFile.Exists(FailedBackupFileName) or
+           (Length(TDirectory.GetFiles(TestDirectory, '*.partial')) <> 0) then
+          raise Exception.Create(
+            'A failed safety backup left a completed or partial ZIP.');
+      finally
+        LockedFile.Free;
+      end;
+    finally
+      Wizard.Free;
+    end;
+  finally
+    TDirectory.Delete(TestDirectory, True);
+  end;
+end;
+
 procedure TestSetupWizard;
 var
   Index: Integer;
@@ -196,6 +284,7 @@ begin
   try
     Application.Initialize;
     TestLocalizationReview;
+    TestSafetyBackup;
     TestSetupWizard;
     frmTranslationStudio := TfrmTranslationStudio.Create(nil);
     try

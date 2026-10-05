@@ -13,7 +13,7 @@ claimed as validated by this release.
 
 ## What is in the download
 
-`DelphiAppTranslationStudio-1.0.0-2026-10-04-Windows.zip` contains Win32 and Win64
+`DelphiAppTranslationStudio-1.0.0-2026-10-04-r2-Windows.zip` contains Win32 and Win64
 Release Studio executables, the matched Win32 Release runtime and design-time
 BPL set, Win64 Release runtime BPLs, product and package source, sample
 projects, schemas, current guides in DOCX and PDF, this release note, README,
@@ -48,6 +48,12 @@ the Delphi project remain eligible. This keeps the translation catalog
 focused on application text; rescan an existing project to apply the improved
 discovery behavior. The Studio executables and component packages in this
 download were rebuilt and verified together.
+
+The required pre-processing safety backup now skips generated WebView2 browser
+cache directories. Other project files, including source, forms, localization
+data, and existing outputs, remain in the ZIP. The Studio verifies that the
+archive contains the project file and expected file count before translation
+begins. Incomplete backups are not presented as completed ZIPs.
 
 ## Validation performed
 

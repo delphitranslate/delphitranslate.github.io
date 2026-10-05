@@ -219,6 +219,8 @@ type
     procedure SaveDeploymentDestinations;
     procedure UpdateDeploymentSummary;
   public
+    procedure CreateSafetyBackup(const AProjectDirectory,
+      AProjectFileName, ABackupFileName: string);
   end;
 
 implementation
@@ -1655,6 +1657,69 @@ begin
     end;
 end;
 
+procedure TfrmSetupWizard.CreateSafetyBackup(const AProjectDirectory,
+  AProjectFileName, ABackupFileName: string);
+var
+  Zip: TZipFile;
+  PartialFileName: string;
+  UniqueId: TGUID;
+  AddedFileCount: Integer;
+
+  procedure AddFiles(const ADirectory: string);
+  var
+    FileName: string;
+    ChildDirectory: string;
+    ArchiveFileName: string;
+  begin
+    for FileName in TDirectory.GetFiles(ADirectory) do
+    begin
+      if TInterlocked.CompareExchange(FFinalCancelRequested, 0, 0) <> 0 then
+        raise EAbort.Create('Final processing was cancelled.');
+      ArchiveFileName := StringReplace(
+        Copy(FileName, Length(AProjectDirectory) + 2, MaxInt), '\', '/',
+        [rfReplaceAll]);
+      Zip.Add(FileName, ArchiveFileName);
+      Inc(AddedFileCount);
+    end;
+    for ChildDirectory in TDirectory.GetDirectories(ADirectory) do
+      if not EndsText('.WebView2', TPath.GetFileName(ChildDirectory)) then
+        AddFiles(ChildDirectory);
+  end;
+
+begin
+  if TFile.Exists(ABackupFileName) then
+    raise Exception.CreateFmt('The safety backup already exists: %s',
+      [ABackupFileName]);
+  CreateGUID(UniqueId);
+  PartialFileName := ABackupFileName + '.' + GUIDToString(UniqueId) +
+    '.partial';
+  AddedFileCount := 0;
+  Zip := TZipFile.Create;
+  try
+    Zip.Open(PartialFileName, zmWrite);
+    try
+      AddFiles(AProjectDirectory);
+    finally
+      Zip.Close;
+    end;
+    Zip.Open(PartialFileName, zmRead);
+    try
+      if (AddedFileCount = 0) or
+         (Zip.FileCount <> AddedFileCount) or
+         (Zip.IndexOf(TPath.GetFileName(AProjectFileName)) < 0) then
+        raise Exception.Create(
+          'The safety backup is incomplete; final processing did not start.');
+    finally
+      Zip.Close;
+    end;
+    TFile.Move(PartialFileName, ABackupFileName);
+  finally
+    Zip.Free;
+    if TFile.Exists(PartialFileName) then
+      TFile.Delete(PartialFileName);
+  end;
+end;
+
 procedure TfrmSetupWizard.ExecuteFinalProcessing;
 var
   BackupDirectory: string;
@@ -1714,7 +1779,8 @@ begin
             FFinalCancelRequested, 0, 0) <> 0 then
             raise EAbort.Create('Final processing was cancelled.');
           TDirectory.CreateDirectory(BackupDirectory);
-          TZipFile.ZipDirectoryContents(FBackupFileName, ProjectDirectory);
+          CreateSafetyBackup(ProjectDirectory,
+            FProjectProfile.ProjectFileName, FBackupFileName);
         except
           on E: Exception do
             ErrorText := E.Message;
@@ -1730,6 +1796,7 @@ begin
             else
             begin
               AddProgress('Backup created: ' + FBackupFileName);
+              AddProgress('Generated WebView2 browser caches were excluded.');
               AddProgress(
                 'Target Pascal and form source files remain unchanged.');
               lblFinishText.Text :=
