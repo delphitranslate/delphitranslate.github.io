@@ -1,12 +1,16 @@
-# Delphi App Translation Studio
+# Delphi App Translation Studio website and Version 1 archive
 
-## Website and production downloads
+The [public website](https://delphitranslate.github.io/) now presents **Version 2.0**. Download the Windows package and read the current guides from its [download page](https://delphitranslate.github.io/downloads.html). The separate [Version 2 source repository](https://github.com/delphitranslate/DelphiAppTranslationStudio-V2) contains the matching source and tagged release.
+
+This repository also preserves the Version 1 source and packages for historical access. The information below describes Version 1; do not mix its components, source, or language packs with Version 2.
+
+## Archived Version 1 information
 
 The project website and dedicated download center are the preferred starting
 points for developers:
 
 - [Delphi App Translation Studio website](https://delphitranslate.github.io/)
-- [Version 1.0.0 downloads and documentation](https://delphitranslate.github.io/downloads.html)
+- [Version 1.0.0 Windows package](source%20distributions/DelphiAppTranslationStudio-1.0.0-Windows.zip)
 
 **Read the current User Guide and Setup Wizard Guide before downloading,
 building, or using the Studio.** Engineering and test personnel should also
@@ -15,7 +19,7 @@ the versioned software package, build requirements, documentation, license,
 and safety guidance together in one place.
 
 > [!IMPORTANT]
-> **Version 1.0.0 is the production release for the validated Windows/RAD
+> **Version 1.0.0 was the prior production release for the validated Windows/RAD
 > Studio 13 Florence scope.** You may download, build, use, evaluate, and fork
 > Delphi App Translation Studio under its license. Keep Delphi projects under
 > version control and verify every generated catalog, language pack, component

@@ -1,28 +1,21 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-QR6H4QB1S9"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-QR6H4QB1S9');
-  </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Compare approaches to localizing a Windows Delphi application: automated first drafts, reviewable catalogs, offline language packs, integration, and cost.">
+  <meta name="description" content="A practical comparison of Delphi localization approaches, including Version 2's original-language choice, multi-language workflow, reviewable catalogs, and offline packs.">
+  <meta name="robots" content="index,follow">
   <meta name="theme-color" content="#214f80">
   <link rel="canonical" href="https://delphitranslate.github.io/before-you-choose.html">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Delphi App Translation Studio">
-  <meta property="og:title" content="Before You Choose a Delphi Localization Tool">
-  <meta property="og:description" content="A practical guide to evaluating translation workflow, runtime integration, supported targets, and ongoing costs for Delphi projects.">
+  <meta property="og:title" content="Before You Choose a Delphi Localization Tool — Delphi App Translation Studio 2.0">
+  <meta property="og:description" content="Evaluate original-language support, translation review, runtime integration, supported targets, and ongoing costs.">
   <meta property="og:url" content="https://delphitranslate.github.io/before-you-choose.html">
-  <meta property="og:image" content="https://delphitranslate.github.io/assets/studio-welcome.png">
+  <meta property="og:image" content="https://delphitranslate.github.io/assets/release-v2.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="https://delphitranslate.github.io/assets/studio-welcome.png">
-  <title>Before You Choose a Delphi Localization Tool | Delphi App Translation Studio</title>
+  <meta name="twitter:image" content="https://delphitranslate.github.io/assets/release-v2.png">
+  <title>Compare localization tools | Delphi App Translation Studio 2.0</title>
   <link rel="icon" href="assets/app-translation-icon.png" type="image/png">
   <link rel="stylesheet" href="assets/site.css">
   <link rel="preconnect" href="https://cdn.gtranslate.net">
@@ -44,7 +37,7 @@
         <a href="index.html#workflow">Workflow</a>
         <a href="index.html#runtime">Runtime</a>
         <a href="before-you-choose.html" aria-current="page">Compare tools</a>
-        <a href="index.html#release">Release</a>
+        <a href="index.html#version-two">What's new</a>
         <a class="nav-cta" href="downloads.html">Downloads</a>
       </nav>
     </div>
@@ -53,9 +46,9 @@
   <main id="main-content">
     <section class="choice-hero" aria-labelledby="choice-title">
       <div class="shell choice-hero-inner">
-        <p class="eyebrow"><span></span>A practical buying guide for Delphi developers</p>
+        <p class="eyebrow"><span></span>Delphi App Translation Studio · Version 2.0</p>
         <h1 id="choice-title">Before You Choose a Delphi Localization Tool</h1>
-        <p class="choice-lead">A multilingual application needs more than a list of translated strings. Compare how a tool fits your active Delphi project, how you review its translations, and what the finished application needs at runtime.</p>
+        <p class="choice-lead">A multilingual application needs more than a list of translated strings. Compare how a tool handles the language already in your Delphi project, how you review several target languages, and what the finished application needs at runtime.</p>
         <div class="actions">
           <a class="button button-primary" href="#comparison">Explore the comparison</a>
           <a class="button button-secondary" href="downloads.html#documentation">Read the guides</a>
@@ -67,11 +60,11 @@
       <div class="shell choice-intro-grid">
         <div>
           <p class="eyebrow dark">A different starting point</p>
-          <h2 id="choice-intro-title">Translate while you develop—not after the application is finished.</h2>
+          <h2 id="choice-intro-title">Start with the application you actually have.</h2>
         </div>
         <div>
-          <p><span class="notranslate" translate="no">Delphi App Translation Studio</span> scans active Windows VCL and FireMonkey projects, creates a catalog you can inspect and correct, and prepares external JSON language packs for an offline application runtime.</p>
-          <p>The development tool can use DeepL or Google to create a first draft. Your shipped application does not need an Internet connection, translation-service account, or API key to switch languages.</p>
+          <p><span class="notranslate" translate="no">Delphi App Translation Studio</span> Version 2 asks which language is written in the saved VCL or FireMonkey project. It then creates a separate, editable catalog for each target you select. English is no longer required as the original app language.</p>
+          <p>During development, DeepL or Google can create first drafts for supported pairs. The finished application switches between compatible local JSON packs without an Internet connection, translation-service account, or API key.</p>
         </div>
       </div>
     </section>
@@ -81,7 +74,7 @@
         <div class="choice-feature-mark" aria-hidden="true"><span>01</span><strong>Draft</strong><span>02</span><strong>Review</strong><span>03</span><strong>Refine</strong></div>
         <div>
           <p class="eyebrow dark">Make a strong first pass</p>
-          <h2 id="outside-title">Start translating without hiring a language team.</h2>
+          <h2 id="outside-title">Use automated drafts to reduce routine first-pass work.</h2>
           <p>Commissioning manual translations for every menu, form, and message can be slow and expensive—particularly while the interface is still changing. Automated drafts can substantially reduce the routine first-pass work that would otherwise go to a third party.</p>
           <p>Use the glossary and translation memory to keep product terms consistent, then correct the catalog in the Studio as your project evolves. This does not make machine translation infallible. A developer still needs to review the screens and behavior; a qualified native speaker remains especially valuable for legal, medical, safety-critical, culturally sensitive, or customer-facing wording.</p>
         </div>
@@ -99,17 +92,18 @@
           <table class="choice-table">
             <thead><tr><th scope="col">Consider</th><th scope="col"><span class="notranslate" translate="no">Delphi App Translation Studio</span></th><th scope="col">Other approaches: what to check</th></tr></thead>
             <tbody>
-              <tr><th scope="row">Starting point</th><td>Scan an active Delphi project, then follow a guided translation and integration workflow.</td><td>Does the workflow fit a project that is still being developed?</td></tr>
-              <tr><th scope="row">Creating translations</th><td>Draft with DeepL or Google, then review and correct the results.</td><td>Are translations generated, imported, commissioned, or entered by hand?</td></tr>
+              <tr><th scope="row">Original app language</th><td>Choose the language written in the saved project; it does not have to be English.</td><td>Can the tool start from the language your current project actually uses?</td></tr>
+              <tr><th scope="row">Adding targets</th><td>Scan once, select several different targets, and maintain one catalog per source–target pair.</td><td>Can you add several languages without repeating the entire project setup?</td></tr>
+              <tr><th scope="row">Creating translations</th><td>Draft eligible unresolved text with DeepL or Google, then review and correct each language.</td><td>Are translations generated, imported, commissioned, or entered by hand?</td></tr>
               <tr><th scope="row">Outside translation services</th><td>Not required for the routine first pass; specialist review may still be appropriate.</td><td>How much paid, manual translation does the workflow assume?</td></tr>
               <tr><th scope="row">Translation data</th><td>Maintain a reviewable catalog and export external JSON language packs.</td><td>Are translations embedded, external, or both—and how can they be revised?</td></tr>
               <tr><th scope="row">Runtime integration</th><td>Place the framework-appropriate language manager and selector on the primary form.</td><td>Which components, source changes, and runtime dependencies are required?</td></tr>
               <tr><th scope="row">Licensing and updates</th><td>Open source under Apache 2.0; translation providers have their own usage terms.</td><td>Check license fees, source access, free updates offered (if any), and support terms. License fees may be hundreds of dollars and updates may also be costly or require a subscription.</td></tr>
-              <tr><th scope="row">Supported targets</th><td>Windows Delphi VCL and FireMonkey projects.</td><td>Check the exact frameworks and platforms your project offered.</td></tr>
+              <tr><th scope="row">Supported targets</th><td>Windows Delphi VCL and FireMonkey projects.</td><td>Check the exact frameworks and platforms your project requires.</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="choice-table-note">A suite with embedded translations or support for additional platforms may suit some projects better. Windows Delphi projects benefit from automated first drafts, reviewable external packs, and an open-source development tool, a solid approach.</p>
+        <p class="choice-table-note">A suite with embedded translations or additional platform support may suit some projects better. For Windows Delphi development, automated first drafts, reviewable external packs, and an open-source tool offer a different approach. Always check provider support for the particular language pair you need.</p>
       </div>
     </section>
 
@@ -119,7 +113,7 @@
           <span class="choice-card-number">01 / OWNERSHIP</span>
           <h2 id="control-title">Keep your project in your hands.</h2>
           <p>The recommended workflow does not rewrite your Pascal source, forms, project source, or project options. The Studio prepares an integration kit; the developer places the required components in the Delphi designer and retains control of the application.</p>
-          <p>Rescanning preserves matching translation work, and glossary maintenance does not require repeating the entire Setup Wizard.</p>
+          <p>Rescanning preserves matching translation work. Version 2 keeps catalogs from different original languages separate, and glossary maintenance does not require repeating the entire Setup Wizard.</p>
         </article>
         <article class="choice-detail-card">
           <span class="choice-card-number">02 / CONSISTENCY</span>
@@ -145,8 +139,8 @@
           <li>Does the delivered application work without development services?</li>
           <li>Are the supported platforms, license, and ongoing costs right for you?</li>
         </ul>
-        <p>If <span class="notranslate" translate="no">Delphi App Translation Studio</span> fits those answers, read the User Guide and Setup Wizard Guide, then download the current release.</p>
-        <div class="actions"><a class="button button-primary" href="downloads.html#documentation">Read the guides</a><a class="button button-secondary" href="downloads.html">View downloads</a></div>
+        <p>If <span class="notranslate" translate="no">Delphi App Translation Studio</span> fits those answers, read the Version 2 User and Setup Wizard guides, then try it with a backed-up representative project.</p>
+        <div class="actions"><a class="button button-primary" href="downloads.html#documentation">Read the V2 guides</a><a class="button button-secondary" href="mailto:churchesite@gmail.com?subject=Delphi%20App%20Translation%20Studio%20question">Contact us by email</a></div>
       </div>
     </section>
   </main>
@@ -156,9 +150,9 @@
       <div class="footer-brand notranslate" translate="no"><strong>Delphi App Translation Studio</strong><span>Open-source localization tooling for Delphi VCL and FireMonkey applications.</span></div>
       <div><strong>Product</strong><a href="index.html">Home</a><a href="index.html#workflow">Workflow</a><a href="before-you-choose.html">Compare tools</a><a href="downloads.html">Downloads</a></div>
       <div><strong>Documentation</strong><a href="downloads.html#documentation">All guides</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20User%20Guide.pdf">User Guide</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Setup%20Wizard%20Guide.pdf">Wizard Guide</a><a href="docs/pdf/Delphi%20App%20Translation%20Studio%20Engineering%20Guide.pdf">Engineering Guide</a></div>
-      <div><strong>Project &amp; contact</strong><a href="https://github.com/delphitranslate/delphitranslate.github.io">GitHub repository</a><a href="LICENSE">Apache 2.0 license</a><span>Questions or feedback?</span><a class="notranslate" translate="no" href="mailto:churchesite@gmail.com">churchesite@gmail.com</a><span>Windows · VCL · FMX</span></div>
+      <div><strong>Project &amp; contact</strong><a href="LICENSE">Apache 2.0 license</a><span>Questions or feedback?</span><a class="notranslate" translate="no" href="mailto:churchesite@gmail.com">churchesite@gmail.com</a><span>Windows · VCL · FMX</span></div>
     </div>
-    <div class="shell footer-bottom"><span>Version 1.0.0. Review every translation before shipping.</span><span>Not affiliated with Embarcadero Technologies.</span></div>
+    <div class="shell footer-bottom"><span>Delphi App Translation Studio 2.0 · Windows VCL and FMX</span><span>Not affiliated with Embarcadero Technologies.</span></div>
   </footer>
 
   <div class="gtranslate_wrapper notranslate" translate="no" aria-label="Translate this website"></div>

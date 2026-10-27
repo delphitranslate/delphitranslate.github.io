@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Delphi App Translation Studio Version 2 badge</title>
+  <desc id="description">Delphi App Translation Studio Version 2 badge with blue and orange source-to-target language cards.</desc>
+  <defs>
+    <linearGradient id="blue" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#1268cf"/>
+      <stop offset="1" stop-color="#07346b"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffad31"/>
+      <stop offset="1" stop-color="#f07700"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="92" fill="url(#blue)"/>
+  <text x="256" y="59" fill="#ffffff" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="750" letter-spacing="0.5">DELPHI APP TRANSLATION STUDIO</text>
+  <rect x="56" y="76" width="170" height="184" rx="22" fill="#eaf4ff" stroke="#71aff6" stroke-width="6"/>
+  <rect x="286" y="76" width="170" height="184" rx="22" fill="#fff4e6" stroke="#ffae40" stroke-width="6"/>
+  <path d="M85 125h112M85 158h87M85 191h101" fill="none" stroke="#0b5fb9" stroke-linecap="round" stroke-width="13"/>
+  <path d="M315 125h112M315 158h87M315 191h101" fill="none" stroke="#d86c00" stroke-linecap="round" stroke-width="13"/>
+  <path d="M216 153h76m-25-24 25 24-25 24" fill="none" stroke="#ff9300" stroke-linecap="round" stroke-linejoin="round" stroke-width="17"/>
+  <text x="256" y="355" fill="#ffffff" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="94" font-weight="800">V2</text>
+  <rect x="100" y="384" width="312" height="60" rx="30" fill="url(#orange)"/>
+  <text x="256" y="425" fill="#082e5e" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="31" font-weight="800" letter-spacing="2">VERSION 2</text>
+</svg>

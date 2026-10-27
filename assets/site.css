@@ -975,6 +975,11 @@ h3 {
   border-radius: 10px;
 }
 
+.runtime-section .product-shot img[src*="V2-Badge"] {
+  width: min(100%, 320px);
+  margin-inline: auto;
+}
+
 .product-shot figcaption {
   padding: 13px 5px 2px;
   color: #cbdff5;
